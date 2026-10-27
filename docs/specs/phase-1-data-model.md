@@ -262,9 +262,9 @@ grant execute on function public.health_check() to anon, authenticated;
 
 ## 7. Airports for home-airport autocomplete
 
-- **Source:** OurAirports `airports.csv` (public domain, https://ourairports.com/data/). Filter: `type in (large_airport, medium_airport)`, `scheduled_service = yes`, non-empty `iata_code`. About 4,000 rows.
-- **Build:** `scripts/data/build-airports.ts` downloads the CSV, filters, and writes `src/data/airports.json` as compact tuples `[iata, name, city, countryIso2, lat, lon]` plus `{ source, fetchedAt }`. The JSON is committed (deterministic, reviewable diff); rerun manually about once a year.
-- **Use:** `src/lib/airports.ts` loads it once (server only), exposes `searchAirports(q, limit = 8)` (exact IATA match first, then prefix on city/name, accent-insensitive) and `isKnownIata(code)`. Route `GET /api/airports?q=fra` returns up to 8 results, `Cache-Control: public, max-age=86400`. Zod for `home_airports` refines with `isKnownIata`.
+- **Source:** OurAirports `airports.csv` (public domain, https://ourairports.com/data/). Filter: `scheduled_service = yes` and a 3-letter `iata_code` (all airport types, so small regional airports with scheduled flights are included), de-duplicated by IATA. 4,134 rows, about 283 KB (2026-10-27).
+- **Build:** `scripts/airports/build.mjs` (`npm run airports:build`) downloads the CSV, filters, and writes `src/data/airports.json` as compact tuples `[iata, name, city, countryIso2, lat, lon]` plus `{ source, fetchedAt }`. The JSON is committed (deterministic, reviewable diff); rerun manually about once a year.
+- **Use:** `src/lib/integrations/airports.ts` loads it once (server only: import it from server code or call the route, never from client components), exposes `searchAirports(q, limit = 8)` (exact IATA match first, then prefix on city/name, accent-insensitive) and `isKnownIata(code)`. Route `GET /api/airports?q=fra` returns up to 8 results, `Cache-Control: public, max-age=86400`. Zod for `home_airports` refines with `isKnownIata`.
 - **Not a DB table:** nothing joins on it, it would bloat backups and migrations, and an in-memory search avoids a DB round trip. Lat/lon are included for later distance hints (phase 4).
 - Country names are localized in the UI with `Intl.DisplayNames(locale, { type: 'region' })`; airport/city names stay as in the dataset.
 

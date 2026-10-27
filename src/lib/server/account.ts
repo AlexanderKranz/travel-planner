@@ -1,0 +1,41 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { Locale } from "@/lib/domain/profile";
+import { fail, type ActionResult } from "@/lib/domain/result";
+import { logEvent } from "./events";
+import { getUserSession } from "./session";
+// SERVER-ONLY secret-key client. Deleting an auth user is not possible with RLS-bound
+// clients; everything the user owns cascades via the owner_id foreign keys.
+import { createSupabaseAdminClient } from "./supabase/admin";
+
+/**
+ * Deletes the signed-in user's account and all their data (FK cascade), then
+ * redirects to the public home page. The UI must ask for confirmation first.
+ * The user id comes from the verified session, never from the client.
+ */
+export async function deleteAccount(locale: string): Promise<ActionResult> {
+  const session = await getUserSession();
+  if (!session) return fail("unauthenticated");
+  const safeLocale = Locale.catch("de").parse(locale);
+
+  const admin = createSupabaseAdminClient();
+  const { error } = await admin.auth.admin.deleteUser(session.userId);
+  if (error) {
+    await logEvent({
+      event: "error.account_delete",
+      level: "error",
+      userId: session.userId,
+      props: { status: error.status ?? null },
+    });
+    return fail("failed");
+  }
+  // user_id on app_events is set to null by the FK, so the event carries no identity.
+  await logEvent({ event: "account.deleted" });
+  try {
+    await session.supabase.auth.signOut({ scope: "local" });
+  } catch {
+    // The user no longer exists; clearing cookies is best effort.
+  }
+  redirect(`/${safeLocale}`);
+}

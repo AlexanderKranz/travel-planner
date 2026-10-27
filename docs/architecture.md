@@ -116,7 +116,7 @@ Charts are rendered from SQL views (`admin_daily_usage`, `admin_ai_cost`, `admin
   - **Preview** = every pull request, with its own URL
   - **Local** = `npm run dev` against a separate Supabase dev project (or the local Supabase CLI)
 - **App:** Vercel Git integration. A push or merge to `main` deploys automatically. **Rollback** = "Instant Rollback" to the previous deployment in the Vercel dashboard (one click).
-- **Database migrations:** SQL files in `supabase/migrations/`. GitHub Action `deploy-db.yml` runs `supabase db push` against production on every push to `main` that changes `supabase/**`. Migrations are forward-only. A bad migration is fixed by a new migration, after restoring from backup if needed.
+- **Database migrations:** SQL files in `supabase/migrations/`. GitHub Action `deploy-db.yml` runs `supabase db push` against production on every push to `main` that changes `supabase/migrations/**`. Migrations are forward-only. A bad migration is fixed by a new migration, after restoring from backup if needed.
 - **CI gate (`ci.yml`):** lint, typecheck, unit tests and build on every PR. Branch protection on `main` requires CI to pass.
 - **Secrets:** Vercel env vars (separate values for Production and Preview) and GitHub Actions secrets (`SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE`). Nothing secret lives in the repo.
 - **Runbook:** `docs/runbook.md` covers deploy, rollback, rotating a key, restoring a backup, and what to do when an alert fires.
