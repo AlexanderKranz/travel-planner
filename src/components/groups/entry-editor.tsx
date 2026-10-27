@@ -1,37 +1,29 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import {
-  CheckboxField,
-  SelectField,
-  TextAreaField,
-  TextField,
-} from "@/components/ui/fields";
+import { CheckboxField, SelectField, TextField } from "@/components/ui/fields";
 import { errorAt, type Issue } from "@/components/ui/issues";
-import { btnIcon, btnSecondary, cardCls, mutedCls } from "@/components/ui/styles";
+import { btnSecondary, cardCls, mutedCls } from "@/components/ui/styles";
+import type { TraitKey } from "@/lib/domain";
 import { MOBILITY, type EntryDraft } from "./draft";
 
 type Props = {
   draft: EntryDraft;
   index: number;
-  total: number;
+  traitKeys: readonly TraitKey[];
   issues?: Issue[];
   onChange: (patch: Partial<EntryDraft>) => void;
-  onMove: (direction: -1 | 1) => void;
   onRemove: () => void;
 };
 
-export function EntryEditor({ draft, index, total, issues, onChange, onMove, onRemove }: Props) {
+export function EntryEditor({ draft, index, traitKeys, issues, onChange, onRemove }: Props) {
   const t = useTranslations("groups.entry");
   const bad = t("fieldInvalid");
   const at = (path: string) => errorAt(issues, `entries.${index}.${path}`, bad);
+  const show = (k: TraitKey) => traitKeys.includes(k);
   const isMember = draft.kind === "member";
   const ageDisabled = draft.isSelf || (isMember && draft.birthdate !== "");
-  const title = draft.isSelf
-    ? t("selfTitle")
-    : isMember
-      ? t("memberTitle")
-      : t("compositionTitle");
+  const title = draft.isSelf ? t("selfTitle") : isMember ? t("memberTitle") : t("compositionTitle");
 
   return (
     <li className={`${cardCls} flex flex-col gap-4`}>
@@ -40,24 +32,6 @@ export function EntryEditor({ draft, index, total, issues, onChange, onMove, onR
           {index + 1}. {title}
         </h3>
         <div className="flex gap-1">
-          <button
-            type="button"
-            className={btnIcon}
-            onClick={() => onMove(-1)}
-            disabled={index === 0}
-            aria-label={t("moveUp")}
-          >
-            <span aria-hidden="true">↑</span>
-          </button>
-          <button
-            type="button"
-            className={btnIcon}
-            onClick={() => onMove(1)}
-            disabled={index === total - 1}
-            aria-label={t("moveDown")}
-          >
-            <span aria-hidden="true">↓</span>
-          </button>
           <button type="button" className={btnSecondary} onClick={onRemove}>
             {t("remove")}
           </button>
@@ -144,56 +118,61 @@ export function EntryEditor({ draft, index, total, issues, onChange, onMove, onR
         </fieldset>
       )}
 
-      <TextAreaField
+      {traitKeys.length > 0 && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          {show("mobility") && (
+            <SelectField
+              label={t("mobility")}
+              value={draft.mobility}
+              onChange={(e) => onChange({ mobility: e.target.value as EntryDraft["mobility"] })}
+              error={at("traits.mobility")}
+            >
+              <option value="">{t("mobilityUnset")}</option>
+              {MOBILITY.map((m) => (
+                <option key={m} value={m}>
+                  {t(`mobilityOptions.${m}`)}
+                </option>
+              ))}
+            </SelectField>
+          )}
+          {show("diet") && (
+            <TextField
+              label={t("diet")}
+              hint={t("dietHint")}
+              value={draft.diet}
+              onChange={(e) => onChange({ diet: e.target.value })}
+              error={at("traits.diet")}
+            />
+          )}
+          {show("golfHandicap") && (
+            <TextField
+              label={t("golfHandicap")}
+              type="number"
+              step="0.1"
+              min={-10}
+              max={54}
+              value={draft.golfHandicap}
+              onChange={(e) => onChange({ golfHandicap: e.target.value })}
+              error={at("traits.golfHandicap")}
+            />
+          )}
+          {show("needsNap") && (
+            <CheckboxField
+              label={t("needsNap")}
+              checked={draft.needsNap}
+              onChange={(e) => onChange({ needsNap: e.target.checked })}
+            />
+          )}
+        </div>
+      )}
+
+      <TextField
         label={t("notes")}
         value={draft.notes}
         maxLength={1000}
         onChange={(e) => onChange({ notes: e.target.value })}
         error={at("notes")}
       />
-
-      <details className="group">
-        <summary className="inline-flex min-h-11 cursor-pointer items-center text-sm font-medium focus-visible:outline-2 focus-visible:outline-blue-600">
-          {t("moreDetails")}
-        </summary>
-        <div className="mt-2 grid gap-4 sm:grid-cols-2">
-          <SelectField
-            label={t("mobility")}
-            value={draft.mobility}
-            onChange={(e) => onChange({ mobility: e.target.value as EntryDraft["mobility"] })}
-            error={at("traits.mobility")}
-          >
-            <option value="">{t("mobilityUnset")}</option>
-            {MOBILITY.map((m) => (
-              <option key={m} value={m}>
-                {t(`mobilityOptions.${m}`)}
-              </option>
-            ))}
-          </SelectField>
-          <TextField
-            label={t("diet")}
-            hint={t("dietHint")}
-            value={draft.diet}
-            onChange={(e) => onChange({ diet: e.target.value })}
-            error={at("traits.diet")}
-          />
-          <TextField
-            label={t("golfHandicap")}
-            type="number"
-            step="0.1"
-            min={-10}
-            max={54}
-            value={draft.golfHandicap}
-            onChange={(e) => onChange({ golfHandicap: e.target.value })}
-            error={at("traits.golfHandicap")}
-          />
-          <CheckboxField
-            label={t("needsNap")}
-            checked={draft.needsNap}
-            onChange={(e) => onChange({ needsNap: e.target.checked })}
-          />
-        </div>
-      </details>
     </li>
   );
 }

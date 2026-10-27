@@ -98,10 +98,10 @@ const userId = user.id;
 const today = new Date().toISOString().slice(0, 10);
 const self = { kind: "member", is_self: true, position: 0 };
 
-async function addGroup(name, notes, entries) {
+async function addGroup(name, notes, traitKeys, entries) {
   const { data, error } = await sb
     .from("travel_groups")
-    .insert({ owner_id: userId, name, notes })
+    .insert({ owner_id: userId, name, notes, trait_keys: traitKeys })
     .select("id")
     .single();
   check(error, `inserting group ${name}`);
@@ -113,6 +113,7 @@ async function addGroup(name, notes, entries) {
 await addGroup(
   "Familie mit Kleinkind",
   "Kleinkind braucht Mittagsschlaf; Buggy auf Kopfsteinpflaster ungeeignet.",
+  ["mobility", "needsNap"],
   [
     { ...self },
     { kind: "member", name: "Partnerin", age_mode: "relativeToMe", notes: "Etwa gleich alt wie ich." },
@@ -123,12 +124,13 @@ await addGroup(
       age: 1,
       age_as_of: today,
       notes: "Mittagsschlaf gegen 12:30 Uhr, ca. 2 Stunden.",
+      traits: { needsNap: true, mobility: "stroller" },
     },
   ],
 );
-await addGroup("Golf-Duo", "Zwei Golfer, gleiche Altersklasse.", [
-  { ...self },
-  { kind: "member", name: "Golffreund", age_mode: "relativeToMe" },
+await addGroup("Golf-Duo", "Zwei Golfer, gleiche Altersklasse.", ["golfHandicap"], [
+  { ...self, traits: { golfHandicap: 18 } },
+  { kind: "member", name: "Golffreund", age_mode: "relativeToMe", traits: { golfHandicap: 24 } },
 ]);
 log("2 example groups inserted");
 

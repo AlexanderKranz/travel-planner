@@ -1,4 +1,4 @@
-import type { AgeMode, StatedAge, StoredEntry, TravelGroupInput } from "@/lib/domain";
+import type { AgeMode, StatedAge, StoredEntry, TraitKey, TravelGroupInput } from "@/lib/domain";
 import type { AgeSource } from "@/lib/group";
 
 export const MOBILITY = ["none", "limited", "wheelchair", "stroller"] as const;
@@ -76,18 +76,40 @@ function ageAllowed(d: EntryDraft): boolean {
 function buildAge(d: EntryDraft): StatedAge | undefined {
   if (!ageAllowed(d) || d.ageMode === "") return undefined;
   if (d.ageMode === "relativeToMe") return { ageMode: "relativeToMe" };
-  return { ageMode: d.ageMode, age: d.age.trim() === "" ? Number.NaN : Number(d.age) };
+  return {
+    ageMode: d.ageMode,
+    age: d.age.trim() === "" ? Number.NaN : Number(d.age),
+  };
 }
 
 export type InputEntry = TravelGroupInput["entries"] extends (infer E)[] | undefined ? E : never;
 
-export function draftToInput(d: EntryDraft): InputEntry {
+/** True when the entry holds a value for the given trait. */
+export function hasTraitValue(d: EntryDraft, key: TraitKey): boolean {
+  switch (key) {
+    case "mobility":
+      return d.mobility !== "";
+    case "diet":
+      return d.diet.trim() !== "";
+    case "golfHandicap":
+      return d.golfHandicap.trim() !== "";
+    case "needsNap":
+      return d.needsNap;
+  }
+}
+
+/** Only traits selected for the group are sent; the rest are dropped. */
+export function draftToInput(d: EntryDraft, traitKeys: readonly TraitKey[] = []): InputEntry {
   const traits: Record<string, unknown> = {};
-  if (d.mobility) traits.mobility = d.mobility;
-  const diet = d.diet.split(",").map((s) => s.trim()).filter(Boolean);
-  if (diet.length) traits.diet = diet;
-  if (d.golfHandicap.trim() !== "") traits.golfHandicap = Number(d.golfHandicap);
-  if (d.needsNap) traits.needsNap = true;
+  if (traitKeys.includes("mobility") && d.mobility) traits.mobility = d.mobility;
+  const diet = d.diet
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (traitKeys.includes("diet") && diet.length) traits.diet = diet;
+  if (traitKeys.includes("golfHandicap") && d.golfHandicap.trim() !== "")
+    traits.golfHandicap = Number(d.golfHandicap);
+  if (traitKeys.includes("needsNap") && d.needsNap) traits.needsNap = true;
 
   const base = {
     ...(d.id ? { id: d.id } : {}),

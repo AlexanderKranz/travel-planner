@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveAge, resolveGroupAges } from "./group";
+import { resolveAge, resolveGroupAges, stripTraits } from "./group";
 
 const TRAVEL = "2027-03-14";
 
@@ -73,5 +73,18 @@ describe("resolveGroupAges", () => {
       ["c", 3, { status: "known", age: 45, approximate: true }],
     ]);
     expect(result[2].label).toBe("Freunde");
+  });
+});
+
+describe("stripTraits", () => {
+  it("keeps only enabled keys", () => {
+    expect(stripTraits({ mobility: "limited", needsNap: true, diet: ["vegan"] }, ["needsNap", "diet"])).toEqual({
+      needsNap: true,
+      diet: ["vegan"],
+    });
+  });
+  it("returns an empty object when no key is enabled or traits are missing", () => {
+    expect(stripTraits({ golfHandicap: 12 }, [])).toEqual({});
+    expect(stripTraits(undefined, ["diet"])).toEqual({});
   });
 });

@@ -58,7 +58,7 @@
   },
   "groups": {
     "title": "Travel groups",
-    "intro": "Who is travelling? Everything here is optional.",
+    "intro": "Who is travelling? Everything is optional. \"Several people\" summarises an unnamed group, \"One person\" describes someone by name.",
     "new": "New group",
     "newTitle": "New travel group",
     "editTitle": "Edit travel group",
@@ -68,10 +68,10 @@
     "notes": "Group notes",
     "notesHint": "Free text, for example preferences or special needs of the group.",
     "entriesTitle": "Travellers",
-    "entriesHint": "Mix quick entries (for example 5 adults, about 45) and named people as you like.",
-    "addComposition": "Add quick entry",
-    "addMember": "Add person",
-    "addSelf": "Add me",
+    "entriesHint": "Mix both as you like. The order is the order in which you add them (\"Me\" always comes first).",
+    "addComposition": "+ Several people",
+    "addMember": "+ One person",
+    "addSelf": "+ Me",
     "selfNoBirthdate": "Your birthdate is missing in settings, so your age stays unknown.",
     "save": "Save",
     "saved": "Saved.",
@@ -80,7 +80,7 @@
     "deleteTitle": "Delete group?",
     "deleteBody": "The group “{name}” will be deleted permanently.",
     "entry": {
-      "compositionTitle": "Quick entry",
+      "compositionTitle": "Several people",
       "memberTitle": "Person",
       "selfTitle": "Me",
       "selfHint": "Name and birthdate come from your settings.",
@@ -97,8 +97,7 @@
       "ageRelative": "About my age",
       "age": "Age in years",
       "ageIgnored": "The age is calculated from the birthdate.",
-      "notes": "Notes",
-      "moreDetails": "More details",
+      "notes": "Note (optional)",
       "mobility": "Mobility",
       "mobilityUnset": "Not specified",
       "mobilityOptions": {
@@ -111,8 +110,6 @@
       "dietHint": "Separate several entries with commas.",
       "golfHandicap": "Golf handicap",
       "needsNap": "Needs a nap",
-      "moveUp": "Move up",
-      "moveDown": "Move down",
       "remove": "Remove",
       "fieldInvalid": "Please check this entry."
     },
@@ -125,6 +122,20 @@
       "approx": "about {age} years",
       "aboutMe": "about my age",
       "unknown": "age unknown"
+    },
+    "addCompositionHelp": "e.g. 4 adults, about 45 – no names",
+    "addMemberHelp": "with a name and optional birthdate",
+    "addSelfHelp": "name and birthdate from your settings",
+    "traits": {
+      "title": "Relevant details for this group",
+      "hint": "Choose which details are asked for each traveller. With none selected they are omitted entirely.",
+      "willBeRemoved": "Values will be removed on save: {traits}.",
+      "options": {
+        "mobility": "Mobility",
+        "diet": "Diet",
+        "golfHandicap": "Golf handicap",
+        "needsNap": "Nap"
+      }
     }
   },
   "purposes": {

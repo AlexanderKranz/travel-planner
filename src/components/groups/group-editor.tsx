@@ -6,18 +6,26 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TextAreaField, TextField } from "@/components/ui/fields";
 import { errorAt, type Issue } from "@/components/ui/issues";
-import { btnDanger, btnPrimary, btnSecondary } from "@/components/ui/styles";
+import { btnDanger, btnPrimary, btnSecondary, mutedCls } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
 import {
   MAX_ENTRIES_PER_GROUP,
+  TRAIT_KEYS,
+  type TraitKey,
   type ActionError,
   type TravelGroup,
   type TravelGroupInput,
 } from "@/lib/domain";
 import { createGroup, deleteGroup, updateGroup } from "@/lib/server/groups";
 import { AgePreview } from "./age-preview";
-import { draftToInput, emptyDraft, fromStored, type EntryDraft } from "./draft";
+import { draftToInput, emptyDraft, fromStored, hasTraitValue, type EntryDraft } from "./draft";
 import { EntryEditor } from "./entry-editor";
+
+/** Stored entries as drafts, "me" always first, otherwise in order of adding. */
+function selfFirst(stored: TravelGroup["entries"]): EntryDraft[] {
+  const drafts = stored.map(fromStored);
+  return [...drafts.filter((d) => d.isSelf), ...drafts.filter((d) => !d.isSelf)];
+}
 
 type Props = { group?: TravelGroup; profileBirthdate: string | null };
 
@@ -26,9 +34,8 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
   const router = useRouter();
   const [name, setName] = useState(group?.name ?? "");
   const [notes, setNotes] = useState(group?.notes ?? "");
-  const [entries, setEntries] = useState<EntryDraft[]>(() =>
-    (group?.entries ?? []).map(fromStored),
-  );
+  const [traitKeys, setTraitKeys] = useState<TraitKey[]>(() => group?.traitKeys ?? []);
+  const [entries, setEntries] = useState<EntryDraft[]>(() => selfFirst(group?.entries ?? []));
   const [error, setError] = useState<ActionError | null>(null);
   const [issues, setIssues] = useState<Issue[]>();
   const [saved, setSaved] = useState(false);
@@ -41,19 +48,25 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
 
   const patch = (key: string, p: Partial<EntryDraft>) =>
     setEntries((list) => list.map((e) => (e.key === key ? { ...e, ...p } : e)));
-  const move = (index: number, dir: -1 | 1) =>
-    setEntries((list) => {
-      const next = [...list];
-      [next[index], next[index + dir]] = [next[index + dir], next[index]];
-      return next;
-    });
+  const toggleTrait = (key: TraitKey) =>
+    setTraitKeys((keys) => (keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key]));
+  const addEntry = (draft: EntryDraft) =>
+    setEntries((l) => (draft.isSelf ? [draft, ...l] : [...l, draft]));
+  const droppedTraits = TRAIT_KEYS.filter(
+    (k) => !traitKeys.includes(k) && entries.some((e) => hasTraitValue(e, k)),
+  );
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setIssues(undefined);
     setSaved(false);
-    const input: TravelGroupInput = { name, notes, entries: entries.map(draftToInput) };
+    const input: TravelGroupInput = {
+      name,
+      notes,
+      traitKeys,
+      entries: entries.map((e) => draftToInput(e, traitKeys)),
+    };
     start(async () => {
       const result = group ? await updateGroup(group.id, input) : await createGroup(input);
       if (!result.ok) {
@@ -62,7 +75,8 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
         return;
       }
       if (group) {
-        setEntries(result.data.entries.map(fromStored));
+        setEntries(selfFirst(result.data.entries));
+        setTraitKeys(result.data.traitKeys);
         setSaved(true);
         router.refresh();
       } else {
@@ -102,6 +116,41 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
         error={errorAt(issues, "notes", t("entry.fieldInvalid"))}
       />
 
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-lg font-semibold">{t("traits.title")}</legend>
+        <p className={`text-sm ${mutedCls}`}>{t("traits.hint")}</p>
+        <div className="flex flex-wrap gap-2">
+          {TRAIT_KEYS.map((key) => {
+            const on = traitKeys.includes(key);
+            return (
+              <label
+                key={key}
+                className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium focus-within:outline-2 focus-within:outline-blue-600 ${
+                  on
+                    ? "border-blue-700 bg-blue-50 dark:border-blue-400 dark:bg-blue-950"
+                    : "border-neutral-400 hover:bg-neutral-100 dark:border-neutral-500 dark:hover:bg-neutral-800"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  className="size-4"
+                  checked={on}
+                  onChange={() => toggleTrait(key)}
+                />
+                {t(`traits.options.${key}`)}
+              </label>
+            );
+          })}
+        </div>
+        {droppedTraits.length > 0 && (
+          <p role="status" className="text-sm text-amber-800 dark:text-amber-300">
+            {t("traits.willBeRemoved", {
+              traits: droppedTraits.map((k) => t(`traits.options.${k}`)).join(", "),
+            })}
+          </p>
+        )}
+      </fieldset>
+
       <section aria-labelledby="entries-title" className="flex flex-col gap-3">
         <h2 id="entries-title" className="text-lg font-semibold">
           {t("entriesTitle")}
@@ -114,10 +163,9 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
                 key={draft.key}
                 draft={draft}
                 index={i}
-                total={entries.length}
+                traitKeys={traitKeys}
                 issues={issues}
                 onChange={(p) => patch(draft.key, p)}
-                onMove={(dir) => move(i, dir)}
                 onRemove={() => setEntries((list) => list.filter((e) => e.key !== draft.key))}
               />
             ))}
@@ -126,31 +174,49 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
         {issues?.some((i) => i.path === "entries") && (
           <p className="text-sm text-red-700 dark:text-red-400">{t("entry.fieldInvalid")}</p>
         )}
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <button
-            type="button"
-            className={btnSecondary}
-            disabled={full}
-            onClick={() => setEntries((l) => [...l, emptyDraft("composition")])}
-          >
-            {t("addComposition")}
-          </button>
-          <button
-            type="button"
-            className={btnSecondary}
-            disabled={full}
-            onClick={() => setEntries((l) => [...l, emptyDraft("member")])}
-          >
-            {t("addMember")}
-          </button>
-          <button
-            type="button"
-            className={btnSecondary}
-            disabled={full || hasSelf}
-            onClick={() => setEntries((l) => [...l, emptyDraft("member", true)])}
-          >
-            {t("addSelf")}
-          </button>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              className={btnSecondary}
+              disabled={full}
+              aria-describedby="add-composition-help"
+              onClick={() => addEntry(emptyDraft("composition"))}
+            >
+              {t("addComposition")}
+            </button>
+            <p id="add-composition-help" className={`text-sm ${mutedCls}`}>
+              {t("addCompositionHelp")}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              className={btnSecondary}
+              disabled={full}
+              aria-describedby="add-member-help"
+              onClick={() => addEntry(emptyDraft("member"))}
+            >
+              {t("addMember")}
+            </button>
+            <p id="add-member-help" className={`text-sm ${mutedCls}`}>
+              {t("addMemberHelp")}
+            </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <button
+              type="button"
+              className={btnSecondary}
+              disabled={full || hasSelf}
+              aria-describedby="add-self-help"
+              onClick={() => addEntry(emptyDraft("member", true))}
+            >
+              {t("addSelf")}
+            </button>
+            <p id="add-self-help" className={`text-sm ${mutedCls}`}>
+              {t("addSelfHelp")}
+            </p>
+          </div>
         </div>
         {hasSelf && !profileBirthdate && (
           <p className="text-sm text-neutral-600 dark:text-neutral-400">{t("selfNoBirthdate")}</p>

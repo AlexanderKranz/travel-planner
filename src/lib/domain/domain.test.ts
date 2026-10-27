@@ -89,3 +89,16 @@ describe("TripPurposeInput", () => {
     expect(TripPurposeInput.safeParse({ name: "x", constraints: Array(31).fill("a") }).success).toBe(false);
   });
 });
+
+describe("TravelGroupInput traitKeys", () => {
+  it("defaults to [] and drops duplicates keeping order", () => {
+    expect(TravelGroupInput.parse({ name: "g" }).traitKeys).toEqual([]);
+    expect(TravelGroupInput.parse({ name: "g", traitKeys: ["diet", "mobility", "diet"] }).traitKeys).toEqual([
+      "diet",
+      "mobility",
+    ]);
+  });
+  it("rejects unknown keys", () => {
+    expect(TravelGroupInput.safeParse({ name: "g", traitKeys: ["bogus"] }).success).toBe(false);
+  });
+});

@@ -58,7 +58,7 @@
   },
   "groups": {
     "title": "Reisegruppen",
-    "intro": "Wer reist mit? Alle Angaben sind freiwillig.",
+    "intro": "Wer reist mit? Alle Angaben sind freiwillig. „Mehrere Personen“ fasst eine anonyme Gruppe zusammen, „Einzelne Person“ beschreibt jemanden mit Namen.",
     "new": "Neue Gruppe",
     "newTitle": "Neue Reisegruppe",
     "editTitle": "Reisegruppe bearbeiten",
@@ -68,10 +68,10 @@
     "notes": "Notizen zur Gruppe",
     "notesHint": "Freitext, zum Beispiel Vorlieben oder Besonderheiten der Gruppe.",
     "entriesTitle": "Mitreisende",
-    "entriesHint": "Mische Schnellangaben (zum Beispiel 5 Erwachsene, ca. 45) und namentlich genannte Personen nach Belieben.",
-    "addComposition": "Schnellangabe hinzufügen",
-    "addMember": "Person hinzufügen",
-    "addSelf": "Mich hinzufügen",
+    "entriesHint": "Du kannst beides beliebig mischen. Die Reihenfolge entspricht der Reihenfolge, in der du hinzufügst („Ich“ steht immer zuerst).",
+    "addComposition": "+ Mehrere Personen",
+    "addMember": "+ Einzelne Person",
+    "addSelf": "+ Ich",
     "selfNoBirthdate": "Dein Geburtsdatum fehlt in den Einstellungen, dein Alter bleibt deshalb unbekannt.",
     "save": "Speichern",
     "saved": "Gespeichert.",
@@ -80,7 +80,7 @@
     "deleteTitle": "Gruppe löschen?",
     "deleteBody": "Die Gruppe „{name}“ wird endgültig gelöscht.",
     "entry": {
-      "compositionTitle": "Schnellangabe",
+      "compositionTitle": "Mehrere Personen",
       "memberTitle": "Person",
       "selfTitle": "Ich",
       "selfHint": "Name und Geburtsdatum kommen aus deinen Einstellungen.",
@@ -97,8 +97,7 @@
       "ageRelative": "Etwa in meinem Alter",
       "age": "Alter in Jahren",
       "ageIgnored": "Das Alter wird aus dem Geburtsdatum berechnet.",
-      "notes": "Notizen",
-      "moreDetails": "Weitere Angaben",
+      "notes": "Notiz (optional)",
       "mobility": "Mobilität",
       "mobilityUnset": "Keine Angabe",
       "mobilityOptions": {
@@ -111,8 +110,6 @@
       "dietHint": "Mehrere Angaben mit Komma trennen.",
       "golfHandicap": "Golf-Handicap",
       "needsNap": "Braucht Mittagsschlaf",
-      "moveUp": "Nach oben",
-      "moveDown": "Nach unten",
       "remove": "Entfernen",
       "fieldInvalid": "Bitte prüfe diese Angabe."
     },
@@ -125,6 +122,20 @@
       "approx": "ca. {age} Jahre",
       "aboutMe": "etwa in meinem Alter",
       "unknown": "Alter unbekannt"
+    },
+    "addCompositionHelp": "z. B. 4 Erwachsene, ca. 45 – ohne Namen",
+    "addMemberHelp": "mit Name und optional Geburtsdatum",
+    "addSelfHelp": "Name und Geburtsdatum aus deinen Einstellungen",
+    "traits": {
+      "title": "Relevante Angaben für diese Gruppe",
+      "hint": "Wähle, welche Details bei den Mitreisenden abgefragt werden. Ohne Auswahl entfallen sie ganz.",
+      "willBeRemoved": "Werte werden beim Speichern entfernt: {traits}.",
+      "options": {
+        "mobility": "Mobilität",
+        "diet": "Ernährung",
+        "golfHandicap": "Golf-Handicap",
+        "needsNap": "Mittagsschlaf"
+      }
     }
   },
   "purposes": {
