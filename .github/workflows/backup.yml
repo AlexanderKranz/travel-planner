@@ -58,6 +58,8 @@ jobs:
           PGBIN="/usr/lib/postgresql/${PG_MAJOR}/bin"
           # A secret pasted with a trailing newline breaks psql/pg_dump (the Supabase CLI tolerates it).
           SUPABASE_DB_URL="$(printf '%s' "$SUPABASE_DB_URL" | tr -d '\r\n')"
+          # Same for the passphrase: it must equal the copy in the password manager, without a newline.
+          BACKUP_PASSPHRASE="$(printf '%s' "$BACKUP_PASSPHRASE" | tr -d '\r\n')"
           STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
           echo "STAMP=$STAMP" >> "$GITHUB_ENV"
           mkdir -p work out
