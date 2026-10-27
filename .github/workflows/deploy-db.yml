@@ -4,7 +4,7 @@
 # Docs checked 2026-10-27:
 #   https://supabase.com/docs/guides/deployment/managing-environments  (link + db push in CI)
 #   https://supabase.com/docs/reference/cli/supabase-db-push           (flags; global --yes answers prompts)
-# SUPABASE_DB_PASSWORD in the environment lets `supabase link` / `db push` run without a prompt.
+# Connects with --db-url (SUPABASE_DB_URL), so no `supabase link` and no Supabase access token are needed.
 name: Deploy database migrations
 
 on:
@@ -27,31 +27,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      # Session pooler connection string (IPv4), same secret the backup uses. No Supabase access token
+      # is needed: `db push --db-url` talks to Postgres directly instead of linking via the Management API.
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check secrets exist
+      - name: Check secret exists
         run: |
-          for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD SUPABASE_PROJECT_REF; do
-            eval "val=\${$v:-}"
-            if [ -z "$val" ]; then
-              echo "::error::GitHub secret $v is missing. See docs/runbook.md, section 'GitHub secrets'."
-              exit 1
-            fi
-          done
+          if [ -z "${SUPABASE_DB_URL:-}" ]; then
+            echo "::error::GitHub secret SUPABASE_DB_URL is missing. See docs/runbook.md, section 'GitHub secrets'."
+            exit 1
+          fi
 
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@v3
         with:
-          version: latest
-
-      - name: Link to the production project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          version: 2.122.0 # same as CI db-test; bump deliberately
 
       - name: Show pending migrations (dry run)
-        run: supabase db push --dry-run
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --dry-run
 
       - name: Apply migrations
-        run: supabase db push --yes
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --yes
