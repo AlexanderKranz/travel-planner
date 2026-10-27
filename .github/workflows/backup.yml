@@ -56,13 +56,18 @@ jobs:
           set -eu
           set +x
           PGBIN="/usr/lib/postgresql/${PG_MAJOR}/bin"
+          # A secret pasted with a trailing newline breaks psql/pg_dump (the Supabase CLI tolerates it).
+          SUPABASE_DB_URL="$(printf '%s' "$SUPABASE_DB_URL" | tr -d '\r\n')"
+          # Same for the passphrase: it must equal the copy in the password manager, without a newline.
+          BACKUP_PASSPHRASE="$(printf '%s' "$BACKUP_PASSPHRASE" | tr -d '\r\n')"
           STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
           echo "STAMP=$STAMP" >> "$GITHUB_ENV"
           mkdir -p work out
 
           # Server version must not be newer than the pg_dump we installed.
-          server_num="$("$PGBIN/psql" "$SUPABASE_DB_URL" -Atqc 'show server_version_num' 2>/dev/null)" || {
-            echo "::error::Cannot connect to the database. Check secret SUPABASE_DB_URL (must be the session pooler string, port 5432)."
+          # psql's own error (no password in it) is shown so connection problems can be diagnosed.
+          server_num="$("$PGBIN/psql" "$SUPABASE_DB_URL" -Atqc 'show server_version_num')" || {
+            echo "::error::Cannot connect to the database (see psql error above). Check secret SUPABASE_DB_URL (session pooler string, port 5432)."
             exit 1
           }
           server_major=$((server_num / 10000))
