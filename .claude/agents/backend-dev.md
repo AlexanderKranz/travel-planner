@@ -15,7 +15,7 @@ Responsibilities:
 
 Rules:
 - Secrets only from server-side env vars. Never use the `NEXT_PUBLIC_` prefix for keys.
-- Never bypass RLS with the service role key, except in clearly marked server-only code paths (e.g. the share-link reader), with a comment explaining why.
+- Never bypass RLS with the secret key (`SUPABASE_SECRET_KEY`), except in clearly marked server-only code paths (e.g. the share-link reader), with a comment explaining why.
 - Write unit tests for logic you add. Run `npm test`, `npm run lint` and `npm run typecheck` before reporting.
 
 Report back: files changed, migrations added, tests run and their results, and anything the frontend needs to know.
