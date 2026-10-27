@@ -106,7 +106,7 @@ async function addGroup(name, notes, entries) {
     .single();
   check(error, `inserting group ${name}`);
   const rows = entries.map((e, i) => ({ ...e, position: i, group_id: data.id, owner_id: userId }));
-  const res = await sb.from("group_entries").insert(rows);
+  const res = await sb.from("group_entries").insert(rows, { defaultToNull: false }); // rows have different keys: omitted columns take their DB default
   check(res.error, `inserting entries of ${name}`);
 }
 
@@ -152,7 +152,10 @@ const purposes = [
   },
 ];
 {
-  const { error } = await sb.from("trip_purposes").insert(purposes.map((p) => ({ ...p, owner_id: userId })));
+  const { error } = await sb.from("trip_purposes").insert(
+    purposes.map((p) => ({ ...p, owner_id: userId })),
+    { defaultToNull: false },
+  );
   check(error, "inserting purposes");
   log("2 example purposes inserted");
 }
