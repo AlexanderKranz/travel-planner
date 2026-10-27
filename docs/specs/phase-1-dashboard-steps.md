@@ -42,6 +42,8 @@ Dashboard **Authentication -> Users -> Add user** also needs an allowlist row fo
 
 ## 4. Magic-link email template (token-hash link plus 6-digit code)
 
+**Requires custom SMTP (step 7):** Supabase only allows editing templates once a custom SMTP sender is configured. Until then the default template is sent. It contains only a link (no code) using the PKCE flow: `/auth/confirm` handles it via `?code=`, but **only in the same browser** that requested the link, and the "sign in with code" option cannot be used. Do this step right after step 7.
+
 The link must use the token hash so it works when opened on another device than the one that requested it.
 
 1. **Authentication** -> **Emails** -> **Templates**.
