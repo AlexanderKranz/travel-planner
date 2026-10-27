@@ -74,4 +74,4 @@ npm run dev                  # http://localhost:3000
 | `SUPABASE_SECRET_KEY` | Vercel, `.env.local` | **yes** |
 | `ANTHROPIC_API_KEY` | Vercel, `.env.local` | **yes** |
 | `AERODATABOX_API_KEY`, `OPENROUTESERVICE_API_KEY` | Vercel, `.env.local` | **yes** |
-| `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE` | GitHub → Settings → Secrets → Actions (phase 1, see `docs/runbook.md`) | **yes** |
+| `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE` | GitHub → Settings → Secrets → Actions (phase 1, see `docs/runbook.md`) | **yes** |
