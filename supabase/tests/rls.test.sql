@@ -1,9 +1,12 @@
--- STATUS: SKELETON, NOT YET RUNNABLE in the authoring environment (no Docker/psql).
--- Run with `supabase test db` after `supabase start` (pgTAP is preinstalled in the local stack).
--- Written against migrations 20261027120001..9. Expectations marked [FAILS TODAY] document defects
--- found in review; they pass with the deny-by-default privileges (revoke from anon/authenticated, then
--- exact grants) in the migrations. Uses no_plan() because the file is still being extended.
+-- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
+-- Written against migrations 20261027120001..9. Runs as postgres inside one transaction that is rolled back.
+-- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
+-- exits non-zero on any failed test.
 begin;
+-- pgTAP ships with the local Supabase Postgres image but is not enabled by default.
+create extension if not exists pgtap with schema extensions;
+-- Make pgTAP functions resolvable regardless of the role search_path (also after `set local role`).
+set local search_path = public, extensions;
 select * from no_plan();
 
 -- ---------- fixtures: two users + one admin (inserted as postgres; triggers create profiles) ----------
@@ -26,15 +29,9 @@ insert into public.group_entries (group_id, owner_id, kind, count) values
 insert into public.trip_purposes (id, owner_id, name) values
   ('a0000000-0000-4000-8000-0000000000b1', 'aaaaaaaa-0000-4000-8000-000000000001', 'A golf');
 
--- helper to act as a user
-create or replace function pg_temp.act_as(uid uuid) returns void language plpgsql as $$
-begin
-  perform set_config('request.jwt.claims', json_build_object('sub', uid, 'role', 'authenticated')::text, true);
-  perform set_config('role', 'authenticated', true);
-end $$;
-
 -- ---------- user B must not see or touch user A ----------
-select pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000002');
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
 select is((select count(*)::int from public.travel_groups), 0, 'B sees no groups of A');
 select is((select count(*)::int from public.group_entries), 0, 'B sees no entries of A');
 select is((select count(*)::int from public.trip_purposes), 0, 'B sees no purposes of A');
@@ -50,11 +47,12 @@ with u as (update public.trip_purposes set name = 'pwned' where id = 'a0000000-0
 select is((select count(*)::int from u), 0, 'B cannot update A purpose');
 
 select throws_ok($$insert into public.travel_groups (owner_id, name) values ('aaaaaaaa-0000-4000-8000-000000000001', 'x')$$,
-  '42501', null, 'B cannot insert a group owned by A (RLS with check)');
-select throws_ok($$insert into public.group_entries (group_id, owner_id, kind) values ('a0000000-0000-4000-8000-0000000000a1', 'bbbbbbbb-0000-4000-8000-000000000002', 'composition')$$,
+  '42501', null, 'B cannot insert a group owned by A (owner_id is not in the insert column grant)');
+-- owner_id is not insertable by users (column grant), so it defaults to auth.uid() = B and the composite FK rejects A's group
+select throws_ok($$insert into public.group_entries (group_id, kind) values ('a0000000-0000-4000-8000-0000000000a1', 'composition')$$,
   '23503', null, 'B cannot attach an entry to A group (composite FK group_id, owner_id)');
 select throws_ok($$insert into public.group_entries (group_id, owner_id, kind) values ('a0000000-0000-4000-8000-0000000000a1', 'aaaaaaaa-0000-4000-8000-000000000001', 'composition')$$,
-  '42501', null, 'B cannot insert an entry as owner A');
+  '42501', null, 'B cannot insert an entry as owner A (owner_id column not granted)');
 
 -- ---------- privilege escalation / protected columns (column-level grants) ----------
 select throws_ok($$update public.profiles set role = 'admin' where id = 'bbbbbbbb-0000-4000-8000-000000000002'$$,
@@ -83,7 +81,8 @@ select lives_ok($$update public.profiles set display_name = 'Bee' where id = 'bb
 select lives_ok($$insert into public.trip_purposes (name, text, guided, constraints) values ('mine', 't', '{}', '{}')$$, 'user can insert purpose via granted columns (owner_id default)');
 
 -- ---------- atomic group functions (security invoker, RLS applies) ----------
-select pg_temp.act_as('aaaaaaaa-0000-4000-8000-000000000001');
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
 select lives_ok($$select public.replace_group_entries('a0000000-0000-4000-8000-0000000000a1',
   '{"name":"A family 2","notes":null}'::jsonb,
   '[{"kind":"composition","position":0,"count":2,"is_self":false,"traits":{}}]'::jsonb)$$, 'A can replace own group entries');
@@ -92,7 +91,8 @@ select is((select count(*)::int from public.group_entries where group_id = 'a000
 select throws_ok($$select public.replace_group_entries('a0000000-0000-4000-8000-0000000000a1', '{"name":"x"}'::jsonb,
   '[{"kind":"composition","position":0,"count":0,"is_self":false,"traits":{}}]'::jsonb)$$, '23514', null, 'invalid entry aborts the whole call');
 select is((select name from public.travel_groups where id = 'a0000000-0000-4000-8000-0000000000a1'), 'A family 2', 'rolled back: group name unchanged after failed call');
-select pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000002');
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
 select throws_ok($$select public.replace_group_entries('a0000000-0000-4000-8000-0000000000a1', '{"name":"pwn"}'::jsonb, '[]'::jsonb)$$,
   'P0002', null, 'B cannot replace entries of A group (RLS hides it)');
 select lives_ok($$select public.reorder_group_entries('a0000000-0000-4000-8000-0000000000a1', '{}')$$, 'reorder on a foreign group: no-op or reject') ;
@@ -116,7 +116,8 @@ select ok(not exists (
 -- ---------- demo account ----------
 reset role;
 select ok(not has_column_privilege('authenticated', 'public.profiles', 'is_demo', 'update'), 'authenticated: cannot update profiles.is_demo');
-select pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000002');
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
 select throws_ok($$update public.profiles set is_demo = true where id = 'bbbbbbbb-0000-4000-8000-000000000002'$$,
   '42501', null, 'user cannot flag self as demo');
 reset role;
@@ -130,8 +131,8 @@ update public.profiles set is_demo = false where id = 'bbbbbbbb-0000-4000-8000-0
 
 -- ---------- -- anon sees nothing ----------
 reset role;
-select set_config('request.jwt.claims', '', true);
-select set_config('role', 'anon', true);
+set local request.jwt.claims = '';
+set local role anon;
 select throws_ok($$select * from public.profiles$$, '42501', null, 'anon cannot read profiles');
 select throws_ok($$select * from public.travel_groups$$, '42501', null, 'anon cannot read groups');
 select throws_ok($$select * from public.app_events$$, '42501', null, 'anon cannot read app_events');
@@ -141,7 +142,8 @@ select throws_ok($$select public.hook_before_user_created('{}'::jsonb)$$, '42501
 
 -- ---------- admin: aggregates only, no content ----------
 reset role;
-select pg_temp.act_as('cccccccc-0000-4000-8000-000000000003');
+set local request.jwt.claims = '{"sub":"cccccccc-0000-4000-8000-000000000003","role":"authenticated"}';
+set local role authenticated;
 select is((select count(*)::int from public.travel_groups), 0, 'admin sees no user groups');
 select is((select count(*)::int from public.signup_allowlist), 3, 'admin sees the allowlist');
 

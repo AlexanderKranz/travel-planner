@@ -19,3 +19,30 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+
+  # Runs the SQL in supabase/migrations and the pgTAP tests in supabase/tests on a throwaway local
+  # Supabase stack (Docker is available on ubuntu-latest). No secrets needed.
+  # Docs checked 2026-10-27: https://supabase.com/docs/reference/cli/supabase-start (-x names),
+  # https://github.com/supabase/setup-cli (action v3), https://supabase.com/docs/guides/local-development/testing/overview
+  db-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.122.0 # latest release on 2026-10-27; bump deliberately
+      # `supabase start` applies supabase/migrations on the fresh database; a failing migration fails this step.
+      - name: Start local Supabase (db, auth, rest, kong only)
+        run: supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor
+      - name: Run pgTAP tests
+        run: supabase test db
+      - name: Show status on failure
+        if: failure()
+        run: |
+          supabase status || true
+          docker ps -a || true
+          docker logs supabase_auth_travel-planner 2>&1 | tail -n 50 || true
+      - name: Stop
+        if: always()
+        run: supabase stop --no-backup || true
