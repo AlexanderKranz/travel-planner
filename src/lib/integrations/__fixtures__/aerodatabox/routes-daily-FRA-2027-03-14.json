@@ -1,0 +1,306 @@
+{
+ "_note": "GET /airports/iata/FRA/stats/routes/daily/2027-03-14 (trimmed to 10 of 222 routes)",
+ "routes": [
+  {
+   "destination": {
+    "icao": "EGLL",
+    "iata": "LHR",
+    "name": "London Heathrow",
+    "shortName": "Heathrow",
+    "municipalityName": "London",
+    "location": {
+     "lat": 51.4706,
+     "lon": -0.461941
+    },
+    "countryCode": "GB",
+    "timeZone": "Europe/London"
+   },
+   "averageDailyFlights": 15.57,
+   "operators": [
+    {
+     "name": "Lufthansa City Airlines",
+     "iata": "VL",
+     "icao": "LHX"
+    },
+    {
+     "name": "British Airways",
+     "iata": "BA",
+     "icao": "BAW"
+    },
+    {
+     "name": "Lufthansa",
+     "iata": "LH",
+     "icao": "DLH"
+    }
+   ]
+  },
+  {
+   "destination": {
+    "icao": "EDDM",
+    "iata": "MUC",
+    "name": "Munich",
+    "shortName": "Munich",
+    "municipalityName": "Munich",
+    "location": {
+     "lat": 48.3538,
+     "lon": 11.7861
+    },
+    "countryCode": "DE",
+    "timeZone": "Europe/Berlin"
+   },
+   "averageDailyFlights": 11.0,
+   "operators": [
+    {
+     "name": "Condor",
+     "iata": "DE",
+     "icao": "CFG"
+    },
+    {
+     "name": "Lufthansa",
+     "iata": "LH",
+     "icao": "DLH"
+    }
+   ]
+  },
+  {
+   "destination": {
+    "icao": "LIRF",
+    "iata": "FCO",
+    "name": "Rome Leonardo da Vinci–Fiumicino",
+    "shortName": "Leonardo da Vinci–Fiumicino",
+    "municipalityName": "Rome",
+    "location": {
+     "lat": 41.8045,
+     "lon": 12.2508
+    },
+    "countryCode": "IT",
+    "timeZone": "Europe/Rome"
+   },
+   "averageDailyFlights": 5.29,
+   "operators": [
+    {
+     "name": "Lufthansa",
+     "iata": "LH",
+     "icao": "DLH"
+    },
+    {
+     "name": "easyJet",
+     "iata": "U2",
+     "icao": "EZY"
+    },
+    {
+     "name": "ITA Airways",
+     "iata": "AZ",
+     "icao": "ITY"
+    },
+    {
+     "name": "Flight Alaska"
+    }
+   ]
+  },
+  {
+   "destination": {
+    "icao": "LEPA",
+    "iata": "PMI",
+    "name": "Palma De Mallorca",
+    "shortName": "Palma De Mallorca",
+    "municipalityName": "Palma De Mallorca",
+    "location": {
+     "lat": 39.5517,
+     "lon": 2.73881
+    },
+    "countryCode": "ES",
+    "timeZone": "Europe/Madrid"
+   },
+   "averageDailyFlights": 4.14,
+   "operators": [
+    {
+     "name": "TUIfly",
+     "iata": "X3",
+     "icao": "TUI"
+    },
+    {
+     "name": "Flight Alaska"
+    },
+    {
+     "name": "Condor",
+     "iata": "DE",
+     "icao": "CFG"
+    },
+    {
+     "name": "Lufthansa",
+     "iata": "LH",
+     "icao": "DLH"
+    }
+   ]
+  },
+  {
+   "destination": {
+    "icao": "LFLL",
+    "iata": "LYS",
+    "name": "Lyon Saint-Exupéry",
+    "shortName": "Saint-Exupéry",
+    "municipalityName": "Lyon",
+    "location": {
+     "lat": 45.7264,
+     "lon": 5.090829
+    },
+    "countryCode": "FR",
+    "timeZone": "Europe/Paris"
+   },
+   "averageDailyFlights": 3.86,
+   "operators": [
+    {
+     "name": "Flight Alaska"
+    }
+   ]
+  },
+  {
+   "destination": {
+    "icao": "GCLP",
+    "iata": "LPA",
+    "name": "Gran Canaria Island Gran Canaria",
+    "shortName": "Gran Canaria",
+    "municipalityName": "Gran Canaria Island",
+    "location": {
+     "lat": 27.9319,
+     "lon": -15.386599
+    },
+    "countryCode": "ES",
+    "timeZone": "Atlantic/Canary"
+   },
+   "averageDailyFlights": 3.29,
+   "operators": [
+    {
+     "name": "TUIfly",
+     "iata": "X3",
+     "icao": "TUI"
+    },
+    {
+     "name": "Flight Alaska"
+    },
+    {
+     "name": "Condor",
+     "iata": "DE",
+     "icao": "CFG"
+    }
+   ]
+  },
+  {
+   "destination": {
+    "icao": "HEGN",
+    "iata": "HRG",
+    "name": "Hurghada",
+    "shortName": "Hurghada",
+    "municipalityName": "Hurghada",
+    "location": {
+     "lat": 27.1783,
+     "lon": 33.7994
+    },
+    "countryCode": "EG",
+    "timeZone": "Africa/Cairo"
+   },
+   "averageDailyFlights": 3.0,
+   "operators": [
+    {
+     "name": "Flight Alaska"
+    },
+    {
+     "name": "Condor",
+     "iata": "DE",
+     "icao": "CFG"
+    },
+    {
+     "name": "Air Cairo",
+     "iata": "SM",
+     "icao": "MSC"
+    },
+    {
+     "name": "TUIfly",
+     "iata": "X3",
+     "icao": "TUI"
+    }
+   ]
+  },
+  {
+   "destination": {
+    "icao": "LOWL",
+    "iata": "LNZ",
+    "name": "Linz",
+    "shortName": "Linz",
+    "municipalityName": "Linz",
+    "location": {
+     "lat": 48.2332,
+     "lon": 14.1875
+    },
+    "countryCode": "AT",
+    "timeZone": "Europe/Vienna"
+   },
+   "averageDailyFlights": 2.71,
+   "operators": [
+    {
+     "name": "Danish Air",
+     "iata": "DX",
+     "icao": "DTR"
+    }
+   ]
+  },
+  {
+   "destination": {
+    "icao": "GCTS",
+    "iata": "TFS",
+    "name": "Tenerife Island Tenerife South",
+    "shortName": "Tenerife South",
+    "municipalityName": "Tenerife Island",
+    "location": {
+     "lat": 28.0445,
+     "lon": -16.5725
+    },
+    "countryCode": "ES",
+    "timeZone": "Atlantic/Canary"
+   },
+   "averageDailyFlights": 2.29,
+   "operators": [
+    {
+     "name": "Flight Alaska"
+    },
+    {
+     "name": "Condor",
+     "iata": "DE",
+     "icao": "CFG"
+    },
+    {
+     "name": "TUIfly",
+     "iata": "X3",
+     "icao": "TUI"
+    }
+   ]
+  },
+  {
+   "destination": {
+    "icao": "MMUN",
+    "iata": "CUN",
+    "name": "Cancún",
+    "shortName": "Cancún",
+    "municipalityName": "Cancún",
+    "location": {
+     "lat": 21.0365,
+     "lon": -86.8771
+    },
+    "countryCode": "MX",
+    "timeZone": "America/Cancun"
+   },
+   "averageDailyFlights": 2.0,
+   "operators": [
+    {
+     "name": "Flight Alaska"
+    },
+    {
+     "name": "Condor",
+     "iata": "DE",
+     "icao": "CFG"
+    }
+   ]
+  }
+ ]
+}

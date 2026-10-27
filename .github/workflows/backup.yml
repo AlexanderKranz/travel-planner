@@ -1,0 +1,133 @@
+# Nightly encrypted backup of the PRODUCTION database: DATA of public + auth (restored) and a
+# reference-only schema dump. MANIFEST.txt records the git commit and latest migration version. Result: workflow artifact "db-backup-<UTC timestamp>", kept 30 days.
+# scripts/backup/pull-to-nas.sh copies it off-site. scripts/backup/restore.sh restores it.
+#
+# Docs checked 2026-10-27:
+#   https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore (dump scopes, restore order)
+#   https://supabase.com/docs/guides/database/connecting-to-postgres (GitHub runners are IPv4-only -> use the
+#     session pooler string; direct connection is IPv6 on the Free plan)
+# `supabase db dump` is NOT used: it excludes the auth schema from normal dumps. Plain pg_dump is used instead.
+# pg_dump must be the same or newer major version than the server; PG_MAJOR below is checked at run time.
+name: Nightly database backup
+
+on:
+  schedule:
+    # 01:00 UTC = 02:00 Berlin in winter, 03:00 in summer. GitHub cron is always UTC.
+    - cron: "0 1 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: db-backup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PG_MAJOR: "17"
+  MIN_BYTES: "3000" # a real dump of this app is far larger; smaller means something went wrong
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check secrets exist
+        run: |
+          for v in SUPABASE_DB_URL BACKUP_PASSPHRASE; do
+            eval "val=\${$v:-}"
+            if [ -z "$val" ]; then
+              echo "::error::GitHub secret $v is missing. See docs/runbook.md, section 'GitHub secrets'."
+              exit 1
+            fi
+          done
+
+      - name: Install PostgreSQL client ${{ env.PG_MAJOR }}
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y --no-install-recommends "postgresql-client-${PG_MAJOR}" >/dev/null
+          "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_dump" --version
+
+      - name: Dump, compress, encrypt
+        run: |
+          set -eu
+          set +x
+          PGBIN="/usr/lib/postgresql/${PG_MAJOR}/bin"
+          STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          mkdir -p work out
+
+          # Server version must not be newer than the pg_dump we installed.
+          server_num="$("$PGBIN/psql" "$SUPABASE_DB_URL" -Atqc 'show server_version_num' 2>/dev/null)" || {
+            echo "::error::Cannot connect to the database. Check secret SUPABASE_DB_URL (must be the session pooler string, port 5432)."
+            exit 1
+          }
+          server_major=$((server_num / 10000))
+          echo "Server major version: $server_major, pg_dump major version: $PG_MAJOR"
+          if [ "$server_major" -gt "$PG_MAJOR" ]; then
+            echo "::error::Database is PostgreSQL $server_major but pg_dump is $PG_MAJOR. Raise PG_MAJOR in backup.yml."
+            exit 1
+          fi
+
+          # supabase_migrations exists only after the first migration was pushed.
+          has_mig="$("$PGBIN/psql" "$SUPABASE_DB_URL" -Atqc "select 1 from pg_namespace where nspname='supabase_migrations'")"
+          mig_version=""
+          if [ "$has_mig" = "1" ]; then
+            mig_version="$("$PGBIN/psql" "$SUPABASE_DB_URL" -Atqc "select coalesce(max(version),'') from supabase_migrations.schema_migrations")"
+          fi
+
+          # schema.sql = REFERENCE ONLY (documentation of what the database looked like, incl. schema
+          # private, extensions and the trigger on auth.users). It is NOT replayed by restore.sh:
+          # the schema of a new project comes from `supabase db push` at the commit in MANIFEST.txt.
+          ref_schemas="-n public -n private -n extensions -n auth"
+          if [ "$has_mig" = "1" ]; then ref_schemas="$ref_schemas -n supabase_migrations"; fi
+          # shellcheck disable=SC2086
+          "$PGBIN/pg_dump" "$SUPABASE_DB_URL" --schema-only --no-owner $ref_schemas -f work/schema.sql
+
+          # data.sql = DATA ONLY of public + auth, COPY format. supabase_migrations is deliberately
+          # excluded (it would collide with the history that `supabase db push` writes); auth.schema_migrations
+          # is excluded for the same reason (a new project already has its own auth migration history).
+          "$PGBIN/pg_dump" "$SUPABASE_DB_URL" --data-only --no-owner -n public -n auth \
+            --exclude-table-data='auth.schema_migrations' -f work/data.sql
+
+          {
+            echo "created_utc=$STAMP"
+            echo "git_commit=${GITHUB_SHA}"
+            echo "migration_version=${mig_version}"
+            echo "pg_dump=$("$PGBIN/pg_dump" --version)"
+            echo "server_major=$server_major"
+            echo "data_schemas=public,auth"
+          } > work/MANIFEST.txt
+          # TODO (optional, later): write the result to public.app_events (table exists via migrations).
+          # That needs the Supabase secret key as a GitHub secret and a REST call; not added on purpose.
+
+          tar -C work -czf work/backup.tar.gz MANIFEST.txt schema.sql data.sql
+          size="$(wc -c < work/backup.tar.gz | tr -d ' ')"
+          echo "Compressed size: $size bytes"
+          if [ "$size" -lt "$MIN_BYTES" ]; then
+            echo "::error::Backup is suspiciously small ($size bytes < $MIN_BYTES). Not uploading."
+            exit 1
+          fi
+
+          printf '%s' "$BACKUP_PASSPHRASE" | gpg --batch --yes --quiet --pinentry-mode loopback \
+            --passphrase-fd 0 --symmetric --cipher-algo AES256 \
+            -o "out/db-backup-${STAMP}.tar.gz.gpg" work/backup.tar.gz
+          rm -rf work
+          ls -l out
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ env.STAMP }}
+          path: out/db-backup-${{ env.STAMP }}.tar.gz.gpg
+          retention-days: 30
+          compression-level: 0
+          if-no-files-found: error
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "Backup job status: ${{ job.status }}, stamp: ${STAMP:-none}" >> "$GITHUB_STEP_SUMMARY"

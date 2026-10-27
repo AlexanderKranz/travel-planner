@@ -1,0 +1,281 @@
+{
+ "_note": "Same query for 2026-03-07 (past, quality=Basic+Live; trimmed to 5 of 383 departures)",
+ "departures": [
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2026-03-07 07:35Z",
+     "local": "2026-03-07 08:35+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-07 07:35Z",
+     "local": "2026-03-07 08:35+01:00"
+    },
+    "runwayTime": {
+     "utc": "2026-03-07 07:46Z",
+     "local": "2026-03-07 08:46+01:00"
+    },
+    "terminal": "1",
+    "checkInDesk": "259-335",
+    "gate": "A36",
+    "runway": "18",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "LEMG",
+     "iata": "AGP",
+     "name": "Málaga",
+     "location": {
+      "lat": 36.6749,
+      "lon": -4.49911
+     },
+     "countryCode": "es",
+     "timeZone": "Europe/Madrid"
+    },
+    "scheduledTime": {
+     "utc": "2026-03-07 10:35Z",
+     "local": "2026-03-07 11:35+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-07 10:22Z",
+     "local": "2026-03-07 11:22+01:00"
+    },
+    "terminal": "PAX",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "number": "LH 1148",
+   "callSign": "DLH06E",
+   "status": "Departed",
+   "codeshareStatus": "IsOperator",
+   "isCargo": false,
+   "aircraft": {
+    "reg": "D-AISF",
+    "modeS": "3C6666",
+    "model": "Airbus A321"
+   },
+   "airline": {
+    "name": "Lufthansa",
+    "iata": "LH",
+    "icao": "DLH"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2026-03-07 12:00Z",
+     "local": "2026-03-07 13:00+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-07 12:00Z",
+     "local": "2026-03-07 13:00+01:00"
+    },
+    "terminal": "1",
+    "checkInDesk": "259-335",
+    "gate": "A28",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "LEMG",
+     "iata": "AGP",
+     "name": "Málaga",
+     "location": {
+      "lat": 36.6749,
+      "lon": -4.49911
+     },
+     "countryCode": "es",
+     "timeZone": "Europe/Madrid"
+    },
+    "scheduledTime": {
+     "utc": "2026-03-07 15:00Z",
+     "local": "2026-03-07 16:00+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-07 14:54Z",
+     "local": "2026-03-07 15:54+01:00"
+    },
+    "terminal": "PAX",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "number": "LH 1150",
+   "callSign": "DLH79H",
+   "status": "Departed",
+   "codeshareStatus": "IsOperator",
+   "isCargo": false,
+   "aircraft": {
+    "reg": "D-AISV",
+    "modeS": "3C6676",
+    "model": "Airbus A321"
+   },
+   "airline": {
+    "name": "Lufthansa",
+    "iata": "LH",
+    "icao": "DLH"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2026-03-07 07:30Z",
+     "local": "2026-03-07 08:30+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-07 07:30Z",
+     "local": "2026-03-07 08:30+01:00"
+    },
+    "terminal": "2",
+    "checkInDesk": "951-953",
+    "gate": "D3",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "LUKK",
+     "iata": "RMO",
+     "name": "Chişinău",
+     "location": {
+      "lat": 46.9277,
+      "lon": 28.931
+     },
+     "countryCode": "md",
+     "timeZone": "Europe/Chisinau"
+    },
+    "quality": []
+   },
+   "number": "H7 402",
+   "status": "Departed",
+   "codeshareStatus": "IsOperator",
+   "isCargo": false,
+   "aircraft": {
+    "reg": "ER-SKY",
+    "modeS": "504E61",
+    "model": "Airbus A319"
+   },
+   "airline": {
+    "name": "HiSky"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2026-03-07 08:16Z",
+     "local": "2026-03-07 09:16+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-07 08:16Z",
+     "local": "2026-03-07 09:16+01:00"
+    },
+    "runwayTime": {
+     "utc": "2026-03-07 08:16Z",
+     "local": "2026-03-07 09:16+01:00"
+    },
+    "runway": "18",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "name": "Unknown"
+    },
+    "quality": []
+   },
+   "number": "SVW 97YX",
+   "callSign": "SVW97YX",
+   "status": "Departed",
+   "codeshareStatus": "IsOperator",
+   "isCargo": false,
+   "aircraft": {
+    "reg": "LX-AMB",
+    "modeS": "4D0230",
+    "model": "Dassault Falcon 7X"
+   },
+   "airline": {
+    "name": "Global Jet Luxembourg",
+    "icao": "SVW"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2026-03-07 06:05Z",
+     "local": "2026-03-07 07:05+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-07 06:05Z",
+     "local": "2026-03-07 07:05+01:00"
+    },
+    "terminal": "1",
+    "checkInDesk": "313-335",
+    "gate": "B24",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "EGLL",
+     "iata": "LHR",
+     "name": "London",
+     "location": {
+      "lat": 51.4706,
+      "lon": -0.461941
+     },
+     "countryCode": "gb",
+     "timeZone": "Europe/London"
+    },
+    "scheduledTime": {
+     "utc": "2026-03-07 07:45Z",
+     "local": "2026-03-07 07:45+00:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-07 07:28Z",
+     "local": "2026-03-07 07:28+00:00"
+    },
+    "runwayTime": {
+     "utc": "2026-03-07 07:28Z",
+     "local": "2026-03-07 07:28+00:00"
+    },
+    "terminal": "2",
+    "baggageBelt": "3",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "number": "LH 924",
+   "callSign": "DLH924",
+   "status": "Departed",
+   "codeshareStatus": "IsOperator",
+   "isCargo": false,
+   "aircraft": {
+    "reg": "D-AINX",
+    "modeS": "3C65D8",
+    "model": "Airbus A320 NEO"
+   },
+   "airline": {
+    "name": "Lufthansa",
+    "iata": "LH",
+    "icao": "DLH"
+   }
+  }
+ ]
+}

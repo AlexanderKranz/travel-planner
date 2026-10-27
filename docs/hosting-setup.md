@@ -25,10 +25,11 @@ The repo `AlexanderKranz/travel-planner` exists. Later, under **Settings → Bra
 ## 2. Supabase: database and login
 1. Sign up at https://supabase.com (GitHub login works).
 2. **New project**: name `travel-planner`, region **Central EU (Frankfurt)**, and a strong database password. Save it in your password manager.
-3. Open **Project Settings → API** and copy:
-   - Project URL → `NEXT_PUBLIC_SUPABASE_URL`
-   - `anon` public key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY` (secret, server only)
+3. Copy the connection details:
+   - **Integrations → Data API**: "API URL" **without** the trailing `/rest/v1/` (e.g. `https://abcd1234.supabase.co`) → `NEXT_PUBLIC_SUPABASE_URL`. The **Connect** button at the top shows it too.
+   - **Project Settings → API Keys**: publishable key (`sb_publishable_…`) → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - **Project Settings → API Keys**: secret key (`sb_secret_…`) → `SUPABASE_SECRET_KEY` (secret, server only)
+   - Ignore the "Legacy API keys" (`anon` / `service_role`).
 4. Under **Authentication → URL Configuration**, set the Site URL to your Vercel URL once you have it (step 4).
 
 Free projects pause after about a week without traffic. The uptime monitor (step 6) prevents this.
@@ -41,7 +42,7 @@ Free projects pause after about a week without traffic. The uptime monitor (step
 1. Sign up at https://vercel.com with your GitHub account and choose the **Hobby** (free) plan.
 2. **Add New → Project** → import `AlexanderKranz/travel-planner`. Vercel detects Next.js automatically.
 3. Before the first deploy, add the variables from `.env.example` under **Environment Variables** (Production and Preview).
-4. **Deploy.** You get a URL like `travel-planner-xyz.vercel.app`.
+4. **Deploy.** The production domain is listed under **Settings → Domains**. Ours is `https://travel-planner-eta-cyan.vercel.app`. URLs with a random ID (e.g. `travel-planner-kmt63rc8w-…`) belong to a single deployment and are behind a Vercel login, so never use them as the app URL.
 5. Under **Settings → Functions**, set the region to **Frankfurt (fra1)** so it's close to the database.
 
 From now on, every push to `main` deploys to production, and every pull request gets its own preview URL. **Rollback:** Deployments → pick an earlier one → **Instant Rollback**.
@@ -49,6 +50,11 @@ From now on, every push to `main` deploys to production, and every pull request 
 ## 5. AeroDataBox: flight schedules (phase 1 spike)
 1. Sign up at https://rapidapi.com and subscribe to **AeroDataBox** on the free/basic plan.
 2. Copy the RapidAPI key → `AERODATABOX_API_KEY`.
+
+## 5b. Login emails (before inviting anyone): open to-do
+Supabase's built-in mailer only delivers to members of your Supabase team, so family and friends would never get their login link. Before inviting anyone, set up your own sender under Supabase → Authentication → Emails → SMTP Settings:
+- **With your own domain:** Resend (free, 3,000 mails/month). Add the DNS records Resend shows you.
+- **Without a domain:** Brevo (free, 300 mails/day) with a verified sender address.
 
 ## 6. Monitoring (phase 0/1)
 - **UptimeRobot** (https://uptimerobot.com, free): add an HTTP monitor for `https://<your-app>/api/health` every 5 minutes, with email alerts.
@@ -64,8 +70,8 @@ npm run dev                  # http://localhost:3000
 ## Secrets overview
 | Name | Where | Secret? |
 |---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Vercel, `.env.local` | no (protected by RLS) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Vercel, `.env.local` | **yes** |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Vercel, `.env.local` | no (protected by RLS) |
+| `SUPABASE_SECRET_KEY` | Vercel, `.env.local` | **yes** |
 | `ANTHROPIC_API_KEY` | Vercel, `.env.local` | **yes** |
 | `AERODATABOX_API_KEY`, `OPENROUTESERVICE_API_KEY` | Vercel, `.env.local` | **yes** |
-| `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE` | GitHub → Settings → Secrets → Actions (phase 1) | **yes** |
+| `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE` | GitHub → Settings → Secrets → Actions (phase 1, see `docs/runbook.md`) | **yes** |
