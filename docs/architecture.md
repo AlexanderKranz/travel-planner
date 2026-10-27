@@ -174,6 +174,7 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
 - **Custom SMTP sender**, required before inviting anyone with their own account. It enables the custom email template (link works on any device) and the 6-digit code.
 - **Backup restore test** (proves backups decrypt and restore); planned for phase 6, earlier if real data accumulates.
 - **DiskStation backup pull** (optional): `scripts/backup/pull-to-nas.sh`, see `docs/runbook.md`.
+- **Sentry source-map token:** the Sentry UI did not work in Alex's browser (2026-10-28). Two org tokens named `vercel-sourcemaps` were created; their values were never shown. Revoke both from a current browser, then create one and set `SENTRY_AUTH_TOKEN` in Vercel. Until then errors are reported without readable source locations.
 
 ## Proposed agent team (`.claude/agents/`)
 I act as the orchestrator: I split the work, delegate it, and integrate and verify the results.
