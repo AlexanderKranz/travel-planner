@@ -19,6 +19,19 @@ export async function deleteAccount(locale: string): Promise<ActionResult> {
   if (!session) return fail("unauthenticated");
   const safeLocale = Locale.catch("de").parse(locale);
 
+  // The shared demo account is never deleted. Fail closed: if the flag cannot be read, refuse.
+  const { data: flag, error: flagError } = await session.supabase
+    .from("profiles")
+    .select("is_demo")
+    .eq("id", session.userId)
+    .maybeSingle();
+  if (flagError || !flag || flag.is_demo) {
+    if (flag?.is_demo) {
+      await logEvent({ event: "account.delete_blocked_demo", level: "warn", userId: session.userId });
+    }
+    return fail("failed");
+  }
+
   const admin = createSupabaseAdminClient();
   // Remove the invite too (S2): a deleted user needs a NEW invite to come back. The email is read
   // from the auth user of the verified session id (never from client input) and never logged.

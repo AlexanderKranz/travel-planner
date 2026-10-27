@@ -1,29 +1,14 @@
 "use server";
 
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { LoginRequest, VerifyCodeInput } from "@/lib/domain/auth";
 import { Locale } from "@/lib/domain/profile";
 import { fail, type ActionResult } from "@/lib/domain/result";
 import { zodIssues } from "@/lib/domain/result";
+import { getAppUrl } from "@/lib/server/app-url";
+import { getDemoCredentials } from "@/lib/server/demo";
 import { logEvent } from "@/lib/server/events";
 import { createSupabaseServerClient } from "@/lib/server/supabase/server";
-
-/**
- * Own origin from the request headers. Supabase only honours redirect URLs on its allow list
- * (Dashboard -> URL Configuration), so a spoofed Host cannot redirect the link elsewhere.
- */
-async function requestOrigin(): Promise<string | null> {
-  try {
-    const h = await headers();
-    const host = h.get("x-forwarded-host") ?? h.get("host");
-    if (!host) return null;
-    const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-    return `${proto.split(",")[0].trim()}://${host.split(",")[0].trim()}`;
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Sends the magic link + 6-digit code. The result is deliberately the same for
@@ -38,15 +23,16 @@ export async function requestLogin(input: {
   const parsed = LoginRequest.safeParse(input);
   if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
 
-  const origin = await requestOrigin();
+  // Configured base URL, never request headers (Host / X-Forwarded-Host are attacker-controlled).
+  const origin = getAppUrl();
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithOtp({
     email: parsed.data.email,
     options: {
       shouldCreateUser: true,
       // The locale travels in the link itself (the email template uses {{ .RedirectTo }}), because
-      // user metadata is ignored for EXISTING users. Without an origin the template link would break,
-      // so the redirect URL is always set when the origin is known.
+      // user metadata is ignored for EXISTING users. If no base URL is configured the
+      // redirect is omitted and Supabase falls back to its Site URL.
       ...(origin ? { emailRedirectTo: `${origin}/auth/confirm?locale=${parsed.data.locale}` } : {}),
       // New users only: read by the signup trigger for the profile locale.
       data: { locale: parsed.data.locale },
@@ -113,4 +99,31 @@ export async function signOut(locale: string): Promise<void> {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
   redirect(`/${safeLocale}/login`);
+}
+
+/**
+ * One-click login for the shared demo account. The password is read server-side only and
+ * signed in on the cookie-bound client, so it never reaches the browser.
+ */
+export async function signInDemo(locale: string): Promise<ActionResult> {
+  const creds = getDemoCredentials();
+  if (!creds) return fail("failed");
+  const safeLocale = Locale.catch("de").parse(locale);
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: creds.email,
+    password: creds.password,
+  });
+  if (error || !data.user) {
+    await logEvent({
+      event: "error.demo_login",
+      level: "error",
+      route: "action:signInDemo",
+      props: { status: error?.status ?? null, code: error?.code ?? null },
+    });
+    return fail("failed");
+  }
+  await logEvent({ event: "auth.demo_login", userId: data.user.id, route: "action:signInDemo" });
+  redirect(`/${safeLocale}/app`);
 }

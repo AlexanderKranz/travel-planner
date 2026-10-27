@@ -17,7 +17,9 @@
     "groups": "Reisegruppen",
     "purposes": "Reisezwecke",
     "settings": "Einstellungen",
-    "signOut": "Abmelden"
+    "signOut": "Abmelden",
+    "demoBanner": "Demo-Modus – Daten sind für alle Demo-Besucher sichtbar und werden regelmäßig zurückgesetzt.",
+    "demoLabel": "Demo-Hinweis"
   },
   "errors": {
     "unauthenticated": "Du bist nicht angemeldet.",
@@ -41,7 +43,12 @@
     "codeInvalid": "Der Code ist ungültig oder abgelaufen.",
     "verify": "Mit Code anmelden",
     "back": "Andere E-Mail-Adresse verwenden",
-    "home": "Zur Startseite"
+    "home": "Zur Startseite",
+    "demo": {
+      "button": "Demo ansehen",
+      "hint": "Gemeinsames Demo-Konto – was du eingibst, ist für andere Demo-Besucher sichtbar und wird regelmäßig zurückgesetzt.",
+      "heading": "Oder ausprobieren"
+    }
   },
   "dashboard": {
     "welcome": "Willkommen",
@@ -208,7 +215,8 @@
       "word": "LÖSCHEN",
       "wordLabel": "Tippe {word} zur Bestätigung",
       "confirm": "Endgültig löschen",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "demoUnavailable": "Im Demo-Konto nicht verfügbar"
     }
   },
   "interests": {

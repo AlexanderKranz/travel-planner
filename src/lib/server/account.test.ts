@@ -5,6 +5,11 @@ const logEvent = vi.fn<(e: unknown) => Promise<void>>(async () => {});
 const deleteUser = vi.fn();
 const signOut = vi.fn();
 const getUserSession = vi.fn();
+const flagResult = vi.fn();
+const sessionClient = {
+  auth: { signOut: (...a: unknown[]) => signOut(...a) },
+  from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => flagResult() }) }) }),
+};
 const redirect = vi.fn((url: string) => {
   throw new Error(`REDIRECT:${url}`);
 });
@@ -39,11 +44,23 @@ beforeEach(() => {
     order.push("deleteUser");
     return { error: null };
   });
-  getUserSession.mockResolvedValue({ userId: "11111111-1111-4111-8111-111111111111", supabase: { auth: { signOut } } });
+  getUserSession.mockResolvedValue({ userId: "11111111-1111-4111-8111-111111111111", supabase: sessionClient });
+  flagResult.mockResolvedValue({ data: { is_demo: false }, error: null });
   signOut.mockResolvedValue({});
 });
 
 describe("deleteAccount", () => {
+  it("never deletes the demo account", async () => {
+    flagResult.mockResolvedValue({ data: { is_demo: true }, error: null });
+    expect(await deleteAccount("de")).toEqual({ ok: false, error: "failed" });
+    expect(deleteUser).not.toHaveBeenCalled();
+    expect(allowlistEq).not.toHaveBeenCalled();
+  });
+  it("fails closed when the demo flag cannot be read", async () => {
+    flagResult.mockResolvedValue({ data: null, error: { message: "x" } });
+    expect(await deleteAccount("de")).toEqual({ ok: false, error: "failed" });
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
   it("removes the invite (lowercased email) before deleting the user", async () => {
     await expect(deleteAccount("de")).rejects.toThrow("REDIRECT:/de");
     expect(allowlistEq).toHaveBeenCalledWith("email", "gone@example.com");

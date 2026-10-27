@@ -1,6 +1,6 @@
 -- STATUS: SKELETON, NOT YET RUNNABLE in the authoring environment (no Docker/psql).
 -- Run with `supabase test db` after `supabase start` (pgTAP is preinstalled in the local stack).
--- Written against migrations 20261027120001..8. Expectations marked [FAILS TODAY] document defects
+-- Written against migrations 20261027120001..9. Expectations marked [FAILS TODAY] document defects
 -- found in review; they pass with the deny-by-default privileges (revoke from anon/authenticated, then
 -- exact grants) in the migrations. Uses no_plan() because the file is still being extended.
 begin;
@@ -113,7 +113,22 @@ select ok(not exists (
   select 1 from information_schema.role_table_grants
    where table_schema = 'public' and grantee = 'anon'), 'anon has no table grants in public');
 
--- ---------- anon sees nothing ----------
+-- ---------- demo account ----------
+reset role;
+select ok(not has_column_privilege('authenticated', 'public.profiles', 'is_demo', 'update'), 'authenticated: cannot update profiles.is_demo');
+select pg_temp.act_as('bbbbbbbb-0000-4000-8000-000000000002');
+select throws_ok($$update public.profiles set is_demo = true where id = 'bbbbbbbb-0000-4000-8000-000000000002'$$,
+  '42501', null, 'user cannot flag self as demo');
+reset role;
+-- as postgres (the secret-key path): the CHECK still keeps demo and admin apart, in both directions
+select throws_ok($$update public.profiles set is_demo = true where id = 'cccccccc-0000-4000-8000-000000000003'$$,
+  '23514', null, 'an admin cannot become demo');
+update public.profiles set is_demo = true where id = 'bbbbbbbb-0000-4000-8000-000000000002';
+select throws_ok($$update public.profiles set role = 'admin' where id = 'bbbbbbbb-0000-4000-8000-000000000002'$$,
+  '23514', null, 'demo user can never be admin');
+update public.profiles set is_demo = false where id = 'bbbbbbbb-0000-4000-8000-000000000002';
+
+-- ---------- -- anon sees nothing ----------
 reset role;
 select set_config('request.jwt.claims', '', true);
 select set_config('role', 'anon', true);

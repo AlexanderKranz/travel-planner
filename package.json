@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "airports:build": "node scripts/airports/build.mjs"
+    "airports:build": "node scripts/airports/build.mjs",
+    "demo:reset": "node scripts/demo/reset.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

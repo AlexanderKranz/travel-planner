@@ -94,3 +94,22 @@ Deferred (see `docs/hosting-setup.md`). Until done, only Supabase team members r
 ## 8. Vercel environment variables
 
 Set under Vercel -> Project -> Settings -> Environment Variables: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY` (Production and Preview; never expose the secret key to the browser).
+
+## 9. Demo account (optional)
+
+One shared account for friends: "View demo" on the login page signs in server-side (the password never reaches the browser). Demo users can create, edit and delete groups and purposes, but cannot delete the account; the demo user is never admin (`profiles.is_demo`, CHECK against `role = 'admin'`).
+
+Requirements: **Authentication -> Sign In / Providers -> Email** must have password sign-in enabled (it is by default; the app itself uses magic links). Signup stays invite-only: the fail-closed trigger and hook still reject any email that is not in `signup_allowlist`; the reset script adds the demo email there.
+
+Set up:
+1. Set `DEMO_ENABLED=true`, `DEMO_EMAIL` (a mailbox-like address, it never receives mail) and `DEMO_PASSWORD` (long random, e.g. `openssl rand -base64 32`) in `.env.local` and in Vercel (Production, and Preview if wanted). Server-only: never `NEXT_PUBLIC_`.
+2. After the migrations are applied (including `20261027120009_demo.sql`), run `npm run demo:reset`. It needs `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` as well, creates the user (or repairs it) and re-seeds the example groups and purposes. Run it again any time to reset the demo data; it is idempotent.
+3. Redeploy so Vercel picks up the variables.
+
+Switch off: set `DEMO_ENABLED=false` (or remove it) and redeploy. The button disappears and `signInDemo` refuses. Existing demo sessions stay valid until the JWT expires (1 hour) unless you also delete the user.
+
+Remove permanently: delete the demo user in Dashboard -> Authentication -> Users (profile and data cascade) and remove the three variables. Delete its `signup_allowlist` row too.
+
+Known limitation: a visitor with the demo session can call the Supabase Auth API directly and change the shared password or email, which locks everyone else out of the demo. The login itself cannot be abused further (the account has no admin rights and sees only its own data). `npm run demo:reset` repairs password and email; run it if the demo stops working. Mitigation if it gets annoying: schedule the script, or switch the demo off.
+
+Also: login emails now use a configured base URL, never the request headers. Set `APP_URL` for a custom domain; on Vercel production `VERCEL_PROJECT_PRODUCTION_URL` is used, locally `http://localhost:3000`.

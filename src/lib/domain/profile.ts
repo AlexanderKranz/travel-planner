@@ -21,6 +21,8 @@ export const Profile = z.object({
   locale: Locale,
   homeAirports: HomeAirports,
   birthdate: BirthDate.nullable(),
+  /** Shared demo account: cannot delete the account or change the email. */
+  isDemo: z.boolean(),
 });
 export type Profile = z.infer<typeof Profile>;
 

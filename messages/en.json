@@ -17,7 +17,9 @@
     "groups": "Travel groups",
     "purposes": "Trip purposes",
     "settings": "Settings",
-    "signOut": "Sign out"
+    "signOut": "Sign out",
+    "demoBanner": "Demo mode – data is visible to all demo visitors and is reset regularly.",
+    "demoLabel": "Demo notice"
   },
   "errors": {
     "unauthenticated": "You are not signed in.",
@@ -41,7 +43,12 @@
     "codeInvalid": "The code is invalid or has expired.",
     "verify": "Sign in with code",
     "back": "Use a different email address",
-    "home": "Back to start page"
+    "home": "Back to start page",
+    "demo": {
+      "button": "View demo",
+      "hint": "Shared demo account – what you enter is visible to other demo visitors and is reset regularly.",
+      "heading": "Or try it out"
+    }
   },
   "dashboard": {
     "welcome": "Welcome",
@@ -208,7 +215,8 @@
       "word": "DELETE",
       "wordLabel": "Type {word} to confirm",
       "confirm": "Delete permanently",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "demoUnavailable": "Not available in the demo account"
     }
   },
   "interests": {

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const logEvent = vi.fn<(e: unknown) => Promise<void>>(async () => {});
@@ -8,21 +8,28 @@ const redirect = vi.fn((url: string) => {
   throw new Error(`REDIRECT:${url}`);
 });
 vi.mock("next/headers", () => ({
-  headers: async () => new Headers({ host: "travel.example", "x-forwarded-proto": "https" }),
+  headers: async () => new Headers({ host: "evil.example", "x-forwarded-host": "evil.example" }),
 }));
+const signInWithPassword = vi.fn();
 vi.mock("next/navigation", () => ({ redirect: (u: string) => redirect(u) }));
 vi.mock("@/lib/server/events", () => ({ logEvent: (e: unknown) => logEvent(e) }));
 vi.mock("@/lib/server/supabase/server", () => ({
-  createSupabaseServerClient: async () => ({ auth: { signInWithOtp, verifyOtp, signOut: vi.fn() } }),
+  createSupabaseServerClient: async () => ({ auth: { signInWithOtp, verifyOtp, signInWithPassword, signOut: vi.fn() } }),
 }));
 
-import { requestLogin, signOut, verifyLoginCode } from "./actions";
+import { requestLogin, signInDemo, signOut, verifyLoginCode } from "./actions";
 
 beforeEach(() => {
+  vi.stubEnv("APP_URL", "https://travel.example");
+  signInWithPassword.mockReset();
   logEvent.mockClear();
   signInWithOtp.mockReset();
   verifyOtp.mockReset();
   redirect.mockClear();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("requestLogin", () => {
@@ -32,6 +39,11 @@ describe("requestLogin", () => {
     expect(signInWithOtp.mock.calls[0][0].options.emailRedirectTo).toBe(
       "https://travel.example/auth/confirm?locale=en",
     );
+  });
+  it("ignores spoofed Host headers and uses the configured base URL", async () => {
+    signInWithOtp.mockResolvedValueOnce({ error: null });
+    await requestLogin({ email: "a@b.de", locale: "de" });
+    expect(JSON.stringify(signInWithOtp.mock.calls)).not.toContain("evil.example");
   });
   it("gives the same neutral answer for invited and non-invited addresses", async () => {
     signInWithOtp.mockResolvedValueOnce({ error: null });
@@ -100,5 +112,35 @@ describe("signOut", () => {
   it("sanitises the locale in the redirect target", async () => {
     await expect(signOut("//evil.com")).rejects.toThrow("REDIRECT:/de/login");
     await expect(signOut("en")).rejects.toThrow("REDIRECT:/en/login");
+  });
+});
+
+describe("signInDemo", () => {
+  const enable = () => {
+    vi.stubEnv("DEMO_ENABLED", "true");
+    vi.stubEnv("DEMO_EMAIL", "demo@example.com");
+    vi.stubEnv("DEMO_PASSWORD", "s3cret-pw");
+  };
+  it("fails without touching Supabase when the demo is disabled", async () => {
+    vi.stubEnv("DEMO_ENABLED", "false");
+    expect(await signInDemo("de")).toEqual({ ok: false, error: "failed" });
+    expect(signInWithPassword).not.toHaveBeenCalled();
+  });
+  it("signs in server-side, redirects and logs no PII or password", async () => {
+    enable();
+    signInWithPassword.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    await expect(signInDemo("en")).rejects.toThrow("REDIRECT:/en/app");
+    expect(signInWithPassword).toHaveBeenCalledWith({ email: "demo@example.com", password: "s3cret-pw" });
+    const logged = JSON.stringify(logEvent.mock.calls);
+    expect(logged).toContain("auth.demo_login");
+    expect(logged).not.toContain("s3cret");
+    expect(logged).not.toContain("@");
+  });
+  it("returns failed when sign-in fails", async () => {
+    enable();
+    signInWithPassword.mockResolvedValue({ data: { user: null }, error: { status: 400, message: "bad s3cret-pw" } });
+    expect(await signInDemo("de")).toEqual({ ok: false, error: "failed" });
+    expect(redirect).not.toHaveBeenCalled();
+    expect(JSON.stringify(logEvent.mock.calls)).not.toContain("s3cret");
   });
 });

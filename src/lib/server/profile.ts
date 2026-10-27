@@ -6,7 +6,7 @@ import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
 import { isKnownIata } from "@/lib/integrations/airports";
 import { getUserSession } from "./session";
 
-const COLUMNS = "id, role, display_name, locale, home_airports, birthdate";
+const COLUMNS = "id, role, display_name, locale, home_airports, birthdate, is_demo";
 
 type ProfileRow = {
   id: string;
@@ -15,6 +15,7 @@ type ProfileRow = {
   locale: string;
   home_airports: string[];
   birthdate: string | null;
+  is_demo: boolean;
 };
 
 function rowToProfile(row: ProfileRow) {
@@ -25,6 +26,7 @@ function rowToProfile(row: ProfileRow) {
     locale: row.locale,
     homeAirports: row.home_airports,
     birthdate: row.birthdate,
+    isDemo: row.is_demo,
   });
 }
 
