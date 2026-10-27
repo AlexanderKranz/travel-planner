@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { ConfirmQuery, safeNextPath } from "@/lib/domain/auth";
+import { ConfirmCodeQuery, ConfirmQuery, safeNextPath } from "@/lib/domain/auth";
 import { Locale } from "@/lib/domain/profile";
 import { routing } from "@/i18n/routing";
 import { logEvent } from "@/lib/server/events";
@@ -8,12 +8,16 @@ import { createSupabaseServerClient } from "@/lib/server/supabase/server";
 export const dynamic = "force-dynamic";
 
 /**
- * Magic-link landing (token-hash flow, works on any device/browser):
- * /auth/confirm?token_hash=...&type=email&locale=de[&next=/de/app]
+ * Magic-link landing. Two link shapes:
+ * - our template (token-hash flow, works on any device/browser):
+ *   /auth/confirm?token_hash=...&type=email&locale=de[&next=/de/app]
+ * - Supabase's default template, used until custom SMTP allows editing templates (PKCE flow,
+ *   same browser only): Supabase verifies and redirects to /auth/confirm?locale=de&code=...
  */
 export async function GET(request: NextRequest) {
   const params = Object.fromEntries(request.nextUrl.searchParams);
   const parsed = ConfirmQuery.safeParse(params);
+  const codeParsed = ConfirmCodeQuery.safeParse(params);
   // Parsed on its own so a bad token still sends the user to the login page in their language.
   const localeParsed = Locale.safeParse(params.locale);
   const locale = localeParsed.success ? localeParsed.data : routing.defaultLocale;
@@ -31,23 +35,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(url);
   };
 
-  if (!parsed.success) return fail("bad_query");
+  if (!parsed.success && !codeParsed.success) return fail("bad_query");
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.verifyOtp({
-    type: parsed.data.type, // "magiclink"/"signup" are legacy names for the email OTP
-    token_hash: parsed.data.token_hash,
-  });
+  const { data, error } = parsed.success
+    ? await supabase.auth.verifyOtp({
+        type: parsed.data.type, // "magiclink"/"signup" are legacy names for the email OTP
+        token_hash: parsed.data.token_hash,
+      })
+    : await supabase.auth.exchangeCodeForSession(codeParsed.data!.code);
   if (error || !data.user) return fail(error?.code ?? "verify_failed");
 
   await logEvent({
     event: "auth.login",
     userId: data.user.id,
     route: "/auth/confirm",
-    props: { method: "link" },
+    props: { method: parsed.success ? "link" : "link_code" },
   });
 
-  const target = safeNextPath(parsed.data.next, `/${locale}/app`);
+  const next = parsed.success ? parsed.data.next : codeParsed.data!.next;
+  const target = safeNextPath(next, `/${locale}/app`);
   const url = request.nextUrl.clone();
   url.pathname = target.split("?")[0];
   url.search = target.includes("?") ? `?${target.split("?").slice(1).join("?")}` : "";

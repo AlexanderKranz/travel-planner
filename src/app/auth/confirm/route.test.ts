@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const logEvent = vi.fn<(e: unknown) => Promise<void>>(async () => {});
 const verifyOtp = vi.fn();
+const exchangeCodeForSession = vi.fn();
 vi.mock("@/lib/server/events", () => ({ logEvent: (e: unknown) => logEvent(e) }));
 vi.mock("@/lib/server/supabase/server", () => ({
-  createSupabaseServerClient: async () => ({ auth: { verifyOtp } }),
+  createSupabaseServerClient: async () => ({ auth: { verifyOtp, exchangeCodeForSession } }),
 }));
 
 import { GET } from "./route";
@@ -20,6 +21,39 @@ beforeEach(() => {
   logEvent.mockClear();
   verifyOtp.mockReset();
   verifyOtp.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+  exchangeCodeForSession.mockReset();
+  exchangeCodeForSession.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+});
+
+describe("GET /auth/confirm with Supabase's default link (?code=)", () => {
+  const code = "0123456789abcdef";
+
+  it("exchanges the code and redirects to /<locale>/app", async () => {
+    const res = await call(`locale=en&code=${code}`);
+    expect(exchangeCodeForSession).toHaveBeenCalledWith(code);
+    expect(verifyOtp).not.toHaveBeenCalled();
+    expect(loc(res).origin).toBe(ORIGIN);
+    expect(loc(res).pathname).toBe("/en/app");
+  });
+
+  it("sends the user back to the login page when the exchange fails", async () => {
+    exchangeCodeForSession.mockResolvedValue({ data: { user: null }, error: { code: "bad_code_verifier" } });
+    const res = await call(`locale=de&code=${code}`);
+    expect(loc(res).pathname).toBe("/de/login");
+    expect(loc(res).searchParams.get("error")).toBe("link_invalid");
+  });
+
+  it("rejects malformed codes without calling Supabase", async () => {
+    const res = await call("locale=de&code=x");
+    expect(exchangeCodeForSession).not.toHaveBeenCalled();
+    expect(loc(res).pathname).toBe("/de/login");
+  });
+
+  it("never leaves the origin via `next`", async () => {
+    const res = await call(`locale=de&code=${code}&next=${encodeURIComponent("//evil.com")}`);
+    expect(loc(res).origin).toBe(ORIGIN);
+    expect(loc(res).pathname).toBe("/de/app");
+  });
 });
 
 describe("GET /auth/confirm", () => {

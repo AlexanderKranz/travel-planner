@@ -22,6 +22,16 @@ export const ConfirmQuery = z.object({
   next: z.string().optional(),
 });
 
+/**
+ * Query of /auth/confirm for Supabase's default email link (PKCE): Supabase verifies the token and
+ * redirects back with `?code=`. Only works in the browser that requested the link (verifier cookie).
+ */
+export const ConfirmCodeQuery = z.object({
+  code: z.string().min(10).max(200),
+  locale: Locale.optional().catch(undefined),
+  next: z.string().optional(),
+});
+
 /** Only same-site relative paths; blocks open redirects like "//evil.com", "/\\evil.com", "/%2Fevil.com". */
 export function safeNextPath(next: string | undefined, fallback: string): string {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return fallback;
