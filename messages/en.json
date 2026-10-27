@@ -1,0 +1,11 @@
+{
+  "meta": {
+    "title": "Travel Planner",
+    "description": "Plan trips with saved travel groups, trip purposes and home airports."
+  },
+  "home": {
+    "title": "Travel Planner",
+    "tagline": "Say once who you travel with and what the trip is about – every next trip builds on it.",
+    "status": "Under construction"
+  }
+}

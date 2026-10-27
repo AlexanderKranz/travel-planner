@@ -1,0 +1,41 @@
+{
+  "$comment": "Derived from a real golf trip; dates shifted to a future year with the same weekdays.",
+  "locale": "de",
+  "trip": {
+    "destination": { "name": "Costa del Sol", "kind": "region" },
+    "startDate": "2038-03-13",
+    "endDate": "2038-03-17",
+    "flights": true,
+    "originAirports": ["FRA"]
+  },
+  "group": {
+    "composition": [{ "count": 2, "ageMode": "relativeToMe", "label": "Golfer" }]
+  },
+  "purpose": {
+    "text": "Golftrip mit einem Freund: jeden Tag eine Runde, an einem Tag 36 Loch. Plätze nicht zu bergig. An- und Abreisetag sind Golftage.",
+    "constraints": [
+      "golf every day, 36 holes on one day",
+      "flat or moderate courses",
+      "max 3 h flight from FRA",
+      "single rooms",
+      "central base, all courses within 1 h drive",
+      "rental car",
+      "arrival day: early flight, then golf near airport, then check-in",
+      "departure day: golf near airport, then flight"
+    ]
+  },
+  "expectations": {
+    "hard": [
+      "flights only from verified schedule data; FRA→AGP direct (LH) present for March",
+      "a golf round on each of the 5 days, one day with two rounds",
+      "day 1 and day 5 courses within ~40 min of AGP",
+      "no course more than 60 min from the base except on travel days",
+      "weather block shows March climate for Málaga"
+    ],
+    "soft": [
+      "items carry status (option/booked/rejected) and price per person",
+      "cost summary per person",
+      "open items listed"
+    ]
+  }
+}

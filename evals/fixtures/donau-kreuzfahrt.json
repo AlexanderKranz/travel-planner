@@ -1,0 +1,42 @@
+{
+  "$comment": "Derived from a real family trip; dates shifted to a future year with the same weekdays. Group uses quick composition.",
+  "locale": "de",
+  "trip": {
+    "destination": { "name": "Donau (Passau – Wien – Linz)", "kind": "region" },
+    "startDate": "2037-12-19",
+    "endDate": "2037-12-23",
+    "flights": false
+  },
+  "group": {
+    "composition": [
+      { "count": 2, "ageMode": "relativeToMe", "label": "Eltern" },
+      { "count": 1, "ageMode": "approx", "age": 1, "label": "Kleinkind" }
+    ],
+    "notes": "Kleinkind braucht Mittagsschlaf; Buggy auf Kopfsteinpflaster ungeeignet."
+  },
+  "purpose": {
+    "text": "Advents-Flusskreuzfahrt mit Kleinkind. Weihnachtsmärkte, entspanntes Tempo, Mittagsschlaf an Bord einplanen.",
+    "constraints": ["fixed port schedule", "toddler nap midday", "early darkness"]
+  },
+  "fixedSchedule": [
+    { "date": "2037-12-19", "place": "Passau", "depart": "16:00" },
+    { "date": "2037-12-20", "place": "Wien", "arrive": "14:00", "depart": "23:59" },
+    { "date": "2037-12-21", "place": "Dürnstein", "arrive": "07:00", "depart": "12:00" },
+    { "date": "2037-12-21", "place": "Melk", "arrive": "15:00", "depart": "21:00" },
+    { "date": "2037-12-22", "place": "Linz", "arrive": "07:00", "depart": "19:30" },
+    { "date": "2037-12-23", "place": "Passau", "arrive": "morning" }
+  ],
+  "expectations": {
+    "hard": [
+      "every shore activity fits inside its port window",
+      "a midday rest/nap block on board on days with a port call around noon",
+      "no flights block",
+      "daylight info shows darkness around 16:15"
+    ],
+    "soft": [
+      "Christmas markets in Passau, Wien and Linz",
+      "one day flagged as highlight",
+      "carrier instead of buggy hinted for cobblestones"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "meta": {
+    "title": "Reiseplaner",
+    "description": "Reisen planen mit gespeicherten Reisegruppen, Reisezwecken und Heimatflughäfen."
+  },
+  "home": {
+    "title": "Reiseplaner",
+    "tagline": "Einmal erzählen, wer mitreist und worum es geht – jede weitere Reise baut darauf auf.",
+    "status": "Im Aufbau"
+  }
+}
