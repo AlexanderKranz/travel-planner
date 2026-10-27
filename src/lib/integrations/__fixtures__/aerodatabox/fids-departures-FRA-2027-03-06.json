@@ -1,0 +1,251 @@
+{
+ "_note": "GET /flights/airports/iata/FRA/2027-03-06T06:00/2027-03-06T18:00?direction=Departure&withLeg=true&withCancelled=false&withCodeshared=false&withCargo=false&withPrivate=false (future, quality=Basic; trimmed to 6 of 329 departures)",
+ "departures": [
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2027-03-06 08:20Z",
+     "local": "2027-03-06 09:20+01:00"
+    },
+    "terminal": "1",
+    "quality": [
+     "Basic"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "LEMG",
+     "iata": "AGP",
+     "name": "Málaga",
+     "location": {
+      "lat": 36.6749,
+      "lon": -4.49911
+     },
+     "countryCode": "es",
+     "timeZone": "Europe/Madrid"
+    },
+    "scheduledTime": {
+     "utc": "2027-03-06 11:20Z",
+     "local": "2027-03-06 12:20+01:00"
+    },
+    "quality": [
+     "Basic"
+    ]
+   },
+   "number": "LH 1148",
+   "status": "Expected",
+   "codeshareStatus": "Unknown",
+   "isCargo": false,
+   "aircraft": {
+    "model": "Airbus A320"
+   },
+   "airline": {
+    "name": "Lufthansa",
+    "iata": "LH",
+    "icao": "DLH"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2027-03-06 08:25Z",
+     "local": "2027-03-06 09:25+01:00"
+    },
+    "terminal": "1",
+    "quality": [
+     "Basic"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "LEMG",
+     "iata": "AGP",
+     "name": "Málaga",
+     "location": {
+      "lat": 36.6749,
+      "lon": -4.49911
+     },
+     "countryCode": "es",
+     "timeZone": "Europe/Madrid"
+    },
+    "scheduledTime": {
+     "utc": "2027-03-06 11:30Z",
+     "local": "2027-03-06 12:30+01:00"
+    },
+    "quality": [
+     "Basic"
+    ]
+   },
+   "number": "4Y 502",
+   "status": "Expected",
+   "codeshareStatus": "Unknown",
+   "isCargo": false,
+   "aircraft": {
+    "model": "Airbus A320"
+   },
+   "airline": {
+    "name": "Flight Alaska"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2027-03-06 07:25Z",
+     "local": "2027-03-06 08:25+01:00"
+    },
+    "terminal": "1",
+    "quality": [
+     "Basic"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "LGIR",
+     "iata": "HER",
+     "name": "Heraklion",
+     "location": {
+      "lat": 35.3397,
+      "lon": 25.1803
+     },
+     "countryCode": "gr",
+     "timeZone": "Europe/Athens"
+    },
+    "scheduledTime": {
+     "utc": "2027-03-06 10:40Z",
+     "local": "2027-03-06 12:40+02:00"
+    },
+    "quality": [
+     "Basic"
+    ]
+   },
+   "number": "4Y 1204",
+   "status": "Expected",
+   "codeshareStatus": "IsOperator",
+   "isCargo": false,
+   "aircraft": {
+    "model": "Airbus A320"
+   },
+   "airline": {
+    "name": "Flight Alaska"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2027-03-06 07:45Z",
+     "local": "2027-03-06 08:45+01:00"
+    },
+    "terminal": "1",
+    "quality": [
+     "Basic"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "LFLL",
+     "iata": "LYS",
+     "name": "Lyon",
+     "location": {
+      "lat": 45.7264,
+      "lon": 5.090829
+     },
+     "countryCode": "fr",
+     "timeZone": "Europe/Paris"
+    },
+    "scheduledTime": {
+     "utc": "2027-03-06 09:05Z",
+     "local": "2027-03-06 10:05+01:00"
+    },
+    "terminal": "1",
+    "quality": [
+     "Basic"
+    ]
+   },
+   "number": "4Y 616",
+   "status": "Expected",
+   "codeshareStatus": "Unknown",
+   "isCargo": false,
+   "aircraft": {
+    "model": "Airbus A320"
+   },
+   "airline": {
+    "name": "Flight Alaska"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2027-03-06 11:45Z",
+     "local": "2027-03-06 12:45+01:00"
+    },
+    "terminal": "1",
+    "quality": [
+     "Basic"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "name": "Torino"
+    },
+    "quality": []
+   },
+   "number": "EN 292",
+   "status": "Expected",
+   "codeshareStatus": "Unknown",
+   "isCargo": false,
+   "aircraft": {
+    "model": "Embraer 195"
+   },
+   "airline": {
+    "name": "Air Dolomiti",
+    "iata": "EN",
+    "icao": "DLA"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2027-03-06 06:05Z",
+     "local": "2027-03-06 07:05+01:00"
+    },
+    "terminal": "1",
+    "quality": [
+     "Basic"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "EGLL",
+     "iata": "LHR",
+     "name": "London",
+     "location": {
+      "lat": 51.4706,
+      "lon": -0.461941
+     },
+     "countryCode": "gb",
+     "timeZone": "Europe/London"
+    },
+    "scheduledTime": {
+     "utc": "2027-03-06 07:45Z",
+     "local": "2027-03-06 07:45+00:00"
+    },
+    "terminal": "2",
+    "quality": [
+     "Basic"
+    ]
+   },
+   "number": "VL 924",
+   "status": "Expected",
+   "codeshareStatus": "Unknown",
+   "isCargo": false,
+   "aircraft": {
+    "model": "Airbus A320 NEO"
+   },
+   "airline": {
+    "name": "Lufthansa City",
+    "iata": "VL",
+    "icao": "LHX"
+   }
+  }
+ ]
+}

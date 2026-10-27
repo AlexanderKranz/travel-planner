@@ -1,0 +1,15 @@
+{
+ "_note": "Error bodies; errors still consume API units",
+ "fids_window_over_12h": {
+  "status": 400,
+  "body": {
+   "message": "The requested period of time be positive and must not be more than 12 hours in duration"
+  }
+ },
+ "fids_beyond_365_days": {
+  "status": 400,
+  "body": {
+   "message": "Specified date-time '04.03.2028 08:00' must not be later than 365 day(s) ahead. There are no flights or flight-derived data available on this date."
+  }
+ }
+}

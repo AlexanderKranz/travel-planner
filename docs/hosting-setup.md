@@ -51,6 +51,11 @@ From now on, every push to `main` deploys to production, and every pull request 
 1. Sign up at https://rapidapi.com and subscribe to **AeroDataBox** on the free/basic plan.
 2. Copy the RapidAPI key → `AERODATABOX_API_KEY`.
 
+## 5b. Login emails (before inviting anyone): open to-do
+Supabase's built-in mailer only delivers to members of your Supabase team, so family and friends would never get their login link. Before inviting anyone, set up your own sender under Supabase → Authentication → Emails → SMTP Settings:
+- **With your own domain:** Resend (free, 3,000 mails/month). Add the DNS records Resend shows you.
+- **Without a domain:** Brevo (free, 300 mails/day) with a verified sender address.
+
 ## 6. Monitoring (phase 0/1)
 - **UptimeRobot** (https://uptimerobot.com, free): add an HTTP monitor for `https://<your-app>/api/health` every 5 minutes, with email alerts.
 - **Sentry** (https://sentry.io, free developer plan): set up in phase 1 by the `devops` agent, which will give you the steps.
