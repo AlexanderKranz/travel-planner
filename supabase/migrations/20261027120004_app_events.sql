@@ -10,7 +10,8 @@ create table if not exists public.app_events (
   user_id     uuid references auth.users (id) on delete set null,
   route       text,
   request_id  text,
-  props       jsonb not null default '{}'::jsonb check (jsonb_typeof(props) = 'object')
+  props       jsonb not null default '{}'::jsonb
+    check (jsonb_typeof(props) = 'object' and pg_column_size(props) < 8192)
 );
 
 create index if not exists app_events_created_at_idx on public.app_events (created_at desc);
@@ -19,7 +20,7 @@ create index if not exists app_events_errors_idx on public.app_events (created_a
 
 alter table public.app_events enable row level security;
 
-revoke all on public.app_events from anon, public;
+revoke all on table public.app_events from anon, authenticated, public;
 grant select on public.app_events to authenticated;
 
 drop policy if exists "app_events: admin select" on public.app_events;

@@ -5,7 +5,11 @@ create table if not exists public.profiles (
   id             uuid primary key references auth.users (id) on delete cascade,
   role           text not null default 'user' check (role in ('user', 'admin')),
   display_name   text check (char_length(display_name) <= 80),
-  locale         text not null default 'de' check (locale ~ '^[a-z]{2}(-[A-Z]{2})?$'),
+  -- Adding a language requires a migration (extend this list together with routing.locales
+  -- in src/i18n/routing.ts and the list in handle_new_user).
+  locale         text not null default 'de' check (locale in ('de', 'en')),
+  -- At most 5 airports, each exactly three capital letters (the joined string matches only
+  -- if every element does; commas cannot occur inside an element).
   home_airports  text[] not null default '{}'
     check (
       cardinality(home_airports) <= 5
@@ -18,7 +22,7 @@ create table if not exists public.profiles (
 
 alter table public.profiles enable row level security;
 
-revoke all on public.profiles from anon, public;
+revoke all on table public.profiles from anon, authenticated, public;
 grant select on public.profiles to authenticated;
 -- Column-level grant: users can NOT change `role` (no self-promotion to admin).
 grant update (display_name, locale, home_airports, birthdate) on public.profiles to authenticated;

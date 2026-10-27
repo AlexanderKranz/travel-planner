@@ -1,11 +1,16 @@
 -- Invite-only signup: an email may create an account only if listed here.
--- Enforced by the Before User Created auth hook (enable it in the Dashboard, see
+-- Enforced by the Before User Created auth hook (first layer) and, fail-closed, by private.handle_new_user
+-- (second layer, works even if the hook is not enabled) (enable it in the Dashboard, see
 -- docs/specs/phase-1-dashboard-steps.md; locally it is enabled in supabase/config.toml).
 
 create table if not exists public.signup_allowlist (
   id          bigint generated always as identity primary key,
   email       extensions.citext not null unique
-    check (email::text = lower(email::text) and position('@' in email::text) > 1),
+    check (
+      email::text = lower(email::text)
+      and email::text = btrim(email::text)
+      and position('@' in email::text) > 1
+    ),
   note        text check (char_length(note) <= 200),
   invited_by  uuid default auth.uid() references public.profiles (id) on delete set null,
   used_at     timestamptz,
@@ -14,8 +19,10 @@ create table if not exists public.signup_allowlist (
 
 alter table public.signup_allowlist enable row level security;
 
-revoke all on public.signup_allowlist from anon, public;
-grant select, insert, delete on public.signup_allowlist to authenticated;
+revoke all on table public.signup_allowlist from anon, authenticated, public;
+grant select, delete on public.signup_allowlist to authenticated;
+-- Admins choose only email + note; used_at/invited_by/created_at are server-controlled (defaults / triggers).
+grant insert (email, note) on public.signup_allowlist to authenticated;
 
 drop policy if exists "signup_allowlist: admin select" on public.signup_allowlist;
 create policy "signup_allowlist: admin select" on public.signup_allowlist
@@ -42,7 +49,12 @@ declare
   v_email text := lower(event -> 'user' ->> 'email');
 begin
   if v_email is not null
-     and exists (select 1 from public.signup_allowlist where email::text = v_email) then
+     -- citext comparison with the schema-qualified operator so the unique index is usable
+     -- (search_path is empty here).
+     and exists (
+       select 1 from public.signup_allowlist
+        where email operator(extensions.=) v_email::extensions.citext
+     ) then
     return '{}'::jsonb;
   end if;
 

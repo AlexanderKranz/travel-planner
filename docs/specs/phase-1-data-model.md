@@ -16,7 +16,7 @@ Not in phase 1: `trips`, `plan_versions`, `share_links` (phase 2/3/5), `api_cach
 - Dates (birthdates, as-of dates) are `date`, exchanged as `YYYY-MM-DD`.
 - Every user-content table has `owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade`. Deleting the auth user deletes all of that user's content.
 - RLS enabled on **every** table in `public`, no exceptions. Policies use `(select auth.uid())` (evaluated once per query, not per row).
-- Explicit grants instead of relying on Supabase's defaults: `revoke all on <table> from anon, public;` then grant only what `authenticated` needs.
+- Explicit grants instead of relying on Supabase's defaults. Supabase grants ALL on new public tables to `anon` and `authenticated`, which makes column-level grants ineffective, so: the base migration runs `alter default privileges in schema public revoke all on tables/sequences/functions from anon, authenticated`, and every table migration runs `revoke all on table public.X from anon, authenticated, public;` followed by exactly the grants needed (column-level insert/update for `profiles`, `trip_purposes`, `signup_allowlist`, `travel_groups`, `group_entries`).
 - Text length limits are enforced in the DB (`check (char_length(x) <= n)`) **and** in Zod. Business rules that change (allowed locales, valid IATA codes, number of entries per group) live only in Zod.
 
 ### Standard owner policies (template)
@@ -207,7 +207,9 @@ Migrations are forward-only, so an unused table designed today would likely need
 4. UI: after "send link" the page always shows the same neutral message ("If this address is invited, a link is on its way"), also on a 403, so it does not reveal who is invited. Existing users always get a link.
 5. Admin manages the list (phase 1: SQL/dashboard; phase 6: admin page). Pending invites = `used_at is null`.
 
-Fallback if the hook is not available on the plan: raise an exception in `private.handle_new_user()` when the email is not allowlisted (aborts the insert into `auth.users`; the error message is uglier but the effect is the same).
+Second layer (implemented, fail-closed): `private.handle_new_user()` raises `signup_not_allowed` when no allowlist row matches the new user's email (aborts the insert into `auth.users`). Signup therefore stays invite-only even if the hook is not enabled in the Dashboard, and for every creation path (Dashboard "Add user", admin API, password signup). Allowlist lookups use `email operator(extensions.=) lower(x)::extensions.citext` so the unique index is used.
+
+Account deletion also deletes the user's allowlist row: a deleted user needs a new invite.
 
 ## 4. Profile creation trigger
 
@@ -390,5 +392,5 @@ Tests (`qa-reviewer`): RLS isolation (user B cannot select/update/delete A's gro
 5. **Structured traits on group entries** (mobility, diet, golf handicap, needs nap) in addition to free-text notes. *Default:* yes, all optional, as in `EntryTraits`; the form shows them collapsed under "more details".
 6. **Stated ages "age up" over time** (an "approx 45" entered today is ~47 for a trip in two years). *Default:* yes, via `age_as_of`; the UI shows "~47 at travel time".
 7. **Guided purpose options** (pace, budget, accommodation, interests list). *Default:* the enums in `PurposeGuided`; the interest list is a static set of ~20 keys plus custom text. Please confirm or edit the lists before `frontend-dev` builds the wizard.
-8. **Account deletion in phase 1.** *Default:* yes, a "delete my account" button in settings (server route with the secret key deletes the auth user; everything cascades). It is cheap now and needed for GDPR anyway.
+8. **Account deletion in phase 1.** (Known and accepted: a deleted user's JWT stays valid until `jwt_expiry`, 1 hour; reads then find no data and server actions fail on missing rows. Deleting the allowlist row means re-registration needs a new invite.) *Default:* yes, a "delete my account" button in settings (server route with the secret key deletes the auth user; everything cascades). It is cheap now and needed for GDPR anyway.
 9. **`app_events` retention.** *Default:* 180 days.

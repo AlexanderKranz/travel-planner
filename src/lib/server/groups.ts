@@ -149,46 +149,17 @@ export async function updateGroup(
     }
   }
 
-  const { data: updated, error } = await supabase
-    .from("travel_groups")
-    .update({ name: parsed.data.name, notes: parsed.data.notes ?? null })
-    .eq("id", id)
-    .select("id")
-    .maybeSingle();
-  if (error) return fail("failed");
-  if (!updated) return fail("not_found");
-
-  // Delete first so a replaced "self" entry cannot collide with the unique index.
-  const removedIds = existing.filter((row) => !keptIds.has(row.id)).map((row) => row.id);
-  if (removedIds.length > 0) {
-    const { error: deleteError } = await supabase.from("group_entries").delete().in("id", removedIds);
-    if (deleteError) return fail("failed");
-  }
-
   const today = todayIso();
-  const rows = parsed.data.entries.map((entry, index) => ({
-    ...entryToRow(entry, index, today, entry.id ? existingById.get(entry.id) : undefined),
-    group_id: id,
-  }));
-  if (rows.length > 0) {
-    // Update existing entries one by one, insert the new ones in a batch.
-    const inserts = rows.filter((row) => !row.id);
-    const updates = rows.filter((row) => row.id);
-    for (const row of updates) {
-      const { id: entryId, group_id: _group, ...patch } = row;
-      void _group;
-      const { error: updateError } = await supabase
-        .from("group_entries")
-        .update(patch)
-        .eq("id", entryId!)
-        .eq("group_id", id);
-      if (updateError) return fail("failed");
-    }
-    if (inserts.length > 0) {
-      const { error: insertError } = await supabase.from("group_entries").insert(inserts);
-      if (insertError) return fail("failed");
-    }
-  }
+  const entries = parsed.data.entries.map((entry, index) =>
+    entryToRow(entry, index, today, entry.id ? existingById.get(entry.id) : undefined),
+  );
+  // One transaction in the database (security invoker, RLS applies): group + entries or nothing.
+  const { error } = await supabase.rpc("replace_group_entries", {
+    p_group_id: id,
+    p_group: { name: parsed.data.name, notes: parsed.data.notes ?? null },
+    p_entries: entries,
+  });
+  if (error) return fail(error.code === "P0002" ? "not_found" : error.code === "22023" ? "invalid" : "failed");
   return loadGroup(supabase, id);
 }
 
@@ -231,14 +202,10 @@ export async function reorderGroupEntries(
     return fail("invalid");
   }
 
-  const results = await Promise.all(
-    parsed.data.ids.map((entryId, position) =>
-      supabase
-        .from("group_entries")
-        .update({ position })
-        .eq("id", entryId)
-        .eq("group_id", parsed.data.groupId),
-    ),
-  );
-  return results.some((r) => r.error) ? fail("failed") : { ok: true };
+  const { error: reorderError } = await supabase.rpc("reorder_group_entries", {
+    p_group_id: parsed.data.groupId,
+    p_ids: parsed.data.ids,
+  });
+  if (reorderError) return fail(reorderError.code === "22023" ? "invalid" : "failed");
+  return { ok: true };
 }

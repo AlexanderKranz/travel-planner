@@ -20,6 +20,25 @@ export async function deleteAccount(locale: string): Promise<ActionResult> {
   const safeLocale = Locale.catch("de").parse(locale);
 
   const admin = createSupabaseAdminClient();
+  // Remove the invite too (S2): a deleted user needs a NEW invite to come back. The email is read
+  // from the auth user of the verified session id (never from client input) and never logged.
+  const { data: authUser } = await admin.auth.admin.getUserById(session.userId);
+  const email = authUser?.user?.email;
+  if (email) {
+    const { error: allowlistError } = await admin
+      .from("signup_allowlist")
+      .delete()
+      .eq("email", email.trim().toLowerCase());
+    if (allowlistError) {
+      await logEvent({
+        event: "error.account_delete",
+        level: "error",
+        userId: session.userId,
+        props: { step: "allowlist" },
+      });
+      return fail("failed");
+    }
+  }
   const { error } = await admin.auth.admin.deleteUser(session.userId);
   if (error) {
     await logEvent({

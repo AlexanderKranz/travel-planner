@@ -1,5 +1,5 @@
-# Nightly encrypted backup of the PRODUCTION database (schema + data of public, auth,
-# supabase_migrations). Result: workflow artifact "db-backup-<UTC timestamp>", kept 30 days.
+# Nightly encrypted backup of the PRODUCTION database: DATA of public + auth (restored) and a
+# reference-only schema dump. MANIFEST.txt records the git commit and latest migration version. Result: workflow artifact "db-backup-<UTC timestamp>", kept 30 days.
 # scripts/backup/pull-to-nas.sh copies it off-site. scripts/backup/restore.sh restores it.
 #
 # Docs checked 2026-10-27:
@@ -73,25 +73,36 @@ jobs:
           fi
 
           # supabase_migrations exists only after the first migration was pushed.
-          schemas="-n public -n auth"
           has_mig="$("$PGBIN/psql" "$SUPABASE_DB_URL" -Atqc "select 1 from pg_namespace where nspname='supabase_migrations'")"
-          if [ "$has_mig" = "1" ]; then schemas="$schemas -n supabase_migrations"; fi
+          mig_version=""
+          if [ "$has_mig" = "1" ]; then
+            mig_version="$("$PGBIN/psql" "$SUPABASE_DB_URL" -Atqc "select coalesce(max(version),'') from supabase_migrations.schema_migrations")"
+          fi
 
-          # Schema: only our own schemas (auth's structure is owned by Supabase and exists in any project).
-          schema_list="-n public"
-          if [ "$has_mig" = "1" ]; then schema_list="$schema_list -n supabase_migrations"; fi
+          # schema.sql = REFERENCE ONLY (documentation of what the database looked like, incl. schema
+          # private, extensions and the trigger on auth.users). It is NOT replayed by restore.sh:
+          # the schema of a new project comes from `supabase db push` at the commit in MANIFEST.txt.
+          ref_schemas="-n public -n private -n extensions -n auth"
+          if [ "$has_mig" = "1" ]; then ref_schemas="$ref_schemas -n supabase_migrations"; fi
           # shellcheck disable=SC2086
-          "$PGBIN/pg_dump" "$SUPABASE_DB_URL" --schema-only --no-owner --clean --if-exists $schema_list -f work/schema.sql
-          # Data: public + auth (+ migration history), COPY format.
-          # shellcheck disable=SC2086
-          "$PGBIN/pg_dump" "$SUPABASE_DB_URL" --data-only --no-owner $schemas -f work/data.sql
+          "$PGBIN/pg_dump" "$SUPABASE_DB_URL" --schema-only --no-owner $ref_schemas -f work/schema.sql
+
+          # data.sql = DATA ONLY of public + auth, COPY format. supabase_migrations is deliberately
+          # excluded (it would collide with the history that `supabase db push` writes); auth.schema_migrations
+          # is excluded for the same reason (a new project already has its own auth migration history).
+          "$PGBIN/pg_dump" "$SUPABASE_DB_URL" --data-only --no-owner -n public -n auth \
+            --exclude-table-data='auth.schema_migrations' -f work/data.sql
 
           {
             echo "created_utc=$STAMP"
+            echo "git_commit=${GITHUB_SHA}"
+            echo "migration_version=${mig_version}"
             echo "pg_dump=$("$PGBIN/pg_dump" --version)"
             echo "server_major=$server_major"
-            echo "schemas=$schemas"
+            echo "data_schemas=public,auth"
           } > work/MANIFEST.txt
+          # TODO (optional, later): write the result to public.app_events (table exists via migrations).
+          # That needs the Supabase secret key as a GitHub secret and a REST call; not added on purpose.
 
           tar -C work -czf work/backup.tar.gz MANIFEST.txt schema.sql data.sql
           size="$(wc -c < work/backup.tar.gz | tr -d ' ')"

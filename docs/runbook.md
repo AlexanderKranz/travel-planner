@@ -31,7 +31,7 @@ Run the migration by hand: Actions -> Deploy database migrations -> **Run workfl
 ### Database - there is no "undo"
 Migrations only go forward. If a migration broke something:
 1. Preferred: write a **new migration** that fixes it (new PR, merge, `deploy-db.yml` applies it).
-2. If data was damaged or lost: restore from backup (section 5) into a **new scratch project**, then copy back what you need, or - last resort, full disaster recovery - restore into production with `--i-know`.
+2. If data was damaged or lost: restore from backup (section 5) into a **new scratch project**, then copy back what you need, or - last resort, full disaster recovery - restore into production with `--allow-prod`.
 
 ## 3. GitHub secrets (one-time setup)
 
@@ -94,30 +94,49 @@ The script needs `curl`; `unzip` is used for an integrity test when present (the
 
 ## 5. Restore
 
-Backups are the `.zip` stored on the NAS (it contains `db-backup-<timestamp>.tar.gz.gpg`). Inside: `schema.sql` (public schema), `data.sql` (data of public, auth, migration history), `MANIFEST.txt`. Roles and Supabase-owned structures are not included; a fresh Supabase project provides them.
+Backups are the `.zip` stored on the NAS (it contains `db-backup-<timestamp>.tar.gz.gpg`). Inside:
+- `data.sql`: data of the schemas `public` and `auth` (this is what gets restored).
+- `schema.sql`: full schema incl. `private`, `extensions`, the trigger on `auth.users`. **Reference only**, it is never replayed.
+- `MANIFEST.txt`: `git_commit` (commit of `main` at backup time) and `migration_version` (latest applied migration).
 
-Restore always goes into a database **you name**. Never into production unless production is lost.
+Why: the structure of a database comes from the migrations in `supabase/migrations/`, not from the dump. So a restore is "new project -> apply the migrations of that commit -> load the data".
 
-1. On your Mac install tools once: `brew install gnupg libpq unzip` and add `libpq` to PATH (`brew link --force libpq`, or follow the brew message). The `psql` major version must be >= the server's.
-2. Create a **scratch Supabase project** (https://supabase.com/dashboard -> New project, region Frankfurt). Leave it empty: do not run migrations. Get its session pooler string as in section 3.
-3. Run (the `--prod-host` value is your production project ref, from `SUPABASE_PROJECT_REF`):
+Restore always goes into a database **you name**. Never into production unless production is lost. `restore.sh` refuses a target whose migration version differs from the MANIFEST.
+
+1. **Tools (once).** `brew install gnupg libpq unzip supabase/tap/supabase`, add `libpq` to PATH (`brew link --force libpq`). `psql` major version must be >= the server's.
+2. **Read the MANIFEST.** Simply start `restore.sh` (step 5) without having done step 4: it prints the MANIFEST before it checks anything and stops on a mismatch. Note `git_commit` and `migration_version`.
+3. **New Supabase project.** https://supabase.com/dashboard -> **New project**, region Frankfurt, choose and save a database password. Leave it empty. Note its Reference ID (Project Settings -> General) and its session pooler string (**Connect** -> Session pooler, as in section 3).
+4. **Apply the migrations of that commit.** In the repo on your Mac:
+   ```
+   git checkout <git_commit from MANIFEST>
+   supabase login
+   supabase link --project-ref <NEW_REF>
+   supabase db push
+   git checkout -    # back to your branch afterwards
+   ```
+   `db push` asks for the new database password. It must end without errors; this creates `private`, the functions, policies and the `auth.users` trigger.
+5. **Load the data.** (`--prod-host` is the production project ref, `SUPABASE_PROJECT_REF`.)
    ```
    export BACKUP_PASSPHRASE='...'   # or omit; gpg will ask. A leading space keeps it out of shell history
    scripts/backup/restore.sh \
      --file ~/Downloads/20261027T010009Z__300__db-backup-20261027T010000Z.zip \
-     --target 'postgresql://postgres.SCRATCHREF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres' \
+     --target 'postgresql://postgres.NEWREF:PASSWORD@aws-0-REGION.pooler.supabase.com:5432/postgres' \
      --prod-host PRODREF
    ```
-   It prints the target host and asks you to type it. Everything runs in one transaction: on any error nothing is changed.
-4. Check the result in the scratch project's Table Editor.
+   It prints the MANIFEST, checks the migration version (before anything else is asked), asks you to type the target host, then loads `data.sql` in one transaction with triggers off. On any error nothing is changed. A version mismatch stops it with the exact `git checkout`/`db push` hint; `--skip-version-check` overrides that (e.g. old backups without `migration_version`; only if you understand why).
+6. **Re-apply Auth settings.** They live in the Dashboard, not in the database, so they are **not in the backup**: Authentication -> URL configuration, providers, email templates, **SMTP**, and the **Before User Created hook** (Authentication -> Hooks). Follow `docs/specs/phase-1-dashboard-steps.md` step by step.
+7. **Verify row counts.** SQL Editor in the old (if still reachable) and new project: `select count(*) from auth.users;` and `select count(*) from public.trips;` (and other main tables). Equal, or production slightly higher.
+8. **Switch over (real disaster only).** Update Vercel env vars `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, and GitHub secrets `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_URL`; redeploy (Deployments -> latest -> Redeploy).
 
-Real disaster (production database lost or unrecoverable): create a new Supabase project, restore into it as above (no `--i-know` needed because it is a new project), then point the app at it: update Vercel env vars `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, the GitHub secrets `SUPABASE_PROJECT_REF`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_URL`, and redeploy. `--i-know` is only for restoring into the *existing* production project and should be a last resort.
+Important: **all users have to log in again** (the new project has a different JWT secret; sessions are not carried over). Password hashes are restored, so passwords keep working.
 
-Known caveats: users stay logged in/out depending on whether the new project's JWT secret differs (they may need to log in again); custom roles' passwords are not in a backup; Storage files are not backed up (the app stores none).
+`--allow-prod` allows restoring into the *existing* production project; last resort only.
+
+Known caveats: custom roles' passwords are not in a backup; Storage files are not backed up (the app stores none); `auth.schema_migrations` and `supabase_migrations` are deliberately not restored (the new project writes its own). Later improvement (TODO in `backup.yml`): write the backup result to `public.app_events`; needs the Supabase secret key as a GitHub secret.
 
 ### Quarterly restore test (put it in your calendar: Jan/Apr/Jul/Oct)
 1. Pull the newest backup from the NAS (or download the artifact from the Actions run page).
-2. Restore it into a scratch project as above.
+2. Restore it into a scratch project as above (steps 3 to 5, 7).
 3. Compare row counts. In the SQL Editor of both projects run `select count(*) from auth.users;` and the same for the main tables (for example `select count(*) from public.trips;`). Production counts should be equal or slightly higher (new data since last night).
 4. Delete the scratch project. Note the date and result somewhere; a backup never restored is only a hope.
 

@@ -22,8 +22,12 @@ export const ConfirmQuery = z.object({
   next: z.string().optional(),
 });
 
-/** Only same-site relative paths; blocks open redirects like "//evil.com" or "/\\evil.com". */
+/** Only same-site relative paths; blocks open redirects like "//evil.com", "/\\evil.com", "/%2Fevil.com". */
 export function safeNextPath(next: string | undefined, fallback: string): string {
   if (!next || !next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return fallback;
+  // Control characters are stripped by URL parsers ("/\t/evil.com" -> "//evil.com").
+  if (/[\u0000-\u001f\u007f]/.test(next)) return fallback;
+  // Encoded slashes/backslashes/controls could be decoded later by a proxy or the router.
+  if (/%(?:2f|5c|0[0-9a-f]|1[0-9a-f]|7f)/i.test(next)) return fallback;
   return next;
 }

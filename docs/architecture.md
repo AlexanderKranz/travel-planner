@@ -160,7 +160,7 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
    - Repo moved into `travel-planner/` (done 2026-10-27)
    - Scaffold, `CLAUDE.md`, `.claude/agents/`, guided account setup, CI (lint, typecheck, test), first deploy of a "hello" page
    - Deployment pipeline: Vercel Git integration, `deploy-db.yml`, branch protection, `/api/health` + uptime monitor
-1. **Accounts & context:** auth + roles, optional groups (quick composition + named members + notes), purposes (free text + guided), home airports, i18n de/en. **Backups go live** (`backup.yml`, NAS pull script, restore script) as soon as there is real data. Sentry is set up.
+1. **Accounts & context:** auth + roles, optional groups (quick composition + named members + notes), purposes (free text + guided), home airports, i18n de/en. **Demo login** (shared demo account, button on the login page, server-side password, example data + reset script, no account deletion or email change, off switch `DEMO_ENABLED`). **Backups go live** (`backup.yml`, NAS pull script, restore script) as soon as there is real data. Sentry is set up.
    *In parallel:* flight-data spike that checks AeroDataBox against real routes (FRA→AGP in March, PAS-area/Danube airports).
 2. **Trip & facts:** trip form, geocoding, weather, daylight, country facts, POI/course candidates, caching
 3. **AI plan:** generation pipeline, plan view, guided and free-text iteration via day patches, version history, token budget

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ConfirmQuery, safeNextPath } from "@/lib/domain/auth";
+import { Locale } from "@/lib/domain/profile";
 import { routing } from "@/i18n/routing";
 import { logEvent } from "@/lib/server/events";
 import { createSupabaseServerClient } from "@/lib/server/supabase/server";
@@ -13,7 +14,9 @@ export const dynamic = "force-dynamic";
 export async function GET(request: NextRequest) {
   const params = Object.fromEntries(request.nextUrl.searchParams);
   const parsed = ConfirmQuery.safeParse(params);
-  const locale = parsed.success && parsed.data.locale ? parsed.data.locale : routing.defaultLocale;
+  // Parsed on its own so a bad token still sends the user to the login page in their language.
+  const localeParsed = Locale.safeParse(params.locale);
+  const locale = localeParsed.success ? localeParsed.data : routing.defaultLocale;
 
   const fail = async (reason: string) => {
     await logEvent({

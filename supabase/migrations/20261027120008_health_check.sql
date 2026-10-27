@@ -9,5 +9,5 @@ as $$
   select jsonb_build_object('ok', true, 'db_time', now())
 $$;
 
-revoke execute on function public.health_check() from public;
+revoke execute on function public.health_check() from public, anon, authenticated;
 grant execute on function public.health_check() to anon, authenticated;

@@ -11,6 +11,17 @@ as $$
 declare
   v_locale text := new.raw_user_meta_data ->> 'locale';
 begin
+  -- Fail closed (B2): invite-only signup must hold even if the Before User Created hook is not
+  -- enabled in the Dashboard, or if a user is created another way (Dashboard "Add user", admin API,
+  -- password signup). Raising here aborts the auth.users insert.
+  if new.email is null
+     or not exists (
+       select 1 from public.signup_allowlist
+        where email operator(extensions.=) lower(new.email)::extensions.citext
+     ) then
+    raise exception 'signup_not_allowed' using errcode = 'P0001';
+  end if;
+
   insert into public.profiles (id, locale, display_name)
   values (
     new.id,
@@ -20,7 +31,7 @@ begin
 
   update public.signup_allowlist
      set used_at = now()
-   where email::text = lower(new.email) and used_at is null;
+   where email operator(extensions.=) lower(new.email)::extensions.citext and used_at is null;
 
   insert into public.app_events (event, user_id) values ('auth.signup', new.id);
 
