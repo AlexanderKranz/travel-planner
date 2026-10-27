@@ -1,5 +1,5 @@
 import { ageOn } from "./age";
-import type { StatedAge } from "./domain/group";
+import type { EntryTraits, StatedAge, TraitKey } from "./domain/group";
 
 /** The part of a group entry that matters for age resolution. */
 export type AgeSource = {
@@ -97,4 +97,12 @@ export function resolveGroupAges(
     isSelf: entry.isSelf ?? false,
     age: resolveAge(entry, travelDate, profileBirthdate),
   }));
+}
+
+/** Keeps only the traits whose key the group has enabled (no hidden data after deselecting). */
+export function stripTraits(traits: EntryTraits | undefined, traitKeys: readonly TraitKey[]): EntryTraits {
+  const allowed = new Set<string>(traitKeys);
+  return Object.fromEntries(
+    Object.entries(traits ?? {}).filter(([key, value]) => allowed.has(key) && value !== undefined),
+  ) as EntryTraits;
 }

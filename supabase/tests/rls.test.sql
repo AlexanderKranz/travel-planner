@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..9. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261028120010. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -96,6 +96,28 @@ set local role authenticated;
 select throws_ok($$select public.replace_group_entries('a0000000-0000-4000-8000-0000000000a1', '{"name":"pwn"}'::jsonb, '[]'::jsonb)$$,
   'P0002', null, 'B cannot replace entries of A group (RLS hides it)');
 select lives_ok($$select public.reorder_group_entries('a0000000-0000-4000-8000-0000000000a1', '{}')$$, 'reorder on a foreign group: no-op or reject') ;
+
+-- ---------- travel_groups.trait_keys ----------
+-- backfill helper (as postgres): ordered keys that appear non-null in any entry's traits
+reset role;
+insert into public.group_entries (group_id, owner_id, kind, count, traits) values
+  ('a0000000-0000-4000-8000-0000000000a1', 'aaaaaaaa-0000-4000-8000-000000000001', 'composition', 1, '{"needsNap":true,"mobility":"stroller","diet":null}'),
+  ('a0000000-0000-4000-8000-0000000000a1', 'aaaaaaaa-0000-4000-8000-000000000001', 'composition', 1, '{"golfHandicap":0}');
+select is(private.group_trait_keys_used('a0000000-0000-4000-8000-0000000000a1'), '{mobility,golfHandicap,needsNap}'::text[], 'backfill: ordered keys used by entries, null ignored');
+select is(private.group_trait_keys_used('a0000000-0000-4000-8000-0000000000ff'), '{}'::text[], 'backfill: no entries -> empty');
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select lives_ok($$update public.travel_groups set trait_keys = '{mobility,needsNap}' where id = 'a0000000-0000-4000-8000-0000000000a1'$$, 'owner can set valid trait_keys');
+select is((select trait_keys from public.travel_groups where id = 'a0000000-0000-4000-8000-0000000000a1'), '{mobility,needsNap}'::text[], 'trait_keys stored in order');
+select throws_ok($$update public.travel_groups set trait_keys = '{mobility,bogus}' where id = 'a0000000-0000-4000-8000-0000000000a1'$$, '23514', null, 'unknown trait key rejected');
+select throws_ok($$update public.travel_groups set trait_keys = '{diet,diet}' where id = 'a0000000-0000-4000-8000-0000000000a1'$$, '23514', null, 'duplicate trait keys rejected');
+select lives_ok($$select public.replace_group_entries('a0000000-0000-4000-8000-0000000000a1', '{"name":"A family 2","notes":null,"trait_keys":["golfHandicap"]}'::jsonb, '[]'::jsonb)$$, 'replace_group_entries sets trait_keys');
+select is((select trait_keys from public.travel_groups where id = 'a0000000-0000-4000-8000-0000000000a1'), '{golfHandicap}'::text[], 'trait_keys updated by replace_group_entries');
+select throws_ok($$select public.replace_group_entries('a0000000-0000-4000-8000-0000000000a1', '{"name":"x","trait_keys":["nope"]}'::jsonb, '[]'::jsonb)$$, '23514', null, 'replace_group_entries rejects unknown trait key');
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
+with u as (update public.travel_groups set trait_keys = '{diet}' where id = 'a0000000-0000-4000-8000-0000000000a1' returning 1)
+select is((select count(*)::int from u), 0, 'B cannot update trait_keys of A group');
 
 -- ---------- grant matrix ----------
 reset role;

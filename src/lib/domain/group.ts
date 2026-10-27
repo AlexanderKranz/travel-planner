@@ -6,6 +6,10 @@ export type AgeMode = z.infer<typeof AgeMode>;
 
 export const MAX_ENTRIES_PER_GROUP = 30;
 
+/** Optional per-entry details a group can enable. Keys equal the EntryTraits property names. */
+export const TRAIT_KEYS = ["mobility", "diet", "golfHandicap", "needsNap"] as const;
+export type TraitKey = (typeof TRAIT_KEYS)[number];
+
 export const EntryTraits = z
   .object({
     mobility: z.enum(["none", "limited", "wheelchair", "stroller"]).optional(),
@@ -75,6 +79,12 @@ export const TravelGroupInput = z
   .object({
     name: z.string().trim().min(1).max(80),
     notes: optionalText(2000),
+    /** Which optional details are relevant for this group (ordered, duplicates dropped). */
+    traitKeys: z
+      .array(z.enum(TRAIT_KEYS))
+      .max(TRAIT_KEYS.length)
+      .default([])
+      .transform((keys) => [...new Set(keys)]),
     entries: z.array(GroupEntry).max(MAX_ENTRIES_PER_GROUP).default([]),
   })
   .superRefine((group, ctx) => {
@@ -93,6 +103,7 @@ export type TravelGroup = {
   id: string;
   name: string;
   notes?: string;
+  traitKeys: TraitKey[];
   createdAt: string;
   updatedAt: string;
   entries: StoredEntry[];

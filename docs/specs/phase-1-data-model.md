@@ -98,7 +98,10 @@ RLS: admins only (`using (private.is_admin())` for select/insert/delete; no upda
 | `owner_id` | uuid | no | `auth.uid()` | FK `auth.users`, cascade |
 | `name` | text | no | — | `char_length between 1 and 80` (e.g. "Familie", "Golf mit Tom") |
 | `notes` | text | yes | — | free-text group notes, `char_length <= 2000` |
+| `trait_keys` | text[] | no | `'{}'` | which optional entry details (traits) this group uses; subset of `mobility, diet, golfHandicap, needsNap` (no duplicates, CHECK; adding a trait needs a migration + `TRAIT_KEYS`). Migration 20261028120010 |
 | `created_at`, `updated_at` | timestamptz | no | `now()` | |
+
+Traits are chosen once per group: on create/update the server strips every entry's `traits` to the group's `trait_keys` (`stripTraits()` in `src/lib/group.ts`), so no hidden data remains after a detail is deselected.
 
 Also `unique (id, owner_id)` (target of the composite FK below). Index: `(owner_id, updated_at desc)`. Standard owner policies.
 A group may be completely empty (only a name, or name + notes): all context is optional.

@@ -2,17 +2,21 @@
 
 import { z } from "zod";
 import {
+  TRAIT_KEYS,
   TravelGroupInput,
+  type GroupEntry,
+  type TraitKey,
   type TravelGroup,
   type TravelGroupSummary,
 } from "@/lib/domain/group";
 import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
+import { stripTraits } from "@/lib/group";
 import { logEvent } from "./events";
 import { entryToRow, rowToEntry, type GroupEntryRow } from "./group-mapping";
 import { getUserSession, todayIso } from "./session";
 
 const Id = z.string().uuid();
-const GROUP_COLUMNS = "id, name, notes, created_at, updated_at";
+const GROUP_COLUMNS = "id, name, notes, trait_keys, created_at, updated_at";
 const ENTRY_COLUMNS =
   "id, group_id, kind, position, count, label, name, is_self, birthdate, age_mode, age, age_as_of, notes, traits";
 
@@ -20,15 +24,21 @@ type GroupRow = {
   id: string;
   name: string;
   notes: string | null;
+  trait_keys: string[];
   created_at: string;
   updated_at: string;
 };
+
+function withStrippedTraits<E extends GroupEntry>(entry: E, traitKeys: TraitKey[]): E {
+  return { ...entry, traits: stripTraits(entry.traits, traitKeys) };
+}
 
 function toGroup(row: GroupRow, entries: GroupEntryRow[]): TravelGroup {
   return {
     id: row.id,
     name: row.name,
     notes: row.notes ?? undefined,
+    traitKeys: row.trait_keys.filter((k): k is TraitKey => (TRAIT_KEYS as readonly string[]).includes(k)),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     entries: entries.map(rowToEntry),
@@ -91,7 +101,11 @@ export async function createGroup(input: TravelGroupInput): Promise<ActionResult
 
   const { data: group, error } = await session.supabase
     .from("travel_groups")
-    .insert({ name: parsed.data.name, notes: parsed.data.notes ?? null })
+    .insert({
+      name: parsed.data.name,
+      notes: parsed.data.notes ?? null,
+      trait_keys: parsed.data.traitKeys,
+    })
     .select("id")
     .single();
   if (error) return fail("failed");
@@ -100,7 +114,7 @@ export async function createGroup(input: TravelGroupInput): Promise<ActionResult
     const today = todayIso();
     const rows = parsed.data.entries.map((entry, index) => ({
       // New group: ignore client-supplied ids.
-      ...entryToRow({ ...entry, id: undefined }, index, today),
+      ...entryToRow(withStrippedTraits({ ...entry, id: undefined }, parsed.data.traitKeys), index, today),
       group_id: group.id,
     }));
     const { error: entriesError } = await session.supabase.from("group_entries").insert(rows);
@@ -151,12 +165,16 @@ export async function updateGroup(
 
   const today = todayIso();
   const entries = parsed.data.entries.map((entry, index) =>
-    entryToRow(entry, index, today, entry.id ? existingById.get(entry.id) : undefined),
+    entryToRow(withStrippedTraits(entry, parsed.data.traitKeys), index, today, entry.id ? existingById.get(entry.id) : undefined),
   );
   // One transaction in the database (security invoker, RLS applies): group + entries or nothing.
   const { error } = await supabase.rpc("replace_group_entries", {
     p_group_id: id,
-    p_group: { name: parsed.data.name, notes: parsed.data.notes ?? null },
+    p_group: {
+      name: parsed.data.name,
+      notes: parsed.data.notes ?? null,
+      trait_keys: parsed.data.traitKeys,
+    },
     p_entries: entries,
   });
   if (error) return fail(error.code === "P0002" ? "not_found" : error.code === "22023" ? "invalid" : "failed");
