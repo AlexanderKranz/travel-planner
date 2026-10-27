@@ -162,3 +162,29 @@ If a secret was committed to git: rotate it first (the old value is burned, even
 5. GitHub Actions: did the last "Deploy database migrations" fail half-way? Look at its log.
 6. If a database problem looks like data loss: stop changing things and go to section 5.
 7. After recovery, write down what happened and why (a few lines are enough).
+
+## 8. Sentry (error tracking)
+
+Sentry collects crashes from the browser and the server and emails you. Docs checked 2026-10-28: https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/ and https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/build/. Setup steps are in `docs/hosting-setup.md` section 6b.
+
+**What it does and does not do**
+- Switched on only when `NEXT_PUBLIC_SENTRY_DSN` is set. Without it the app runs normally and sends nothing.
+- Environment = `VERCEL_ENV` (`production` / `preview`, else `development`); release = `VERCEL_GIT_COMMIT_SHA`, so every error shows which deploy caused it.
+- Privacy: no session replay, no profiling, no performance tracing (`tracesSampleRate` 0), `sendDefaultPii` off. Before sending, `src/lib/sentry-scrub.ts` removes email addresses, tokens (`token_hash`, `code`, `access_token`, `password`, `apikey`, `Authorization`, cookies) from messages, URLs, query strings, breadcrumbs and request data. At most the Supabase user id is attached (we do not set one at all today). Use an EU-region organisation (de.sentry.io) so the data stays in the EU.
+- Handled errors that our code writes with `logEvent()` (table `app_events`) are not sent to Sentry; Sentry only sees unhandled errors. So nothing is reported twice. Do not add Sentry's `captureConsole` integration.
+- Source maps (readable stack traces) are uploaded during the Vercel build only if `SENTRY_AUTH_TOKEN` is set, and deleted from the build output afterwards, so they are never public.
+- No tunnel route (ad-blocker workaround): a few blocked browsers would not report errors, which is acceptable for a family app, and the tunnel would add a route that needs excluding from the middleware and uses function invocations. If it ever matters, add `tunnelRoute: "/api/monitoring"` to `withSentryConfig` in `next.config.ts` (`/api` is already excluded from the middleware matcher).
+
+**Test that it works**
+1. Vercel -> Settings -> Environment Variables: add `SENTRY_TEST_ENABLED` = `true` (Preview only is safest), redeploy.
+2. Open `https://<preview-url>/api/debug/sentry-test`. You get a 500 error page; that is intended.
+3. In Sentry -> Issues, the error "Sentry test error (intentional...)" appears within a minute, with environment and release set and readable file names/lines (if source maps are configured).
+4. Delete `SENTRY_TEST_ENABLED` again and redeploy. Without it the URL returns 404.
+
+**When a Sentry alert email arrives**
+1. Open the issue: check environment, release (commit), and how many users/events.
+2. If it started with the latest deploy and is serious -> Instant Rollback (section 2).
+3. Otherwise fix on a branch; mark the issue "Resolved in next release".
+4. If an issue contains an email or token that the scrubber missed: delete the event in Sentry (Issue -> Delete), then extend `src/lib/sentry-scrub.ts` and its test.
+
+**Rotating `SENTRY_AUTH_TOKEN`:** Sentry -> Settings -> Developer Settings -> Organization Tokens: create a new token, update it in Vercel, redeploy, then revoke the old one.

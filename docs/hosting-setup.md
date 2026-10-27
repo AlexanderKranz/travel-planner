@@ -58,7 +58,27 @@ Supabase's built-in mailer only delivers to members of your Supabase team, so fa
 
 ## 6. Monitoring (phase 0/1)
 - **UptimeRobot** (https://uptimerobot.com, free): add an HTTP monitor for `https://<your-app>/api/health` every 5 minutes, with email alerts.
-- **Sentry** (https://sentry.io, free developer plan): set up in phase 1 by the `devops` agent, which will give you the steps.
+- **Sentry** (free developer plan): see 6b below.
+
+## 6b. Sentry: error tracking
+Sentry emails you when the app crashes. The code is already in the repo and does nothing until you set the DSN. Docs checked 2026-10-28: https://docs.sentry.io/platforms/javascript/guides/nextjs/manual-setup/
+
+1. Go to https://sentry.io/signup/. When asked for the **data storage location / region**, choose **European Union (Germany)**. You cannot change this later. Your organisation will live at `de.sentry.io`.
+2. Create the organisation (name it as you like) and note its **slug** (visible in the URL, `https://<slug>.sentry.io`).
+3. Create a project: **Projects -> Create Project -> platform Next.js**, name `travel-planner`, alert "on every new issue" is fine. Skip the wizard's code steps (the code is done). Note the **project slug**.
+4. Copy the DSN: **Settings -> Projects -> travel-planner -> Client Keys (DSN)**. It looks like `https://<key>@o<id>.ingest.de.sentry.io/<id>`. It is not a password, but treat it tidily.
+5. Create the token for source maps: **Settings -> Developer Settings -> Organization Tokens -> Create New Token**, name `vercel-sourcemaps`. Organization tokens are limited to the scopes needed for CI (releases and source-map upload) and cannot read your issues. Copy it immediately; it is shown once. Put it in your password manager.
+6. In Vercel: **Project -> Settings -> Environment Variables**, add for Production and Preview:
+   - `NEXT_PUBLIC_SENTRY_DSN` = the DSN
+   - `SENTRY_ORG` = org slug
+   - `SENTRY_PROJECT` = project slug
+   - `SENTRY_AUTH_TOKEN` = the token (mark as Sensitive)
+   Also make sure **Settings -> Environment Variables -> "Automatically expose System Environment Variables"** is on (it provides `VERCEL_ENV` and `VERCEL_GIT_COMMIT_SHA`).
+7. **Deployments -> latest -> Redeploy** (env vars only apply to new builds). In the build log you should see no errors; source maps are uploaded and removed from the output.
+8. Verify with a test error: see `docs/runbook.md` section 8 ("Test that it works"). It uses the `SENTRY_TEST_ENABLED` variable.
+9. Alerts: Sentry -> Alerts -> the default rule "Send a notification for high priority issues" emails you. Check the notification email under your user settings.
+
+Free tier note: the Developer plan has a monthly error quota (check https://sentry.io/pricing/); the app sends errors only (no tracing, no replay), so a family-sized app stays far below it.
 
 ## 7. Local development
 ```bash
@@ -74,4 +94,7 @@ npm run dev                  # http://localhost:3000
 | `SUPABASE_SECRET_KEY` | Vercel, `.env.local` | **yes** |
 | `ANTHROPIC_API_KEY` | Vercel, `.env.local` | **yes** |
 | `AERODATABOX_API_KEY`, `OPENROUTESERVICE_API_KEY` | Vercel, `.env.local` | **yes** |
+| `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Vercel | no |
+| `SENTRY_AUTH_TOKEN` | Vercel (build) | **yes** |
+| `SENTRY_TEST_ENABLED` | Vercel, only while testing | no |
 | `SUPABASE_DB_URL`, `BACKUP_PASSPHRASE` | GitHub → Settings → Secrets → Actions (phase 1, see `docs/runbook.md`) | **yes** |

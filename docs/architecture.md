@@ -169,6 +169,12 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
 6. **Admin & hardening:** admin page (users, usage, AI cost, API stats, health, errors), budget alert cron, rate limits, error states, E2E tests, accessibility and mobile polish, invite flow, first restore test, `docs/runbook.md`.
    Usage logging (`ai_usage`, `api_calls`, `app_events`) is built from phase 2/3 onwards, so the admin page has data when it arrives.
 
+### Open items / backlog
+- **Travel group editor still feels clunky** (Alex, 2026-10-28). Already improved: details chosen per group, clearer row types, no order arrows. There's no concrete idea yet, so revisit with fresh eyes (e.g. after phase 2, once groups are used in real trips). Trip purposes are fine as they are (free text + optional chips).
+- **Custom SMTP sender**, required before inviting anyone with their own account. It enables the custom email template (link works on any device) and the 6-digit code.
+- **Backup restore test** (proves backups decrypt and restore); planned for phase 6, earlier if real data accumulates.
+- **DiskStation backup pull** (optional): `scripts/backup/pull-to-nas.sh`, see `docs/runbook.md`.
+
 ## Proposed agent team (`.claude/agents/`)
 I act as the orchestrator: I split the work, delegate it, and integrate and verify the results.
 
