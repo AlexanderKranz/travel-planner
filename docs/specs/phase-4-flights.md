@@ -282,3 +282,22 @@ Order: step 0 → parallel → integrations merges client + builder → backend 
 - **[D8]** Flights load lazily (panel view or plan generation), not in the facts warm-up after trip save.
 - **[D9]** Max flight time comes from a new optional purpose field `maxFlightHours`, else a de/en regex over constraints/text; too-long legs stay visible but are excluded from the plan input.
 - **[D10]** The plan input gets fitting legs as times only (no numbers, airlines); gateways with a verified route replace the heuristic `ap` airport; `plan.flights` is a code snapshot; prompt version `plan-2`.
+
+## 12. Nearby days ("Check ±1 day")
+
+Trigger: a 13 March 2027 (Saturday) FRA→PMI trip; 4Y 512 flies only Wed/Thu/Fri/Sun that month, so the user missed it on the 12th and 14th. The panel now offers the neighbouring days on demand.
+
+- Per pair card and direction a button "Hinflug/Rückflug: ±1 Tag prüfen". It calls `GET /api/trips/[id]/flights/nearby?dir=out|back&from=FRA&to=PMI` (route `src/app/api/trips/[id]/flights/nearby/route.ts`, server code `src/lib/server/facts/flights-nearby.ts`, pure logic `src/lib/flights/nearby.ts`).
+- Looks up FIDS departures (am + pm) of the **departure airport only** (out: origin, back: gateway) for date −1 and date +1: 2 days × 2 windows × 2 units = **8 units cold**, 0 for days already in `api_cache` (same keys as the main lookup, shared by all users).
+- Result: the legs of that pair grouped by real calendar day with weekday, marked "day before/after your date", with Google Flights / Skyscanner links using the nearby date for that leg (the other leg keeps the trip date). Codeshares are removed as in the main lookup; over-limit legs are flagged.
+- Facts for the panel only: not in `plan.flights`, not in the LLM input, no weekday-pattern (step N) lookups.
+- `from`/`to` must be one of the trip's origin × gateway pairs, else HTTP 400 (no arbitrary airports can burn quota). Rate limit 6 requests/min/user.
+- Units are charged exactly as in the main lookup (same `Session`, `cached()` and `assertUnits`; failed or timed-out requests count).
+
+### Decisions (please review)
+- **[D11]** On demand only, never automatic: 8 units per pair and direction would otherwise double the cold cost of every trip.
+- **[D12]** Allowance: one request may spend at most `NEARBY_UNIT_CAP = 8` units (one airport, two days). It is separate from `TRIP_UNIT_CAP = 32`, which only limits the automatic lookup. There is no persistent per-trip counter for nearby checks; repeated clicks on the same pair are free (cache, 7 d TTL), different pairs/directions cost up to 8 each (max ≈ 32 per trip with 2 origins × 2 gateways × both directions), and the global daily cap (40) and monthly margin (40) still apply. Say if you want a hard per-trip counter.
+- **[D13]** Exact trip dates only (`basis = trip_dates`). In sample-week mode (month only) there is no date to look around, so no button is shown and the API answers `no_dates`.
+- **[D14]** Proxy mode (trip date beyond 360 days) is allowed: the proxy date ±1 day (same weekday logic as the main lookup) is queried and labelled "flown on this weekday last year, not yet published"; the shown calendar day is the real trip date ±1. Not called verified.
+- **[D15]** Horizon: in schedule mode a day in the past or beyond 360 days is shown as "not checked" (no call, no proxy), consistent with the main lookup's "no automatic proxy within the horizon".
+- **[D16]** Button is offered only for pairs that have a route in the schedule data (found, or a `routes/daily` entry), because a pair without any route would waste 8 units.

@@ -44,3 +44,21 @@ export type FlightsFacts = {
   maxBlockMin: number | null; // from the purpose (spec section 4)
   quotaLimited: boolean; // at least one lookup refused by the guard
 };
+
+/** One day next to the trip's date for one direction and one airport pair (on-demand "check +/-1 day"). */
+export type NearbyDay = {
+  date: string; // the real calendar day (trip date -1 / +1); legs[].date holds the schedule date actually checked
+  offset: -1 | 1;
+  weekday: number; // 1=Mo..7=Su of `date`
+  legs: FlightLeg[]; // max 6, fitting first, then dep time; codeshares removed
+  complete: boolean; // both am and pm windows fetched (false = partly not checked)
+  checked: boolean; // false = not looked up at all (beyond horizon, in the past, quota or budget)
+};
+export type NearbyFlights = {
+  dir: FlightDir;
+  from: string; // pair origin
+  to: string; // pair gateway (dir back: the departure airport)
+  mode: FlightMode; // proxy = last year's flights on the same weekday, like the main lookup
+  days: NearbyDay[]; // ascending by date
+  quotaLimited: boolean;
+};

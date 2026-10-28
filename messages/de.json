@@ -534,6 +534,29 @@
       "notOperating": "kein Flug",
       "operatingDays": "{days} von {of} Tagen",
       "tooLong": "über deinem Limit von {h} h",
+      "tooLongShort": "über deinem Limit",
+      "nearby": {
+        "checkOut": "Hinflug: ±1 Tag prüfen",
+        "checkBack": "Rückflug: ±1 Tag prüfen",
+        "loading": "Prüfe …",
+        "hint": "Prüft den Tag davor und danach am Abflughafen.",
+        "titleOut": "Hinflug, andere Tage ({from} → {to})",
+        "titleBack": "Rückflug, andere Tage ({from} → {to})",
+        "dayBefore": "Tag vor deinem Datum",
+        "dayAfter": "Tag nach deinem Datum",
+        "none": "An diesem Tag gibt es keinen Direktflug.",
+        "notChecked": "Nicht geprüft (Limit oder Datumsbereich), versuche es später erneut.",
+        "partial": "Nur ein Teil des Tages konnte geprüft werden.",
+        "proxy": "Im letzten Jahr an diesem Wochentag geflogen, noch nicht veröffentlicht. Vor der Buchung prüfen.",
+        "quotaLimited": "Das Tageslimit für Flugabfragen ist erreicht. Versuche es morgen erneut.",
+        "error": "Die Nachbartage konnten nicht geladen werden. Es wird nichts erfunden.",
+        "rateLimited": "Zu viele Anfragen. Bitte versuche es in einer Minute erneut.",
+        "newTab": "öffnet in neuem Tab",
+        "links": {
+          "google": "Google Flights, {date}",
+          "skyscanner": "Skyscanner, {date}"
+        }
+      },
       "change": "Zeiten und Strecken können sich ändern.",
       "newTab": "öffnet in neuem Tab",
       "links": {
