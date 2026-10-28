@@ -27,6 +27,7 @@ function rowToPurpose(row: PurposeRow): TripPurpose {
     text: row.text ?? undefined,
     guided: guided.success ? guided.data : {},
     constraints: row.constraints,
+    tags: null, // parsed_* mapping lands with the phase-3 backend step
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

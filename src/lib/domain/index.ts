@@ -8,3 +8,5 @@ export * from "./auth";
 export * from "./geo";
 export * from "./trip";
 export * from "./facts";
+export * from "./plan";
+export * from "./ai";

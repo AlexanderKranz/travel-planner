@@ -6,6 +6,16 @@ export type ActionError =
   | "unknown_airport"
   | "unknown_place" // trip destination geoId cannot be resolved
   | "limit_reached" // per-user cap (e.g. 30 trips)
+  | "busy" // plan generation lock held
+  | "conflict" // stale base version
+  | "budget_exceeded" // daily AI budget (user, demo or global)
+  | "rate_limited"
+  | "too_long" // trip longer than MAX_PLAN_DAYS
+  | "outdated" // plan basis differs from the trip, cannot iterate
+  | "ai_disabled" // AI_ENABLED off or no API key
+  | "ai_unavailable" // API/network error
+  | "ai_refused" // model refusal
+  | "invalid_output" // model output failed validation
   | "failed";
 
 export type ActionResult<T = void> =
