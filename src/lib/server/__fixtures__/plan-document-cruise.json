@@ -1,0 +1,312 @@
+{
+  "plan": {
+    "v": 1,
+    "locale": "de",
+    "header": {
+      "title": "Advent auf der Donau",
+      "destination": "Donau (Passau – Wien – Linz)",
+      "timing": {
+        "kind": "date",
+        "startDate": "2037-12-19",
+        "endDate": "2037-12-23"
+      },
+      "lengthDays": 5,
+      "group": {
+        "total": 3,
+        "adults": 2,
+        "children": 0,
+        "toddlers": 1,
+        "unknown": 0
+      },
+      "purposeName": "Advents-Flusskreuzfahrt",
+      "generatedAt": "2026-10-28T08:10:00.000Z",
+      "model": "claude-sonnet-5-5",
+      "basis": {
+        "tripUpdatedAt": "2026-10-27T18:30:00.000Z",
+        "groupUpdatedAt": "2026-10-02T09:00:00.000Z",
+        "purposeUpdatedAt": "2026-10-02T09:10:00.000Z"
+      }
+    },
+    "summary": "Entspannte Adventsreise auf der Donau mit Kleinkind: Weihnachtsmärkte in Passau, Wien und Linz, Mittagsschlaf an Bord und Landgänge, die vor der frühen Dunkelheit enden.",
+    "days": [
+      {
+        "n": 1,
+        "date": "2037-12-19",
+        "title": "Passau",
+        "stops": [
+          {
+            "place": "Passau",
+            "to": "16:00",
+            "fixed": true,
+            "acts": [
+              {
+                "at": "10:00",
+                "kind": "see",
+                "text": "Domplatz und Altstadt mit der Trage erkunden",
+                "ref": "way/24771505"
+              },
+              {
+                "at": "11:30",
+                "kind": "food",
+                "text": "Christkindlmarkt am Domplatz"
+              },
+              {
+                "at": "15:00",
+                "kind": "travel",
+                "text": "Einschiffung"
+              }
+            ]
+          }
+        ],
+        "note": "Trage statt Buggy: die Altstadt hat viel Kopfsteinpflaster."
+      },
+      {
+        "n": 2,
+        "date": "2037-12-20",
+        "title": "Wien",
+        "stops": [
+          {
+            "place": "An Bord",
+            "acts": [
+              {
+                "at": "11:30",
+                "until": "13:30",
+                "kind": "rest",
+                "text": "Mittagsschlaf an Bord vor der Ankunft"
+              }
+            ]
+          },
+          {
+            "place": "Wien",
+            "from": "14:00",
+            "to": "23:59",
+            "fixed": true,
+            "acts": [
+              {
+                "at": "14:30",
+                "kind": "see",
+                "text": "Christkindlmarkt am Rathausplatz"
+              },
+              {
+                "at": "16:30",
+                "kind": "food",
+                "text": "Punsch und Maroni, dann zurück aufs Schiff"
+              },
+              {
+                "at": "19:00",
+                "kind": "free",
+                "text": "Abend an Bord"
+              }
+            ]
+          }
+        ],
+        "best": true
+      },
+      {
+        "n": 3,
+        "date": "2037-12-21",
+        "title": "Wachau: Dürnstein und Melk",
+        "stops": [
+          {
+            "place": "Dürnstein",
+            "from": "07:00",
+            "to": "12:00",
+            "fixed": true,
+            "acts": [
+              {
+                "at": "09:00",
+                "until": "10:30",
+                "kind": "see",
+                "text": "Kurzer Spaziergang durch den Ort"
+              },
+              {
+                "at": "11:00",
+                "kind": "travel",
+                "text": "Zurück an Bord"
+              }
+            ]
+          },
+          {
+            "place": "An Bord",
+            "acts": [
+              {
+                "at": "12:00",
+                "until": "14:00",
+                "kind": "rest",
+                "text": "Mittagsschlaf während der Fahrt"
+              }
+            ]
+          },
+          {
+            "place": "Melk",
+            "from": "15:00",
+            "to": "21:00",
+            "fixed": true,
+            "acts": [
+              {
+                "at": "15:15",
+                "until": "16:15",
+                "kind": "see",
+                "text": "Stift Melk von außen, Blick über die Donau"
+              },
+              {
+                "at": "17:00",
+                "kind": "food",
+                "text": "Adventmarkt im Ort"
+              }
+            ]
+          }
+        ],
+        "warn": "Dunkel ab etwa 16:15, Stiftsweg bei Nässe rutschig."
+      },
+      {
+        "n": 4,
+        "date": "2037-12-22",
+        "title": "Linz",
+        "stops": [
+          {
+            "place": "Linz",
+            "from": "07:00",
+            "to": "19:30",
+            "fixed": true,
+            "acts": [
+              {
+                "at": "09:30",
+                "kind": "see",
+                "text": "Hauptplatz und Altstadt"
+              },
+              {
+                "at": "11:30",
+                "until": "14:00",
+                "kind": "rest",
+                "text": "Mittagsschlaf an Bord"
+              },
+              {
+                "at": "15:00",
+                "kind": "shop",
+                "text": "Christkindlmarkt im Volksgarten"
+              },
+              {
+                "at": "18:30",
+                "kind": "travel",
+                "text": "Zurück an Bord"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "n": 5,
+        "date": "2037-12-23",
+        "title": "Ankunft Passau",
+        "stops": [
+          {
+            "place": "Passau",
+            "acts": [
+              {
+                "at": "09:30",
+                "kind": "travel",
+                "text": "Ausschiffung"
+              },
+              {
+                "at": "10:30",
+                "until": "11:15",
+                "kind": "see",
+                "text": "Aussicht von der Festung, falls Zeit bleibt",
+                "ref": "way/27662323"
+              }
+            ]
+          }
+        ],
+        "note": "Heimreise vor dem Mittagsschlaf planen."
+      }
+    ],
+    "notes": [
+      {
+        "kind": "tip",
+        "text": "Warme Kleidung in Schichten, die Märkte sind abends kalt."
+      },
+      {
+        "kind": "warning",
+        "text": "Frühe Dunkelheit: Landgänge vor 16 Uhr beenden."
+      }
+    ],
+    "openItems": [
+      {
+        "text": "Liegezeiten kurz vor Abreise mit der Reederei abgleichen"
+      },
+      {
+        "text": "Kinderbett in der Kabine bestätigen"
+      }
+    ],
+    "packing": [
+      "Babytrage",
+      "Thermoanzug fürs Kleinkind",
+      "Mütze und Handschuhe",
+      "Taschenlampe"
+    ],
+    "places": {
+      "way/24771505": {
+        "name": "Dom St. Stephan",
+        "category": "tourism=attraction",
+        "lat": 48.5742556,
+        "lon": 13.4655289,
+        "distanceKm": 2.6,
+        "osmUrl": "https://www.openstreetmap.org/way/24771505",
+        "wikipedia": "de:Dom St. Stephan",
+        "website": "https://www.bistum-passau.de/dom-kultur/dom-st-stephan-passau",
+        "source": "osm",
+        "fetchedAt": "2026-10-20T09:12:00.000Z"
+      },
+      "way/27662323": {
+        "name": "Veste Oberhaus",
+        "category": "tourism=attraction",
+        "lat": 48.5780899,
+        "lon": 13.4703481,
+        "distanceKm": 3.1,
+        "osmUrl": "https://www.openstreetmap.org/way/27662323",
+        "wikipedia": "de:Veste Oberhaus",
+        "source": "osm",
+        "fetchedAt": "2026-10-20T09:12:00.000Z"
+      }
+    },
+    "facts": {
+      "daylight": {
+        "timezone": "Europe/Berlin",
+        "days": [
+          {
+            "date": "2037-12-19",
+            "sunrise": "07:59",
+            "dusk": "16:55"
+          },
+          {
+            "date": "2037-12-20",
+            "sunrise": "07:59",
+            "dusk": "16:55"
+          },
+          {
+            "date": "2037-12-21",
+            "sunrise": "07:59",
+            "dusk": "16:56"
+          },
+          {
+            "date": "2037-12-22",
+            "sunrise": "07:59",
+            "dusk": "16:56"
+          },
+          {
+            "date": "2037-12-23",
+            "sunrise": "07:59",
+            "dusk": "16:57"
+          }
+        ]
+      },
+      "placesFetchedAt": "2026-10-20T09:12:00.000Z"
+    }
+  },
+  "versionNo": 2,
+  "versionAt": "2026-10-28T08:00:00.000Z",
+  "openDone": [],
+  "items": null,
+  "costs": null
+}

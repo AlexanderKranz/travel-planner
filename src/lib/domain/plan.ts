@@ -177,6 +177,7 @@ export const Plan = z.looseObject({
   facts: PlanFactsDigest,
   // Reserved, not produced in phase 3. Phase 4: verified routes. Phase 5: items with status/cost + cost summary.
   flights: PlanFlights.optional(), // phase 4: code snapshot, never LLM output
+  // Never written: items live in `trip_items`, costs are computed in code.
   items: z.unknown().optional(),
   costs: z.unknown().optional(),
 });
