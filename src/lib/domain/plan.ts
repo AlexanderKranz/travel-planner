@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { IsoDate, optionalText } from "./common";
+import { IataCode } from "./flights";
 import { Locale } from "./profile";
 import { INTEREST_KEYS } from "./interests";
 
@@ -126,6 +127,42 @@ export const PlanFactsDigest = z.object({
 });
 export type PlanFactsDigest = z.infer<typeof PlanFactsDigest>;
 
+export const PlanFlightLeg = z.object({
+  dir: z.enum(["out", "back"]),
+  from: IataCode,
+  to: IataCode,
+  number: z.string().max(10),
+  airline: z.string().max(60).nullable(),
+  dep: HHMM,
+  arr: HHMM,
+  arrDayOffset: z.union([z.literal(0), z.literal(1)]),
+  blockMin: z.number().int().min(0).max(1440),
+  date: IsoDate,
+  weekdays: z.array(z.number().int().min(1).max(7)).max(7).optional(),
+  tooLong: z.literal(true).optional(),
+});
+export const PlanFlights = z.object({
+  basis: z.enum(["trip_dates", "sample_week"]),
+  outDate: IsoDate,
+  backDate: IsoDate,
+  mode: z.object({ out: z.enum(["schedule", "proxy"]), back: z.enum(["schedule", "proxy"]) }),
+  pairs: z
+    .array(
+      z.object({
+        from: IataCode,
+        to: IataCode,
+        status: z.enum(["found", "none", "not_published", "not_checked"]),
+        perDay: z.number().optional(),
+      }),
+    )
+    .max(4),
+  legs: z.array(PlanFlightLeg).max(12),
+  maxBlockMin: z.number().int().nullable(),
+  source: z.literal("aerodatabox"),
+  fetchedAt: z.string(),
+});
+export type PlanFlights = z.infer<typeof PlanFlights>;
+
 export const Plan = z.looseObject({
   // loose: phase 4/5 sections survive older code
   v: z.literal(1),
@@ -139,7 +176,7 @@ export const Plan = z.looseObject({
   places: z.record(OsmKey, PlanPlace), // only places referenced by an activity
   facts: PlanFactsDigest,
   // Reserved, not produced in phase 3. Phase 4: verified routes. Phase 5: items with status/cost + cost summary.
-  flights: z.unknown().optional(),
+  flights: PlanFlights.optional(), // phase 4: code snapshot, never LLM output
   items: z.unknown().optional(),
   costs: z.unknown().optional(),
 });

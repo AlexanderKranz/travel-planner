@@ -12,7 +12,7 @@ const basePlan = (): Plan => {
   llm.days[2].best = true;
   const r = assemblePlan({ llm, stored, header: header(4), digest: {}, locale: "de" });
   if (!r.ok) throw new Error(r.reason);
-  return { ...r.plan, flights: { reserved: true }, futureKey: 1 } as Plan;
+  return { ...r.plan, items: { reserved: true }, futureKey: 1 } as Plan;
 };
 const patch = (over: Partial<LlmPatch> = {}): LlmPatch => ({
   reply: "ok",
@@ -32,7 +32,7 @@ describe("applyPatch", () => {
     expect(r.plan.places["way/2"]).toBeDefined(); // still used by day 4
     expect(r.plan.summary).toBe(base.summary);
     expect(r.plan.notes).toBe(base.notes);
-    expect((r.plan as Record<string, unknown>).flights).toEqual({ reserved: true });
+    expect((r.plan as Record<string, unknown>).items).toEqual({ reserved: true });
     expect((r.plan as Record<string, unknown>).futureKey).toBe(1);
   });
 

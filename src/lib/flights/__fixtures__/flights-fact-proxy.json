@@ -1,0 +1,75 @@
+{
+  "status": "ok",
+  "source": "aerodatabox",
+  "sourceUrl": "https://aerodatabox.com",
+  "fetchedAt": "2026-10-28T09:00:00.000Z",
+  "stale": false,
+  "data": {
+    "basis": "trip_dates",
+    "outDate": "2038-03-13",
+    "backDate": "2038-03-18",
+    "mode": {
+      "out": "proxy",
+      "back": "proxy"
+    },
+    "checkedDates": {
+      "out": "2026-03-14",
+      "back": "2026-03-19"
+    },
+    "origins": [
+      "FRA"
+    ],
+    "gateways": [
+      {
+        "iata": "AGP",
+        "name": "Málaga",
+        "km": 8.4
+      }
+    ],
+    "pairs": [
+      {
+        "from": "FRA",
+        "to": "AGP",
+        "toName": "Málaga",
+        "gatewayKm": 8.4,
+        "status": "found",
+        "perDay": 1.7,
+        "operators": [
+          {
+            "iata": "LH",
+            "name": "Lufthansa"
+          }
+        ],
+        "approxBlockMin": 225
+      }
+    ],
+    "legs": [
+      {
+        "dir": "out",
+        "from": "FRA",
+        "to": "AGP",
+        "number": "LH 1148",
+        "airline": "Lufthansa",
+        "dep": "09:20",
+        "arr": "12:20",
+        "arrDayOffset": 0,
+        "blockMin": 180,
+        "date": "2026-03-14"
+      },
+      {
+        "dir": "back",
+        "from": "AGP",
+        "to": "FRA",
+        "number": "LH 1149",
+        "airline": "Lufthansa",
+        "dep": "13:05",
+        "arr": "16:55",
+        "arrDayOffset": 0,
+        "blockMin": 170,
+        "date": "2026-03-19"
+      }
+    ],
+    "maxBlockMin": 180,
+    "quotaLimited": false
+  }
+}

@@ -16,6 +16,7 @@ export const SOURCES: Record<SourceId, SourceInfo> = {
   wikivoyage: { id: "wikivoyage", homepage: "https://www.wikivoyage.org/", license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/", labelKey: "wikivoyage" },
   wikipedia: { id: "wikipedia", homepage: "https://www.wikipedia.org/", license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/", labelKey: "wikipedia" },
   rest_countries: { id: "rest_countries", homepage: "https://github.com/mledoze/countries", license: "ODbL 1.0", licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/", labelKey: "rest_countries" },
+  aerodatabox: { id: "aerodatabox", homepage: "https://aerodatabox.com", license: "RapidAPI Basic plan (non-commercial, attribution required)", licenseUrl: null, labelKey: "aerodatabox" },
   suncalc: { id: "suncalc", homepage: null, license: "n/a", licenseUrl: null, labelKey: "suncalc" },
 };
 

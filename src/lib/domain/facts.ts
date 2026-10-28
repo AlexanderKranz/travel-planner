@@ -1,13 +1,14 @@
 import type { InterestKey } from "./interests";
+import type { FlightsFacts } from "./flights";
 import type { Locale } from "./profile";
 
-export type SourceId = "open_meteo" | "geonames" | "osm" | "wikivoyage" | "wikipedia" | "rest_countries" | "suncalc";
+export type SourceId = "open_meteo" | "geonames" | "osm" | "wikivoyage" | "wikipedia" | "rest_countries" | "suncalc" | "aerodatabox";
 
 export type Fact<T> =
   | { status: "ok"; data: T; source: SourceId; sourceUrl?: string;
       fetchedAt: string;   // ISO timestamp; for computed facts = computation time; for static data = dataset date
       stale: boolean }
-  | { status: "unavailable"; reason: "no_location" | "no_country" | "not_found" | "provider_error"; source?: SourceId };
+  | { status: "unavailable"; reason: "no_location" | "no_country" | "not_found" | "provider_error" | "no_origin" | "no_dates" | "disabled"; source?: SourceId };
 
 export type MonthlyClimate = {
   month: number;          // 1..12
@@ -82,6 +83,7 @@ export type TripFacts = {
   country: Fact<CountryFacts>;
   summary: Fact<DestinationSummary>;
   places: Fact<PlacesFacts>;   // outer fetchedAt = oldest group fetchedAt
+  flights?: Fact<FlightsFacts>; // optional: only the plan pipeline fills it (phase 4)
 };
 
 /** Context for facts functions. `userId` is for api_calls logging (null for cron/seed). */

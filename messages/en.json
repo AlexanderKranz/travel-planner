@@ -549,6 +549,11 @@
         "provides": "Country facts such as currency, language and driving side from a bundled dataset (rebuilt about yearly).",
         "license": "ODbL 1.0, data as of the build date."
       },
+      "aerodatabox": {
+        "label": "Flight schedules: AeroDataBox",
+        "provides": "Direct flight schedules via RapidAPI.",
+        "license": "RapidAPI Basic plan (non-commercial use, attribution required)."
+      },
       "suncalc": {
         "label": "computed (suncalc)",
         "provides": "Sunrise, sunset and twilight, calculated from coordinates and date.",

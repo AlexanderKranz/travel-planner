@@ -549,6 +549,11 @@
         "provides": "Länderinfos wie Währung, Sprache und Fahrseite aus einem mitgelieferten Datensatz (etwa jährlich neu erstellt).",
         "license": "ODbL 1.0, Daten zum Erstellungsdatum."
       },
+      "aerodatabox": {
+        "label": "Flugpläne: AeroDataBox",
+        "provides": "Direktflug-Flugpläne über RapidAPI.",
+        "license": "RapidAPI Basic-Plan (nicht kommerzielle Nutzung, Namensnennung erforderlich)."
+      },
       "suncalc": {
         "label": "berechnet (suncalc)",
         "provides": "Sonnenaufgang, -untergang und Dämmerung, berechnet aus Koordinaten und Datum.",
