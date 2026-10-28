@@ -15,7 +15,7 @@ export default async function TripsPage({ params }: { params: Promise<{ locale: 
   return (
     <main className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl">{t("title")}</h1>
         <Link href="/app/trips/new" className={btnPrimary}>
           {t("new")}
         </Link>

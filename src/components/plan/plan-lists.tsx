@@ -3,7 +3,7 @@ import { mutedCls } from "@/components/ui/styles";
 import type { Plan } from "@/lib/domain/plan";
 import { openItemKey } from "@/lib/plan/open-items";
 
-const box = "rounded-lg border border-neutral-300 p-3 dark:border-neutral-700 sm:p-4";
+const box = "rounded-[14px] border border-line bg-card p-4 sm:p-5";
 
 /** Tips and warnings, open items and packing list in one compact block. */
 export function PlanNotes({ notes }: { notes: Plan["notes"] }) {
@@ -11,7 +11,7 @@ export function PlanNotes({ notes }: { notes: Plan["notes"] }) {
   if (notes.length === 0) return null;
   return (
     <section aria-labelledby="plan-notes" className={box}>
-      <h3 id="plan-notes" className="mb-2 text-base font-semibold">
+      <h3 id="plan-notes" className="mb-3 text-lg font-bold">
         {t("notes.title")}
       </h3>
       <ul className="flex flex-col gap-1.5 text-sm">
@@ -20,7 +20,7 @@ export function PlanNotes({ notes }: { notes: Plan["notes"] }) {
             key={i}
             className={
               n.kind === "warning"
-                ? "rounded-md border border-amber-600 bg-amber-50 px-2.5 py-1.5 text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-100"
+                ? "rounded-[10px] bg-warn-bg px-3 py-2 text-warn-fg"
                 : ""
             }
           >
@@ -39,7 +39,7 @@ export function PlanOpenItems({ items, done = [] }: { items: Plan["openItems"]; 
   if (items.length === 0) return null;
   return (
     <section aria-labelledby="plan-open" className={box}>
-      <h3 id="plan-open" className="mb-2 text-base font-semibold">
+      <h3 id="plan-open" className="mb-3 text-lg font-bold">
         {t("openItems.title")}
       </h3>
       <ul className="space-y-1 text-sm">
@@ -66,12 +66,12 @@ export function PlanPacking({ items }: { items: Plan["packing"] }) {
   if (items.length === 0) return null;
   return (
     <section aria-labelledby="plan-packing" className={box}>
-      <h3 id="plan-packing" className="mb-2 text-base font-semibold">
+      <h3 id="plan-packing" className="mb-3 text-lg font-bold">
         {t("packing.title")}
       </h3>
       <ul className="flex flex-wrap gap-1.5 text-sm">
         {items.map((it, i) => (
-          <li key={i} className="rounded-full border border-neutral-400 px-2.5 py-0.5 dark:border-neutral-500">
+          <li key={i} className="rounded-full border border-line-strong bg-card px-3 py-1">
             {it}
           </li>
         ))}

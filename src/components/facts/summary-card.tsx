@@ -15,7 +15,7 @@ export function SummaryCard({ data }: { data: DestinationSummary & { paragraphs?
       {paragraphs.map((p, i) => (
         <p
           key={i}
-          className={i === 0 ? "text-lg leading-relaxed" : "leading-relaxed text-neutral-800 dark:text-neutral-200"}
+          className={i === 0 ? "text-lg leading-relaxed" : "leading-relaxed text-ink"}
         >
           {p}
         </p>

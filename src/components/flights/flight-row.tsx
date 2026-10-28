@@ -12,7 +12,7 @@ export function FlightList({ withAction, className = "", children }: { withActio
   const cols = withAction
     ? "grid-cols-[minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,1fr)_auto_auto]"
     : "grid-cols-[minmax(0,1fr)] sm:grid-cols-[minmax(0,1fr)_auto]";
-  return <ul className={`grid ${cols} gap-x-3 divide-y divide-neutral-200 dark:divide-neutral-800 ${className}`}>{children}</ul>;
+  return <ul className={`grid ${cols} gap-x-3 divide-y divide-line ${className}`}>{children}</ul>;
 }
 
 /**
@@ -37,7 +37,7 @@ export function FlightRow({
   const { h, m } = durationParts(leg.blockMin);
   const withAction = action !== undefined;
   return (
-    <li className={`col-span-full grid grid-cols-subgrid items-center gap-y-0.5 py-1.5 text-sm ${leg.tooLong ? "text-neutral-600 dark:text-neutral-400" : ""}`}>
+    <li className={`col-span-full grid grid-cols-subgrid items-center gap-y-0.5 py-1.5 text-sm ${leg.tooLong ? "text-muted" : ""}`}>
       <span className={`min-w-0 ${withAction ? "col-span-2 sm:col-span-1" : ""}`}>
         <span className="whitespace-nowrap font-medium tabular-nums">
           {leg.dep} – {leg.arr}

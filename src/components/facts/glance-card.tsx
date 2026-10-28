@@ -1,7 +1,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import type { CountryFacts, DaylightFacts, Fact, WeatherFacts } from "@/lib/domain";
 import { monthName } from "@/components/trips/trip-title";
-import { mutedCls } from "@/components/ui/styles";
+import { labelCls, mutedCls } from "@/components/ui/styles";
 import { climateGlance, flagEmoji, glanceMonths, middleDay } from "@/lib/facts/glance";
 import { SourcesLine, sourceItem } from "./sources-line";
 
@@ -27,20 +27,19 @@ function monthsLabel(months: number[], locale: string) {
     : months.map((m) => monthName(m, locale)).join(", ");
 }
 
-function Row({ icon, label, children }: { icon: string; label: string; children: React.ReactNode }) {
+const chipCls =
+  "inline-flex items-center gap-1 rounded-full border border-line bg-page px-2.5 py-1 text-xs text-ink";
+
+/** Fact tile: small uppercase caption, big serif value, one quiet line below (Atlas). */
+function Tile({ label, value, children }: { label: string; value: React.ReactNode; children?: React.ReactNode }) {
   return (
-    <div className="flex items-baseline gap-2 py-1">
-      <dt className={`flex min-w-0 flex-1 items-baseline gap-2 text-sm ${mutedCls}`}>
-        <span aria-hidden="true">{icon}</span>
-        {label}
-      </dt>
-      <dd className="text-right text-sm font-semibold tabular-nums">{children}</dd>
-    </div>
+    <section aria-label={label} className="flex min-w-0 flex-col gap-1 rounded-xl border border-line bg-card p-4 sm:p-5">
+      <h3 className={labelCls}>{label}</h3>
+      <p className="break-words font-serif text-2xl font-bold leading-tight text-heading sm:text-[1.75rem]">{value}</p>
+      {children}
+    </section>
   );
 }
-
-const chipCls =
-  "inline-flex items-center gap-1 rounded-full border border-neutral-300 bg-white px-2.5 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-950";
 
 export function GlanceCard({
   weather,
@@ -89,88 +88,86 @@ export function GlanceCard({
 
   return (
     <div className="flex flex-col gap-3">
-      {climate && (
-        <section aria-label={t("climateFor", { months: monthsLabel(months.map((m) => m.month), locale) })}>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-300">
-            {t("climateFor", { months: monthsLabel(months.map((m) => m.month), locale) })}
-          </h3>
-          <dl className="divide-y divide-neutral-200 dark:divide-neutral-800">
-            <Row icon="🌡" label={t("temperature")}>
-              <span className="sr-only">{tw("tMax")} </span>
-              {deg(climate.tMaxC)}
-              <span aria-hidden="true"> / </span>
-              <span className="sr-only">, {tw("tMin")} </span>
-              {deg(climate.tMinC)}
-            </Row>
-            <Row icon="🌧" label={tw("wetDays")}>{one(climate.wetDays)}</Row>
-            <Row icon="☀️" label={tw("sun")}>{t("hoursPerDay", { h: one(climate.sunshineHours) })}</Row>
-          </dl>
-        </section>
-      )}
-      {day && (
-        <section aria-label={t("daylightOn", { date: dayLabel })}>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-300">
-            {t("daylightOn", { date: dayLabel })}
-          </h3>
-          <dl className="divide-y divide-neutral-200 dark:divide-neutral-800">
-            {day.polar ? (
-              <Row icon="🌅" label={td("hours")}>{td(day.polar === "day" ? "polarDay" : "polarNight")}</Row>
-            ) : (
+      <div className="grid gap-3 sm:grid-cols-3">
+        {climate && (
+          <Tile
+            label={t("climateFor", { months: monthsLabel(months.map((m) => m.month), locale) })}
+            value={
               <>
-                <Row icon="🌅" label={t("sunriseSunset")}>
-                  {time(day.sunrise)}–{time(day.sunset)}
-                </Row>
-                <Row icon="🌆" label={td("dusk")}>{time(day.dusk)}</Row>
+                <span className="sr-only">{tw("tMax")} </span>
+                {deg(climate.tMaxC)}
+                <span aria-hidden="true"> / </span>
+                <span className="sr-only">, {tw("tMin")} </span>
+                {deg(climate.tMinC)}
               </>
+            }
+          >
+            <p className="text-sm text-muted">
+              {one(climate.wetDays)} {tw("wetDays")} · {tw("sun")}: {t("hoursPerDay", { h: one(climate.sunshineHours) })}
+            </p>
+          </Tile>
+        )}
+        {day && (
+          <Tile
+            label={t("daylightOn", { date: dayLabel })}
+            value={
+              day.polar ? td(day.polar === "day" ? "polarDay" : "polarNight") : `${time(day.sunrise)}–${time(day.sunset)}`
+            }
+          >
+            {!day.polar && (
+              <p className="text-sm text-muted">
+                {td("dusk")} {time(day.dusk)}
+              </p>
             )}
-          </dl>
-        </section>
-      )}
-      {c && (
-        <section aria-label={tc("title")}>
-          <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-300">
-            {tc("title")}
-          </h3>
-          <ul className="flex flex-wrap gap-1.5">
-            <li className={`${chipCls} font-semibold`}>
-              {flag && <span aria-hidden="true">{flag}</span>}
-              {regionName(c.code, locale, c.nameEn)}
-            </li>
-            {c.currencies.slice(0, 2).map((cur) => (
-              <li key={cur.code} className={chipCls}>
-                <span aria-hidden="true">💱</span>
-                <span className="sr-only">{tc("currency")}: </span>
-                {currencyLabel(cur)}
-              </li>
-            ))}
-            {c.callingCodes[0] && (
+          </Tile>
+        )}
+        {c && (
+          <Tile
+            label={tc("title")}
+            value={
+              <>
+                {flag && <span aria-hidden="true">{flag} </span>}
+                {regionName(c.code, locale, c.nameEn)}
+              </>
+            }
+          >
+            <ul className="mt-1 flex flex-wrap gap-1.5">
+              {c.currencies.slice(0, 2).map((cur) => (
+                <li key={cur.code} className={chipCls}>
+                  <span aria-hidden="true">💱</span>
+                  <span className="sr-only">{tc("currency")}: </span>
+                  {currencyLabel(cur)}
+                </li>
+              ))}
+              {c.callingCodes[0] && (
+                <li className={chipCls}>
+                  <span aria-hidden="true">📞</span>
+                  <span className="sr-only">{tc("callingCode")}: </span>
+                  {c.callingCodes[0]}
+                </li>
+              )}
               <li className={chipCls}>
-                <span aria-hidden="true">📞</span>
-                <span className="sr-only">{tc("callingCode")}: </span>
-                {c.callingCodes[0]}
+                <span aria-hidden="true">🚗</span>
+                <span className="sr-only">{tc("driving")}: </span>
+                {tc(c.drivingSide)}
               </li>
-            )}
-            <li className={chipCls}>
-              <span aria-hidden="true">🚗</span>
-              <span className="sr-only">{tc("driving")}: </span>
-              {tc(c.drivingSide)}
-            </li>
-            {tzText && (
-              <li className={chipCls}>
-                <span aria-hidden="true">🕒</span>
-                <span className="sr-only">{tc("timezone")}: </span>
-                {tzText}
-              </li>
-            )}
-          </ul>
-        </section>
-      )}
+              {tzText && (
+                <li className={chipCls}>
+                  <span aria-hidden="true">🕒</span>
+                  <span className="sr-only">{tc("timezone")}: </span>
+                  {tzText}
+                </li>
+              )}
+            </ul>
+          </Tile>
+        )}
+      </div>
       {reasons.length > 0 && (
         <p className={`text-xs ${mutedCls}`}>
           {t("missing")} {reasons.map((r) => tu(r)).join(" ")}
         </p>
       )}
-      <SourcesLine items={[weather, daylight, country].map(sourceItem)} className="border-t border-neutral-200 pt-2 dark:border-neutral-800" />
+      <SourcesLine items={[weather, daylight, country].map(sourceItem)} className="" />
     </div>
   );
 }

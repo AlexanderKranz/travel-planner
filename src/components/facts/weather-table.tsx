@@ -25,12 +25,12 @@ function MonthsTable({
       role="region"
       aria-label={caption}
       tabIndex={0}
-      className="overflow-x-auto rounded-md focus-visible:outline-2 focus-visible:outline-blue-600"
+      className="overflow-x-auto rounded-md focus-visible:outline-2 focus-visible:outline-focus"
     >
       <table className="w-full min-w-[30rem] text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>
-          <tr className="border-b border-neutral-300 dark:border-neutral-700">
+          <tr className="border-b border-line">
             <th scope="col" className={th}>{t("month")}</th>
             <th scope="col" className={th}>{t("tMax")}</th>
             <th scope="col" className={th}>{t("tMin")}</th>
@@ -45,8 +45,8 @@ function MonthsTable({
             return (
               <tr
                 key={m.month}
-                className={`border-b border-neutral-200 last:border-0 dark:border-neutral-800 ${
-                  selected ? "bg-blue-50 font-semibold dark:bg-blue-950" : ""
+                className={`border-b border-line last:border-0 ${
+                  selected ? "bg-info-bg font-semibold" : ""
                 }`}
               >
                 <th scope="row" className={th}>

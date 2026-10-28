@@ -7,7 +7,7 @@ import type { TimingDraft } from "./trip-draft";
 import { monthName } from "./trip-title";
 
 const chip =
-  "flex min-h-11 cursor-pointer items-center justify-center rounded-md border border-neutral-400 px-3 text-sm select-none dark:border-neutral-500 has-[:checked]:border-blue-700 has-[:checked]:bg-blue-700 has-[:checked]:text-white dark:has-[:checked]:border-blue-400 dark:has-[:checked]:bg-blue-400 dark:has-[:checked]:text-neutral-950 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-blue-600";
+  "flex min-h-11 cursor-pointer items-center justify-center rounded-md border border-line-strong px-3 text-sm select-none has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-white has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus";
 
 export function TimingField({
   value,

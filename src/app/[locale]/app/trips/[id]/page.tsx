@@ -1,12 +1,13 @@
 import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { FactSkeleton } from "@/components/facts/fact-skeleton";
-import { cardCls } from "@/components/ui/styles";
+import { cardCls, linkCls } from "@/components/ui/styles";
 import { ItemsSection } from "@/components/items/items-section";
 import { SharePanel } from "@/components/share/share-panel";
 import { PlanSection } from "@/components/plan/plan-section";
 import { TripContext, type ContextGroup } from "@/components/trips/trip-context";
 import { TripHeader } from "@/components/trips/trip-header";
+import { TripHeroPills } from "@/components/trips/trip-hero-pills";
 import { Link } from "@/i18n/navigation";
 import { berlinToday } from "@/lib/date";
 import { Locale, type FactsCtx } from "@/lib/domain";
@@ -31,7 +32,7 @@ export const maxDuration = 300;
 function PanelFallback({ title, className }: { title: string; className?: string }) {
   return (
     <section aria-label={title} className={`${className ?? cardCls} min-w-0`}>
-      <h2 className="mb-3 text-lg font-semibold">{title}</h2>
+      <h2 className="mb-3 text-lg font-bold">{title}</h2>
       <FactSkeleton />
     </section>
   );
@@ -92,8 +93,13 @@ export default async function TripDetailPage({
   const panel = { trip, purpose, ctx };
 
   return (
-    <main data-wide className="flex flex-col gap-6">
-      <TripHeader trip={trip} />
+    <main data-wide className="flex flex-col gap-8">
+      <TripHeader trip={trip} purposeName={purpose?.name ?? null} pills={<TripHeroPills trip={trip} group={group} />} />
+      {/* Fact tiles right under the hero: climate, daylight, country (cached facts, fast). */}
+      <Suspense fallback={<PanelFallback title={t("glance.title")} className={glanceAsideCls} />}>
+        <GlancePanel {...panel} />
+      </Suspense>
+      <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} partySize={partySize} startDate={startDate} />
       <TripContext
         trip={trip}
         group={group}
@@ -101,38 +107,27 @@ export default async function TripDetailPage({
         purpose={purpose}
         profileAirports={profile.homeAirports}
       />
-      <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} partySize={partySize} startDate={startDate} />
       {/* Same 2/3 + 1/3 split as the plan at lg; stacked on phones. */}
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:items-start lg:gap-x-8">
         <ItemsSection tripId={trip.id} lengthDays={trip.lengthDays} startDate={startDate} partySize={partySize} />
         <SharePanel tripId={trip.id} hasPlan={hasPlan} isDemo={profile.isDemo} />
       </div>
-      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+      <p className="text-sm text-muted">
         {t("intro")}{" "}
-        <Link href="/sources" className="underline underline-offset-2">
+        <Link href="/sources" className={linkCls}>
           {t("sourcesLink")}
         </Link>
       </p>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:gap-x-8">
-        <Suspense
-          fallback={
-            <PanelFallback
-              title={t("summary.title")}
-              className="order-1 lg:col-start-1 lg:row-start-1"
-            />
-          }
-        >
+      <div className="flex min-w-0 flex-col gap-8">
+        <Suspense fallback={<PanelFallback title={t("summary.title")} />}>
           <SummaryPanel {...panel} />
         </Suspense>
-        <Suspense fallback={<PanelFallback title={t("glance.title")} className={glanceAsideCls} />}>
-          <GlancePanel {...panel} />
-        </Suspense>
         {trip.wantsFlights && (
-          <div className="order-3 min-w-0 lg:col-span-2">
+          <div className="min-w-0">
             <FlightsPanelSection {...panel} adults={adultsFromEntries(group?.resolved.rows)} />
           </div>
         )}
-        <div className="order-4 min-w-0 lg:col-span-2">
+        <div className="min-w-0">
           <Suspense fallback={<PanelFallback title={t("places.title")} />}>
             <PlacesPanel {...panel} />
           </Suspense>

@@ -7,7 +7,7 @@ import { PlanFlights } from "@/components/plan/plan-flights";
 import { PlanHeader } from "@/components/plan/plan-header";
 import { PlanNotes, PlanOpenItems, PlanPacking } from "@/components/plan/plan-lists";
 import { PdfButton } from "@/components/pdf/pdf-button";
-import { mutedCls } from "@/components/ui/styles";
+import { eyebrowCls, mutedCls } from "@/components/ui/styles";
 import type { PlanDocument } from "@/lib/domain/share";
 import { fixedItemsOf } from "@/lib/plan/fixed-items";
 import { DriveTimesScope } from "@/components/plan/drive-times-scope";
@@ -23,15 +23,26 @@ export function SharedPlanView({ doc, token, uiLocale }: { doc: PlanDocument; to
   const tp = useTranslations("plan");
   // Same merged rows as the owner view; only when the link shares items [D9].
   const fixed = doc.items ? fixedItemsOf(doc.items, plan.days.length) : [];
+  const tn = useTranslations("nav");
+  const eyebrow = [h.purposeName, h.destination].filter(Boolean).join(" · ");
   return (
-    <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 px-4 py-4 sm:py-6">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
-        <p className={mutedCls}>
-          {t("banner")} · {t("version", { n: doc.versionNo })} · {t("updated", { date: f.dateTime(new Date(doc.versionAt), { dateStyle: "medium" }) })}
-        </p>
-        <PdfButton href={`/api/share/${token}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} />
+    <div className="flex min-h-screen flex-col print:min-h-0">
+      <div data-no-print className="bg-header text-header-fg">
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-3">
+          <span className="font-serif text-xl font-bold tracking-wide">{tn("appName")}</span>
+        </div>
       </div>
-      <h1 className="text-2xl font-bold">{h.title}</h1>
+      <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col gap-5 px-4 py-6 sm:py-10">
+        <header className="flex flex-col gap-3 border-b border-line pb-6">
+          {eyebrow && <p className={eyebrowCls}>{eyebrow}</p>}
+          <h1 className="break-words font-serif text-4xl font-bold leading-[1.05] sm:text-5xl">{h.title}</h1>
+          <p className={`text-sm ${mutedCls}`}>
+            {t("banner")} · {t("version", { n: doc.versionNo })} · {t("updated", { date: f.dateTime(new Date(doc.versionAt), { dateStyle: "medium" }) })}
+          </p>
+          <div data-no-print className="mt-1">
+            <PdfButton href={`/api/share/${token}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} />
+          </div>
+        </header>
       <DriveTimesScope
         hasDrive={Object.values(plan.places).some((p) => p.drive)}
         className="flex min-w-0 flex-col gap-4"
@@ -50,14 +61,15 @@ export function SharedPlanView({ doc, token, uiLocale }: { doc: PlanDocument; to
       <PlanFactsStrip facts={plan.facts} />
       {doc.items && (
         <section aria-labelledby="shared-items" className="flex min-w-0 flex-col gap-3">
-          <h2 id="shared-items" className="text-xl font-bold">
+          <h2 id="shared-items" className="text-2xl font-bold">
             {ti("title")}
           </h2>
           {doc.costs && <CostSummaryView costs={doc.costs} headingLevel={3} />}
           <ItemList items={doc.items} partySize={doc.costs?.partySize ?? null} startDate={startDate} />
         </section>
       )}
-      <footer className={`pt-2 text-center text-xs ${mutedCls}`}>{t("footer")}</footer>
+      <footer className={`border-t border-line pt-4 text-center text-xs ${mutedCls}`}>{t("footer")}</footer>
+      </div>
     </div>
   );
 }

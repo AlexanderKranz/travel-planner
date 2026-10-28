@@ -1,27 +1,237 @@
 @import "tailwindcss";
 
+/*
+ * Atlas design tokens ("classic travel magazine").
+ * Components use the semantic utilities below (bg-card, text-muted, border-line, ...).
+ * The tokens flip with prefers-color-scheme, so components never need dark: pairs.
+ * The PDF (src/lib/pdf/theme.ts) mirrors the light values.
+ */
 :root {
   color-scheme: light dark;
-  --background: #ffffff;
-  --foreground: #171717;
-}
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --page: #f6f1e7; /* warm cream ground */
+  --card: #ffffff;
+  --sunken: #efe7d6; /* tags, quiet fills */
+  --hover: #f0e8d8;
+  --ink: #1c2430;
+  --muted: #4a5562;
+  --subtle: #5f6a76; /* #6b7480 from the mockup, darkened 1 step to reach 4.5:1 on cream */
+  --line: #ddd2bf;
+  --line-strong: #8c8472; /* input borders: 3:1 against card and page */
+
+  --heading: #1f3a5f; /* night blue */
+  --header: #1f3a5f;
+  --header-fg: #f6f1e7;
+  --header-muted: #cfd8e3;
+  --feature: #1f3a5f; /* best-day card */
+  --feature-fg: #f6f1e7;
+  --feature-muted: #cfd8e3;
+  --feature-accent: #f2a679;
+
+  --accent: #b4532a; /* terracotta: buttons, day numbers */
+  --accent-hover: #9a4421;
+  --accent-text: #b4532a; /* terracotta as text on page/card */
+  --accent-soft: #f3dccd;
+  --accent-soft-fg: #8a3a17;
+  --nav-underline: #e08a5c;
+  --focus: #1f3a5f;
+
+  --info-bg: #e9eef5;
+  --info-fg: #1f3a5f;
+  --info-line: #8fa5c0;
+  --warn-bg: #fbeee3;
+  --warn-fg: #7a3412;
+  --warn-line: #e0a77f;
+  --danger-bg: #fbe9e6;
+  --danger-fg: #7f1d12;
+  --danger-line: #c0392b;
+  --danger: #a32116;
+  --danger-solid: #a32116;
+  --danger-hover: #8a1b11;
+  --ok-bg: #e5f0e9;
+  --ok-fg: #1f4d37;
+  --ok-line: #2f6b4f;
+  --ok: #2f6b4f;
+  --ok-solid: #2f6b4f;
+  --sport: #2f6b4f;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --page: #0f1a2a;
+    --card: #17263a;
+    --sunken: #1f3148;
+    --hover: #1d2f46;
+    --ink: #f6f1e7;
+    --muted: #b8c3d1;
+    --subtle: #94a3b5;
+    --line: #2b3d55;
+    --line-strong: #5d7391;
+
+    --heading: #f6f1e7;
+    --header: #14233a;
+    --feature: #22416b;
+    --feature-fg: #f6f1e7;
+
+    --accent: #b4532a;
+    --accent-hover: #c8643a;
+    --accent-text: #f2a679;
+    --accent-soft: #3a2517;
+    --accent-soft-fg: #f2c3a3;
+    --focus: #f2a679;
+
+    --info-bg: #1e3453;
+    --info-fg: #dbe4f0;
+    --info-line: #4a6a94;
+    --warn-bg: #3a2314;
+    --warn-fg: #f6cfb0;
+    --warn-line: #8a4a24;
+    --danger-bg: #3d1a19;
+    --danger-fg: #f8c4bd;
+    --danger-line: #b5483e;
+    --danger: #f19b90;
+    --danger-solid: #b32a1c;
+    --danger-hover: #c63a2b;
+    --ok-bg: #12301f;
+    --ok-fg: #b6e0c8;
+    --ok-line: #3f8a63;
+    --ok: #8fd0ad;
+    --ok-solid: #2f6b4f;
+    --sport: #a8d5bd;
   }
 }
 
+@theme inline {
+  --color-background: var(--page);
+  --color-foreground: var(--ink);
+  --color-page: var(--page);
+  --color-card: var(--card);
+  --color-sunken: var(--sunken);
+  --color-hover: var(--hover);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-heading: var(--heading);
+  --color-header: var(--header);
+  --color-header-fg: var(--header-fg);
+  --color-header-muted: var(--header-muted);
+  --color-feature: var(--feature);
+  --color-feature-fg: var(--feature-fg);
+  --color-feature-muted: var(--feature-muted);
+  --color-feature-accent: var(--feature-accent);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-text: var(--accent-text);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-fg: var(--accent-soft-fg);
+  --color-nav-underline: var(--nav-underline);
+  --color-focus: var(--focus);
+  --color-info-bg: var(--info-bg);
+  --color-info-fg: var(--info-fg);
+  --color-info-line: var(--info-line);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-fg: var(--warn-fg);
+  --color-warn-line: var(--warn-line);
+  --color-danger-bg: var(--danger-bg);
+  --color-danger-fg: var(--danger-fg);
+  --color-danger-line: var(--danger-line);
+  --color-danger: var(--danger);
+  --color-danger-solid: var(--danger-solid);
+  --color-danger-hover: var(--danger-hover);
+  --color-ok-bg: var(--ok-bg);
+  --color-ok-fg: var(--ok-fg);
+  --color-ok-line: var(--ok-line);
+  --color-ok: var(--ok);
+  --color-ok-solid: var(--ok-solid);
+  --color-sport: var(--sport);
+
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-serif: var(--font-fraunces), Georgia, serif;
+
+  --radius-card: 14px;
+  --radius-tile: 12px;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-fraunces), Georgia, serif;
+  color: var(--heading);
+}
+
+a {
+  text-underline-offset: 2px;
+}
+
+/* Dark feature card (best day): re-points the tokens so every child renders correctly on night blue. */
+.on-feature {
+  --ink: var(--feature-fg);
+  --muted: var(--feature-muted);
+  --subtle: var(--feature-muted);
+  --heading: var(--feature-fg);
+  --accent-text: var(--feature-accent);
+  --sunken: rgb(255 255 255 / 0.12);
+  --line: rgb(255 255 255 / 0.22);
+  --line-strong: rgb(255 255 255 / 0.4);
+  --sport: #a8d5bd;
+  --ok-bg: rgb(168 213 189 / 0.16);
+  --ok-fg: #f6f1e7;
+  --ok-line: #a8d5bd;
+  --info-bg: rgb(255 255 255 / 0.12);
+  --info-fg: #f6f1e7;
+  --info-line: rgb(255 255 255 / 0.4);
+  --focus: var(--feature-accent);
+}
+
+/* Print: the share page prints as a flat document (no chrome, no sticky columns, no page breaks inside cards). */
+@media print {
+  :root {
+    --page: #ffffff;
+    --card: #ffffff;
+    --ink: #1c2430;
+    --muted: #4a5562;
+    --heading: #1f3a5f;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #1c2430 !important;
+    height: auto !important;
+    min-height: 0 !important;
+  }
+  button,
+  [data-no-print],
+  dialog {
+    display: none !important;
+  }
+  .sticky,
+  [class*="lg:sticky"] {
+    position: static !important;
+  }
+  [data-print-block],
+  article,
+  li,
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+  * {
+    box-shadow: none !important;
+  }
+  a[href]::after {
+    content: none !important;
+  }
 }

@@ -16,7 +16,7 @@ export default async function EditGroupPage({
   const g = unwrap(group, locale);
   return (
     <main className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{t("editTitle")}</h1>
+      <h1 className="text-3xl font-bold sm:text-4xl">{t("editTitle")}</h1>
       <GroupEditor group={g} profileBirthdate={unwrap(profile, locale).birthdate} />
     </main>
   );

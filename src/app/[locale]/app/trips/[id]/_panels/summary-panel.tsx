@@ -15,7 +15,7 @@ export async function SummaryPanel({ trip, ctx }: PanelProps) {
     >
       <h2
         id="summary-eyebrow"
-        className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-800 dark:text-blue-300"
+        className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent-text"
       >
         {t("summary.title")}
       </h2>

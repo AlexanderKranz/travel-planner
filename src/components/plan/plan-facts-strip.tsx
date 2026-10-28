@@ -14,8 +14,8 @@ export function PlanFactsStrip({ facts }: { facts: Plan["facts"] }) {
   const month = (m: number) => f.dateTime(new Date(Date.UTC(2000, m - 1, 15)), { month: "short", timeZone: "UTC" });
   const num = (n: number) => f.number(n, { maximumFractionDigits: 1 });
   return (
-    <section aria-labelledby="plan-facts" className="rounded-lg border border-neutral-300 p-3 text-sm dark:border-neutral-700 sm:p-4">
-      <h3 id="plan-facts" className="mb-2 text-base font-semibold">
+    <section aria-labelledby="plan-facts" className="rounded-[14px] border border-line bg-card p-4 text-sm sm:p-5">
+      <h3 id="plan-facts" className="mb-3 text-lg font-bold">
         {t("title")}
       </h3>
       <ul className="flex flex-col gap-1">

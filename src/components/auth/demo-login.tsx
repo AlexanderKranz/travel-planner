@@ -25,7 +25,7 @@ export function DemoLogin() {
   return (
     <section
       aria-labelledby="demo-title"
-      className="flex flex-col gap-3 border-t border-neutral-300 pt-6 dark:border-neutral-700"
+      className="flex flex-col gap-3 border-t border-line pt-6"
     >
       <h2 id="demo-title" className="text-lg font-semibold">
         {t("heading")}

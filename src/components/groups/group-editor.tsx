@@ -154,9 +154,9 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
         id="exact-details"
         open={detailsOpen}
         onToggle={(e) => setDetailsOpen(e.currentTarget.open)}
-        className="rounded-lg border border-neutral-300 p-4 dark:border-neutral-700"
+        className="rounded-[14px] border border-line bg-card p-4"
       >
-        <summary className="flex min-h-11 cursor-pointer items-center font-semibold focus-visible:outline-2 focus-visible:outline-blue-600">
+        <summary className="flex min-h-11 cursor-pointer items-center font-semibold focus-visible:outline-2 focus-visible:outline-focus">
           {t("exact.title")}
         </summary>
         <div className="mt-2 flex flex-col gap-6">
@@ -179,10 +179,10 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
                 return (
                   <label
                     key={key}
-                    className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium focus-within:outline-2 focus-within:outline-blue-600 ${
+                    className={`inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium focus-within:outline-2 focus-within:outline-focus ${
                       on
-                        ? "border-blue-700 bg-blue-50 dark:border-blue-400 dark:bg-blue-950"
-                        : "border-neutral-400 hover:bg-neutral-100 dark:border-neutral-500 dark:hover:bg-neutral-800"
+                        ? "border-info-line bg-info-bg"
+                        : "border-line-strong hover:bg-hover"
                     }`}
                   >
                     <input
@@ -197,7 +197,7 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
               })}
             </div>
             {droppedTraits.length > 0 && (
-              <p role="status" className="text-sm text-amber-800 dark:text-amber-300">
+              <p role="status" className="text-sm text-warn-fg">
                 {t("traits.willBeRemoved", {
                   traits: droppedTraits.map((k) => t(`traits.options.${k}`)).join(", "),
                 })}
@@ -209,7 +209,7 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
             <h2 id="entries-title" className="text-lg font-semibold">
               {t("entriesTitle")}
             </h2>
-            <p className="text-sm text-neutral-600 dark:text-neutral-400">{t("entriesHint")}</p>
+            <p className="text-sm text-muted">{t("entriesHint")}</p>
             {entries.length > 0 && (
               <ol className="flex flex-col gap-3">
                 {entries.map((draft, i) => (
@@ -226,7 +226,7 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
               </ol>
             )}
             {issues?.some((i) => i.path === "entries") && (
-              <p className="text-sm text-red-700 dark:text-red-400">{t("entry.fieldInvalid")}</p>
+              <p className="text-sm text-danger">{t("entry.fieldInvalid")}</p>
             )}
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="flex flex-col gap-1">
@@ -273,7 +273,7 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
               </div>
             </div>
             {hasSelf && !profileBirthdate && (
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">{t("selfNoBirthdate")}</p>
+              <p className="text-sm text-muted">{t("selfNoBirthdate")}</p>
             )}
           </section>
 
@@ -283,7 +283,7 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
 
       <ErrorBanner error={error} />
       {saved && (
-        <p role="status" className="text-sm text-green-800 dark:text-green-300">
+        <p role="status" className="text-sm text-ok">
           {t("saved")}
         </p>
       )}

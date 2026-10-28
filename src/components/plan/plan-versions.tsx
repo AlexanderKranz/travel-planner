@@ -49,7 +49,7 @@ export function PlanVersions({
         >
           {t("title", { count: versions.length })}
         </summary>
-        <ol className="flex flex-col divide-y divide-neutral-200 px-4 pb-2 dark:divide-neutral-800">
+        <ol className="flex flex-col divide-y divide-line px-4 pb-2">
           {versions.map((v) => {
             const isShown = v.versionNo === shown;
             return (
@@ -60,7 +60,7 @@ export function PlanVersions({
                     {f.relativeTime(new Date(v.createdAt), new Date())}
                   </time>
                   {isShown && (
-                    <span className="rounded-full border border-blue-700 px-2 text-xs dark:border-blue-400">
+                    <span className="rounded-full border border-info-line px-2 text-xs">
                       {t("shown")}
                     </span>
                   )}

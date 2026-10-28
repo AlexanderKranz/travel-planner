@@ -96,7 +96,7 @@ export function SettingsForm({ profile }: { profile: Profile }) {
       />
       <ErrorBanner error={error === "unknown_airport" ? null : error} />
       {saved && (
-        <p role="status" className="text-sm text-green-800 dark:text-green-300">
+        <p role="status" className="text-sm text-ok">
           {t("saved")}
         </p>
       )}

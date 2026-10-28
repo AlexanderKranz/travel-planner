@@ -29,12 +29,12 @@ export function DaylightTable({ data }: { data: DaylightFacts }) {
         role="region"
         aria-label={caption}
         tabIndex={0}
-        className="overflow-x-auto rounded-md focus-visible:outline-2 focus-visible:outline-blue-600"
+        className="overflow-x-auto rounded-md focus-visible:outline-2 focus-visible:outline-focus"
       >
         <table className="w-full min-w-[24rem] text-sm">
           <caption className="sr-only">{caption}</caption>
           <thead>
-            <tr className="border-b border-neutral-300 dark:border-neutral-700">
+            <tr className="border-b border-line">
               <th scope="col" className={th}>{t("date")}</th>
               <th scope="col" className={th}>{t("sunrise")}</th>
               <th scope="col" className={th}>{t("sunset")}</th>
@@ -44,7 +44,7 @@ export function DaylightTable({ data }: { data: DaylightFacts }) {
           </thead>
           <tbody>
             {data.days.map((d) => (
-              <tr key={d.date} className="border-b border-neutral-200 last:border-0 dark:border-neutral-800">
+              <tr key={d.date} className="border-b border-line last:border-0">
                 <th scope="row" className={th}>{date(d.date)}</th>
                 {d.polar ? (
                   <td colSpan={3} className={td}>{t(d.polar === "day" ? "polarDay" : "polarNight")}</td>

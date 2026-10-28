@@ -125,7 +125,7 @@ export function AirportPicker({
             id={`${id}-list`}
             role="listbox"
             aria-label={t("results")}
-            className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-md border border-neutral-400 bg-background shadow-lg dark:border-neutral-500"
+            className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-md border border-line-strong bg-card shadow-lg"
           >
             {results.map((a, i) => (
               <li
@@ -136,7 +136,7 @@ export function AirportPicker({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(a)}
                 className={`flex min-h-11 cursor-pointer flex-col justify-center px-3 py-1 text-sm ${
-                  i === active ? "bg-blue-100 dark:bg-blue-950" : ""
+                  i === active ? "bg-info-bg" : ""
                 }`}
               >
                 <span>
@@ -150,7 +150,7 @@ export function AirportPicker({
           </ul>
         )}
       </div>
-      {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
       {value.length === 0 ? (
         <p className={`text-sm ${mutedCls}`}>{t("none")}</p>
       ) : (
@@ -160,7 +160,7 @@ export function AirportPicker({
             return (
               <li
                 key={code}
-                className="flex items-center justify-between gap-2 rounded-md border border-neutral-300 p-2 pl-3 dark:border-neutral-700"
+                className="flex items-center justify-between gap-2 rounded-md border border-line p-2 pl-3"
               >
                 <span className="min-w-0 text-sm">
                   <strong>{code}</strong>

@@ -32,7 +32,7 @@ export function AddItemButton({
           onClick={() => setOpen(true)}
           aria-label={t("quickAddFor", { title: quickLabel })}
           title={t("quickAdd")}
-          className={`${focusCls} inline-flex size-11 items-center justify-center rounded-md text-lg leading-none text-blue-800 hover:bg-neutral-100 dark:text-blue-300 dark:hover:bg-neutral-800 ${className}`}
+          className={`${focusCls} inline-flex size-11 items-center justify-center rounded-md text-lg leading-none text-accent-text hover:bg-hover ${className}`}
         >
           <span aria-hidden="true">+</span>
         </button>

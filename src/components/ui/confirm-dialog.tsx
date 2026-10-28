@@ -46,7 +46,7 @@ export function ConfirmDialog({
         onCancel();
       }}
       aria-labelledby={titleId}
-      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-neutral-400 bg-background p-5 text-foreground backdrop:bg-black/50"
+      className="m-auto w-[calc(100%-2rem)] max-w-md rounded-[14px] border border-line-strong bg-card p-5 text-ink backdrop:bg-black/50"
     >
       <h2 id={titleId} className="text-lg font-semibold">
         {title}

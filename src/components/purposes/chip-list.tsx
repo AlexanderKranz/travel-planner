@@ -65,12 +65,12 @@ export function ChipList({
           {items.map((item) => (
             <li
               key={item}
-              className="flex items-center justify-between gap-2 rounded-md border border-neutral-400 pl-3 text-sm dark:border-neutral-500"
+              className="flex items-center justify-between gap-2 rounded-md border border-line-strong pl-3 text-sm"
             >
               <span className="break-words py-2">{item}</span>
               <button
                 type="button"
-                className="inline-flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-blue-600"
+                className="inline-flex size-11 shrink-0 items-center justify-center rounded-md focus-visible:outline-2 focus-visible:outline-focus"
                 aria-label={t("removeItem", { item })}
                 onClick={() => onChange(items.filter((i) => i !== item))}
               >

@@ -148,7 +148,7 @@ export function TripForm({
           </button>
           <span className="text-sm">{t("lengthUnit")}</span>
         </div>
-        <p id="trip-length-hint" className={bad("lengthDays") ? "text-sm text-red-700 dark:text-red-400" : "text-sm text-neutral-600 dark:text-neutral-400"}>
+        <p id="trip-length-hint" className={bad("lengthDays") ? "text-sm text-danger" : "text-sm text-muted"}>
           {bad("lengthDays") ? t("lengthInvalid", { max: MAX_TRIP_DAYS }) : t("lengthHint", { max: MAX_TRIP_DAYS })}
         </p>
       </div>
@@ -268,7 +268,7 @@ export function TripForm({
           checked={draft.wantsFlights}
           onChange={(e) => set({ wantsFlights: e.target.checked })}
         />
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">{t("flights.hint")}</p>
+        <p className="text-sm text-muted">{t("flights.hint")}</p>
         {draft.wantsFlights && (
           <>
             <CheckboxField
@@ -287,8 +287,8 @@ export function TripForm({
         )}
       </section>
 
-      <details className="rounded-lg border border-neutral-300 p-4 dark:border-neutral-700" open={!!trip?.notes}>
-        <summary className="flex min-h-11 cursor-pointer items-center font-semibold focus-visible:outline-2 focus-visible:outline-blue-600">
+      <details className="rounded-[14px] border border-line bg-card p-4" open={!!trip?.notes}>
+        <summary className="flex min-h-11 cursor-pointer items-center font-semibold focus-visible:outline-2 focus-visible:outline-focus">
           {t("notes")}
         </summary>
         <TextAreaField

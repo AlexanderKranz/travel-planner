@@ -33,8 +33,8 @@ function Toggle({
       disabled={disabled}
       className={`inline-flex min-h-11 items-center justify-center rounded-full border px-3 text-sm disabled:cursor-not-allowed disabled:opacity-50 ${focusCls} ${
         pressed
-          ? "border-blue-700 bg-blue-700 text-white dark:border-blue-400 dark:bg-blue-400 dark:text-neutral-950"
-          : "border-neutral-400 hover:bg-neutral-100 dark:border-neutral-500 dark:hover:bg-neutral-800"
+          ? "border-accent bg-accent text-white"
+          : "border-line-strong hover:bg-hover"
       }`}
     >
       {children}
@@ -131,7 +131,7 @@ export function PlanIterate({
       </h2>
 
       {aiBlock && (
-        <p role="note" className="rounded-md bg-neutral-100 p-2.5 text-sm dark:bg-neutral-800">
+        <p role="note" className="rounded-md bg-sunken p-2.5 text-sm">
           {t(`blocked.${aiBlock}`)}
         </p>
       )}
@@ -168,7 +168,7 @@ export function PlanIterate({
             ))}
           </div>
           {needsDay && (
-            <p role="alert" className="mt-1.5 text-sm text-red-700 dark:text-red-400">
+            <p role="alert" className="mt-1.5 text-sm text-danger">
               {t("redoNeedsDay")}
             </p>
           )}
@@ -201,14 +201,14 @@ export function PlanIterate({
       <div role="status" aria-live="polite" className="text-sm">
         {running && <p>{t("applyingHint")}</p>}
         {reply && (
-          <p className="rounded-md border border-blue-600 bg-blue-50 p-2.5 text-blue-950 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100">
+          <p className="rounded-lg border border-info-line bg-info-bg p-2.5 text-info-fg">
             {reply}
           </p>
         )}
       </div>
       <PlanErrorBanner error={error} />
 
-      <div className="flex flex-col gap-3 border-t border-neutral-300 pt-4 dark:border-neutral-700">
+      <div className="flex flex-col gap-3 border-t border-line pt-4">
         <h3 className="text-base font-semibold">{t("edit.title")}</h3>
         <p className={`text-xs ${mutedCls}`}>{t("edit.hint")}</p>
         {editBlock && (

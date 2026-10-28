@@ -141,10 +141,10 @@ export function GuidedFields({
                   type="button"
                   aria-pressed={on}
                   onClick={() => set({ interests: toggle(value.interests, k) })}
-                  className={`min-h-11 rounded-full border px-4 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 ${
+                  className={`min-h-11 rounded-full border px-4 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
                     on
-                      ? "border-blue-700 bg-blue-700 text-white dark:border-blue-400 dark:bg-blue-400 dark:text-neutral-950"
-                      : "border-neutral-400 dark:border-neutral-500"
+                      ? "border-accent bg-accent text-white"
+                      : "border-line-strong"
                   }`}
                 >
                   {ti(k)}

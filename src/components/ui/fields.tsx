@@ -109,7 +109,7 @@ export function CheckboxField({
 }: { label: string } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "type">) {
   return (
     <label className="flex min-h-11 items-center gap-3 text-sm">
-      <input type="checkbox" {...rest} className="size-5 accent-blue-700" />
+      <input type="checkbox" {...rest} className="size-5 accent-accent" />
       {label}
     </label>
   );

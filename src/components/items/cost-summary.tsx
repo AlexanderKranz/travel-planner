@@ -10,11 +10,11 @@ export function CostSummaryView({ costs, headingLevel = 3 }: { costs: CostSummar
   if (costs.currencies.length === 0) return null;
   const H = `h${headingLevel}` as "h3" | "h4";
   const many = costs.currencies.length > 1;
-  const th = "px-2 py-1.5 text-left text-xs font-semibold";
+  const th = "px-2 py-1.5 text-left text-xs font-semibold uppercase tracking-[0.1em] text-subtle";
   return (
-    <section aria-labelledby="cost-title" className="flex min-w-0 flex-col gap-3 rounded-lg border border-neutral-300 p-3 dark:border-neutral-700 sm:p-4">
+    <section aria-labelledby="cost-title" className="flex min-w-0 flex-col gap-3 rounded-[14px] border border-line bg-card p-4 sm:p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-        <H id="cost-title" className="text-base font-semibold">
+        <H id="cost-title" className="text-lg font-bold">
           {t("title")}
         </H>
         <p className={`text-sm ${mutedCls}`}>
@@ -39,7 +39,7 @@ export function CostSummaryView({ costs, headingLevel = 3 }: { costs: CostSummar
                 <col />
               </colgroup>
               <thead>
-                <tr className="border-b border-neutral-300 dark:border-neutral-700">
+                <tr className="border-b border-line">
                   <td />
                   <th scope="col" className={th}>
                     {t("booked")}
@@ -51,7 +51,7 @@ export function CostSummaryView({ costs, headingLevel = 3 }: { costs: CostSummar
               </thead>
               <tbody>
                 {rows.map((r) => (
-                  <tr key={r.key} className="border-b border-neutral-200 last:border-0 dark:border-neutral-800">
+                  <tr key={r.key} className="border-b border-line last:border-0">
                     <th scope="row" className="px-2 py-1.5 text-left text-xs font-medium">
                       {t(r.key)}
                     </th>

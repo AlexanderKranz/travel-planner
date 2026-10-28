@@ -12,7 +12,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
   const profile = unwrap(await getProfile(), locale);
   return (
     <main className="flex flex-col gap-8">
-      <h1 className="text-2xl font-bold">{t("title")}</h1>
+      <h1 className="text-3xl font-bold sm:text-4xl">{t("title")}</h1>
       <SettingsForm profile={profile} />
       {profile.isDemo ? <DemoDeleteNote /> : <DeleteAccount />}
     </main>

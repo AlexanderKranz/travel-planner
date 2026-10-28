@@ -89,11 +89,11 @@ export function PurposeEditor({ purpose }: { purpose?: TripPurpose }) {
         error={errorAt(issues, "text", bad)}
       />
 
-      <details className="rounded-lg border border-neutral-300 p-4 dark:border-neutral-700" open={!!purpose && Object.keys(purpose.guided).length > 1}>
-        <summary className="flex min-h-11 cursor-pointer items-center font-semibold focus-visible:outline-2 focus-visible:outline-blue-600">
+      <details className="rounded-[14px] border border-line bg-card p-4" open={!!purpose && Object.keys(purpose.guided).length > 1}>
+        <summary className="flex min-h-11 cursor-pointer items-center font-semibold focus-visible:outline-2 focus-visible:outline-focus">
           {t("guidedTitle")}
         </summary>
-        <p className="mb-4 text-sm text-neutral-600 dark:text-neutral-400">{t("guidedHint")}</p>
+        <p className="mb-4 text-sm text-muted">{t("guidedHint")}</p>
         <GuidedFields value={guided} onChange={setGuided} invalid={hasIssue(issues, "guided")} />
       </details>
 
@@ -116,7 +116,7 @@ export function PurposeEditor({ purpose }: { purpose?: TripPurpose }) {
 
       <ErrorBanner error={error} />
       {saved && (
-        <p role="status" className="text-sm text-green-800 dark:text-green-300">
+        <p role="status" className="text-sm text-ok">
           {t("saved")}
         </p>
       )}

@@ -10,7 +10,11 @@ import { DRIVE_ONLY, windowKind } from "./helpers";
 type QuickAdd = (place: Plan["places"][string], ref: string) => React.ReactNode;
 
 const pill =
-  "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap";
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap";
+
+/** Small uppercase category label ("GOLF", "ANREISE"); sport is the green accent of the mockup. */
+const kindCls = (kind: string) =>
+  `mr-2 align-baseline text-[0.6875rem] font-semibold uppercase tracking-[0.12em] ${kind === "sport" ? "text-sport" : "text-subtle"}`;
 
 function WindowBadge({ stop }: { stop: PlanStop }) {
   const t = useTranslations("plan");
@@ -27,11 +31,11 @@ function WindowBadge({ stop }: { stop: PlanStop }) {
   return (
     <span className="flex flex-wrap items-center gap-1.5">
       {label && (
-        <span className={`${pill} border-neutral-400 tabular-nums dark:border-neutral-500`}>{label}</span>
+        <span className={`${pill} border-line-strong tabular-nums`}>{label}</span>
       )}
       {stop.fixed && (
         <span
-          className={`${pill} border-blue-700 bg-blue-50 text-blue-950 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100`}
+          className={`${pill} border-info-line bg-info-bg text-info-fg`}
         >
           {t("fromNotes")}
         </span>
@@ -89,12 +93,8 @@ function Activity({
   return (
     <li className={add ? "group/act grid min-w-0 grid-cols-[minmax(0,1fr)_2.75rem] items-start gap-x-1" : "min-w-0"}>
       <div className="min-w-0 break-words">
-        {time && <span className="mr-1.5 font-medium tabular-nums">{time}</span>}
-        <span
-          className={`mr-1.5 rounded bg-neutral-100 px-1.5 py-px align-middle text-[0.7rem] font-medium uppercase tracking-wide dark:bg-neutral-800 ${mutedCls}`}
-        >
-          {t(`kinds.${act.kind}`)}
-        </span>
+        {time && <span className="mr-2 font-semibold tabular-nums text-heading">{time}</span>}
+        <span className={kindCls(act.kind)}>{t(`kinds.${act.kind}`)}</span>
         {place && (
           <>
             <PlaceLink place={place} strong />
@@ -139,13 +139,9 @@ function FixedRow({ item }: { item: FixedItem }) {
   const t = useTranslations("plan");
   const ti = useTranslations("items");
   return (
-    <li className="min-w-0 break-words rounded-md border-l-4 border-green-700 bg-green-50/60 py-1 pl-2 pr-1 dark:border-green-400 dark:bg-green-950/40" data-fixed-item={item.id}>
-      <span className="mr-1.5 font-medium tabular-nums">{timeRange(item.from, item.to)}</span>
-      <span
-        className={`mr-1.5 rounded bg-neutral-100 px-1.5 py-px align-middle text-[0.7rem] font-medium uppercase tracking-wide dark:bg-neutral-800 ${mutedCls}`}
-      >
-        {ti(`categories.${item.category}`)}
-      </span>
+    <li className="min-w-0 break-words rounded-lg border border-l-4 border-ok-line bg-ok-bg/60 py-1.5 pl-3 pr-2" data-fixed-item={item.id}>
+      <span className="mr-2 font-semibold tabular-nums text-heading">{timeRange(item.from, item.to)}</span>
+      <span className={kindCls("fixed")}>{ti(`categories.${item.category}`)}</span>
       <span className="mr-1.5 font-medium">{item.title}</span>
       <span className="sr-only">({t("fixedItem")})</span>
       <StatusBadge status={item.status} />
@@ -153,27 +149,20 @@ function FixedRow({ item }: { item: FixedItem }) {
   );
 }
 
-/** Left column: weekday + dd.MM. for dated trips, "Day n" otherwise. */
+/** Left column: "TAG / n / Sa 13.03." (dated) or "TAG / n" (undated), serif number in the accent colour. */
 function DateColumn({ day }: { day: PlanDay }) {
   const t = useTranslations("plan");
   const f = useFormatter();
-  const box =
-    "flex w-14 shrink-0 flex-col items-center justify-center self-start rounded-md bg-neutral-100 px-1 py-2 text-center dark:bg-neutral-800";
-  if (!day.date) {
-    return (
-      <div className={box} aria-hidden="true">
-        <span className={`text-xs uppercase ${mutedCls}`}>{t("dayShort")}</span>
-        <span className="text-xl font-bold leading-none">{day.n}</span>
-      </div>
-    );
-  }
-  const d = new Date(`${day.date}T12:00:00Z`);
+  const d = day.date ? new Date(`${day.date}T12:00:00Z`) : null;
   return (
-    <div className={box} aria-hidden="true">
-      <span className={`text-xs uppercase ${mutedCls}`}>{f.dateTime(d, { weekday: "short", timeZone: "UTC" })}</span>
-      <span className="text-sm font-bold leading-tight">
-        {f.dateTime(d, { day: "2-digit", month: "2-digit", timeZone: "UTC" })}
-      </span>
+    <div className="flex w-12 shrink-0 flex-col items-center self-start text-center sm:w-16" aria-hidden="true">
+      <span className="text-xs font-semibold uppercase tracking-[0.16em] text-subtle">{t("dayShort")}</span>
+      <span className="font-serif text-4xl font-bold leading-none text-accent-text sm:text-5xl">{day.n}</span>
+      {d && (
+        <span className="mt-1 text-xs text-subtle">
+          {f.dateTime(d, { weekday: "short", timeZone: "UTC" })} {f.dateTime(d, { day: "2-digit", month: "2-digit", timeZone: "UTC" })}
+        </span>
+      )}
     </div>
   );
 }
@@ -200,32 +189,29 @@ export function DayCard({
     .flatMap((k) => (places[k] ? [places[k]] : []));
   const fetchedAt = used.map((p) => p.fetchedAt).sort()[0];
   const hasDrive = used.some((p) => p.drive);
-  const border = day.best
-    ? "border-amber-500 dark:border-amber-400"
-    : changed
-      ? "border-blue-600 dark:border-blue-400"
-      : "border-neutral-300 dark:border-neutral-700";
+  const border = day.best ? "border-feature" : changed ? "border-info-line" : "border-line";
   return (
     <li id={`day-${day.n}`} className="scroll-mt-4">
       <article
         aria-labelledby={`day-${day.n}-title`}
-        className={`flex min-w-0 gap-3 rounded-lg border p-3 sm:gap-4 sm:p-4 ${day.best ? "border-2" : ""} ${border}`}
+        data-print-block
+        className={`flex min-w-0 gap-3 rounded-[14px] border p-4 sm:gap-6 sm:p-6 ${day.best ? "on-feature bg-feature text-ink" : "bg-card"} ${border}`}
       >
         <DateColumn day={day} />
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <h3 id={`day-${day.n}-title`} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold">
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          <h3 id={`day-${day.n}-title`} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xl font-bold leading-snug sm:text-2xl">
             <span className="sr-only">{t("day", { n: day.n })}: </span>
             <span className="min-w-0 break-words">{day.title}</span>
             {day.best && (
               <span
-                className={`${pill} border-amber-700 bg-amber-100 text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-100`}
+                className="inline-flex items-center rounded-full bg-feature-accent px-3 py-1 font-sans text-xs font-bold uppercase tracking-[0.08em] text-[#1c2430]"
               >
                 {t("bestDay")}
               </span>
             )}
             {changed && (
               <span
-                className={`${pill} border-blue-700 bg-blue-50 text-blue-950 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100`}
+                className={`${pill} border-info-line bg-info-bg text-info-fg`}
               >
                 {t("changed")}
               </span>
@@ -234,15 +220,15 @@ export function DayCard({
           {mergeDayRows(day, fixed).map(({ stop, rows }, i) => {
             const showHead = day.stops.length > 1 || stop.place !== day.title || windowKind(stop.from, stop.to) || stop.fixed;
             return (
-              <div key={i} className="flex min-w-0 flex-col gap-1">
+              <div key={i} className="flex min-w-0 flex-col gap-1.5">
                 {showHead && (
-                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-heading">
                     <span className="min-w-0 break-words">{stop.place}</span>
                     <WindowBadge stop={stop} />
                   </p>
                 )}
                 {rows.length > 0 && (
-                  <ul className="flex flex-col gap-1 text-sm">
+                  <ul className="flex flex-col gap-2 text-[0.9375rem] leading-relaxed">
                     {rows.map((r, j) =>
                       r.kind === "fixed" ? (
                         <FixedRow key={`f-${r.item.id}`} item={r.item} />
@@ -261,14 +247,14 @@ export function DayCard({
             );
           })}
           {day.note && (
-            <p className={`rounded-md bg-neutral-100 px-2.5 py-1.5 text-sm dark:bg-neutral-800`}>
+            <p className="rounded-[10px] bg-sunken px-4 py-3 text-[0.9375rem] leading-relaxed">
               <span className="sr-only">{t("noteLabel")}: </span>
               {day.note}
             </p>
           )}
           {day.warn && (
-            <p className="rounded-md border border-amber-600 bg-amber-50 px-2.5 py-1.5 text-sm text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-100">
-              <span className="font-medium">{t("warnLabel")}: </span>
+            <p className="rounded-[10px] bg-warn-bg px-4 py-3 text-[0.9375rem] leading-relaxed text-warn-fg">
+              <strong className="font-semibold">{t("warnLabel")}: </strong>
               {day.warn}
             </p>
           )}

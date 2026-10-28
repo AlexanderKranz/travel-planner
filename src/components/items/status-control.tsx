@@ -52,7 +52,7 @@ export function StatusControl({ id, title, status }: { id: string; title: string
               aria-checked={on}
               onClick={() => choose(s)}
               className={`inline-flex min-h-11 items-center justify-center rounded-full border px-3 text-sm ${focusCls} ${
-                on ? `font-semibold ${statusTone[s]}` : "border-neutral-300 hover:bg-neutral-100 dark:border-neutral-600 dark:hover:bg-neutral-800"
+                on ? `font-semibold ${statusTone[s]}` : "border-line hover:bg-hover"
               }`}
             >
               {t(`statuses.${s}`)}

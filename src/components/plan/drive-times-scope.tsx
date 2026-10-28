@@ -55,7 +55,7 @@ export function DriveTimesScope({
       {header}
       {hasDrive && (
         <label className="flex min-h-11 items-center gap-2 self-start text-sm">
-          <input type="checkbox" className="size-4 accent-blue-700" checked={on} onChange={(e) => write(e.target.checked)} />
+          <input type="checkbox" className="size-4 accent-accent" checked={on} onChange={(e) => write(e.target.checked)} />
           {t("showDrive")}
         </label>
       )}

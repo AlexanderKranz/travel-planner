@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { getProfile } from "@/lib/server/profile";
 import { signOut } from "@/lib/server/auth/actions";
-import { btnSecondary, focusCls } from "@/components/ui/styles";
+import { btnGhost } from "@/components/ui/styles";
 import { NavLinks } from "./nav-links";
 
 export async function AppShell({
@@ -21,22 +21,28 @@ export async function AppShell({
         <div
           role="status"
           aria-label={t("demoLabel")}
-          className="border-b border-amber-600 bg-amber-100 px-4 py-2 text-center text-sm text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-100"
+          className="border-b border-warn-line bg-warn-bg px-4 py-2 text-center text-sm text-warn-fg"
         >
           {t("demoBanner")}
         </div>
       )}
-      <header className="border-b border-neutral-300 dark:border-neutral-700">
-        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 sm:px-6 lg:px-8">
-          <Link href="/app" className={`rounded-md py-2 text-lg font-bold ${focusCls}`}>
+      <header data-no-print className="bg-header text-header-fg">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-6 gap-y-1 px-4 py-2 sm:px-6 lg:px-8">
+          <Link
+            href="/app"
+            className="rounded-md py-2 font-serif text-xl font-bold tracking-wide text-header-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-feature-accent"
+          >
             {t("appName")}
           </Link>
-          <form action={signOut.bind(null, locale)}>
-            <button type="submit" className={btnSecondary}>
+          <form action={signOut.bind(null, locale)} className="sm:order-3">
+            <button
+              type="submit"
+              className={`${btnGhost} text-header-muted hover:bg-white/10 hover:text-header-fg focus-visible:outline-feature-accent`}
+            >
               {t("signOut")}
             </button>
           </form>
-          <div className="w-full sm:w-auto sm:flex-1 sm:order-none">
+          <div className="w-full sm:order-2 sm:w-auto sm:flex-1">
             <NavLinks />
           </div>
         </div>

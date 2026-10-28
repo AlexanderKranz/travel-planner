@@ -8,7 +8,7 @@ import type { ResolvedAge } from "@/lib/group";
 import type { ResolvedGroup } from "@/lib/group-text";
 
 const chip =
-  "inline-flex items-center rounded-full border border-neutral-400 px-2 py-0.5 text-xs dark:border-neutral-500";
+  "inline-flex items-center rounded-full border border-heading/50 px-2.5 py-0.5 text-xs font-medium text-heading";
 
 function AgeText({ age }: { age: ResolvedAge }) {
   const t = useTranslations("groups.preview");

@@ -29,11 +29,11 @@ function PlaceItem({ place, locale }: { place: PlaceCandidate; locale: string })
   if (wiki) links.push([t("linkWikipedia"), wiki]);
   if (site) links.push([t("linkWebsite"), site]);
   return (
-    <li className="flex min-w-0 flex-col rounded-md border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+    <li className="flex min-w-0 flex-col rounded-md border border-line px-3 py-2">
       <div className="flex items-baseline justify-between gap-2">
         <span className="min-w-0 break-words font-medium">{name}</span>
         <span
-          className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium tabular-nums text-blue-900 dark:bg-blue-950 dark:text-blue-200"
+          className="shrink-0 rounded-full bg-info-bg px-2 py-0.5 text-xs font-medium tabular-nums text-info-fg"
           title={t("distance", { km })}
         >
           <span aria-hidden="true">{km} km</span>
@@ -82,7 +82,7 @@ function Group({ group, locale, radiusKm }: { group: PlaceGroup; locale: string;
           </ul>
           {group.candidates.length > VISIBLE && (
             <details>
-              <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium focus-visible:outline-2 focus-visible:outline-blue-600">
+              <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium focus-visible:outline-2 focus-visible:outline-focus">
                 {t("showMore", { count: group.candidates.length - VISIBLE })}
               </summary>
               <ul className={`${gridCls} mt-1`}>

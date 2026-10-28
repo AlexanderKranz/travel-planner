@@ -4,7 +4,7 @@ import type { Plan } from "@/lib/domain/plan";
 import { AiBadge } from "./ai-badge";
 
 const chip =
-  "inline-flex items-center rounded-full border border-neutral-400 px-2.5 py-0.5 text-xs dark:border-neutral-500";
+  "inline-flex items-center rounded-full border border-heading/50 px-3 py-0.5 text-xs font-medium text-heading";
 
 export function PlanHeader({ plan, uiLocale, readOnly }: { plan: Plan; uiLocale: string; readOnly?: boolean }) {
   const t = useTranslations("plan");
@@ -21,7 +21,7 @@ export function PlanHeader({ plan, uiLocale, readOnly }: { plan: Plan; uiLocale:
   return (
     <header className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 id="plan-title" className={readOnly ? "sr-only" : "text-xl font-bold"}>
+        <h2 id="plan-title" className={readOnly ? "sr-only" : "text-2xl font-bold sm:text-3xl"}>
           {t("title")}
         </h2>
         <AiBadge />

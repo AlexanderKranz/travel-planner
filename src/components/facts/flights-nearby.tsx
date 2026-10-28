@@ -44,7 +44,7 @@ function DayBlock({
       })
     : null;
   return (
-    <div className="rounded-md border border-dashed border-neutral-400 p-2 dark:border-neutral-500">
+    <div className="rounded-md border border-dashed border-line-strong p-2">
       <h6 className="text-sm font-semibold">
         {label}
         <span className={`ml-2 text-xs font-normal ${mutedCls}`}>{t(data.basis === "trip_dates" ? (day.offset === -1 ? "dayBefore" : "dayAfter") : day.offset === -1 ? "dayBeforeSample" : "dayAfterSample")}</span>
@@ -118,7 +118,7 @@ export function FlightsNearby({
         {fact && !ok && <p className="text-sm">{t("error")}</p>}
         {ok && (
           <>
-            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted">
               {t(dir === "out" ? "titleOut" : "titleBack", { from: dir === "out" ? pair.from : pair.to, to: dir === "out" ? pair.to : pair.from })}
             </p>
             {ok.data.days.map((d) => (

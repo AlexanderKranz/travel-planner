@@ -31,7 +31,7 @@ export function DeleteAccount() {
   return (
     <section
       aria-labelledby="delete-title"
-      className={`${cardCls} flex flex-col gap-3 border-red-600 dark:border-red-400`}
+      className={`${cardCls} flex flex-col gap-3 border-danger-line`}
     >
       <h2 id="delete-title" className="font-semibold">
         {t("title")}
