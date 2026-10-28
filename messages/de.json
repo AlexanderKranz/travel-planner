@@ -555,7 +555,9 @@
         "links": {
           "google": "Google Flights, {date}",
           "skyscanner": "Skyscanner, {date}"
-        }
+        },
+        "dayBeforeSample": "Tag vor dem Beispieltag",
+        "dayAfterSample": "Tag nach dem Beispieltag"
       },
       "change": "Zeiten und Strecken können sich ändern.",
       "newTab": "öffnet in neuem Tab",

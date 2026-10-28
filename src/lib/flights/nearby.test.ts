@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { normalizeFids } from "@/lib/integrations/aerodatabox-normalize";
 import { flightLinks } from "./links";
-import { flightDates } from "./lookups";
+import { addDays, flightDates } from "./lookups";
 import { NEARBY_UNIT_CAP, buildNearbyDays, nearbyTargets } from "./nearby";
 
 const TODAY = "2026-10-28";
@@ -25,9 +25,10 @@ describe("nearbyTargets", () => {
   it("costs at most one airport x two days x two windows", () => {
     expect(NEARBY_UNIT_CAP).toBe(2 * 2 * 2);
   });
-  it("sample week (months) offers nothing", () => {
+  it("sample week (months) looks around the sample dates", () => {
     const d = flightDates({ timing: { kind: "months", months: [3] }, lengthDays: 5 }, TODAY)!;
-    expect(nearbyTargets(d, "out", TODAY)).toBeNull();
+    const r = nearbyTargets(d, "out", TODAY)!;
+    expect(r.targets.map((t) => t.date)).toEqual([addDays(d.outDate, -1), addDays(d.outDate, 1)]);
   });
   it("proxy mode shifts the proxy date by the same offset but keeps the real dates", () => {
     const d = dates("2038-03-13");
