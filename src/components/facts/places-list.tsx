@@ -16,6 +16,8 @@ export function categoryKey(category: string): string {
   return category.replace(/[^A-Za-z0-9_=]/g, "_").replace("=", "_");
 }
 
+const linkSm = `${linkCls} inline-flex min-h-11 items-center`;
+
 function PlaceItem({ place, locale }: { place: PlaceCandidate; locale: string }) {
   const t = useTranslations("facts.places");
   const tc = useTranslations("facts.category");
@@ -26,52 +28,59 @@ function PlaceItem({ place, locale }: { place: PlaceCandidate; locale: string })
   const wiki = place.wikipedia ? wikipediaUrl(place.wikipedia) : null;
   const site = safeUrl(place.website);
   const osm = safeUrl(place.osmUrl);
+  const km = f.number(place.distanceKm, { maximumFractionDigits: 1 });
+  const links: [string, string][] = [];
+  if (osm) links.push([t("linkOsm"), osm]);
+  if (wiki) links.push([t("linkWikipedia"), wiki]);
+  if (site) links.push([t("linkWebsite"), site]);
   return (
-    <li className="flex flex-col gap-1 py-2">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+    <li className="flex min-w-0 flex-col rounded-md border border-neutral-200 px-3 py-2 dark:border-neutral-800">
+      <div className="flex items-baseline justify-between gap-2">
         <span className="min-w-0 break-words font-medium">{name}</span>
-        <span className={`text-xs ${mutedCls}`}>
-          {t("distance", { km: f.number(place.distanceKm, { maximumFractionDigits: 1 }) })}
+        <span
+          className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium tabular-nums text-blue-900 dark:bg-blue-950 dark:text-blue-200"
+          title={t("distance", { km })}
+        >
+          <span aria-hidden="true">{km} km</span>
+          <span className="sr-only">{t("distance", { km })}</span>
         </span>
       </div>
-      <span className={`text-xs ${mutedCls}`}>{category}</span>
-      <span className="flex flex-wrap gap-x-4 text-sm">
-        {osm && (
-          <a href={osm} target="_blank" rel="noopener noreferrer" className={`${linkCls} inline-flex min-h-11 items-center`}>
-            {t("linkOsm")}
-          </a>
-        )}
-        {wiki && (
-          <a href={wiki} target="_blank" rel="noopener noreferrer" className={`${linkCls} inline-flex min-h-11 items-center`}>
-            {t("linkWikipedia")}
-          </a>
-        )}
-        {site && (
-          <a href={site} target="_blank" rel="noopener noreferrer" className={`${linkCls} inline-flex min-h-11 items-center`}>
-            {t("linkWebsite")}
-          </a>
-        )}
-      </span>
+      <div className={`flex flex-wrap items-center gap-x-2 text-xs ${mutedCls}`}>
+        <span>{category}</span>
+        {links.map(([label, href]) => (
+          <span key={label} className="inline-flex items-center gap-2">
+            <span aria-hidden="true">·</span>
+            <a href={href} target="_blank" rel="noopener noreferrer" className={linkSm}>
+              {label}
+            </a>
+          </span>
+        ))}
+      </div>
     </li>
   );
 }
 
-const VISIBLE = 8;
+const VISIBLE = 9;
+const gridCls = "grid gap-2 sm:grid-cols-2 xl:grid-cols-3";
 
-function Group({ group, locale }: { group: PlaceGroup; locale: string }) {
+function Group({ group, locale, radiusKm }: { group: PlaceGroup; locale: string; radiusKm: number }) {
   const t = useTranslations("facts.places");
   const ti = useTranslations("interests");
   const title = group.interest === "general" ? t("general") : ti(group.interest);
-  const divide = "divide-y divide-neutral-200 dark:divide-neutral-800";
   return (
-    <section aria-label={title} className="flex flex-col gap-1">
-      <h3 className="flex flex-wrap items-center gap-2 font-semibold">
+    <section aria-label={title} className="flex flex-col gap-2">
+      <h3 className="flex flex-wrap items-baseline gap-x-2 gap-y-1 font-semibold">
         {title}
+        {group.status === "ok" && (
+          <span className={`text-sm font-normal ${mutedCls}`}>
+            · {t("groupMeta", { count: group.candidates.length, radius: radiusKm })}
+          </span>
+        )}
         {(group.status === "ok" || group.status === "empty") && group.stale && <StaleBadge />}
       </h3>
       {group.status === "ok" && (
         <>
-          <ul className={divide}>
+          <ul className={gridCls}>
             {group.candidates.slice(0, VISIBLE).map((p) => (
               <PlaceItem key={`${p.osmType}${p.osmId}`} place={p} locale={locale} />
             ))}
@@ -81,7 +90,7 @@ function Group({ group, locale }: { group: PlaceGroup; locale: string }) {
               <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium focus-visible:outline-2 focus-visible:outline-blue-600">
                 {t("showMore", { count: group.candidates.length - VISIBLE })}
               </summary>
-              <ul className={divide}>
+              <ul className={`${gridCls} mt-1`}>
                 {group.candidates.slice(VISIBLE).map((p) => (
                   <PlaceItem key={`${p.osmType}${p.osmId}`} place={p} locale={locale} />
                 ))}
@@ -101,9 +110,9 @@ export function PlacesList({ data, locale }: { data: PlacesFacts; locale: string
   const t = useTranslations("facts.places");
   return (
     <div className="flex flex-col gap-5">
-      <p className={`text-sm ${mutedCls}`}>{t("intro", { radius: data.radiusKm })}</p>
+      <p className={`text-xs ${mutedCls}`}>{t("intro", { radius: data.radiusKm })}</p>
       {data.groups.map((g) => (
-        <Group key={g.interest} group={g} locale={locale} />
+        <Group key={g.interest} group={g} locale={locale} radiusKm={data.radiusKm} />
       ))}
       {data.groups.some((g) => g.status === "error") && (
         <p role="status" className={`text-sm ${mutedCls}`}>

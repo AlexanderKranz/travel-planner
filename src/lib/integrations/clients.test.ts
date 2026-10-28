@@ -8,7 +8,7 @@ vi.mock("@/lib/server/api-cache", () => ({ cached: vi.fn(), cacheKey: vi.fn() })
 import { parseArchive } from "./open-meteo-archive";
 import { parsePlaceResponse, parseSearchResponse } from "./open-meteo-geocoding";
 import { parseElements } from "./overpass";
-import { parseSummary } from "./wikivoyage";
+import { clipParagraphs, parseSummary } from "./wikivoyage";
 import { getCountry, countryDataInfo, listCountries } from "./countries";
 import { userAgent } from "./http";
 
@@ -73,13 +73,36 @@ describe("wikivoyage", () => {
   it("picks the page whose title matches, not the river Inn", () => {
     const s = parseSummary(fx("wikivoyage/geosearch-passau-de.json"), anchor, "de");
     expect(s).toMatchObject({ title: "Passau", url: "https://de.wikivoyage.org/wiki/Passau", lang: "de" });
-    expect(s?.extract.length).toBeLessThanOrEqual(600);
+    expect(s?.extract.length).toBeLessThanOrEqual(900);
+    expect(s?.paragraphs).toEqual([s?.extract]);
   });
   it("falls back to the nearest page within 5 km, else null", () => {
     const body = fx("wikivoyage/geosearch-passau-de.json");
     expect(parseSummary(body, { ...anchor, placeName: "Zzz" }, "de")?.title).toBe("Passau"); // 2.6 km
     expect(parseSummary(body, { lat: 48.62, lon: 13.43, placeName: "Zzz" }, "de")).toBeNull();
     expect(parseSummary(fx("wikivoyage/geosearch-none.json"), anchor, "de")).toBeNull();
+  });
+  it("clips at a sentence boundary within 900 chars and keeps paragraph breaks", () => {
+    const sentence = "Dies ist ein Satz, der etwa so lang ist wie ein typischer Satz im Reisefuehrer. ";
+    const para = sentence.repeat(4).trim(); // ~320 chars
+    const out = clipParagraphs([para, para, para, para].join("\n"));
+    expect(out.join("\n\n").length).toBeLessThanOrEqual(900);
+    expect(out.length).toBeGreaterThanOrEqual(2);
+    expect(out.every((p) => p.endsWith("."))).toBe(true);
+  });
+  it("cuts one very long paragraph at the last sentence end", () => {
+    const long = "Erster Satz hier. ".repeat(100).trim();
+    const out = clipParagraphs(long);
+    expect(out).toHaveLength(1);
+    expect(out[0].length).toBeLessThanOrEqual(900);
+    expect(out[0].endsWith("Satz hier.")).toBe(true);
+  });
+  it("uses a short intro as is and falls back to a word cut with an ellipsis", () => {
+    expect(clipParagraphs("Marbella ist ein Ort.")).toEqual(["Marbella ist ein Ort."]);
+    const noStops = "wort ".repeat(400).trim();
+    const out = clipParagraphs(noStops);
+    expect(out[0].endsWith("…")).toBe(true);
+    expect(out[0].length).toBeLessThanOrEqual(901);
   });
   it("busy error body 200 is a failure", () => {
     expect(() => parseSummary(fx("wikivoyage/error-busy.json"), anchor, "de")).toThrow(/Wikivoyage/);

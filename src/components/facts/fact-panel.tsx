@@ -21,7 +21,7 @@ export function FactPanel<T>({
 }) {
   return (
     <section aria-label={title} className={`${cardCls} min-w-0 ${className ?? ""}`}>
-      <h2 className="mb-3 text-lg font-semibold">
+      <h2 className="mb-3 text-lg font-bold">
         {title}
       </h2>
       {fact.status === "ok" ? (

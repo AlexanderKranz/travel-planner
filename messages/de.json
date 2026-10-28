@@ -372,6 +372,16 @@
     "staleHint": "Die Quelle war nicht erreichbar; es werden die zuletzt gespeicherten Daten gezeigt.",
     "source": "Quelle",
     "checked": "geprüft am {date}",
+    "checkedShort": "geprüft {date}",
+    "glance": {
+      "title": "Auf einen Blick",
+      "climateFor": "Klima im {months}",
+      "temperature": "Temperatur",
+      "hoursPerDay": "{h} Std./Tag",
+      "daylightOn": "Tageslicht um den {date}",
+      "sunriseSunset": "Sonnenauf-/untergang",
+      "missing": "Nicht verfügbar:"
+    },
     "unavailable": {
       "no_location": "Für dieses Ziel gibt es keine Wetter-, Tageslicht- oder Ortsdaten.",
       "no_locationHint": "Das Ziel wurde als Freitext eingegeben. Wähle in der Suche einen Ort, um diese Fakten zu erhalten.",
@@ -384,6 +394,7 @@
     },
     "weather": {
       "title": "Klima",
+      "detailsTitle": "Klima im Jahresverlauf",
       "intro": "Durchschnitt der Jahre {from} bis {to} (Reanalyse-Daten, keine Vorhersage).",
       "month": "Monat",
       "tMax": "Höchsttemp.",
@@ -398,6 +409,7 @@
     },
     "daylight": {
       "title": "Tageslicht",
+      "detailsTitle": "Tageslicht je Tag",
       "intro": "Zeiten in Ortszeit ({timezone}). „Dunkel ab“ ist das Ende der bürgerlichen Dämmerung.",
       "date": "Datum",
       "sunrise": "Sonnenaufgang",
@@ -425,7 +437,7 @@
     },
     "summary": {
       "title": "Über das Reiseziel",
-      "readMore": "Mehr auf Wikivoyage",
+      "readMore": "Ganzen Artikel lesen",
       "license": "Text unter Lizenz"
     },
     "places": {
@@ -433,6 +445,7 @@
       "general": "Sehenswürdigkeiten",
       "intro": "Kandidaten aus OpenStreetMap im Umkreis von {radius} km, sortiert nach Bekanntheit und Entfernung. Sie sind kein Plan.",
       "distance": "{km} km entfernt",
+      "groupMeta": "{count, plural, one {# Ort} other {# Orte}} im Umkreis von {radius} km",
       "linkOsm": "OpenStreetMap",
       "linkWikipedia": "Wikipedia",
       "linkWebsite": "Webseite",
@@ -442,7 +455,10 @@
       "error": "Die Ortsquelle war nicht erreichbar. Bitte später erneut versuchen.",
       "custom": "Für deine eigenen Interessen gibt es noch keine geprüfte Quelle: {list}",
       "morePending": "Weitere Orte erscheinen beim nächsten Besuch.",
-      "notLoaded": "Weitere Orte erscheinen beim nächsten Besuch."
+      "notLoaded": "Weitere Orte erscheinen beim nächsten Besuch.",
+      "loading": "Orte werden gesucht … das kann bei OpenStreetMap bis zu ein paar Minuten dauern.",
+      "loadingMore": "Weitere Orte werden noch gesucht …",
+      "retry": "Erneut versuchen"
     },
     "category": {
       "leisure_golf_course": "Golfplatz",
@@ -511,6 +527,11 @@
       "wikivoyage": {
         "label": "Wikivoyage",
         "provides": "Kurze Beschreibung des Reiseziels.",
+        "license": "CC BY-SA 4.0. Gezeigt wird ein gekürzter Auszug mit Link zum Artikel."
+      },
+      "wikipedia": {
+        "label": "Wikipedia",
+        "provides": "Beschreibung des Reiseziels, wenn die Wikivoyage-Einleitung sehr kurz ist.",
         "license": "CC BY-SA 4.0. Gezeigt wird ein gekürzter Auszug mit Link zum Artikel."
       },
       "rest_countries": {

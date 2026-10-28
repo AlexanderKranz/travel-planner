@@ -67,26 +67,13 @@ function MonthsTable({
   );
 }
 
+/** Full 12-month table; the trip's months are highlighted. Lives inside a collapsed <details>. */
 export function WeatherTable({ data, locale }: { data: WeatherFacts; locale: string }) {
   const t = useTranslations("facts.weather");
-  const selected = data.months.filter((m) => data.selectedMonths.includes(m.month));
-  const period = { from: data.period.from, to: data.period.to };
   return (
     <div className="flex flex-col gap-3">
-      <p className={`text-sm ${mutedCls}`}>{t("intro", period)}</p>
-      {selected.length > 0 ? (
-        <>
-          <MonthsTable data={data} rows={selected} caption={t("captionSelected")} locale={locale} />
-          <details>
-            <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium focus-visible:outline-2 focus-visible:outline-blue-600">
-              {t("showAll")}
-            </summary>
-            <MonthsTable data={data} rows={data.months} caption={t("captionAll")} locale={locale} />
-          </details>
-        </>
-      ) : (
-        <MonthsTable data={data} rows={data.months} caption={t("captionAll")} locale={locale} />
-      )}
+      <p className={`text-sm ${mutedCls}`}>{t("intro", { from: data.period.from, to: data.period.to })}</p>
+      <MonthsTable data={data} rows={data.months} caption={t("captionAll")} locale={locale} />
     </div>
   );
 }

@@ -372,6 +372,16 @@
     "staleHint": "The source could not be reached; the last saved data is shown.",
     "source": "Source",
     "checked": "checked {date}",
+    "checkedShort": "checked {date}",
+    "glance": {
+      "title": "At a glance",
+      "climateFor": "Climate in {months}",
+      "temperature": "Temperature",
+      "hoursPerDay": "{h} h/day",
+      "daylightOn": "Daylight around {date}",
+      "sunriseSunset": "Sunrise–sunset",
+      "missing": "Not available:"
+    },
     "unavailable": {
       "no_location": "No weather, daylight or place data for this destination.",
       "no_locationHint": "The destination was entered as free text. Pick a place from the search to get these facts.",
@@ -384,6 +394,7 @@
     },
     "weather": {
       "title": "Climate",
+      "detailsTitle": "Climate through the year",
       "intro": "Average of the years {from} to {to} (reanalysis data, not a forecast).",
       "month": "Month",
       "tMax": "Max. temp.",
@@ -398,6 +409,7 @@
     },
     "daylight": {
       "title": "Daylight",
+      "detailsTitle": "Daylight by day",
       "intro": "Times in local time ({timezone}). “Dark from” is the end of civil twilight.",
       "date": "Date",
       "sunrise": "Sunrise",
@@ -425,7 +437,7 @@
     },
     "summary": {
       "title": "About the destination",
-      "readMore": "Read more on Wikivoyage",
+      "readMore": "Read the full article",
       "license": "Text under licence"
     },
     "places": {
@@ -433,6 +445,7 @@
       "general": "Sights",
       "intro": "Candidates from OpenStreetMap within {radius} km, sorted by notability and distance. They are not a plan.",
       "distance": "{km} km away",
+      "groupMeta": "{count, plural, one {# place} other {# places}} within {radius} km",
       "linkOsm": "OpenStreetMap",
       "linkWikipedia": "Wikipedia",
       "linkWebsite": "Website",
@@ -442,7 +455,10 @@
       "error": "The place source could not be reached. Please try again later.",
       "custom": "Your own interests have no verified source yet: {list}",
       "morePending": "More places will appear on your next visit.",
-      "notLoaded": "More places will appear on the next visit."
+      "notLoaded": "More places will appear on the next visit.",
+      "loading": "Looking for places … this can take up to a few minutes at OpenStreetMap.",
+      "loadingMore": "More places are still being searched …",
+      "retry": "Try again"
     },
     "category": {
       "leisure_golf_course": "Golf course",
@@ -511,6 +527,11 @@
       "wikivoyage": {
         "label": "Wikivoyage",
         "provides": "Short destination description.",
+        "license": "CC BY-SA 4.0. A shortened excerpt is shown with a link to the article."
+      },
+      "wikipedia": {
+        "label": "Wikipedia",
+        "provides": "Destination description when the Wikivoyage intro is very short.",
         "license": "CC BY-SA 4.0. A shortened excerpt is shown with a link to the article."
       },
       "rest_countries": {

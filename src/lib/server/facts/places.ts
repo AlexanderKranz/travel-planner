@@ -33,10 +33,12 @@ const candidateSchema = z.object({
 const candidatesSchema = z.array(candidateSchema);
 
 /**
- * Total time budget for a page view (maxDuration is 60 s, minus margin). A further Overpass query may only start
- * if elapsed + OVERPASS_CLIENT_TIMEOUT_MS <= budget, so in practice one query per view; the rest is cached for the next.
+ * Total time budget for one places request (route handler maxDuration is 300 s, minus margin). A further Overpass
+ * query may only start if elapsed + OVERPASS_CLIENT_TIMEOUT_MS <= budget, i.e. about 2-3 queries per request;
+ * the remaining interests are fetched by the next request (cached ones return instantly).
  */
-export const VIEW_BUDGET_MS = 57_000;
+export const VIEW_BUDGET_MS = 280_000;
+export const PLACES_REQUEST_BUDGET_MS = VIEW_BUDGET_MS;
 
 const inFlight = new Map<string, Promise<CachedResult<PlaceCandidate[]>>>();
 
@@ -45,10 +47,11 @@ function fetchCandidates(
   anchor: { lat: number; lon: number },
   radiusKm: number,
   ctx: FactsCtx,
+  deadline: number,
 ): Promise<CachedResult<PlaceCandidate[]>> {
   const src = sourceFor(interest);
   if (src.source !== "osm") return Promise.resolve({ ok: false, error: "provider_error" });
-  const key = cacheKey("interpreter", 1, { interest, lat: anchor.lat, lon: anchor.lon, r: radiusKm });
+  const key = cacheKey("interpreter", 2, { interest, lat: anchor.lat, lon: anchor.lon, r: radiusKm });
   const existing = inFlight.get(key);
   if (existing) return existing;
   const p = cached({
@@ -59,8 +62,8 @@ function fetchCandidates(
     schema: candidatesSchema,
     ctx,
     fetcher: async () => {
-      const r = await runQuery(buildQuery(src.filters, anchor, radiusKm * 1000));
-      return { data: rankCandidates(r.elements, src.filters, anchor, src.exclude), status: r.status, latencyMs: r.latencyMs };
+      const r = await runQuery(buildQuery(src.filters, anchor, radiusKm * 1000), { deadline });
+      return { data: rankCandidates(r.elements, src.filters, anchor, src.exclude, radiusKm), status: r.status, latencyMs: r.latencyMs };
     },
   }).finally(() => inFlight.delete(key));
   inFlight.set(key, p);
@@ -96,7 +99,7 @@ export async function getPlacesFacts(
         continue;
       }
       queried += 1;
-      const res = await fetchCandidates(interest, anchor, radiusForInterest(interest, baseRadius), ctx);
+      const res = await fetchCandidates(interest, anchor, radiusForInterest(interest, baseRadius), ctx, started + budgetMs);
       if (!res.ok) {
         groups.push({ interest, status: "error" });
         continue;

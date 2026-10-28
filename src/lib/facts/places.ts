@@ -40,13 +40,15 @@ export function matchCategory(tags: Record<string, string>, filters: readonly st
 
 /**
  * Drop unnamed, rank by (wikidata, wikipedia, distance), dedupe by name + 200 m, keep top 25.
- * Pure: `anchor` is the destination point the distance is measured from.
+ * Pure: `anchor` is the destination point the distance is measured from. `maxKm` enforces the exact radius
+ * (the Overpass query only uses a bounding box, whose corners reach 1.41x further).
  */
 export function rankCandidates(
   elements: readonly RawOsmElement[],
   filters: readonly string[],
   anchor: { lat: number; lon: number },
   exclude?: InterestExclude,
+  maxKm?: number,
 ): PlaceCandidate[] {
   const all: PlaceCandidate[] = [];
   const nameRe = exclude?.nameRegex ? new RegExp(exclude.nameRegex, "i") : null;
@@ -57,6 +59,7 @@ export function rankCandidates(
   const hasAreas = named.some((e) => e.type !== "node");
   for (const e of named) {
     if (exclude?.dropNodesIfAreas && hasAreas && e.type === "node") continue;
+    if (maxKm !== undefined && haversineKm(anchor, e) > maxKm) continue;
     const name = e.tags.name!.trim();
     const names: PlaceCandidate["names"] = {};
     if (e.tags["name:de"]) names.de = e.tags["name:de"];
