@@ -202,3 +202,61 @@ Nearby days ("±1 day" button in the flights panel, spec phase 4 section 12): ea
 ### OpenRouteService quota
 
 Free Standard key: about 500 matrix requests per day. One plan generation makes at most one request (`src/lib/server/facts/drive-times.ts`), cached 90 days per destination point and place set. Every request is logged in `api_calls` (provider `openrouteservice`). The guard counts today's non-hit rows (Europe/Berlin day) before each request and refuses at `ORS_DAILY_REQUESTS` (default 400); it fails closed. When it refuses or ORS is down, plans generate without drive times. Check usage with `select count(*) from api_calls where provider='openrouteservice' and cache <> 'hit' and created_at >= date_trunc('day', now())`.
+
+## 9. Admin page
+
+`/de/app/admin` (or `/en/app/admin`) shows aggregates only: users, trips and plans, AI cost against the budgets, external API usage and latency, health, and the last 50 warnings/errors. It never shows names, notes, purposes, plans or user ids. Anyone who is not an admin gets the normal 404 page. An "Admin" link appears in the header for admins only. Spec: `docs/specs/phase-6-admin.md`.
+
+### Make yourself admin (once)
+
+The role lives in `profiles.role` and users cannot change it (no column grant), so it is set by SQL as the project owner:
+
+1. Sign in once with your email so your profile exists.
+2. Supabase dashboard -> **SQL Editor** -> **New query**, paste, replace the email, click **Run**:
+
+```sql
+update public.profiles set role = 'admin'
+where id = (select id from auth.users where email = 'you@example.com');
+```
+
+3. It should say "Success. 1 row affected" (0 rows = wrong email or you never signed in). Reload the app; the **Admin** link appears.
+4. Revoke the same way with `role = 'user'`. The demo account can never be admin (database check).
+
+Admin also raises your own daily AI cap to `AI_ADMIN_DAILY_USD`.
+
+### Deploy order
+
+Migration `20261102120025_admin_stats.sql` adds the aggregate functions and `api_calls.variant`. The page needs the functions; merge to `main` and let **Deploy database migrations** go green before opening the admin page. Until then the page shows an error. (The only code path that writes the new column is the Overpass logging, and it sends the column only when a mirror answered, so nothing else is affected during the gap.)
+
+## 10. Budget alerts and Supabase keep-alive
+
+A Vercel Cron job calls `GET /api/cron/budget-check` once a day (`vercel.json`, 20:30 UTC = 21:30/22:30 Berlin, late in the day so the daily numbers are nearly complete; Hobby plans run crons with up to one hour of jitter).
+
+**What triggers an alert** (thresholds in `src/lib/server/admin/budget.ts`, caps from env):
+
+| Kind | Condition | Level |
+|---|---|---|
+| `ai_daily` | AI spend today >= 80 % of `AI_GLOBAL_DAILY_USD` (error at 100 %) | warn / error |
+| `ai_monthly` | AI spend this month >= 80 % of `AI_MONTHLY_ALERT_USD` (default 10; error at 100 %) | warn / error |
+| `aerodatabox_monthly` | units remaining (last value reported by RapidAPI) < 2 x `AERODATABOX_MIN_REMAINING` (error below 1 x) | warn / error |
+| `ors_daily` | ORS requests today >= 80 % of `ORS_DAILY_REQUESTS` (error at 100 %) | warn / error |
+| `errors_24h` | more than `ALERT_ERRORS_24H` (default 20) `app_events` with level error in the last 24 h (error above 2 x) | warn / error |
+
+**Delivery** (no new account needed): each alert is written to `app_events` as `budget.alert` (level warn/error, shown on the admin page under "Recent warnings and errors") and sent to Sentry with `captureMessage` (level warning, tags `budget_alert=true`, `alert_kind=<kind>`, `alert_level`). The Sentry fingerprint contains the date, so each day is a new issue and a "new issue" alert rule fires again every day. At most one alert per kind per Berlin day (the check looks for an existing `budget.alert` event of that kind today). Without `NEXT_PUBLIC_SENTRY_DSN` only the `app_events` row is written.
+
+**Keep-alive:** the nightly backup (`backup.yml`) connects with `pg_dump`, but Supabase does not document that as "activity" for the 7-day pause rule. The UptimeRobot ping of `/api/health` does call the DB, but it is an external service that may not be set up yet. So the daily cron itself reads from the database (spend sums, `api_calls`, `app_events`) and writes a `cron.budget_check` event every run. The admin page shows the time of the last run under Health. If it says "Never run" or the time is more than a day old, the cron is not working.
+
+### Setting up (Alex)
+
+1. **CRON_SECRET:** generate a long random string (`openssl rand -base64 32`). Vercel -> project -> **Settings** -> **Environment Variables** -> add `CRON_SECRET` for **Production** (Preview not needed; crons only run on production). Redeploy. Vercel then sends `Authorization: Bearer <CRON_SECRET>` on every cron call, and the route answers 401 to anything else (also when the variable is missing). Save the value in your password manager.
+2. **Check the cron:** Vercel -> project -> **Settings** -> **Cron Jobs** should list `/api/cron/budget-check`. Click **Run** to trigger it once. In Supabase -> Table editor -> `app_events` there is a `cron.budget_check` row. Or look at the admin page Health tile "Last budget check".
+3. **Sentry alert rule** (needed once, so the alerts reach your inbox): Sentry -> **Alerts** -> **Create Alert** -> **Issues** -> choose project -> Set conditions: **When** "A new issue is created", **If** "The event's tags match" `budget_alert` `equals` `true` -> **Then** "Send a notification to" Member "Alex" (or the team; see the spam note in `docs/architecture.md`) -> name it "Budget alerts" -> **Save Rule**. Use "Test Rule" to see what it would send.
+4. **Change thresholds:** edit the env vars in Vercel (Production) and redeploy: `AI_GLOBAL_DAILY_USD`, `AI_MONTHLY_ALERT_USD`, `AERODATABOX_MIN_REMAINING`, `ORS_DAILY_REQUESTS`, `ALERT_ERRORS_24H`. The admin page reads the same variables, so its bars match what the cron checks. The 80 % warning level is a constant (`WARN_AT` in `budget.ts`).
+5. Also keep the hard spend limit in the Anthropic console; the app budget is a guard, not a billing limit.
+
+### When an alert arrives
+
+- `ai_daily` / `ai_monthly`: admin page -> AI cost -> by task. Check for a loop or a burst from the demo account (Users -> Demo account). Lower `AI_DEMO_DAILY_USD` or set `AI_ENABLED` unset to stop generation.
+- `aerodatabox_monthly`: no new flight lookups are made below the margin (the guard refuses). Wait for the monthly reset or raise the plan.
+- `ors_daily`: plans simply generate without drive times until the next Berlin day.
+- `errors_24h`: admin page -> Recent warnings and errors, then Vercel logs for the route.
