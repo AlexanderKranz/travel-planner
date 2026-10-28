@@ -7,7 +7,7 @@ import { listPurposes } from "@/lib/server/purposes";
 import { unwrap } from "@/lib/unwrap";
 
 // The server action's after() facts warm-up runs within this route's budget.
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export default async function NewTripPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;

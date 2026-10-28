@@ -8,6 +8,7 @@ export const CacheProvider = z.enum([
   "open_meteo_archive",
   "overpass",
   "wikivoyage",
+  "wikipedia",
   "aerodatabox",
 ]);
 export type CacheProvider = z.infer<typeof CacheProvider>;

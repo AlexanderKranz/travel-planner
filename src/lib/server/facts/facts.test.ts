@@ -97,11 +97,29 @@ describe("server facts", () => {
     const s = { title: "Passau", extract: "Text", url: "https://de.wikivoyage.org/wiki/Passau", lang: "de" };
     cachedMock.mockResolvedValue(hit(s));
     expect(await getSummaryFacts(passau, ctx)).toMatchObject({ status: "ok", source: "wikivoyage", sourceUrl: s.url });
-    expect(cachedMock.mock.calls[0][0].key).toBe("summary:v1:geo=2855328;lang=de");
+    expect(cachedMock.mock.calls[0][0].key).toBe("summary:v2:geo=2855328;lang=de");
     cachedMock.mockResolvedValue(hit(null));
     expect(await getSummaryFacts(passau, ctx)).toMatchObject({ status: "unavailable", reason: "not_found" });
     cachedMock.mockResolvedValue({ ok: false, error: "provider_error" });
     expect(await getSummaryFacts(passau, ctx)).toMatchObject({ status: "unavailable", reason: "provider_error" });
+  });
+
+  it("summary: a short Wikivoyage intro falls back to a longer Wikipedia intro; a long one is kept", async () => {
+    const voyage = { title: "Passau", extract: "Kurz.", url: "https://de.wikivoyage.org/wiki/Passau", lang: "de" };
+    const pedia = { title: "Passau", extract: "x".repeat(450), url: "https://de.wikipedia.org/wiki/Passau", lang: "de" };
+    cachedMock.mockImplementation(async (o) => (o.provider === "wikipedia" ? hit(pedia) : hit(voyage)));
+    expect(await getSummaryFacts(passau, ctx)).toMatchObject({ status: "ok", source: "wikipedia", sourceUrl: pedia.url });
+    expect(cachedMock.mock.calls.map((c) => c[0].provider)).toEqual(["wikivoyage", "wikipedia"]);
+
+    cachedMock.mockReset();
+    const longVoyage = { ...voyage, extract: "y".repeat(500) };
+    cachedMock.mockImplementation(async (o) => (o.provider === "wikipedia" ? hit(pedia) : hit(longVoyage)));
+    expect(await getSummaryFacts(passau, ctx)).toMatchObject({ status: "ok", source: "wikivoyage" });
+    expect(cachedMock.mock.calls).toHaveLength(1);
+
+    cachedMock.mockReset();
+    cachedMock.mockImplementation(async (o) => (o.provider === "wikipedia" ? { ok: false, error: "provider_error" } : hit(voyage)));
+    expect(await getSummaryFacts(passau, ctx)).toMatchObject({ status: "ok", source: "wikivoyage" });
   });
 
   it("places: one sequential query per OSM interest, no_source reported, empty cached result", async () => {
@@ -116,7 +134,7 @@ describe("server facts", () => {
       expect(f.source).toBe("osm");
     }
     expect(cachedMock.mock.calls).toHaveLength(2);
-    expect(cachedMock.mock.calls[0][0].key).toBe("interpreter:v1:interest=golf;lat=48.566;lon=13.431;r=40");
+    expect(cachedMock.mock.calls[0][0].key).toBe("interpreter:v2:interest=golf;lat=48.566;lon=13.431;r=40");
     expect(cachedMock.mock.calls[0][0].ttlSeconds).toBe(30 * 86400);
   });
 

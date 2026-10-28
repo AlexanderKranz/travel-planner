@@ -14,6 +14,7 @@ export const SOURCES: Record<SourceId, SourceInfo> = {
   geonames: { id: "geonames", homepage: "https://www.geonames.org/", license: "CC BY 4.0", licenseUrl: "https://creativecommons.org/licenses/by/4.0/", labelKey: "geonames" },
   osm: { id: "osm", homepage: "https://www.openstreetmap.org/copyright", license: "ODbL 1.0", licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/", labelKey: "osm" },
   wikivoyage: { id: "wikivoyage", homepage: "https://www.wikivoyage.org/", license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/", labelKey: "wikivoyage" },
+  wikipedia: { id: "wikipedia", homepage: "https://www.wikipedia.org/", license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/", labelKey: "wikipedia" },
   rest_countries: { id: "rest_countries", homepage: "https://github.com/mledoze/countries", license: "ODbL 1.0", licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/", labelKey: "rest_countries" },
   suncalc: { id: "suncalc", homepage: null, license: "n/a", licenseUrl: null, labelKey: "suncalc" },
 };

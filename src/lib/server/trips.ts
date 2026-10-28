@@ -33,8 +33,8 @@ import {
 const Id = z.string().uuid();
 const FK_VIOLATION = "23503"; // groupId/purposeId of another user (or unknown) fails the composite FK
 
-/** Total time after() may spend warming facts (pages export maxDuration = 60). */
-const WARM_BUDGET_MS = 55_000;
+/** Total time after() may spend warming facts (pages export maxDuration = 300). */
+const WARM_BUDGET_MS = 280_000;
 
 type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;
 

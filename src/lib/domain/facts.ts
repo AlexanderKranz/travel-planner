@@ -1,7 +1,7 @@
 import type { InterestKey } from "./interests";
 import type { Locale } from "./profile";
 
-export type SourceId = "open_meteo" | "geonames" | "osm" | "wikivoyage" | "rest_countries" | "suncalc";
+export type SourceId = "open_meteo" | "geonames" | "osm" | "wikivoyage" | "wikipedia" | "rest_countries" | "suncalc";
 
 export type Fact<T> =
   | { status: "ok"; data: T; source: SourceId; sourceUrl?: string;
@@ -42,7 +42,15 @@ export type CountryFacts = {
   plugs: null;                                      // phase 2: always null [D10]
 };
 
-export type DestinationSummary = { title: string; extract: string; url: string; lang: string };
+export type DestinationSummary = {
+  title: string;
+  /** Intro text, paragraphs joined by a blank line ("\n\n"). */
+  extract: string;
+  /** The same text split into paragraphs (render one <p> each). Absent in entries cached before v2. */
+  paragraphs?: string[];
+  url: string;
+  lang: string;
+};
 
 export type InterestOrGeneral = InterestKey | "general";
 export type PlaceCandidate = {

@@ -30,11 +30,16 @@ describe("interest sources", () => {
     expect(radiusForInterest("skiing", 100)).toBe(60);
   });
 
-  it("builds a stable query", () => {
+  it("builds a stable bbox query", () => {
     const src = INTEREST_SOURCES.golf;
     if (src.source !== "osm") throw new Error("golf must be osm");
+    const bb = "36.15611,-5.33292,36.87475,-4.43874";
     expect(buildQuery(src.filters, { lat: 36.51543, lon: -4.88583 }, 40000)).toBe(
-      '[out:json][timeout:25];\n(\n  nwr["leisure"="golf_course"]["golf"!~"^(driving_range|practice)$"]["name"](around:40000,36.51543,-4.88583);\n);\nout center tags 150;',
+      `[out:json][timeout:90];
+(
+  nwr["leisure"="golf_course"]["golf"!~"^(driving_range|practice)$"]["name"](${bb});
+);
+out center tags 150;`,
     );
   });
 });

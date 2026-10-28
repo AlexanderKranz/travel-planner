@@ -44,9 +44,9 @@ export function getTripFacts(trip: Trip, purpose: TripPurpose | null, ctx: Facts
   return collect(trip, purpose, ctx);
 }
 
-export const WARM_BUDGET_MS = 55_000;
+export const WARM_BUDGET_MS = 280_000;
 
-/** Fills the cache in the background (after()). Overpass queries respect options.budgetMs (default 55 s). Never throws. */
+/** Fills the cache in the background (after()). Overpass queries respect options.budgetMs (default 280 s). Never throws. */
 export async function warmTripFacts(
   trip: Trip,
   purpose: TripPurpose | null,

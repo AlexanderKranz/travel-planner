@@ -51,7 +51,7 @@ describe("Overpass query construction", () => {
     for (const s of Object.values(INTEREST_SOURCES)) {
       if (s.source !== "osm") continue;
       const q = buildQuery(s.filters, center, 40_000);
-      expect(q).toMatch(/^\[out:json\]\[timeout:25\];\n\(\n(  nwr.*;\n)+\);\nout center tags 150;$/);
+      expect(q).toMatch(/^\[out:json\]\[timeout:90\];\n\(\n(  nwr.*;\n)+\);\nout center tags 150;$/);
       expect(q).not.toMatch(/[{}\\]/);
     }
   });
@@ -68,7 +68,8 @@ describe("Overpass query construction", () => {
   });
   it("lat/lon are formatted numerically (NaN would be a defect upstream, never user text)", () => {
     const q = buildQuery(['["leisure"="golf_course"]'], center, 1234.6);
-    expect(q).toContain("(around:1235,36.51543,-4.88583)");
+    expect(q).toMatch(/\((-?\d+\.\d{5},){3}-?\d+\.\d{5}\)/);
+    expect(q).not.toMatch(/NaN|Infinity/);
   });
 });
 

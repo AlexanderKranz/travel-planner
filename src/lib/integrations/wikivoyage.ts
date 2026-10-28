@@ -2,8 +2,9 @@
  * Wikivoyage via the MediaWiki Action API (CC BY-SA 4.0), geosearch + TextExtracts.
  * Docs: https://www.mediawiki.org/wiki/API:Geosearch, https://www.mediawiki.org/wiki/Extension:TextExtracts,
  * etiquette https://meta.wikimedia.org/wiki/User-Agent_policy (checked 2026-10-28).
- * Verified live 2026-10-28: TextExtracts works on de.wikivoyage.org (`exintro`, `explaintext`); `exsentences=3`
- * returned a single sentence for Passau (the page's intro is one sentence). Page order in the result is NOT by
+ * Verified live 2026-10-28: TextExtracts works on de.wikivoyage.org (`exintro`, `explaintext`); the intro of Passau is
+ * one sentence, Marbella one line, Vienna ~1000 chars in 2-3 paragraphs (separated by "\n" in the extract), so we take
+ * the whole intro (no `exsentences`) and cut it ourselves at <= 900 chars on a sentence boundary (2026-10-28). Page order in the result is NOT by
  * distance (Inn had index -1, Passau index 0), so we compute distance from `coordinates`. Under load the API
  * answers HTTP 200 with `{"error":{"code":"cirrussearch-too-busy-error"}}`: treated as failure, never cached.
  * No hit within the radius returns `{"batchcomplete":true}` without `query`.
@@ -28,15 +29,39 @@ const response = z.object({
 const fold = (s: string) =>
   s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/ß/g, "ss").replace(/\s+/g, " ").trim();
 
-export const MAX_EXTRACT_CHARS = 600;
+/** Target length of the shown intro: about 3 short paragraphs. Cut at a sentence boundary. */
+export const MAX_EXTRACT_CHARS = 900;
+const MIN_SENTENCE_CUT = 300;
 const NEAREST_KM = 5;
 
-function clip(text: string): string {
-  const t = text.replace(/\s+/g, " ").trim();
-  if (t.length <= MAX_EXTRACT_CHARS) return t;
-  const cut = t.slice(0, MAX_EXTRACT_CHARS - 1);
-  const stop = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf(" "));
-  return `${cut.slice(0, stop > 200 ? stop : cut.length).trimEnd()}…`;
+/** Keeps whole paragraphs while they fit, then cuts the next one at its last sentence end (else at a word, with an ellipsis). */
+export function clipParagraphs(text: string, max = MAX_EXTRACT_CHARS): string[] {
+  const paras = text
+    .split(/\n+/)
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  const out: string[] = [];
+  let used = 0;
+  for (const para of paras) {
+    const sep = out.length ? 2 : 0;
+    if (used + sep + para.length <= max) {
+      out.push(para);
+      used += sep + para.length;
+      continue;
+    }
+    const room = max - used - sep;
+    const head = para.slice(0, Math.max(0, room));
+    let end = -1;
+    for (const m of head.matchAll(/[.!?](?=\s|$)/g)) end = m.index + 1;
+    // Keep a partial paragraph only if it adds a reasonable amount; the first paragraph is always cut to fit.
+    if (end >= 80 || (!out.length && end > 0)) out.push(head.slice(0, end));
+    else if (!out.length) {
+      const space = head.lastIndexOf(" ");
+      out.push(`${head.slice(0, space > MIN_SENTENCE_CUT ? space : head.length).trimEnd()}…`);
+    }
+    break;
+  }
+  return out;
 }
 
 /** Title match (accent-insensitive) first, else the nearest page within 5 km, else null. */
@@ -48,12 +73,10 @@ export function parseSummary(
   const parsed = response.parse(body);
   if (parsed.error) throw new UpstreamError(`Wikivoyage: ${parsed.error.code}`);
   const pages = (parsed.query?.pages ?? []).filter((p) => p.extract && p.fullurl);
-  const toSummary = (p: (typeof pages)[number]): DestinationSummary => ({
-    title: p.title,
-    extract: clip(p.extract ?? ""),
-    url: p.fullurl ?? "",
-    lang,
-  });
+  const toSummary = (p: (typeof pages)[number]): DestinationSummary => {
+    const paragraphs = clipParagraphs(p.extract ?? "");
+    return { title: p.title, extract: paragraphs.join("\n\n"), paragraphs, url: p.fullurl ?? "", lang };
+  };
   const byTitle = pages.find((p) => fold(p.title) === fold(anchor.placeName));
   if (byTitle) return toSummary(byTitle);
   let best: { p: (typeof pages)[number]; d: number } | null = null;
@@ -83,7 +106,6 @@ export async function fetchSummary(
     prop: "extracts|coordinates|info",
     exintro: "1",
     explaintext: "1",
-    exsentences: "3",
     inprop: "url",
     redirects: "1",
   });

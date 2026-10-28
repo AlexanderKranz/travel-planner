@@ -175,6 +175,9 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
 - **Backup restore test** (proves backups decrypt and restore); planned for phase 6, earlier if real data accumulates.
 - **DiskStation backup pull** (optional): `scripts/backup/pull-to-nas.sh`, see `docs/runbook.md`.
 - **Sentry alert emails land in spam** (web.de, 2026-10-28). The alert rule fires and the email arrives, but in the spam folder; cause unknown. Next: mark as "not spam", add the Sentry sender to contacts or a filter rule, and check the primary address under Sentry → Settings → Account → Email Addresses. Optionally change the rule's action to "Send a notification to → Member → Alex" instead of "Suggested Assignees / Recently Active Members".
+- **Overall look of the site** (Alex, 2026-10-28): currently very lean and clean; it needs more colour and a stronger visual identity. Do it as one pass over the whole app (palette, header, cards, buttons), separate from the trip-page layout work.
+- **"Getting started" guide on first login** (Alex, 2026-10-28): new users need a short introduction the first time they log in (what groups, purposes and home airports are for, how to create a first trip). It should be skippable and reachable again later; all text in de + en.
+- **Not yet tested on a phone** (Alex, 2026-10-28): nothing has been tried on a mobile device so far; Alex will do that later. Until then, mobile layouts are only checked at 360 px in code review.
 - **Old macOS / browser:** the Mac runs macOS 12. Chrome will stop getting updates, and Safari is too old for some sites (the Sentry UI only worked in Chrome). This isn't an app issue, but browser security updates will end.
 
 ## Proposed agent team (`.claude/agents/`)

@@ -15,18 +15,16 @@ import { getPurpose } from "@/lib/server/purposes";
 import { getUserSession } from "@/lib/server/session";
 import { getTrip } from "@/lib/server/trips";
 import { unwrap } from "@/lib/unwrap";
-import { CountryPanel } from "./_panels/country-panel";
-import { DaylightPanel } from "./_panels/daylight-panel";
+import { GlancePanel, glanceAsideCls } from "./_panels/glance-panel";
 import { PlacesPanel } from "./_panels/places-panel";
 import { SummaryPanel } from "./_panels/summary-panel";
-import { WeatherPanel } from "./_panels/weather-panel";
 
-// Facts panels stream in; Overpass can be slow.
-export const maxDuration = 60;
+// Vercel Hobby with Fluid compute allows 300 s; the after() warm-up can take minutes on Overpass.
+export const maxDuration = 300;
 
-function PanelFallback({ title }: { title: string }) {
+function PanelFallback({ title, className }: { title: string; className?: string }) {
   return (
-    <section aria-label={title} className={cardCls}>
+    <section aria-label={title} className={`${className ?? cardCls} min-w-0`}>
       <h2 className="mb-3 text-lg font-semibold">{title}</h2>
       <FactSkeleton />
     </section>
@@ -80,29 +78,27 @@ export default async function TripDetailPage({
         purpose={purpose}
         profileAirports={profile.homeAirports}
       />
-      <div className="flex flex-col gap-1">
-        <h2 className="text-xl font-bold">{t("title")}</h2>
-        <p className="text-sm text-neutral-600 dark:text-neutral-400">{t("intro")}</p>
-        <p className="text-sm">
-          <Link href="/sources" className="underline underline-offset-2">
-            {t("sourcesLink")}
-          </Link>
-        </p>
-      </div>
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Suspense fallback={<PanelFallback title={t("weather.title")} />}>
-          <WeatherPanel {...panel} />
-        </Suspense>
-        <Suspense fallback={<PanelFallback title={t("daylight.title")} />}>
-          <DaylightPanel {...panel} />
-        </Suspense>
-        <Suspense fallback={<PanelFallback title={t("country.title")} />}>
-          <CountryPanel {...panel} />
-        </Suspense>
-        <Suspense fallback={<PanelFallback title={t("summary.title")} />}>
+      <p className="text-sm text-neutral-600 dark:text-neutral-400">
+        {t("intro")}{" "}
+        <Link href="/sources" className="underline underline-offset-2">
+          {t("sourcesLink")}
+        </Link>
+      </p>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-8">
+        <Suspense
+          fallback={
+            <PanelFallback
+              title={t("summary.title")}
+              className="order-1 lg:col-start-1 lg:row-start-1"
+            />
+          }
+        >
           <SummaryPanel {...panel} />
         </Suspense>
-        <div className="lg:col-span-2">
+        <Suspense fallback={<PanelFallback title={t("glance.title")} className={glanceAsideCls} />}>
+          <GlancePanel {...panel} />
+        </Suspense>
+        <div className="order-3 min-w-0 lg:col-span-2">
           <Suspense fallback={<PanelFallback title={t("places.title")} />}>
             <PlacesPanel {...panel} />
           </Suspense>
