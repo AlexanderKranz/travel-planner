@@ -409,6 +409,36 @@ delete from public.trips where id = 'a0000000-0000-4000-8000-0000000000f1';
 select is((select count(*)::int from public.plans where id = 'a0000000-0000-4000-8000-0000000000c1'), 0, 'trip delete cascades to plans');
 select is((select count(*)::int from public.plan_versions where plan_id = 'a0000000-0000-4000-8000-0000000000c1'), 0, 'trip delete cascades to plan_versions');
 
+-- purge: plan activity keeps an old trip alive; an old plan does not
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days, updated_at) values
+  ('a0000000-0000-4000-8000-0000000000f3', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Old trip, fresh plan', 3, now() - interval '19 months'),
+  ('a0000000-0000-4000-8000-0000000000f4', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Old trip, old plan', 3, now() - interval '19 months'),
+  ('a0000000-0000-4000-8000-0000000000f5', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Old trip, no plan', 3, now() - interval '19 months');
+insert into public.plans (id, owner_id, trip_id, updated_at) values
+  ('a0000000-0000-4000-8000-0000000000c3', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000f3', now()),
+  ('a0000000-0000-4000-8000-0000000000c4', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000f4', now() - interval '19 months');
+select is(private.purge_expired_trips(), 2, 'purge deletes old trips whose plan is old or missing');
+select is((select array_agg(dest_name) from public.trips where id::text like 'a0000000-0000-4000-8000-0000000000f%'),
+  array['Old trip, fresh plan'], 'a recently updated plan keeps its trip');
+select is((select count(*)::int from public.plans where id = 'a0000000-0000-4000-8000-0000000000c4'), 0, 'purge cascades to the plan of an expired trip');
+
+-- ---------- ai_usage ----------
+insert into public.ai_usage (user_id, task, model, status, cost_micro_usd) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'plan_generate', 'claude-sonnet-5-5', 'ok', 90000),
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'purpose_tags', 'claude-haiku-5-5', 'ok', 400),
+  ('bbbbbbbb-0000-4000-8000-000000000002', 'plan_patch', 'claude-sonnet-5-5', 'error', 0),
+  (null, 'plan_generate', 'claude-sonnet-5-5', 'ok', 1);
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select is((select count(*)::int from public.ai_usage), 2, 'owner sees only own ai_usage rows');
+select throws_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'plan_patch', 'claude-sonnet-5-5', 'ok')$$,
+  '42501', null, 'authenticated cannot insert ai_usage');
+select throws_ok($$update public.ai_usage set cost_micro_usd = 0$$, '42501', null, 'authenticated cannot update ai_usage');
+select throws_ok($$delete from public.ai_usage$$, '42501', null, 'authenticated cannot delete ai_usage');
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+select is((select count(*)::int from public.ai_usage), 1, 'B sees only own ai_usage rows');
+set local request.jwt.claims = '{"sub":"cccccccc-0000-4000-8000-000000000003","role":"authenticated"}';
+select is((select count(*)::int from public.ai_usage), 4, 'admin sees all ai_usage rows (aggregates)');
 reset role;
 
 select * from finish();
