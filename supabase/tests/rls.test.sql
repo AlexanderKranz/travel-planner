@@ -143,14 +143,23 @@ insert into public.travel_groups (id, owner_id, name) values
 insert into public.trip_purposes (id, owner_id, name) values
   ('b0000000-0000-4000-8000-0000000000b1', 'bbbbbbbb-0000-4000-8000-000000000002', 'B purpose');
 
+-- fixture trip for A is inserted as postgres: `id` and `owner_id` are NOT in the insert column grant, so a user
+-- session cannot choose them (see migration 20261029120013).
+reset role;
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days, group_id, purpose_id) values
+  ('a0000000-0000-4000-8000-0000000000c1', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Somewhere', 3,
+   'a0000000-0000-4000-8000-0000000000a1', 'a0000000-0000-4000-8000-0000000000b1');
+
 -- as user A: create trips (owner_id comes from the column default)
 set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
 set local role authenticated;
-select lives_ok($$insert into public.trips (id, dest_kind, dest_name, length_days, group_id, purpose_id) values
-  ('a0000000-0000-4000-8000-0000000000c1', 'freetext', 'Somewhere', 3, 'a0000000-0000-4000-8000-0000000000a1', 'a0000000-0000-4000-8000-0000000000b1')$$,
+select lives_ok($$insert into public.trips (title, dest_kind, dest_name, length_days, group_id, purpose_id) values
+  ('own-default', 'freetext', 'Somewhere', 3, 'a0000000-0000-4000-8000-0000000000a1', 'a0000000-0000-4000-8000-0000000000b1')$$,
   'A can create a freetext trip with own group and purpose');
-select is((select owner_id from public.trips where id = 'a0000000-0000-4000-8000-0000000000c1'),
+select is((select owner_id from public.trips where title = 'own-default'),
   'aaaaaaaa-0000-4000-8000-000000000001'::uuid, 'owner_id defaults to auth.uid()');
+select throws_ok($$insert into public.trips (id, dest_kind, dest_name, length_days) values (gen_random_uuid(), 'freetext', 'X', 2)$$,
+  '42501', null, 'id cannot be written on insert');
 select lives_ok($$insert into public.trips (dest_kind, dest_name, dest_place_name, dest_geo_id, dest_lat, dest_lon, length_days, months)
   values ('city', 'Passau', 'Passau', 2855328, 48.5665, 13.43122, 7, '{12}')$$, 'A can create a geocoded trip with months');
 select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, group_id) values
@@ -180,6 +189,21 @@ select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days) 
 select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, origin_airports) values ('freetext', 'X', 2, '{fra}')$$,
   '23514', null, 'origin_airports must be IATA format');
 
+select throws_ok($$update public.trips set group_id = 'b0000000-0000-4000-8000-0000000000a1' where id = 'a0000000-0000-4000-8000-0000000000c1'$$,
+  '23503', null, 'A cannot re-point own trip to B''s group');
+select throws_ok($$update public.trips set purpose_id = 'b0000000-0000-4000-8000-0000000000b1' where id = 'a0000000-0000-4000-8000-0000000000c1'$$,
+  '23503', null, 'A cannot re-point own trip to B''s purpose');
+select lives_ok($$update public.trips set group_id = null, purpose_id = null where id = 'a0000000-0000-4000-8000-0000000000c1'$$,
+  'A can clear group and purpose (all context optional)');
+select lives_ok($$update public.trips set group_id = 'a0000000-0000-4000-8000-0000000000a1', purpose_id = 'a0000000-0000-4000-8000-0000000000b1'
+  where id = 'a0000000-0000-4000-8000-0000000000c1'$$, 'A can re-attach own group and purpose');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, dest_country_code) values ('freetext', 'X', 2, 'de')$$,
+  '23514', null, 'lowercase country code rejected');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, start_date) values ('freetext', 'X', 2, '1999-12-31')$$,
+  '23514', null, 'start_date before 2000 rejected');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, dest_radius_km, dest_lat, dest_lon, dest_geo_id, dest_place_name)
+  values ('region', 'X', 2, 201, 1, 1, 1, 'X')$$, '23514', null, 'radius over 200 km rejected');
+
 -- user B cannot see or touch A's trips
 set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
 select is((select count(*)::int from public.trips), 0, 'B sees no trips of A');
@@ -203,6 +227,21 @@ set local role anon;
 select throws_ok($$select * from public.trips$$, '42501', null, 'anon cannot read trips');
 select throws_ok($$select * from public.api_cache$$, '42501', null, 'anon cannot read api_cache');
 select throws_ok($$select * from public.api_calls$$, '42501', null, 'anon cannot read api_calls');
+
+select ok(not has_table_privilege('authenticated', 'public.api_cache', 'select'), 'authenticated has no select on api_cache');
+select ok(not has_table_privilege('authenticated', 'public.api_cache', 'insert'), 'authenticated has no insert on api_cache');
+select ok(not has_table_privilege('anon', 'public.api_cache', 'select'), 'anon has no select on api_cache');
+select ok(not has_table_privilege('authenticated', 'public.api_calls', 'insert'), 'authenticated has no insert on api_calls');
+select ok(not has_table_privilege('authenticated', 'public.api_calls', 'delete'), 'authenticated has no delete on api_calls');
+select ok(not has_table_privilege('anon', 'public.api_calls', 'select'), 'anon has no select on api_calls');
+select ok((select relrowsecurity from pg_class where oid = 'public.api_cache'::regclass), 'RLS enabled on api_cache');
+select is((select count(*)::int from pg_policies where schemaname = 'public' and tablename = 'api_cache'), 0, 'api_cache has no policies');
+select ok(not has_column_privilege('authenticated', 'public.trips', 'owner_id', 'insert'), 'authenticated cannot insert trips.owner_id');
+select ok(not has_column_privilege('authenticated', 'public.trips', 'id', 'insert'), 'authenticated cannot insert trips.id');
+select ok(not has_column_privilege('authenticated', 'public.trips', 'created_at', 'update'), 'authenticated cannot update trips.created_at');
+select ok(not has_table_privilege('authenticated', 'public.trips', 'truncate'), 'authenticated cannot truncate trips');
+select ok(exists (select 1 from pg_constraint where conname = 'trip_purposes_id_owner_key' and conrelid = 'public.trip_purposes'::regclass),
+  'trip_purposes (id, owner_id) unique constraint exists');
 
 -- api_cache: no access for authenticated, including admin
 reset role;
