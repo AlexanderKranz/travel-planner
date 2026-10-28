@@ -8,8 +8,16 @@ import type { PurposeGuided } from "@/lib/domain/purpose";
 export const MAX_RADIUS_KM = 60;
 export const MAX_INTEREST_QUERIES = 4;
 
+/** Deterministic post-filter per interest (applied in rankCandidates). */
+export type InterestExclude = {
+  /** Case-insensitive regex source; matching names are dropped. */
+  nameRegex?: string;
+  /** Drop node elements when at least one way/relation candidate remains (nodes are POIs, not areas). */
+  dropNodesIfAreas?: boolean;
+};
+
 export type InterestSource =
-  | { source: "osm"; filters: readonly string[]; minRadiusKm?: number }
+  | { source: "osm"; filters: readonly string[]; minRadiusKm?: number; exclude?: InterestExclude }
   | { source: "none" };
 
 const city = [
@@ -20,7 +28,16 @@ const city = [
 
 /** Compile-time complete: a new INTEREST_KEYS entry without a mapping fails typecheck. */
 export const INTEREST_SOURCES: Record<InterestKey, InterestSource> = {
-  golf: { source: "osm", filters: [`["leisure"="golf_course"]`], minRadiusKm: 40 },
+  golf: {
+    source: "osm",
+    // Query side: drop elements explicitly tagged as driving range / practice.
+    filters: [`["leisure"="golf_course"]["golf"!~"^(driving_range|practice)$"]`],
+    minRadiusKm: 40,
+    exclude: {
+      nameRegex: "driving range|\\brange\\b|practice|lessons?\\b|clubhouse|club house|academy|academia|pitch ?(&|and|n)? ?putt|par ?3",
+      dropNodesIfAreas: true,
+    },
+  },
   beach: { source: "osm", filters: [`["natural"="beach"]`] },
   hiking: { source: "osm", filters: [`["tourism"="viewpoint"]`, `["natural"="peak"]["wikidata"]`], minRadiusKm: 25 },
   city_sightseeing: { source: "osm", filters: city },

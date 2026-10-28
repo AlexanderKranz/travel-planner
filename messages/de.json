@@ -318,7 +318,8 @@
         "country": "Land (optional)",
         "countryNone": "Kein Land",
         "countryHint": "Nötig für Länderinfos wie Währung und Sprache.",
-        "searchInstead": "Stattdessen nach einem Ort suchen"
+        "searchInstead": "Stattdessen nach einem Ort suchen",
+        "rateLimited": "Zu viele Suchanfragen – bitte kurz warten. Du kannst den Namen auch frei eingeben."
       },
       "length": "Dauer der Reise",
       "lengthLess": "Einen Tag weniger",
@@ -438,7 +439,9 @@
       "empty": "In der Nähe nichts gefunden.",
       "noSource": "Für dieses Interesse gibt es keine geprüfte Quelle. Der KI-Plan schlägt ohne Fakten vor und kennzeichnet es als ungeprüft.",
       "error": "Die Ortsquelle war nicht erreichbar. Bitte später erneut versuchen.",
-      "custom": "Für deine eigenen Interessen gibt es noch keine geprüfte Quelle: {list}"
+      "custom": "Für deine eigenen Interessen gibt es noch keine geprüfte Quelle: {list}",
+      "morePending": "Weitere Orte erscheinen beim nächsten Besuch.",
+      "notLoaded": "Weitere Orte erscheinen beim nächsten Besuch."
     },
     "category": {
       "leisure_golf_course": "Golfplatz",
@@ -507,18 +510,19 @@
       "wikivoyage": {
         "label": "Wikivoyage",
         "provides": "Kurze Beschreibung des Reiseziels.",
-        "license": "CC BY-SA 4.0. Der Text wird unverändert mit Link zum Artikel gezeigt."
+        "license": "CC BY-SA 4.0. Gezeigt wird ein gekürzter Auszug mit Link zum Artikel."
       },
       "rest_countries": {
-        "label": "REST Countries",
-        "provides": "Länderinfos wie Währung, Sprache und Fahrseite (Datensatz, etwa jährlich neu erstellt).",
-        "license": "MPL-2.0-Projekt, Daten zum Erstellungsdatum."
+        "label": "Länderdaten: mledoze/countries (ODbL)",
+        "provides": "Länderinfos wie Währung, Sprache und Fahrseite aus einem mitgelieferten Datensatz (etwa jährlich neu erstellt).",
+        "license": "ODbL 1.0, Daten zum Erstellungsdatum."
       },
       "suncalc": {
         "label": "berechnet (suncalc)",
         "provides": "Sonnenaufgang, -untergang und Dämmerung, berechnet aus Koordinaten und Datum.",
         "license": "Keine Namensnennung nötig."
       }
-    }
+    },
+    "builtOn": "Datensatz erstellt am {date}"
   }
 }

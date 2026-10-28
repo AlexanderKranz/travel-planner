@@ -1,9 +1,13 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { TripForm } from "@/components/trips/trip-form";
+import { listCountries } from "@/lib/integrations/countries";
 import { listGroups } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
 import { listPurposes } from "@/lib/server/purposes";
 import { unwrap } from "@/lib/unwrap";
+
+// The server action's after() facts warm-up runs within this route's budget.
+export const maxDuration = 60;
 
 export default async function NewTripPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
@@ -16,6 +20,7 @@ export default async function NewTripPage({ params }: { params: Promise<{ locale
       <TripForm
         groups={unwrap(groups, locale).map(({ id, name }) => ({ id, name }))}
         purposes={unwrap(purposes, locale).map(({ id, name }) => ({ id, name }))}
+        countryCodes={listCountries().map((c) => c.code)}
         hasHomeAirports={unwrap(profile, locale).homeAirports.length > 0}
       />
     </main>

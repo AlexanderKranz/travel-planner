@@ -2,7 +2,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import type { PlaceCandidate, PlaceGroup, PlacesFacts } from "@/lib/domain";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import { StaleBadge } from "./source-note";
-import { safeUrl } from "./source-meta";
+import { safeUrl } from "@/lib/facts/sources";
 
 /** "de:Passauer Dom" -> https://de.wikipedia.org/wiki/Passauer_Dom (null if malformed). */
 export function wikipediaUrl(tag: string): string | null {
@@ -92,7 +92,7 @@ function Group({ group, locale }: { group: PlaceGroup; locale: string }) {
       )}
       {group.status === "empty" && <p className={`text-sm ${mutedCls}`}>{t("empty")}</p>}
       {group.status === "no_source" && <p className={`text-sm ${mutedCls}`}>{t("noSource")}</p>}
-      {group.status === "error" && <p className="text-sm">{t("error")}</p>}
+      {group.status === "error" && <p className={`text-sm ${mutedCls}`}>{t("notLoaded")}</p>}
     </section>
   );
 }
@@ -105,6 +105,11 @@ export function PlacesList({ data, locale }: { data: PlacesFacts; locale: string
       {data.groups.map((g) => (
         <Group key={g.interest} group={g} locale={locale} />
       ))}
+      {data.groups.some((g) => g.status === "error") && (
+        <p role="status" className={`text-sm ${mutedCls}`}>
+          {t("morePending")}
+        </p>
+      )}
       {data.customInterests.length > 0 && (
         <p className={`text-sm ${mutedCls}`}>
           {t("custom", { list: data.customInterests.join(", ") })}

@@ -44,10 +44,17 @@ export function getTripFacts(trip: Trip, purpose: TripPurpose | null, ctx: Facts
   return collect(trip, purpose, ctx);
 }
 
-/** Fills the cache in the background (after()). No Overpass time budget. Never throws. */
-export async function warmTripFacts(trip: Trip, purpose: TripPurpose | null, ctx: FactsCtx): Promise<void> {
+export const WARM_BUDGET_MS = 55_000;
+
+/** Fills the cache in the background (after()). Overpass queries respect options.budgetMs (default 55 s). Never throws. */
+export async function warmTripFacts(
+  trip: Trip,
+  purpose: TripPurpose | null,
+  ctx: FactsCtx,
+  options: { budgetMs?: number } = {},
+): Promise<void> {
   try {
-    await collect(trip, purpose, ctx, Number.POSITIVE_INFINITY);
+    await collect(trip, purpose, ctx, options.budgetMs ?? WARM_BUDGET_MS);
   } catch {
     // warming is best effort
   }

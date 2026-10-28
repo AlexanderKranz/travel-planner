@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { searchPlaces } from "@/lib/integrations/open-meteo-geocoding";
+import { rateLimit } from "@/lib/server/rate-limit";
 import { getUserSession } from "@/lib/server/session";
 
 const querySchema = z.object({
@@ -12,6 +13,15 @@ const querySchema = z.object({
 export async function GET(request: Request) {
   const session = await getUserSession();
   if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  // ~30 lookups per minute per user (in-memory per instance, see rate-limit.ts).
+  const rl = rateLimit(`geocode:${session.userId}`, 30, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { results: [], error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSeconds) } },
+    );
+  }
 
   const params = Object.fromEntries(new URL(request.url).searchParams);
   const parsed = querySchema.safeParse(params);

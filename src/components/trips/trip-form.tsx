@@ -27,12 +27,15 @@ export function TripForm({
   groups,
   purposes,
   hasHomeAirports,
+  countryCodes,
 }: {
   trip?: Trip;
   groups: Option[];
   purposes: Option[];
   /** Profile has home airports; if not, "show flights" starts unchecked for new trips. */
   hasHomeAirports: boolean;
+  /** ISO country codes for the free-text destination picker (from the server dataset). */
+  countryCodes: string[];
 }) {
   const t = useTranslations("trips.form");
   const router = useRouter();
@@ -75,6 +78,7 @@ export function TripForm({
     <form onSubmit={onSubmit} className="flex flex-col gap-6" noValidate>
       <div id="field-destination">
         <DestinationPicker
+          countryCodes={countryCodes}
           value={draft.destination}
           onChange={(destination) => set({ destination })}
           error={

@@ -24,7 +24,7 @@ describe("places: Overpass time budget vs maxDuration = 60 s", () => {
   });
   afterEach(() => vi.useRealTimers());
 
-  it.fails("KNOWN DEFECT: a second query may start at 39 s and run 45 s, ending at 84 s > maxDuration 60 s", async () => {
+  it("a second query may start at 39 s and run 45 s, ending at 84 s > maxDuration 60 s", async () => {
     const trip = {
       id: "t", lengthDays: 5, groupId: null, purposeId: "p", wantsFlights: false, originAirports: [], createdAt: "", updatedAt: "",
       timing: { kind: "none" as const },

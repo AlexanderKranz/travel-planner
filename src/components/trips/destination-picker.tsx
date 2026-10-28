@@ -5,7 +5,6 @@ import { useEffect, useId, useState } from "react";
 import { TextField } from "@/components/ui/fields";
 import { btnSecondary, errorCls, inputCls, mutedCls } from "@/components/ui/styles";
 import { DEFAULT_RADIUS_KM, type GeoPlace } from "@/lib/domain";
-import { COUNTRY_CODES } from "./country-codes";
 import type { DestinationDraft } from "./trip-draft";
 
 const RADII = [10, 25, 40, 60, 100];
@@ -23,19 +22,26 @@ function countryName(code: string | null, locale: string): string | null {
 
 async function geocode(q: string, lang: string, signal: AbortSignal) {
   const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}&lang=${lang}`, { signal });
+  if (res.status === 429) return { results: [], unavailable: false, rateLimited: true };
   if (!res.ok) throw new Error(String(res.status));
   const body = (await res.json()) as { results?: GeoPlace[]; error?: string };
-  return { results: body.results ?? [], unavailable: body.error === "unavailable" };
+  return {
+    results: body.results ?? [],
+    unavailable: body.error === "unavailable",
+    rateLimited: body.error === "rate_limited",
+  };
 }
 
 export function DestinationPicker({
   value,
   onChange,
   error,
+  countryCodes,
 }: {
   value: DestinationDraft;
   onChange: (v: DestinationDraft) => void;
   error?: string;
+  countryCodes: string[];
 }) {
   const t = useTranslations("trips.form.destination");
   const locale = useLocale();
@@ -45,6 +51,7 @@ export function DestinationPicker({
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
   const [active, setActive] = useState(-1);
   const q = query.trim();
   const searching = q.length >= MIN_CHARS;
@@ -60,6 +67,7 @@ export function DestinationPicker({
         .then((r) => {
           setResults(r.results);
           setUnavailable(r.unavailable);
+          setRateLimited(r.rateLimited);
           setSearched(true);
           setActive(-1);
           setLoading(false);
@@ -68,6 +76,7 @@ export function DestinationPicker({
           if (e instanceof DOMException && e.name === "AbortError") return;
           setResults([]);
           setUnavailable(true);
+          setRateLimited(false);
           setSearched(true);
           setLoading(false);
         });
@@ -220,7 +229,7 @@ export function DestinationPicker({
             onChange={(e) => onChange({ ...value, countryCode: e.target.value })}
           >
             <option value="">{t("countryNone")}</option>
-            {COUNTRY_CODES.map((c) => ({ c, n: countryName(c, locale) ?? c }))
+            {countryCodes.map((c) => ({ c, n: countryName(c, locale) ?? c }))
               .sort((a, b) => a.n.localeCompare(b.n, locale))
               .map(({ c, n }) => (
                 <option key={c} value={c}>
@@ -242,7 +251,9 @@ export function DestinationPicker({
   const status = loading
     ? t("searching")
     : searched && searching
-      ? unavailable
+      ? rateLimited
+        ? t("rateLimited")
+        : unavailable
         ? t("unavailable")
         : results.length === 0
           ? t("noResults")

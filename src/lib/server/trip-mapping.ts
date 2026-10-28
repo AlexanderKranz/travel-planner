@@ -111,6 +111,12 @@ export function rowToSummary(row: TripSummaryRow): TripSummary {
  * lookup), never from the client. `place` must be given for city/region and is ignored
  * for freetext. Always returns every column so an update also clears fields of the old kind.
  */
+/** Uppercased ISO 3166-1 alpha-2, or null if invalid (the DB CHECK would otherwise fail generically). */
+export function normalizeCountryCode(code: string | null | undefined): string | null {
+  const c = code?.trim().toUpperCase();
+  return c && /^[A-Z]{2}$/.test(c) ? c : null;
+}
+
 export function buildTripWrite(input: TripInputParsed, place: GeoPlace | null): TripWrite {
   const d = input.destination;
   const geo =
@@ -133,7 +139,7 @@ export function buildTripWrite(input: TripInputParsed, place: GeoPlace | null): 
           dest_timezone: place.timezone,
           dest_radius_km: d.radiusKm ?? null,
         };
-  const countryCode = d.kind === "freetext" ? (d.countryCode ?? null) : (place?.countryCode ?? null);
+  const countryCode = normalizeCountryCode(d.kind === "freetext" ? d.countryCode : place?.countryCode);
   const name = d.kind === "freetext" ? d.name : (d.name ?? place?.name ?? "");
   const t = input.timing;
   return {

@@ -1,4 +1,5 @@
 import type { PlaceCandidate } from "@/lib/domain/facts";
+import type { InterestExclude } from "@/lib/facts/interest-sources";
 import type { RawOsmElement } from "@/lib/integrations/overpass";
 
 export const MAX_CANDIDATES = 25;
@@ -45,11 +46,18 @@ export function rankCandidates(
   elements: readonly RawOsmElement[],
   filters: readonly string[],
   anchor: { lat: number; lon: number },
+  exclude?: InterestExclude,
 ): PlaceCandidate[] {
   const all: PlaceCandidate[] = [];
-  for (const e of elements) {
-    const name = e.tags.name?.trim();
-    if (!name) continue;
+  const nameRe = exclude?.nameRegex ? new RegExp(exclude.nameRegex, "i") : null;
+  const named = elements.filter((e) => {
+    const n = e.tags.name?.trim();
+    return n && !(nameRe && nameRe.test(n));
+  });
+  const hasAreas = named.some((e) => e.type !== "node");
+  for (const e of named) {
+    if (exclude?.dropNodesIfAreas && hasAreas && e.type === "node") continue;
+    const name = e.tags.name!.trim();
     const names: PlaceCandidate["names"] = {};
     if (e.tags["name:de"]) names.de = e.tags["name:de"];
     if (e.tags["name:en"]) names.en = e.tags["name:en"];

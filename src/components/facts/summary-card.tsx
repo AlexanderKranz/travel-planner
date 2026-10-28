@@ -1,7 +1,7 @@
 import { useTranslations } from "next-intl";
 import type { DestinationSummary } from "@/lib/domain";
 import { linkCls, mutedCls } from "@/components/ui/styles";
-import { safeUrl } from "./source-meta";
+import { safeUrl } from "@/lib/facts/sources";
 
 export function SummaryCard({ data }: { data: DestinationSummary }) {
   const t = useTranslations("facts.summary");

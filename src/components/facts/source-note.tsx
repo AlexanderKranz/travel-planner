@@ -1,7 +1,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import type { SourceId } from "@/lib/domain";
 import { linkCls, mutedCls } from "@/components/ui/styles";
-import { safeUrl, SOURCE_META } from "./source-meta";
+import { safeUrl, SOURCES } from "@/lib/facts/sources";
 
 export function StaleBadge() {
   const t = useTranslations("facts");
@@ -29,7 +29,7 @@ export function SourceNote({
   const t = useTranslations("facts");
   const ts = useTranslations("sources.items");
   const format = useFormatter();
-  const href = safeUrl(sourceUrl) ?? SOURCE_META[source].homepage;
+  const href = safeUrl(sourceUrl) ?? SOURCES[source].homepage;
   const label = ts(`${source}.label`);
   return (
     <footer className={`mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${mutedCls}`}>

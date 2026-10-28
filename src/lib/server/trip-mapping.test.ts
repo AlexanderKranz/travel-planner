@@ -129,3 +129,13 @@ describe("factsInputsChanged", () => {
     expect(factsInputsChanged(row, { ...write, purpose_id: "p" })).toBe(true);
   });
 });
+
+import { normalizeCountryCode as _ncc } from "./trip-mapping";
+describe("normalizeCountryCode", () => {
+  it("uppercases valid codes and nulls invalid ones", () => {
+    expect(_ncc("de")).toBe("DE");
+    expect(_ncc("DEU")).toBeNull();
+    expect(_ncc("")).toBeNull();
+    expect(_ncc(null)).toBeNull();
+  });
+});

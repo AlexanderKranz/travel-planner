@@ -12,7 +12,7 @@ import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
 import { interestsForTrip, radiusForInterest, sourceFor, tripRadiusKm } from "@/lib/facts/interest-sources";
 import { rankCandidates } from "@/lib/facts/places";
-import { buildQuery, runQuery } from "@/lib/integrations/overpass";
+import { OVERPASS_CLIENT_TIMEOUT_MS, buildQuery, runQuery } from "@/lib/integrations/overpass";
 import { cacheKey, cached, type CachedResult } from "../api-cache";
 import { geoDestination, unavailable } from "./common";
 
@@ -32,8 +32,11 @@ const candidateSchema = z.object({
 });
 const candidatesSchema = z.array(candidateSchema);
 
-/** Time left for starting new Overpass queries on a page view (maxDuration is 60 s). */
-export const VIEW_BUDGET_MS = 40_000;
+/**
+ * Total time budget for a page view (maxDuration is 60 s, minus margin). A further Overpass query may only start
+ * if elapsed + OVERPASS_CLIENT_TIMEOUT_MS <= budget, so in practice one query per view; the rest is cached for the next.
+ */
+export const VIEW_BUDGET_MS = 57_000;
 
 const inFlight = new Map<string, Promise<CachedResult<PlaceCandidate[]>>>();
 
@@ -57,7 +60,7 @@ function fetchCandidates(
     ctx,
     fetcher: async () => {
       const r = await runQuery(buildQuery(src.filters, anchor, radiusKm * 1000));
-      return { data: rankCandidates(r.elements, src.filters, anchor), status: r.status, latencyMs: r.latencyMs };
+      return { data: rankCandidates(r.elements, src.filters, anchor, src.exclude), status: r.status, latencyMs: r.latencyMs };
     },
   }).finally(() => inFlight.delete(key));
   inFlight.set(key, p);
@@ -88,8 +91,8 @@ export async function getPlacesFacts(
         groups.push({ interest, status: "no_source" });
         continue;
       }
-      if (queried > 0 && Date.now() - started > budgetMs) {
-        groups.push({ interest, status: "error" });
+      if (queried > 0 && Date.now() - started + OVERPASS_CLIENT_TIMEOUT_MS > budgetMs) {
+        groups.push({ interest, status: "error" }); // contract has no "pending": UI says "try again later"
         continue;
       }
       queried += 1;

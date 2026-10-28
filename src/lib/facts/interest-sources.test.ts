@@ -34,7 +34,7 @@ describe("interest sources", () => {
     const src = INTEREST_SOURCES.golf;
     if (src.source !== "osm") throw new Error("golf must be osm");
     expect(buildQuery(src.filters, { lat: 36.51543, lon: -4.88583 }, 40000)).toBe(
-      '[out:json][timeout:25];\n(\n  nwr["leisure"="golf_course"]["name"](around:40000,36.51543,-4.88583);\n);\nout center tags 150;',
+      '[out:json][timeout:25];\n(\n  nwr["leisure"="golf_course"]["golf"!~"^(driving_range|practice)$"]["name"](around:40000,36.51543,-4.88583);\n);\nout center tags 150;',
     );
   });
 });

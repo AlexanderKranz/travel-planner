@@ -2,11 +2,12 @@ import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { FactSkeleton } from "@/components/facts/fact-skeleton";
 import { cardCls } from "@/components/ui/styles";
-import { ageDateFor, berlinToday } from "@/components/trips/age-date";
 import { TripContext, type ContextGroup } from "@/components/trips/trip-context";
 import { TripHeader } from "@/components/trips/trip-header";
 import { Link } from "@/i18n/navigation";
+import { berlinToday } from "@/lib/date";
 import { Locale, type FactsCtx } from "@/lib/domain";
+import { ageReferenceDate } from "@/lib/facts/trip-timing";
 import { resolveGroupAges } from "@/lib/group";
 import { getGroup } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
@@ -50,7 +51,7 @@ export default async function TripDetailPage({
   ]);
   const profile = unwrap(profileRes, locale);
   const today = berlinToday();
-  const ageDate = ageDateFor(trip.timing, today);
+  const ageDate = ageReferenceDate(trip, today) ?? today;
   // A group or purpose that vanished (race) simply shows as "none".
   const group: ContextGroup | null =
     groupRes?.ok

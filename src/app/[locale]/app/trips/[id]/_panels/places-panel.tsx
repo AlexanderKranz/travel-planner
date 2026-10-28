@@ -7,7 +7,6 @@ import type { PanelProps } from "./types";
 export async function PlacesPanel({ trip, purpose, ctx }: PanelProps) {
   const t = await getTranslations("facts");
   const fact = await getPlacesFacts(trip, purpose, ctx);
-  void purpose;
   return (
     <FactPanel title={t("places.title")} fact={fact} fallbackSource="osm">
       {(data) => <PlacesList data={data} locale={ctx.locale} />}

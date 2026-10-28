@@ -46,6 +46,11 @@ export type CachedResult<T> =
 
 export type CacheCtx = { userId: string | null };
 
+/** Payloads are stored as { v: data } because api_cache.payload is `jsonb not null` (null results must be cacheable). */
+const Envelope = z.object({ v: z.unknown() });
+/** Suffix on the stored key so rows written before the envelope existed are ignored. */
+const ENVELOPE_KEY_SUFFIX = "#e1";
+
 type CacheRow = { payload: unknown; fetched_at: string; expires_at: string };
 
 /** Short, PII-free error class for api_calls.error_code and the CachedResult error. */
@@ -84,6 +89,7 @@ export async function cached<T>(opts: {
   ctx: CacheCtx;
 }): Promise<CachedResult<T>> {
   const { provider, endpoint, key, ttlSeconds, schema, fetcher, ctx } = opts;
+  const storeKey = `${key}${ENVELOPE_KEY_SUFFIX}`;
   const base = { provider, endpoint, userId: ctx.userId };
   const log = (row: Omit<ApiCallRow, "provider" | "endpoint" | "userId">) =>
     logApiCalls([{ ...base, ...row }]);
@@ -98,12 +104,13 @@ export async function cached<T>(opts: {
         .from("api_cache")
         .select("payload, fetched_at, expires_at")
         .eq("provider", provider)
-        .eq("cache_key", key)
+        .eq("cache_key", storeKey)
         .maybeSingle<CacheRow>();
       if (error) console.error("api_cache read failed", error.code);
       if (row) {
-        const parsed = schema.safeParse(row.payload);
-        if (parsed.success) {
+        const env = Envelope.safeParse(row.payload);
+        const parsed = env.success ? schema.safeParse(env.data.v) : null;
+        if (parsed?.success) {
           existing = {
             data: parsed.data,
             fetchedAt: row.fetched_at,
@@ -128,7 +135,7 @@ export async function cached<T>(opts: {
       const fetchedAt = now.toISOString();
       const expiresAt = new Date(now.getTime() + ttlSeconds * 1000).toISOString();
       const { error } = await admin.from("api_cache").upsert(
-        { provider, cache_key: key, payload: data as never, fetched_at: fetchedAt, expires_at: expiresAt },
+        { provider, cache_key: storeKey, payload: { v: data } as never, fetched_at: fetchedAt, expires_at: expiresAt },
         { onConflict: "provider,cache_key" },
       );
       if (error) console.error("api_cache write failed", error.code);

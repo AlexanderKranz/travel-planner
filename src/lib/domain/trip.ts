@@ -22,7 +22,7 @@ export const TripTimingInput = z.discriminatedUnion("kind", [
 ]);
 
 const GeoDestinationFields = {
-  geoId: z.number().int().positive(),
+  geoId: z.number().int().positive().max(2147483647),
   name: optionalText(120), // custom display name; default = place name
   radiusKm: z.number().int().min(1).max(200).optional(),
 };

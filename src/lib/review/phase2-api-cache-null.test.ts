@@ -29,7 +29,7 @@ describe("api_cache null payloads", () => {
   // api_cache.payload is `jsonb not null`. PostgREST turns a JSON null in the request body into SQL NULL,
   // so "not found" answers (Wikivoyage no page, geocoding unknown id) fail the NOT NULL check, are logged
   // as "api_cache write failed" and never cached. Fix: wrap payloads as { v: data } or store a sentinel.
-  it.fails("KNOWN DEFECT: a legitimate `null` result is upserted as payload null (NOT NULL violation in Postgres)", async () => {
+  it("a legitimate `null` result is stored inside an envelope, never as payload null", async () => {
     await cached({
       provider: "wikivoyage",
       endpoint: "summary",
@@ -40,7 +40,7 @@ describe("api_cache null payloads", () => {
       fetcher: async () => ({ data: null, status: 200, latencyMs: 1 }),
     });
     expect(store.upserts).toHaveLength(1);
-    expect(store.upserts[0].payload).not.toBeNull();
+    expect(store.upserts[0].payload).toEqual({ v: null });
   });
 });
 

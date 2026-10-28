@@ -318,7 +318,8 @@
         "country": "Country (optional)",
         "countryNone": "No country",
         "countryHint": "Needed for country facts such as currency and language.",
-        "searchInstead": "Search for a place instead"
+        "searchInstead": "Search for a place instead",
+        "rateLimited": "Too many searches – please wait a moment. You can also enter the name as free text."
       },
       "length": "Length of trip",
       "lengthLess": "One day less",
@@ -438,7 +439,9 @@
       "empty": "Nothing found nearby.",
       "noSource": "No verified source for this interest. The AI plan will suggest without facts and mark it as unverified.",
       "error": "The place source could not be reached. Please try again later.",
-      "custom": "Your own interests have no verified source yet: {list}"
+      "custom": "Your own interests have no verified source yet: {list}",
+      "morePending": "More places will appear on your next visit.",
+      "notLoaded": "More places will appear on the next visit."
     },
     "category": {
       "leisure_golf_course": "Golf course",
@@ -507,18 +510,19 @@
       "wikivoyage": {
         "label": "Wikivoyage",
         "provides": "Short destination description.",
-        "license": "CC BY-SA 4.0. Text is shown unchanged with a link to the article."
+        "license": "CC BY-SA 4.0. A shortened excerpt is shown with a link to the article."
       },
       "rest_countries": {
-        "label": "REST Countries",
-        "provides": "Country facts such as currency, language and driving side (dataset, rebuilt about yearly).",
-        "license": "MPL-2.0 project, data as of the build date."
+        "label": "Country data: mledoze/countries (ODbL)",
+        "provides": "Country facts such as currency, language and driving side from a bundled dataset (rebuilt about yearly).",
+        "license": "ODbL 1.0, data as of the build date."
       },
       "suncalc": {
         "label": "computed (suncalc)",
         "provides": "Sunrise, sunset and twilight, calculated from coordinates and date.",
         "license": "No attribution required."
       }
-    }
+    },
+    "builtOn": "Dataset built on {date}"
   }
 }

@@ -14,6 +14,7 @@ import {
 } from "@/lib/domain/trip";
 import { isKnownIata } from "@/lib/integrations/airports";
 import { getPlaceById } from "@/lib/integrations/open-meteo-geocoding";
+import { berlinToday } from "@/lib/date";
 import { logEvent } from "./events";
 import { warmTripFacts } from "./facts";
 import { getPurpose } from "./purposes";
@@ -32,12 +33,10 @@ import {
 const Id = z.string().uuid();
 const FK_VIOLATION = "23503"; // groupId/purposeId of another user (or unknown) fails the composite FK
 
-type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;
+/** Total time after() may spend warming facts (pages export maxDuration = 60). */
+const WARM_BUDGET_MS = 55_000;
 
-/** Today in Europe/Berlin as YYYY-MM-DD (facts context). */
-function berlinToday(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date());
-}
+type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;
 
 async function profileLocale(session: Session): Promise<Locale> {
   const { data } = await session.supabase.from("profiles").select("locale").eq("id", session.userId).maybeSingle();
@@ -90,7 +89,12 @@ async function scheduleWarm(session: Session, trip: Trip, locale: Locale): Promi
   try {
     after(async () => {
       try {
-        await warmTripFacts(trip, purpose, { userId: session.userId, locale, today: berlinToday() });
+        await warmTripFacts(
+          trip,
+          purpose,
+          { userId: session.userId, locale, today: berlinToday() },
+          { budgetMs: WARM_BUDGET_MS },
+        );
       } catch {
         // warming is best effort
       }

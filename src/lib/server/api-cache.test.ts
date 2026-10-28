@@ -67,7 +67,7 @@ describe("cacheKey", () => {
 
 describe("cached", () => {
   it("hit: fresh row, no fetch, one api_calls row", async () => {
-    state.row = { payload: { n: 1 }, fetched_at: "2026-01-01T00:00:00Z", expires_at: future() };
+    state.row = { payload: { v: { n: 1 } }, fetched_at: "2026-01-01T00:00:00Z", expires_at: future() };
     const fetcher = vi.fn();
     const res = await run(fetcher);
     expect(res).toMatchObject({ ok: true, data: { n: 1 }, stale: false, cache: "hit" });
@@ -88,13 +88,13 @@ describe("cached", () => {
   });
 
   it("expired row + fetch ok: refreshes", async () => {
-    state.row = { payload: { n: 1 }, fetched_at: "2026-01-01T00:00:00Z", expires_at: past() };
+    state.row = { payload: { v: { n: 1 } }, fetched_at: "2026-01-01T00:00:00Z", expires_at: past() };
     const res = await run(async () => ({ data: { n: 3 }, status: 200, latencyMs: 1 }));
     expect(res).toMatchObject({ ok: true, data: { n: 3 }, cache: "miss" });
   });
 
   it("stale-on-error: serves the expired row", async () => {
-    state.row = { payload: { n: 1 }, fetched_at: "2026-01-01T00:00:00Z", expires_at: past() };
+    state.row = { payload: { v: { n: 1 } }, fetched_at: "2026-01-01T00:00:00Z", expires_at: past() };
     const res = await run(async () => {
       throw Object.assign(new Error("boom"), { status: 429 });
     });
@@ -128,7 +128,7 @@ describe("cached", () => {
   });
 
   it("schema mismatch on the cached payload counts as a miss", async () => {
-    state.row = { payload: { n: "x" }, fetched_at: "2026-01-01T00:00:00Z", expires_at: future() };
+    state.row = { payload: { v: { n: "x" } }, fetched_at: "2026-01-01T00:00:00Z", expires_at: future() };
     const fetcher = vi.fn(async () => ({ data: { n: 5 }, status: 200, latencyMs: 1 }));
     const res = await run(fetcher);
     expect(fetcher).toHaveBeenCalledOnce();
