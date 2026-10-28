@@ -34,12 +34,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   try {
     return await pdfResponse(doc, "owner", session.userId);
   } catch (e) {
+    console.error("pdf.failed", e); // full stack in the Vercel function log
     await logEvent({
       event: "pdf.failed",
       level: "error",
       userId: session.userId,
       route: "/api/trips/[id]/pdf",
-      props: { via: "owner", code: e instanceof Error ? e.name : "unknown" },
+      props: { via: "owner", code: e instanceof Error ? e.name : "unknown", message: e instanceof Error ? e.message.slice(0, 300) : null },
     });
     return NextResponse.json({ error: "failed" }, { status: 500, headers: JSON_HEADERS });
   }

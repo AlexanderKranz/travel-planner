@@ -40,11 +40,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   try {
     return await pdfResponse(doc, "share");
   } catch (e) {
+    console.error("pdf.failed", e); // full stack in the Vercel function log
     await logEvent({
       event: "pdf.failed",
       level: "error",
       route: "/api/share/[token]/pdf",
-      props: { via: "share", code: e instanceof Error ? e.name : "unknown" },
+      props: { via: "share", code: e instanceof Error ? e.name : "unknown", message: e instanceof Error ? e.message.slice(0, 300) : null },
     });
     return NextResponse.json({ error: "failed" }, { status: 500, headers: H });
   }
