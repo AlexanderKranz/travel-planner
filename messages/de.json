@@ -19,7 +19,8 @@
     "settings": "Einstellungen",
     "signOut": "Abmelden",
     "demoBanner": "Demo-Modus – Daten sind für alle Demo-Besucher sichtbar und werden regelmäßig zurückgesetzt.",
-    "demoLabel": "Demo-Hinweis"
+    "demoLabel": "Demo-Hinweis",
+    "trips": "Reisen"
   },
   "errors": {
     "unauthenticated": "Du bist nicht angemeldet.",
@@ -27,7 +28,9 @@
     "not_found": "Der Eintrag wurde nicht gefunden.",
     "unknown_airport": "Mindestens ein Flughafen ist unbekannt.",
     "failed": "Das hat leider nicht geklappt. Bitte versuche es später erneut.",
-    "signInAgain": "Erneut anmelden"
+    "signInAgain": "Erneut anmelden",
+    "unknown_place": "Dieser Ort wurde nicht gefunden. Bitte erneut wählen oder Freitext verwenden.",
+    "limit_reached": "Du hast die maximale Anzahl an Reisen erreicht. Lösche zuerst eine."
   },
   "login": {
     "title": "Anmelden",
@@ -54,7 +57,8 @@
     "welcome": "Willkommen",
     "welcomeNamed": "Willkommen, {name}",
     "tripsTitle": "Reisen",
-    "tripsPlaceholder": "Reisen kommen in Phase 2."
+    "tripsPlaceholder": "Plane Reisen mit deinen Reisegruppen und Reisezwecken.",
+    "tripsOpen": "Reisen öffnen"
   },
   "groups": {
     "title": "Reisegruppen",
@@ -251,5 +255,270 @@
     "photography": "Fotografie",
     "festivals_events": "Feste und Events",
     "water_sports": "Wassersport"
+  },
+  "trips": {
+    "title": "Reisen",
+    "intro": "Eine Reise braucht nur ein Ziel und eine Dauer. Alles andere ist optional.",
+    "new": "Neue Reise",
+    "newTitle": "Neue Reise",
+    "editTitle": "Reise bearbeiten",
+    "empty": "Noch keine Reisen.",
+    "emptyHint": "Lege eine Reise an, um Wetter, Tageslicht, Länderinfos und Orte für dein Ziel zu sehen.",
+    "days": "{count, plural, one {# Tag} other {# Tage}}",
+    "timing": {
+      "fromDate": "ab {date}",
+      "openShort": "Zeitraum offen"
+    },
+    "back": "Zurück zu den Reisen",
+    "edit": "Bearbeiten",
+    "delete": "Löschen",
+    "cancel": "Abbrechen",
+    "deleteTitle": "Reise löschen?",
+    "deleteBody": "„{name}“ wird endgültig gelöscht. Gruppen und Reisezwecke bleiben erhalten.",
+    "detail": {
+      "radius": "Umkreis {km} km",
+      "context": "Reisekontext",
+      "group": "Reisegruppe",
+      "noGroup": "Keine Gruppe gewählt.",
+      "purpose": "Reisezweck",
+      "noPurpose": "Kein Reisezweck gewählt. Es werden allgemeine Sehenswürdigkeiten gezeigt.",
+      "interests": "Interessen",
+      "flights": "Flüge",
+      "flightsOff": "Für diese Reise werden keine Flüge gewünscht.",
+      "originAirports": "Abflughäfen für diese Reise",
+      "homeAirports": "Deine Heimatflughäfen",
+      "noAirports": "Keine Flughäfen hinterlegt. Trage Heimatflughäfen in den Einstellungen ein.",
+      "notes": "Notizen"
+    },
+    "form": {
+      "invalid": "Bitte dieses Feld prüfen.",
+      "destination": {
+        "legend": "Ziel",
+        "required": "Bitte ein Ziel wählen oder als Freitext eingeben.",
+        "search": "Ziel suchen",
+        "placeholder": "Stadt, Region oder Ort",
+        "searchHint": "Mindestens 2 Zeichen eingeben. Kein Treffer? Verwende deinen Text als Freitext.",
+        "results": "Zielvorschläge",
+        "searching": "Suche läuft…",
+        "noResults": "Kein Ort gefunden. Du kannst deinen Text als Freitext verwenden.",
+        "unavailable": "Die Ortssuche ist gerade nicht verfügbar. Du kannst Freitext verwenden.",
+        "resultCount": "{count, plural, one {# Vorschlag} other {# Vorschläge}}",
+        "useFreeText": "„{query}“ als Freitext verwenden",
+        "anchor": "Ort",
+        "change": "Ändern",
+        "kind": "Art des Ziels",
+        "city": "Stadt / Ort",
+        "region": "Region",
+        "radius": "Umkreis um den Ort",
+        "radiusOption": "{km} km",
+        "radiusHint": "Wetter und Orte beziehen sich auf diesen Umkreis um den Ort.",
+        "displayName": "Anzeigename",
+        "displayNameHint": "Du kannst ihn umbenennen, zum Beispiel „Costa del Sol“.",
+        "freeTextHint": "Ohne bekannten Ort gibt es kein Wetter, kein Tageslicht und keine Ortsdaten, nur Länderinfos, wenn du ein Land wählst.",
+        "country": "Land (optional)",
+        "countryNone": "Kein Land",
+        "countryHint": "Nötig für Länderinfos wie Währung und Sprache.",
+        "searchInstead": "Stattdessen nach einem Ort suchen"
+      },
+      "length": "Dauer der Reise",
+      "lengthLess": "Einen Tag weniger",
+      "lengthMore": "Einen Tag mehr",
+      "lengthUnit": "Tage",
+      "lengthHint": "1 bis {max} Tage.",
+      "lengthInvalid": "Bitte 1 bis {max} Tage eingeben.",
+      "timing": {
+        "legend": "Wann",
+        "none": "Noch offen",
+        "date": "Datum",
+        "months": "Monat(e)",
+        "noneHint": "Das Wetter wird für alle zwölf Monate gezeigt.",
+        "startDate": "Startdatum",
+        "monthsHint": "Wähle die Monate, die in Frage kommen. Sie sind Alternativen, zum Beispiel März oder April.",
+        "monthsLabel": "Monate",
+        "dateRequired": "Bitte ein Startdatum wählen.",
+        "monthsRequired": "Bitte mindestens einen Monat wählen."
+      },
+      "title": "Titel (optional)",
+      "titleHint": "Ohne Titel werden Ziel, Monat und Dauer angezeigt.",
+      "group": "Reisegruppe (optional)",
+      "groupHint": "Alter wird für das Reisedatum berechnet.",
+      "purpose": "Reisezweck (optional)",
+      "purposeHint": "Die Interessen des Reisezwecks bestimmen, welche Orte vorgeschlagen werden.",
+      "none": "Keine",
+      "flights": {
+        "title": "Flüge",
+        "want": "Flüge anzeigen",
+        "hint": "Flüge werden in einem späteren Schritt geprüft. Vorerst wird nur dein Wunsch gespeichert.",
+        "useHome": "Meine Heimatflughäfen verwenden",
+        "invalid": "Ein Flughafen ist unbekannt."
+      },
+      "notes": "Notizen",
+      "notesLabel": "Notizen zu dieser Reise",
+      "notesHint": "Zum Beispiel Schiffsname oder Hafenliste.",
+      "cancel": "Abbrechen",
+      "save": "Speichern",
+      "create": "Reise anlegen",
+      "saving": "Speichern…"
+    }
+  },
+  "facts": {
+    "title": "Fakten zum Reiseziel",
+    "intro": "Alle Werte stammen aus den genannten Quellen, nie von der KI.",
+    "sourcesLink": "Quellen und Lizenzen",
+    "loading": "Lädt…",
+    "stale": "evtl. veraltet",
+    "staleHint": "Die Quelle war nicht erreichbar; es werden die zuletzt gespeicherten Daten gezeigt.",
+    "source": "Quelle",
+    "checked": "geprüft am {date}",
+    "unavailable": {
+      "no_location": "Für dieses Ziel gibt es keine Wetter-, Tageslicht- oder Ortsdaten.",
+      "no_locationHint": "Das Ziel wurde als Freitext eingegeben. Wähle in der Suche einen Ort, um diese Fakten zu erhalten.",
+      "no_country": "Für dieses Ziel gibt es keine Länderinfos.",
+      "no_countryHint": "Es ist kein Land bekannt. Wähle beim Bearbeiten einen Ort oder ein Land.",
+      "not_found": "Für dieses Ziel wurde nichts gefunden.",
+      "not_foundHint": "Zu diesem Ort gibt es in der Quelle keinen Eintrag.",
+      "provider_error": "Die Quelle ist gerade nicht erreichbar.",
+      "provider_errorHint": "Es wird nichts erfunden. Bitte lade die Seite später neu."
+    },
+    "weather": {
+      "title": "Klima",
+      "intro": "Durchschnitt der Jahre {from} bis {to} (Reanalyse-Daten, keine Vorhersage).",
+      "month": "Monat",
+      "tMax": "Höchsttemp.",
+      "tMin": "Tiefsttemp.",
+      "rain": "Regen",
+      "wetDays": "Regentage",
+      "sun": "Sonne pro Tag",
+      "selected": "Reisemonat",
+      "captionSelected": "Klima in den Reisemonaten",
+      "captionAll": "Klima nach Monat",
+      "showAll": "Alle 12 Monate anzeigen"
+    },
+    "daylight": {
+      "title": "Tageslicht",
+      "intro": "Zeiten in Ortszeit ({timezone}). „Dunkel ab“ ist das Ende der bürgerlichen Dämmerung.",
+      "date": "Datum",
+      "sunrise": "Sonnenaufgang",
+      "sunset": "Sonnenuntergang",
+      "dusk": "Dunkel ab",
+      "hours": "Tageslicht",
+      "duration": "{h} Std. {m} Min.",
+      "captionTrip": "Tageslicht an den Reisetagen",
+      "captionMid": "Tageslicht in der Monatsmitte",
+      "polarDay": "Sonne geht nicht unter",
+      "polarNight": "Sonne geht nicht auf"
+    },
+    "country": {
+      "title": "Land",
+      "name": "Land",
+      "capital": "Hauptstadt",
+      "currency": "Währung",
+      "languages": "Sprachen",
+      "callingCode": "Vorwahl",
+      "driving": "Straßenverkehr",
+      "left": "Linksverkehr",
+      "right": "Rechtsverkehr",
+      "timezone": "Zeitzone",
+      "zones": "Alle Zonen des Landes"
+    },
+    "summary": {
+      "title": "Über das Reiseziel",
+      "readMore": "Mehr auf Wikivoyage",
+      "license": "Text unter Lizenz"
+    },
+    "places": {
+      "title": "Orte zum Vormerken",
+      "general": "Sehenswürdigkeiten",
+      "intro": "Kandidaten aus OpenStreetMap im Umkreis von {radius} km, sortiert nach Bekanntheit und Entfernung. Sie sind kein Plan.",
+      "distance": "{km} km entfernt",
+      "linkOsm": "OpenStreetMap",
+      "linkWikipedia": "Wikipedia",
+      "linkWebsite": "Webseite",
+      "showMore": "{count} weitere anzeigen",
+      "empty": "In der Nähe nichts gefunden.",
+      "noSource": "Für dieses Interesse gibt es keine geprüfte Quelle. Der KI-Plan schlägt ohne Fakten vor und kennzeichnet es als ungeprüft.",
+      "error": "Die Ortsquelle war nicht erreichbar. Bitte später erneut versuchen.",
+      "custom": "Für deine eigenen Interessen gibt es noch keine geprüfte Quelle: {list}"
+    },
+    "category": {
+      "leisure_golf_course": "Golfplatz",
+      "natural_beach": "Strand",
+      "tourism_viewpoint": "Aussichtspunkt",
+      "natural_peak": "Gipfel",
+      "tourism_attraction": "Sehenswürdigkeit",
+      "historic_castle": "Burg / Schloss",
+      "historic_monument": "Denkmal",
+      "historic_city_gate": "Stadttor",
+      "historic_fort": "Festung",
+      "historic_ruins": "Ruine",
+      "historic_archaeological_site": "Archäologische Stätte",
+      "building_cathedral": "Kathedrale / Dom",
+      "building_church": "Kirche",
+      "building_palace": "Palast",
+      "tourism_museum": "Museum",
+      "tourism_gallery": "Galerie",
+      "craft_winery": "Weingut",
+      "craft_brewery": "Brauerei",
+      "amenity_marketplace": "Markt",
+      "amenity_public_bath": "Bad / Therme",
+      "leisure_sauna": "Sauna",
+      "tourism_zoo": "Zoo",
+      "tourism_aquarium": "Aquarium",
+      "tourism_theme_park": "Freizeitpark",
+      "leisure_water_park": "Wasserpark",
+      "leisure_nature_reserve": "Naturschutzgebiet",
+      "boundary_national_park": "Nationalpark",
+      "amenity_bicycle_rental": "Fahrradverleih",
+      "landuse_winter_sports": "Wintersportgebiet",
+      "shop_mall": "Einkaufszentrum",
+      "shop_department_store": "Kaufhaus",
+      "leisure_marina": "Yachthafen",
+      "sport_scuba_diving": "Tauchen",
+      "sport_surfing": "Surfen",
+      "sport_kitesurfing": "Kitesurfen",
+      "sport_sailing": "Segeln",
+      "xmas_feature_market": "Weihnachtsmarkt"
+    }
+  },
+  "sources": {
+    "title": "Quellen und Lizenzen",
+    "intro": "Die Fakten zu einer Reise stammen aus diesen Quellen. Jeder Block nennt seine Quelle und das Prüfdatum.",
+    "back": "Zurück",
+    "license": "Lizenz",
+    "website": "Webseite",
+    "licenseText": "Lizenztext",
+    "note": "Wetterdaten sind für nicht-kommerzielle Nutzung frei.",
+    "items": {
+      "open_meteo": {
+        "label": "Open-Meteo (ERA5 2016–2025)",
+        "provides": "Monatliche Klimawerte.",
+        "license": "CC BY 4.0. Enthält modifizierte Informationen des Copernicus Climate Change Service."
+      },
+      "geonames": {
+        "label": "GeoNames über Open-Meteo",
+        "provides": "Ortssuche und Koordinaten.",
+        "license": "CC BY 4.0"
+      },
+      "osm": {
+        "label": "© OpenStreetMap contributors",
+        "provides": "Kandidaten-Orte wie Sehenswürdigkeiten und Golfplätze.",
+        "license": "ODbL 1.0. Die Copyright-Seite muss verlinkt werden."
+      },
+      "wikivoyage": {
+        "label": "Wikivoyage",
+        "provides": "Kurze Beschreibung des Reiseziels.",
+        "license": "CC BY-SA 4.0. Der Text wird unverändert mit Link zum Artikel gezeigt."
+      },
+      "rest_countries": {
+        "label": "REST Countries",
+        "provides": "Länderinfos wie Währung, Sprache und Fahrseite (Datensatz, etwa jährlich neu erstellt).",
+        "license": "MPL-2.0-Projekt, Daten zum Erstellungsdatum."
+      },
+      "suncalc": {
+        "label": "berechnet (suncalc)",
+        "provides": "Sonnenaufgang, -untergang und Dämmerung, berechnet aus Koordinaten und Datum.",
+        "license": "Keine Namensnennung nötig."
+      }
+    }
   }
 }

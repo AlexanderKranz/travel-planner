@@ -1,0 +1,2 @@
+HTTP 502
+<html><body>Bad Gateway: The server is probably too busy to handle your request. Please try again later (exponential backoff).</body></html>

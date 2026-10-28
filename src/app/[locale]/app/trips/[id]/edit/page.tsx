@@ -1,0 +1,34 @@
+import { getTranslations, setRequestLocale } from "next-intl/server";
+import { TripForm } from "@/components/trips/trip-form";
+import { listGroups } from "@/lib/server/groups";
+import { getProfile } from "@/lib/server/profile";
+import { listPurposes } from "@/lib/server/purposes";
+import { getTrip } from "@/lib/server/trips";
+import { unwrap } from "@/lib/unwrap";
+
+export default async function EditTripPage({
+  params,
+}: {
+  params: Promise<{ locale: string; id: string }>;
+}) {
+  const { locale, id } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations("trips");
+  const [trip, groups, purposes, profile] = await Promise.all([
+    getTrip(id),
+    listGroups(),
+    listPurposes(),
+    getProfile(),
+  ]);
+  return (
+    <main className="flex flex-col gap-4">
+      <h1 className="text-2xl font-bold">{t("editTitle")}</h1>
+      <TripForm
+        trip={unwrap(trip, locale)}
+        groups={unwrap(groups, locale).map(({ id, name }) => ({ id, name }))}
+        purposes={unwrap(purposes, locale).map(({ id, name }) => ({ id, name }))}
+        hasHomeAirports={unwrap(profile, locale).homeAirports.length > 0}
+      />
+    </main>
+  );
+}

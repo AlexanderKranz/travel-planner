@@ -1,73 +1,54 @@
 import "server-only";
-import type {
-  CountryFacts,
-  DaylightFacts,
-  DestinationSummary,
-  Fact,
-  FactsCtx,
-  PlacesFacts,
-  TripFacts,
-  WeatherFacts,
-} from "@/lib/domain/facts";
-import type { Trip } from "@/lib/domain/trip";
+import type { Fact, FactsCtx, TripFacts } from "@/lib/domain/facts";
 import type { TripPurpose } from "@/lib/domain/purpose";
+import type { Trip } from "@/lib/domain/trip";
+import { referenceDates } from "@/lib/facts/trip-timing";
+import { getCountryFacts } from "./country";
+import { getDaylightFacts } from "./daylight";
+import { getPlacesFacts } from "./places";
+import { getSummaryFacts } from "./summary";
+import { getWeatherFacts } from "./weather";
 
-// TODO(phase-2): STUBS owned by integrations-dev. Each real function must never throw.
-// Until implemented every fact is `unavailable` with reason `provider_error`.
+export { getCountryFacts, getDaylightFacts, getPlacesFacts, getSummaryFacts, getWeatherFacts };
 
-const notImplemented = { status: "unavailable", reason: "provider_error" } as const;
+const failed: Fact<never> = { status: "unavailable", reason: "provider_error" };
+const safe = <T>(p: Promise<Fact<T>>): Promise<Fact<T>> => p.catch(() => failed);
 
-export async function getWeatherFacts(trip: Trip, ctx: FactsCtx): Promise<Fact<WeatherFacts>> {
-  void trip; void ctx;
-  return notImplemented;
-}
-
-export async function getDaylightFacts(trip: Trip, ctx: FactsCtx): Promise<Fact<DaylightFacts>> {
-  void trip; void ctx;
-  return notImplemented;
-}
-
-export async function getCountryFacts(trip: Trip, ctx: FactsCtx): Promise<Fact<CountryFacts>> {
-  void trip; void ctx;
-  return notImplemented;
-}
-
-export async function getSummaryFacts(trip: Trip, ctx: FactsCtx): Promise<Fact<DestinationSummary>> {
-  void trip; void ctx;
-  return notImplemented;
-}
-
-export async function getPlacesFacts(
+async function collect(
   trip: Trip,
   purpose: TripPurpose | null,
   ctx: FactsCtx,
-): Promise<Fact<PlacesFacts>> {
-  void trip; void purpose; void ctx;
-  return notImplemented;
-}
-
-export async function getTripFacts(
-  trip: Trip,
-  purpose: TripPurpose | null,
-  ctx: FactsCtx,
+  placesBudgetMs?: number,
 ): Promise<TripFacts> {
-  void purpose; void ctx;
+  const [weather, daylight, country, summary, places] = await Promise.all([
+    safe(getWeatherFacts(trip, ctx)),
+    safe(getDaylightFacts(trip, ctx)),
+    safe(getCountryFacts(trip, ctx)),
+    safe(getSummaryFacts(trip, ctx)),
+    safe(getPlacesFacts(trip, purpose, ctx, { budgetMs: placesBudgetMs })),
+  ]);
   return {
     tripId: trip.id,
     generatedAt: new Date().toISOString(),
-    referenceDates: [],
-    weather: notImplemented,
-    daylight: notImplemented,
-    country: notImplemented,
-    summary: notImplemented,
-    places: notImplemented,
+    referenceDates: referenceDates(trip, ctx.today),
+    weather,
+    daylight,
+    country,
+    summary,
+    places,
   };
 }
 
-export async function warmTripFacts(
-  trip: Trip,
-  purpose: TripPurpose | null,
-  ctx: FactsCtx,
-): Promise<void> {
-  void trip; void purpose; void ctx;
+/** Phase 3 snapshot input. Never throws. */
+export function getTripFacts(trip: Trip, purpose: TripPurpose | null, ctx: FactsCtx): Promise<TripFacts> {
+  return collect(trip, purpose, ctx);
+}
+
+/** Fills the cache in the background (after()). No Overpass time budget. Never throws. */
+export async function warmTripFacts(trip: Trip, purpose: TripPurpose | null, ctx: FactsCtx): Promise<void> {
+  try {
+    await collect(trip, purpose, ctx, Number.POSITIVE_INFINITY);
+  } catch {
+    // warming is best effort
+  }
 }

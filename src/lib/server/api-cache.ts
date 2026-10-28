@@ -1,0 +1,157 @@
+import "server-only";
+import { z } from "zod";
+import { logApiCalls, type ApiCallRow } from "./api-calls";
+import { createSupabaseAdminClient } from "./supabase/admin";
+
+export const CacheProvider = z.enum([
+  "open_meteo_geocoding",
+  "open_meteo_archive",
+  "overpass",
+  "wikivoyage",
+  "aerodatabox",
+]);
+export type CacheProvider = z.infer<typeof CacheProvider>;
+
+const normalizeString = (s: string) => s.normalize("NFC").trim().toLowerCase().replace(/\s+/g, " ");
+
+/**
+ * Stable key: `${endpoint}:v${version}:` + params sorted by name, `k=v` joined by `;`.
+ * Strings: NFC, trim, lowercase, collapse spaces. Numbers: as given (round coords before calling).
+ */
+export function cacheKey(
+  endpoint: string,
+  version: number,
+  params: Record<string, string | number>,
+): string {
+  const parts = Object.keys(params)
+    .sort()
+    .map((name) => {
+      const v = params[name];
+      return `${name}=${typeof v === "string" ? normalizeString(v) : String(v)}`;
+    });
+  return `${endpoint}:v${version}:${parts.join(";")}`;
+}
+
+export type FetchOutcome<T> = {
+  data: T;
+  status: number;
+  latencyMs: number;
+  units?: number;
+  quotaRemaining?: number;
+};
+
+export type CachedResult<T> =
+  | { ok: true; data: T; fetchedAt: string; stale: boolean; cache: "hit" | "miss" | "stale" }
+  | { ok: false; error: "provider_error" | "timeout" | "invalid_response" };
+
+export type CacheCtx = { userId: string | null };
+
+type CacheRow = { payload: unknown; fetched_at: string; expires_at: string };
+
+/** Short, PII-free error class for api_calls.error_code and the CachedResult error. */
+function classifyError(err: unknown): {
+  code: string;
+  status: number | null;
+  error: "provider_error" | "timeout" | "invalid_response";
+} {
+  if (err instanceof z.ZodError) return { code: "zod", status: null, error: "invalid_response" };
+  const e = err as { name?: unknown; status?: unknown } | null;
+  const name = typeof e?.name === "string" ? e.name : "";
+  if (name === "TimeoutError" || name === "AbortError") {
+    return { code: "timeout", status: null, error: "timeout" };
+  }
+  if (typeof e?.status === "number") {
+    return { code: `http_${e.status}`, status: e.status, error: "provider_error" };
+  }
+  return { code: "network", status: null, error: "provider_error" };
+}
+
+/**
+ * Read-through cache for external API calls (ground rule 8). Reads api_cache with the
+ * secret key (the table has no user grants), fetches on miss/expiry, upserts, and writes
+ * exactly one api_calls row. If the refresh fails and an expired row exists, that row is
+ * served as stale. Errors are never cached. Never throws.
+ */
+export async function cached<T>(opts: {
+  provider: CacheProvider;
+  endpoint: string;
+  key: string;
+  ttlSeconds: number;
+  /** Re-validates the cached payload (mismatch counts as a miss) and the fetched data. */
+  schema: z.ZodType<T>;
+  /** Throws on non-2xx / timeout / Zod error. */
+  fetcher: () => Promise<FetchOutcome<T>>;
+  ctx: CacheCtx;
+}): Promise<CachedResult<T>> {
+  const { provider, endpoint, key, ttlSeconds, schema, fetcher, ctx } = opts;
+  const base = { provider, endpoint, userId: ctx.userId };
+  const log = (row: Omit<ApiCallRow, "provider" | "endpoint" | "userId">) =>
+    logApiCalls([{ ...base, ...row }]);
+
+  try {
+    const admin = createSupabaseAdminClient();
+
+    // 1. Read. A read failure is treated as a miss (the cache is an optimisation).
+    let existing: { data: T; fetchedAt: string; expiresAt: number } | null = null;
+    try {
+      const { data: row, error } = await admin
+        .from("api_cache")
+        .select("payload, fetched_at, expires_at")
+        .eq("provider", provider)
+        .eq("cache_key", key)
+        .maybeSingle<CacheRow>();
+      if (error) console.error("api_cache read failed", error.code);
+      if (row) {
+        const parsed = schema.safeParse(row.payload);
+        if (parsed.success) {
+          existing = {
+            data: parsed.data,
+            fetchedAt: row.fetched_at,
+            expiresAt: Date.parse(row.expires_at),
+          };
+        }
+      }
+    } catch (error) {
+      console.error("api_cache read failed", error instanceof Error ? error.name : "unknown");
+    }
+
+    if (existing && existing.expiresAt > Date.now()) {
+      await log({ cache: "hit", ok: true });
+      return { ok: true, data: existing.data, fetchedAt: existing.fetchedAt, stale: false, cache: "hit" };
+    }
+
+    // 2. Fetch.
+    try {
+      const outcome = await fetcher();
+      const data = schema.parse(outcome.data);
+      const now = new Date();
+      const fetchedAt = now.toISOString();
+      const expiresAt = new Date(now.getTime() + ttlSeconds * 1000).toISOString();
+      const { error } = await admin.from("api_cache").upsert(
+        { provider, cache_key: key, payload: data as never, fetched_at: fetchedAt, expires_at: expiresAt },
+        { onConflict: "provider,cache_key" },
+      );
+      if (error) console.error("api_cache write failed", error.code);
+      await log({
+        cache: "miss",
+        ok: true,
+        status: outcome.status,
+        latencyMs: outcome.latencyMs,
+        units: outcome.units ?? null,
+        quotaRemaining: outcome.quotaRemaining ?? null,
+      });
+      return { ok: true, data, fetchedAt, stale: false, cache: "miss" };
+    } catch (err) {
+      const c = classifyError(err);
+      if (existing) {
+        await log({ cache: "stale", ok: false, status: c.status, errorCode: c.code });
+        return { ok: true, data: existing.data, fetchedAt: existing.fetchedAt, stale: true, cache: "stale" };
+      }
+      await log({ cache: "miss", ok: false, status: c.status, errorCode: c.code });
+      return { ok: false, error: c.error };
+    }
+  } catch (error) {
+    console.error("cached() failed", error instanceof Error ? error.name : "unknown");
+    return { ok: false, error: "provider_error" };
+  }
+}

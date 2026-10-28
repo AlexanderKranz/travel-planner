@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261028120010. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261029120013. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -134,6 +134,106 @@ select ok(has_function_privilege('authenticated', 'public.health_check()', 'exec
 select ok(not exists (
   select 1 from information_schema.role_table_grants
    where table_schema = 'public' and grantee = 'anon'), 'anon has no table grants in public');
+
+-- ---------- phase 2: trips, api_cache, api_calls (migrations 20261029120011..13) ----------
+reset role;
+set local request.jwt.claims = '';
+insert into public.travel_groups (id, owner_id, name) values
+  ('b0000000-0000-4000-8000-0000000000a1', 'bbbbbbbb-0000-4000-8000-000000000002', 'B group');
+insert into public.trip_purposes (id, owner_id, name) values
+  ('b0000000-0000-4000-8000-0000000000b1', 'bbbbbbbb-0000-4000-8000-000000000002', 'B purpose');
+
+-- as user A: create trips (owner_id comes from the column default)
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select lives_ok($$insert into public.trips (id, dest_kind, dest_name, length_days, group_id, purpose_id) values
+  ('a0000000-0000-4000-8000-0000000000c1', 'freetext', 'Somewhere', 3, 'a0000000-0000-4000-8000-0000000000a1', 'a0000000-0000-4000-8000-0000000000b1')$$,
+  'A can create a freetext trip with own group and purpose');
+select is((select owner_id from public.trips where id = 'a0000000-0000-4000-8000-0000000000c1'),
+  'aaaaaaaa-0000-4000-8000-000000000001'::uuid, 'owner_id defaults to auth.uid()');
+select lives_ok($$insert into public.trips (dest_kind, dest_name, dest_place_name, dest_geo_id, dest_lat, dest_lon, length_days, months)
+  values ('city', 'Passau', 'Passau', 2855328, 48.5665, 13.43122, 7, '{12}')$$, 'A can create a geocoded trip with months');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, group_id) values
+  ('freetext', 'X', 2, 'b0000000-0000-4000-8000-0000000000a1')$$, '23503', null, 'A cannot reference B''s group');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, purpose_id) values
+  ('freetext', 'X', 2, 'b0000000-0000-4000-8000-0000000000b1')$$, '23503', null, 'A cannot reference B''s purpose');
+select throws_ok($$insert into public.trips (owner_id, dest_kind, dest_name, length_days) values
+  ('bbbbbbbb-0000-4000-8000-000000000002', 'freetext', 'X', 2)$$, '42501', null, 'owner_id cannot be written');
+select throws_ok($$update public.trips set owner_id = 'bbbbbbbb-0000-4000-8000-000000000002' where id = 'a0000000-0000-4000-8000-0000000000c1'$$,
+  '42501', null, 'owner_id cannot be updated');
+select throws_ok($$update public.trips set id = gen_random_uuid() where id = 'a0000000-0000-4000-8000-0000000000c1'$$,
+  '42501', null, 'id cannot be updated');
+
+-- checks
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, dest_lat, dest_lon) values ('freetext', 'X', 2, 1, 1)$$,
+  '23514', null, 'freetext with coordinates rejected');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days) values ('city', 'X', 2)$$,
+  '23514', null, 'city without coordinates rejected');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, start_date, months) values ('freetext', 'X', 2, '2027-01-01', '{1}')$$,
+  '23514', null, 'date + months rejected');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, months) values ('freetext', 'X', 2, '{13}')$$,
+  '23514', null, 'month 13 rejected');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days) values ('freetext', 'X', 0)$$,
+  '23514', null, 'length_days 0 rejected');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days) values ('freetext', 'X', 61)$$,
+  '23514', null, 'length_days 61 rejected');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, origin_airports) values ('freetext', 'X', 2, '{fra}')$$,
+  '23514', null, 'origin_airports must be IATA format');
+
+-- user B cannot see or touch A's trips
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+select is((select count(*)::int from public.trips), 0, 'B sees no trips of A');
+update public.trips set dest_name = 'hacked' where id = 'a0000000-0000-4000-8000-0000000000c1';
+delete from public.trips where id = 'a0000000-0000-4000-8000-0000000000c1';
+reset role;
+select is((select dest_name from public.trips where id = 'a0000000-0000-4000-8000-0000000000c1'), 'Somewhere', 'B cannot update A''s trip');
+select is((select count(*)::int from public.trips where id = 'a0000000-0000-4000-8000-0000000000c1'), 1, 'B cannot delete A''s trip');
+
+-- deleting a group / purpose clears only the reference column
+delete from public.travel_groups where id = 'a0000000-0000-4000-8000-0000000000a1';
+delete from public.trip_purposes where id = 'a0000000-0000-4000-8000-0000000000b1';
+select is((select group_id from public.trips where id = 'a0000000-0000-4000-8000-0000000000c1'), null, 'group delete sets trips.group_id null');
+select is((select purpose_id from public.trips where id = 'a0000000-0000-4000-8000-0000000000c1'), null, 'purpose delete sets trips.purpose_id null');
+select is((select owner_id from public.trips where id = 'a0000000-0000-4000-8000-0000000000c1'),
+  'aaaaaaaa-0000-4000-8000-000000000001'::uuid, 'owner_id survives the set-null action');
+
+-- anon
+set local request.jwt.claims = '';
+set local role anon;
+select throws_ok($$select * from public.trips$$, '42501', null, 'anon cannot read trips');
+select throws_ok($$select * from public.api_cache$$, '42501', null, 'anon cannot read api_cache');
+select throws_ok($$select * from public.api_calls$$, '42501', null, 'anon cannot read api_calls');
+
+-- api_cache: no access for authenticated, including admin
+reset role;
+insert into public.api_cache (provider, cache_key, payload, expires_at) values ('overpass', 'k', '{}'::jsonb, now() + interval '1 day');
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select throws_ok($$select * from public.api_cache$$, '42501', null, 'user cannot select api_cache');
+select throws_ok($$insert into public.api_cache (provider, cache_key, payload, expires_at) values ('overpass', 'x', '{}'::jsonb, now())$$,
+  '42501', null, 'user cannot insert into api_cache');
+reset role;
+set local request.jwt.claims = '{"sub":"cccccccc-0000-4000-8000-000000000003","role":"authenticated"}';
+set local role authenticated;
+select throws_ok($$select * from public.api_cache$$, '42501', null, 'admin cannot select api_cache');
+select throws_ok($$insert into public.api_cache (provider, cache_key, payload, expires_at) values ('overpass', 'x', '{}'::jsonb, now())$$,
+  '42501', null, 'admin cannot insert into api_cache');
+
+-- api_calls: admin reads, others see nothing, nobody but the server writes
+reset role;
+insert into public.api_calls (provider, endpoint, cache, ok) values ('overpass', 'interpreter', 'miss', true);
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select is((select count(*)::int from public.api_calls), 0, 'non-admin sees no api_calls');
+select throws_ok($$insert into public.api_calls (provider, endpoint, cache, ok) values ('overpass', 'x', 'hit', true)$$,
+  '42501', null, 'user cannot insert api_calls');
+reset role;
+set local request.jwt.claims = '{"sub":"cccccccc-0000-4000-8000-000000000003","role":"authenticated"}';
+set local role authenticated;
+select is((select count(*)::int from public.api_calls), 1, 'admin can read api_calls');
+select throws_ok($$insert into public.api_calls (provider, endpoint, cache, ok) values ('overpass', 'x', 'hit', true)$$,
+  '42501', null, 'admin cannot insert api_calls');
+reset role;
 
 -- ---------- demo account ----------
 reset role;
