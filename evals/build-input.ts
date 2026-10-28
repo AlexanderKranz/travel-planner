@@ -7,7 +7,8 @@ import golfJson from "./fixtures/golftrip-costa-del-sol.json";
 import cruiseJson from "./fixtures/donau-kreuzfahrt.json";
 import golfOsm from "@/lib/integrations/__fixtures__/overpass/golf-marbella-40km.json";
 import passauOsm from "@/lib/integrations/__fixtures__/overpass/general-passau-15km.json";
-import proxyFlights from "@/lib/flights/__fixtures__/flights-fact-proxy.json";
+import fraDeparturesPast from "@/lib/integrations/__fixtures__/aerodatabox/fids-departures-FRA-2026-03-07-past.json";
+import agpDeparturesPast from "@/lib/integrations/__fixtures__/aerodatabox/fids-departures-AGP-2026-03-18-past.json";
 import malagaArchive from "@/lib/integrations/__fixtures__/open-meteo/archive-malaga-2016-2025.json";
 import type { FlightsFacts } from "@/lib/domain/flights";
 import type { CountryFacts, Fact, InterestOrGeneral, PlaceGroup, TripFacts, WeatherFacts } from "@/lib/domain/facts";
@@ -24,6 +25,11 @@ import { getCountry } from "@/lib/integrations/countries";
 import { parseArchive } from "@/lib/integrations/open-meteo-archive";
 import { parseElements } from "@/lib/integrations/overpass";
 import { buildPlanInput } from "@/lib/plan/input";
+import { gatewayAirports } from "@/lib/plan/airports";
+import { buildFlightsFacts } from "@/lib/flights/build";
+import { maxBlockMinutes } from "@/lib/flights/constraint";
+import { flightDates } from "@/lib/flights/lookups";
+import { normalizeFids } from "@/lib/integrations/aerodatabox-normalize";
 
 export const FIXTURE_IDS = ["golf", "cruise"] as const;
 export type FixtureId = (typeof FIXTURE_IDS)[number];
@@ -174,6 +180,35 @@ function countryFact(code: string, timezone: string): Fact<CountryFacts> {
   };
 }
 
+/**
+ * Flights via the real pure builder from recorded AeroDataBox departures (golf only). 2038 is beyond the horizon,
+ * so both directions are proxies (checked 2026-03-14 / 2026-03-18). The outbound FIDS fixture was recorded on
+ * 2026-03-07 (same weekday, same schedule) and stands in for the checked date, as in build.test.ts.
+ * No routes fixture for the month: routes = not checked, so every gateway is tried.
+ */
+function flightsFact(id: FixtureId, trip: Trip, purpose: TripPurpose | null): Fact<FlightsFacts> | null {
+  if (id !== "golf" || !trip.wantsFlights) return null;
+  const dates = flightDates(trip, EVAL_TODAY);
+  if (!dates) return null;
+  const gateways = gatewayAirports(FIXTURES[id].trip.anchor).map(({ iata, name, km }) => ({ iata, name, km }));
+  const origins = trip.originAirports;
+  const data = buildFlightsFacts({
+    today: EVAL_TODAY,
+    dates,
+    origins,
+    gateways,
+    maxBlockMin: maxBlockMinutes(purpose),
+    routes: Object.fromEntries(origins.map((o) => [o, null])),
+    departures: {
+      out: { FRA: { data: normalizeFids(fraDeparturesPast), complete: true } },
+      back: { AGP: { data: normalizeFids(agpDeparturesPast), complete: true } },
+    },
+    flightDates: {},
+    quotaLimited: false,
+  });
+  return { status: "ok", data, source: "aerodatabox", sourceUrl: "https://aerodatabox.com", fetchedAt: EVAL_FETCHED_AT, stale: false };
+}
+
 export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null): TripFacts {
   const a = FIXTURES[id].trip.anchor;
   const anchor = { lat: Number(a.lat.toFixed(3)), lon: Number(a.lon.toFixed(3)) };
@@ -189,6 +224,7 @@ export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null
       : { interest, status: "empty", fetchedAt: EVAL_FETCHED_AT, stale: false };
   });
   const { basis, dates } = daylightDates(trip, EVAL_TODAY);
+  const flights = flightsFact(id, trip, purpose);
   return {
     tripId: trip.id,
     generatedAt: EVAL_FETCHED_AT,
@@ -203,8 +239,8 @@ export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null
     },
     country: countryFact(a.countryCode, a.timezone),
     summary: { status: "unavailable", reason: "not_found" },
-    // Recorded flights (golf only): fixture of the pure builder's output, mode proxy for 2038. Cruise has flights: false.
-    ...(id === "golf" && trip.wantsFlights ? { flights: proxyFlights as Fact<FlightsFacts> } : {}),
+    // Recorded flights (golf only), built by the pure builder. Cruise has flights: false.
+    ...(flights ? { flights } : {}),
     places: {
       status: "ok",
       data: { radiusKm: a.radiusKm, groups, customInterests },

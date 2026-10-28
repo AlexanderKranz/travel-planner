@@ -1,42 +1,50 @@
 {
-  "promptVersion": "plan-1",
+  "promptVersion": "plan-2",
   "model": "claude-sonnet-5-5",
-  "inputHash": "a12668cb98772af8f86c5c6a710821ad7026655ddcea7199f81cb35b4c50ba17",
+  "inputHash": "0bdb920879d8c49c168bf1358d6b1cc53905750b03b7c3961b8591f49da6f2ee",
   "output": {
-    "summary": "Fünf Tage Advents-Flusskreuzfahrt auf der Donau von Passau über Wien, Dürnstein, Melk und Linz zurück nach Passau. Der Plan ist entspannt, mit Mittagsschlaf an Bord und Weihnachtsmärkten am frühen Abend, weil es früh dunkel wird.",
+    "summary": "Fünf Adventstage auf der Donau von Passau über Wien, Dürnstein, Melk und Linz zurück nach Passau. Entspanntes Tempo mit Mittagsschlaf an Bord und Landgängen bei Tageslicht und in der Abendstimmung der Weihnachtsmärkte.",
     "days": [
       {
         "n": 1,
-        "title": "Passau: Einschiffung",
+        "title": "Passau: Altstadt und Abfahrt",
         "stops": [
+          {
+            "place": "Passau",
+            "acts": [
+              {
+                "at": "10:00",
+                "kind": "travel",
+                "text": "Anreise, Check-in und Kabine beziehen"
+              },
+              {
+                "at": "11:00",
+                "kind": "see",
+                "text": "Ruhiger Spaziergang zum Dom St. Stephan",
+                "ref": "p5"
+              },
+              {
+                "at": "12:15",
+                "kind": "food",
+                "text": "Mittagessen an Bord oder in Schiffsnähe"
+              },
+              {
+                "at": "13:00",
+                "until": "15:00",
+                "kind": "rest",
+                "text": "Mittagsschlaf des Kleinkinds in der Kabine"
+              }
+            ]
+          },
           {
             "place": "Passau",
             "to": "16:00",
             "fixed": true,
             "acts": [
               {
-                "at": "10:30",
-                "until": "11:30",
-                "kind": "see",
-                "text": "Ruhiger Spaziergang zum Dom, Kopfsteinpflaster mit Trage statt Buggy meiden",
-                "ref": "p5"
-              },
-              {
-                "at": "12:00",
-                "until": "13:00",
-                "kind": "food",
-                "text": "Mittagessen in der Altstadt"
-              },
-              {
-                "at": "13:15",
-                "until": "14:45",
-                "kind": "rest",
-                "text": "Mittagsschlaf des Kleinkinds, Gepäck vorher abgeben"
-              },
-              {
-                "at": "15:00",
-                "kind": "travel",
-                "text": "Check-in und Einschiffung auf dem Schiff"
+                "at": "15:15",
+                "kind": "free",
+                "text": "Letzte Vorbereitungen an Bord vor dem Ablegen"
               }
             ]
           },
@@ -44,46 +52,42 @@
             "place": "An Bord",
             "acts": [
               {
-                "at": "17:00",
-                "until": "18:30",
-                "kind": "free",
-                "text": "Kabine beziehen, Schiff erkunden, Ablegen beobachten"
+                "at": "18:30",
+                "kind": "food",
+                "text": "Abendessen an Bord"
               },
               {
-                "at": "18:30",
-                "until": "19:30",
-                "kind": "food",
-                "text": "Familienabendessen an Bord"
+                "at": "20:00",
+                "kind": "free",
+                "text": "Früh zur Ruhe, Fahrt Richtung Wien"
               }
             ]
           }
         ],
-        "note": "Buggy und Gepäck früh am Schiff abgeben."
+        "note": "Buggy auf dem Kopfsteinpflaster der Altstadt schwierig, besser Tragetuch."
       },
       {
         "n": 2,
-        "title": "Wien: Christkindlmarkt am Abend",
+        "title": "Wien: Weihnachtsmarkt am Abend",
         "stops": [
           {
             "place": "An Bord",
             "acts": [
               {
-                "at": "08:00",
-                "until": "09:00",
+                "at": "08:30",
                 "kind": "food",
                 "text": "Frühstück an Bord"
               },
               {
-                "at": "11:30",
-                "until": "12:30",
-                "kind": "food",
-                "text": "Mittagessen an Bord"
+                "at": "11:00",
+                "kind": "free",
+                "text": "Ruhiger Vormittag an Deck und Fahrt durch die Winterlandschaft"
               },
               {
-                "at": "12:30",
-                "until": "13:45",
+                "at": "12:00",
+                "until": "14:00",
                 "kind": "rest",
-                "text": "Mittagsschlaf des Kleinkinds in der Kabine"
+                "text": "Mittagsschlaf an Bord"
               }
             ]
           },
@@ -95,35 +99,37 @@
             "acts": [
               {
                 "at": "14:30",
-                "until": "16:30",
-                "kind": "see",
-                "text": "Gemütlicher Bummel durch die Innenstadt, auf glatte Wege achten"
-              },
-              {
-                "at": "16:45",
-                "until": "19:30",
                 "kind": "do",
-                "text": "Weihnachtsmarkt mit Lichtern, Punsch für die Eltern, Kinderkarussell"
+                "text": "Gemütlicher Landgang in die Innenstadt"
               },
               {
-                "at": "19:30",
-                "until": "20:30",
+                "at": "16:00",
+                "kind": "do",
+                "text": "Weihnachtsmarkt in der Innenstadt bei Dämmerung"
+              },
+              {
+                "at": "17:30",
                 "kind": "food",
-                "text": "Abendessen mit österreichischer Küche"
+                "text": "Punsch, Maronen und Imbiss auf dem Markt"
+              },
+              {
+                "at": "19:00",
+                "kind": "food",
+                "text": "Abendessen in der Stadt oder an Bord"
               },
               {
                 "at": "21:00",
                 "kind": "travel",
-                "text": "Rückkehr aufs Schiff, Kleinkind ins Bett"
+                "text": "Rückkehr zum Schiff, Kleinkind ins Bett"
               }
             ]
           }
         ],
-        "best": true
+        "warn": "Auf Märkten viel Gedränge, Buggy und Kleinkind früh müde."
       },
       {
         "n": 3,
-        "title": "Dürnstein & Melk",
+        "title": "Dürnstein und Melk",
         "stops": [
           {
             "place": "Dürnstein",
@@ -132,16 +138,19 @@
             "fixed": true,
             "acts": [
               {
-                "at": "09:00",
-                "until": "11:00",
-                "kind": "see",
-                "text": "Spaziergang durch das Winzerdorf an der Donau, Wege teils steil und gepflastert"
+                "at": "08:30",
+                "kind": "do",
+                "text": "Spaziergang durch den Ort mit Blick auf die Weinberge"
+              },
+              {
+                "at": "10:00",
+                "kind": "food",
+                "text": "Weinregion: Marillen- und Weinspezialitäten probieren"
               },
               {
                 "at": "11:00",
-                "until": "11:45",
-                "kind": "food",
-                "text": "Aprikosengebäck und Heißgetränk, Wein für die Eltern"
+                "kind": "shop",
+                "text": "Kleiner Adventsmarkt oder Läden im Ort"
               }
             ]
           },
@@ -150,7 +159,6 @@
             "acts": [
               {
                 "at": "12:15",
-                "until": "13:00",
                 "kind": "food",
                 "text": "Mittagessen an Bord"
               },
@@ -158,7 +166,7 @@
                 "at": "13:00",
                 "until": "14:45",
                 "kind": "rest",
-                "text": "Mittagsschlaf des Kleinkinds während der Fahrt nach Melk"
+                "text": "Mittagsschlaf während der Fahrt nach Melk"
               }
             ]
           },
@@ -170,30 +178,27 @@
             "acts": [
               {
                 "at": "15:15",
-                "until": "16:30",
                 "kind": "see",
-                "text": "Kurzer Rundgang durch die Altstadt vor der Dämmerung"
+                "text": "Kurzer Rundgang in der Altstadt, noch bei Tageslicht"
               },
               {
-                "at": "17:00",
-                "until": "18:30",
+                "at": "16:45",
                 "kind": "do",
-                "text": "Kleiner Adventmarkt mit Lichtern, falls vorhanden"
+                "text": "Adventstimmung und Lichter im Ort"
               },
               {
-                "at": "19:00",
-                "until": "20:00",
+                "at": "18:30",
                 "kind": "food",
-                "text": "Abendessen an Bord oder in der Stadt"
+                "text": "Abendessen an Bord"
               }
             ]
           }
         ],
-        "warn": "Dürnstein hat Kopfsteinpflaster, Trage statt Buggy mitnehmen."
+        "best": true
       },
       {
         "n": 4,
-        "title": "Linz: Stadt und Markt",
+        "title": "Linz: Stadtbummel",
         "stops": [
           {
             "place": "Linz",
@@ -203,37 +208,39 @@
             "acts": [
               {
                 "at": "09:30",
-                "until": "11:30",
                 "kind": "do",
-                "text": "Familienfreundlicher Stadtbummel, Spielplatz oder Park"
+                "text": "Gemütlicher Vormittag in der Innenstadt, Spielplatz oder Café mit Kind"
               },
               {
-                "at": "11:45",
-                "until": "12:30",
+                "at": "11:30",
                 "kind": "food",
-                "text": "Mittagessen in einem Café"
+                "text": "Frühes Mittagessen"
               },
               {
-                "at": "12:45",
+                "at": "12:30",
                 "until": "14:30",
                 "kind": "rest",
-                "text": "Mittagsschlaf des Kleinkinds an Bord"
+                "text": "Mittagsschlaf an Bord"
               },
               {
                 "at": "15:00",
-                "until": "16:30",
-                "kind": "see",
-                "text": "Spaziergang an der Donaupromenade vor Einbruch der Dunkelheit"
+                "kind": "do",
+                "text": "Weihnachtsmarkt in Linz am Nachmittag"
               },
               {
-                "at": "16:45",
-                "until": "18:30",
-                "kind": "do",
-                "text": "Christkindlmarkt bei Lichterglanz"
+                "at": "17:00",
+                "kind": "food",
+                "text": "Glühwein, Kinderpunsch und Snacks"
+              },
+              {
+                "at": "18:15",
+                "kind": "travel",
+                "text": "Rückweg zum Schiff"
               }
             ]
           }
-        ]
+        ],
+        "warn": "Ab Dämmerung früh dunkel und kalt, Kind warm einpacken."
       },
       {
         "n": 5,
@@ -243,15 +250,14 @@
             "place": "An Bord",
             "acts": [
               {
-                "at": "08:00",
-                "until": "09:00",
+                "at": "07:30",
                 "kind": "food",
-                "text": "Letztes Frühstück an Bord"
+                "text": "Frühstück an Bord"
               },
               {
-                "at": "09:00",
-                "kind": "travel",
-                "text": "Ankunft in Passau am Morgen, Ausschiffung, Gepäck sammeln"
+                "at": "08:30",
+                "kind": "free",
+                "text": "Kabine packen, Ankunft in Passau am Morgen"
               }
             ]
           },
@@ -259,10 +265,9 @@
             "place": "Passau",
             "acts": [
               {
-                "at": "10:30",
-                "until": "11:30",
-                "kind": "free",
-                "text": "Letzter Spaziergang oder Kaffee vor der Abreise"
+                "at": "10:00",
+                "kind": "travel",
+                "text": "Ausschiffung und Heimreise"
               }
             ]
           }
@@ -271,47 +276,46 @@
     ],
     "notes": [
       {
-        "kind": "warning",
-        "text": "Es wird früh dunkel, Außenprogramm vor Einbruch der Dunkelheit planen."
-      },
-      {
         "kind": "tip",
-        "text": "Für Kopfsteinpflaster Babytrage mitnehmen, der Buggy ist dort ungeeignet."
-      },
-      {
-        "kind": "tip",
-        "text": "Mittagsschlaf jeweils an Bord einplanen, Landgänge um den Schlaf herum legen."
+        "text": "Mittagsschlaf wenn möglich an Bord legen, die Kabine ist ruhig."
       },
       {
         "kind": "warning",
-        "text": "Feste Abfahrtszeiten des Schiffs beachten und rechtzeitig zurück sein."
+        "text": "Dunkelheit ab etwa 16:50 Uhr: Landgänge im Freien früh planen."
+      },
+      {
+        "kind": "warning",
+        "text": "Kopfsteinpflaster in Altstädten, Buggy nur eingeschränkt nutzbar."
+      },
+      {
+        "kind": "tip",
+        "text": "Hafenzeiten sind fix, rechtzeitig vor Abfahrt zurück sein."
       }
     ],
     "open": [
       {
-        "text": "Genaue Ankunftszeit in Passau am 23.12. beim Veranstalter erfragen",
+        "text": "Genaue Ankunftszeit in Passau am Morgen beim Veranstalter erfragen",
         "day": 5
       },
       {
-        "text": "Prüfen, welche Weihnachtsmärkte in Melk und Linz geöffnet sind",
-        "day": 3
+        "text": "Öffnungszeiten der Weihnachtsmärkte in Wien und Linz prüfen",
+        "day": 2
       },
       {
-        "text": "Landausflüge und Kinderausstattung (Kinderbett, Hochstuhl) an Bord klären"
+        "text": "Kinderbett oder Babybett in der Kabine anfragen",
+        "day": 1
       }
     ],
     "packing": [
-      "Warme Winterjacke",
+      "Warme Winterjacken",
       "Mütze und Handschuhe",
       "Wasserdichte Schuhe",
-      "Babytrage",
-      "Schlafsack für das Kleinkind",
-      "Wechselkleidung",
-      "Lieblingskuscheltier",
+      "Tragetuch oder Buggy mit Regenschutz",
+      "Kuscheltier und Schnuller",
+      "Wechselkleidung fürs Kind",
       "Windeln und Feuchttücher",
-      "Snacks fürs Kleinkind",
-      "Thermoskanne",
-      "Regenschutz für den Buggy",
+      "Thermosflasche",
+      "Ausweise",
       "Reiseapotheke"
     ]
   },
@@ -320,11 +324,11 @@
     "model": "claude-sonnet-5-5",
     "status": "ok",
     "inputTokens": 1886,
-    "outputTokens": 2482,
+    "outputTokens": 2410,
     "cacheCreationInputTokens": 0,
-    "cacheReadInputTokens": 2436,
-    "costMicroUsd": 29079,
-    "latencyMs": 15880
+    "cacheReadInputTokens": 2621,
+    "costMicroUsd": 28396,
+    "latencyMs": 16078
   },
-  "recordedAt": "2026-10-28T07:54:32.927Z"
+  "recordedAt": "2026-10-28T08:58:26.043Z"
 }
