@@ -151,7 +151,7 @@ export function patchRequest(a: {
     task: "plan_patch",
     model: MODEL_PLAN,
     schema: WirePatch,
-    effort: "low",
+    effort: "medium", // low produced thin patch days in the live eval (2026-10-28)
     maxTokens: PATCH_MAX_TOKENS,
     system: SYSTEM_RULES + "\n\n" + PATCH_ADDENDUM,
     blocks: [{ text: inputBlock(a.llm), cache: true }, { text: current }, { text: fb }],

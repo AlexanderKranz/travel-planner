@@ -27,7 +27,7 @@ describe("compose requests", () => {
 
   it("patch: INPUT cached first, then CURRENT_PLAN and FEEDBACK", () => {
     const r = patchRequest({ llm, plan, index, feedback: fb({ chips: ["more_rest"], days: [2] }) });
-    expect(r).toMatchObject({ task: "plan_patch", effort: "low", maxTokens: 8000 });
+    expect(r).toMatchObject({ task: "plan_patch", effort: "medium", maxTokens: 8000 });
     expect(r.blocks.map((b) => [b.text.split("\n")[0], !!b.cache])).toEqual([["INPUT", true], ["CURRENT_PLAN", false], ["FEEDBACK", false]]);
   });
 

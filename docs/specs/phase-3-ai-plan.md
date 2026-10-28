@@ -591,5 +591,5 @@ Order: step 0 → (parallel) → merge backend migrations + store → ai-enginee
 - **[D14] Budgets per Berlin day**: users $0.50, admin $2.00, demo account $0.20 (shared), global $5.00; `AI_ENABLED` kill switch, default off.
 - **[D15] Plan language is fixed at generation** (UI locale then); iterations keep it.
 - **[D16] Demo: generation allowed under the demo cap**; pre-seeded plans are a stretch goal.
-- **[D17] Effort**: Sonnet `medium` for generation, `low` for patches; Haiku `low`. Revisit after the evals if quality is short.
+- **[D17] Effort**: Sonnet `medium` for generation and patches (patches at `low` were thin in the live eval); Haiku `low`.
 - **[D18] Plan section sits above the facts** on the trip page; facts stay visible below as background.
