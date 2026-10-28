@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { LlmPatch, LlmPlan, PurposeTags } from "@/lib/domain/plan";
-import { outputFormat } from "./client";
+import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+import type { AiUsageRecord } from "@/lib/domain/ai";
+import { callStructured, outputFormat } from "./client";
 
 vi.mock("server-only", () => ({}));
 
@@ -30,5 +33,85 @@ describe("outputFormat", () => {
     const text = JSON.stringify({ summary: "s", days: [], notes: [], open: [], packing: [] });
     expect(f.parse(text)).toEqual({ summary: "s", days: [], notes: [], open: [], packing: [] });
     expect(() => f.parse(JSON.stringify({ summary: 1 }))).toThrow();
+  });
+});
+
+// --- callStructured with a mocked SDK client (spec 9) ---
+
+const usage = { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 10, cache_read_input_tokens: 20 };
+const msg = (text: string | null, stop = "end_turn") => ({
+  id: "m",
+  type: "message",
+  role: "assistant",
+  model: "claude-haiku-5-5",
+  stop_reason: stop,
+  usage,
+  content: [{ type: "thinking", thinking: "", signature: "" }, ...(text === null ? [] : [{ type: "text", text }])],
+});
+
+function setup(result: unknown) {
+  const create = vi.fn(async () => {
+    if (result instanceof Error) throw result;
+    return result;
+  });
+  const records: AiUsageRecord[] = [];
+  const ctx = { client: { messages: { create } } as unknown as Anthropic, onUsage: async (u: AiUsageRecord) => void records.push(u) };
+  const S = z.object({ a: z.number() });
+  const req = { task: "purpose_tags" as const, model: "claude-haiku-5-5" as const, schema: S, effort: "low" as const, maxTokens: 100, system: "SYS", blocks: [{ text: "INPUT", cache: true }, { text: "FB" }] };
+  return { create, records, run: () => callStructured(req, ctx) };
+}
+
+describe("callStructured", () => {
+  it("returns parsed data, one usage record with cost, and sends cached blocks", async () => {
+    const t = setup(msg('{"a":1}'));
+    const r = await t.run();
+    expect(r).toMatchObject({ ok: true, data: { a: 1 } });
+    expect(t.records).toHaveLength(1);
+    expect(t.records[0]).toMatchObject({ status: "ok", inputTokens: 100, outputTokens: 50, cacheCreationInputTokens: 10, cacheReadInputTokens: 20, costMicroUsd: 36 });
+    const params = (t.create.mock.calls[0] as unknown[])[0] as Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+    expect(params.system).toEqual([{ type: "text", text: "SYS", cache_control: { type: "ephemeral" } }]);
+    expect(params.messages[0].content).toEqual([
+      { type: "text", text: "INPUT", cache_control: { type: "ephemeral" } },
+      { type: "text", text: "FB" },
+    ]);
+    expect(params.output_config).toMatchObject({ effort: "low", format: { type: "json_schema" } });
+    expect(params).not.toHaveProperty("thinking");
+  });
+
+  it.each([
+    ["refusal", msg('{"a":1}', "refusal"), "ai_refused", "refusal"],
+    ["max_tokens", msg('{"a":', "max_tokens"), "invalid_output", "max_tokens"],
+    ["no text", msg(null), "invalid_output", "invalid_output"],
+    ["bad json", msg("{nope"), "invalid_output", "invalid_output"],
+    ["zod failure", msg('{"a":"x"}'), "invalid_output", "invalid_output"],
+  ])("%s → %s with billed usage", async (_, m, error, status) => {
+    const t = setup(m);
+    const r = await t.run();
+    expect(r).toMatchObject({ ok: false, error });
+    expect(t.records).toHaveLength(1);
+    expect(t.records[0]).toMatchObject({ status, inputTokens: 100 });
+  });
+
+  it.each([
+    [new Anthropic.RateLimitError(429, undefined, "rate", new Headers()), "http_429"],
+    [new Anthropic.InternalServerError(529, undefined, "overloaded", new Headers()), "http_529"],
+    [new Anthropic.APIConnectionTimeoutError(), "timeout"],
+    [new Anthropic.APIConnectionError({ message: "x" }), "network"],
+    [new Error("boom"), "unknown"],
+  ])("API error %# → ai_unavailable (%s)", async (err, code) => {
+    const t = setup(err);
+    const r = await t.run();
+    expect(r).toMatchObject({ ok: false, error: "ai_unavailable" });
+    expect(t.records).toEqual([expect.objectContaining({ status: "error", errorCode: code, costMicroUsd: 0 })]);
+  });
+
+  it("survives a throwing onUsage", async () => {
+    const t = setup(msg('{"a":2}'));
+    const create = t.create;
+    const r = await callStructured(
+      { task: "plan_patch", model: "claude-sonnet-5-5", schema: z.object({ a: z.number() }), effort: "low", maxTokens: 10, system: "S", blocks: [{ text: "I" }] },
+      { client: { messages: { create } } as unknown as Anthropic, onUsage: async () => { throw new Error("db down"); } },
+    );
+    expect(r.ok).toBe(true);
   });
 });

@@ -1,0 +1,89 @@
+{
+  "promptVersion": "plan-1",
+  "model": "claude-sonnet-5-5",
+  "inputHash": "bc06e9321c6f1532270c54724add4c73ac3aa246d73faf0e77767d771423e8e5",
+  "output": {
+    "reply": "Tag 2 entspannter gestaltet: weniger Programmpunkte, mehr Ruhe und Freizeit an Bord und in Wien.",
+    "days": [
+      {
+        "n": 2,
+        "title": "Wien: Ruhiger Christkindlmarkt",
+        "stops": [
+          {
+            "place": "An Bord",
+            "acts": [
+              {
+                "at": "08:00",
+                "until": "09:00",
+                "kind": "food",
+                "text": "Frühstück an Bord"
+              },
+              {
+                "at": "09:30",
+                "until": "11:30",
+                "kind": "free",
+                "text": "Freie Zeit an Bord, Ankunft in Wien in Ruhe abwarten"
+              },
+              {
+                "at": "11:30",
+                "until": "12:30",
+                "kind": "food",
+                "text": "Mittagessen an Bord"
+              },
+              {
+                "at": "12:30",
+                "until": "13:45",
+                "kind": "rest",
+                "text": "Mittagsschlaf des Kleinkinds in der Kabine"
+              }
+            ]
+          },
+          {
+            "place": "Wien",
+            "from": "14:00",
+            "to": "23:59",
+            "fixed": true,
+            "acts": [
+              {
+                "at": "14:30",
+                "until": "16:00",
+                "kind": "see",
+                "text": "Kurzer, gemütlicher Spaziergang in der Innenstadt, Kopfsteinpflaster meiden, Babytrage bereithalten"
+              },
+              {
+                "at": "16:15",
+                "until": "18:15",
+                "kind": "do",
+                "text": "Weihnachtsmarkt mit Lichtern, Punsch für die Eltern, Kinderkarussell"
+              },
+              {
+                "at": "18:15",
+                "until": "19:15",
+                "kind": "food",
+                "text": "Abendessen mit österreichischer Küche"
+              },
+              {
+                "at": "19:30",
+                "kind": "travel",
+                "text": "Rückkehr aufs Schiff, Kleinkind ins Bett"
+              }
+            ]
+          }
+        ],
+        "best": true
+      }
+    ]
+  },
+  "usage": {
+    "task": "plan_patch",
+    "model": "claude-sonnet-5-5",
+    "status": "ok",
+    "inputTokens": 961,
+    "outputTokens": 571,
+    "cacheCreationInputTokens": 0,
+    "cacheReadInputTokens": 4506,
+    "costMicroUsd": 8533,
+    "latencyMs": 4315
+  },
+  "recordedAt": "2026-10-28T07:54:32.927Z"
+}
