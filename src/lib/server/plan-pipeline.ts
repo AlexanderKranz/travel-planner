@@ -72,6 +72,7 @@ export type PlanContext = {
   role: Role;
   isDemo: boolean;
   birthdate: string | null;
+  homeAirports: string[];
   trip: Trip;
   group: TravelGroup | null;
   purpose: TripPurpose | null;
@@ -106,6 +107,7 @@ export async function loadPlanContext(tripId: string): Promise<{ ok: true; ctx: 
       role: profile.data.role,
       isDemo: profile.data.isDemo,
       birthdate: profile.data.birthdate,
+      homeAirports: profile.data.homeAirports,
       trip,
       group,
       purpose,
@@ -267,7 +269,10 @@ export async function generatePlan(tripId: string, locale: Locale): Promise<Pipe
       c.trip,
       purpose,
       { userId: c.session.userId, locale, today: berlinToday() },
-      { placesBudgetMs: PLACES_BUDGET_MS },
+      {
+        placesBudgetMs: PLACES_BUDGET_MS,
+        withFlights: c.trip.wantsFlights ? { homeAirports: c.homeAirports } : undefined,
+      },
     );
     const built = buildPlanInput({
       trip: c.trip,
@@ -326,6 +331,7 @@ export async function generatePlan(tripId: string, locale: Locale): Promise<Pipe
       header: { ...built.header, generatedAt: new Date().toISOString(), model: MODEL_PLAN },
       digest: built.digest,
       locale,
+      flights: built.flights,
     });
     if (!assembled.ok) return failed(c, assembled.reason, "invalid_output");
     const parsed = Plan.safeParse(assembled.plan);

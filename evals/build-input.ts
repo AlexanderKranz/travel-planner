@@ -7,7 +7,9 @@ import golfJson from "./fixtures/golftrip-costa-del-sol.json";
 import cruiseJson from "./fixtures/donau-kreuzfahrt.json";
 import golfOsm from "@/lib/integrations/__fixtures__/overpass/golf-marbella-40km.json";
 import passauOsm from "@/lib/integrations/__fixtures__/overpass/general-passau-15km.json";
+import proxyFlights from "@/lib/flights/__fixtures__/flights-fact-proxy.json";
 import malagaArchive from "@/lib/integrations/__fixtures__/open-meteo/archive-malaga-2016-2025.json";
+import type { FlightsFacts } from "@/lib/domain/flights";
 import type { CountryFacts, Fact, InterestOrGeneral, PlaceGroup, TripFacts, WeatherFacts } from "@/lib/domain/facts";
 import type { StoredEntry, TravelGroup } from "@/lib/domain/group";
 import type { PlanFeedback, PurposeTags } from "@/lib/domain/plan";
@@ -201,6 +203,8 @@ export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null
     },
     country: countryFact(a.countryCode, a.timezone),
     summary: { status: "unavailable", reason: "not_found" },
+    // Recorded flights (golf only): fixture of the pure builder's output, mode proxy for 2038. Cruise has flights: false.
+    ...(id === "golf" && trip.wantsFlights ? { flights: proxyFlights as Fact<FlightsFacts> } : {}),
     places: {
       status: "ok",
       data: { radiusKm: a.radiusKm, groups, customInterests },

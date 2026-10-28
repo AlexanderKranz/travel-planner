@@ -9,6 +9,7 @@ import {
   type PlanActivity,
   type PlanDay,
   type PlanFactsDigest,
+  type PlanFlights,
   type PlanHeader,
   type PlanNote,
   type PlanPlace,
@@ -217,6 +218,8 @@ export function assemblePlan(a: {
   header: PlanHeader;
   digest: PlanFactsDigest;
   locale: Locale;
+  /** Code snapshot of verified flights (from `buildPlanInput`); never model output. */
+  flights?: PlanFlights;
 }): { ok: true; plan: Plan; issues: AssembleIssues } | { ok: false; reason: "day_count" | "schema" } {
   const { llm, stored } = a;
   const dayList = stored.llm.dayList;
@@ -242,6 +245,7 @@ export function assemblePlan(a: {
     packing: assemblePacking(llm.packing, issues),
     places: referencedPlaces(days, stored.index),
     facts: a.digest,
+    ...(a.flights ? { flights: a.flights } : {}),
   };
   const parsed = Plan.safeParse(candidate);
   if (!parsed.success) return { ok: false, reason: "schema" };

@@ -46,6 +46,8 @@ export function genericChecks(a: {
   rawRefs: string[];
   issues?: AssembleIssues;
   startDate?: string;
+  /** Expected presence of plan.flights. */
+  flightsRecorded?: boolean;
 }): CheckResult[] {
   const { plan, stored } = a;
   const N = stored.llm.dayList.length;
@@ -68,14 +70,37 @@ export function genericChecks(a: {
     const hits = prose.filter((t) => re.test(t));
     r.push(check(name, hits.length === 0, hits.slice(0, 3).join(" | ")));
   }
-  const reserved = (["flights", "items", "costs"] as const).filter((k) => k in plan);
-  r.push(check("no flights/items/costs", reserved.length === 0, reserved.join(",")));
+  const reserved = (["items", "costs"] as const).filter((k) => k in plan);
+  r.push(check("no items/costs", reserved.length === 0, reserved.join(",")));
+  // plan.flights is filled by code from verified facts: present iff the trip wants flights and the fixture records them.
+  if (a.flightsRecorded !== undefined) {
+    r.push(check("plan.flights iff flights wanted", (plan.flights !== undefined) === a.flightsRecorded, `flights ${plan.flights ? "present" : "absent"}`));
+  }
   r.push(check("at most one best day", plan.days.filter((d) => d.best).length <= 1));
   return r;
 }
 
-export function golfChecks(plan: Plan, c: EvalFixture["checks"]): CheckResult[] {
-  const r: CheckResult[] = [];
+const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+
+/** Flights: verified outbound leg, proxy label, and (only for a fresh recording) day 1 starts after arrival + 90 min. */
+export function flightChecks(plan: Plan, fresh: boolean): CheckResult[] {
+  const f = plan.flights;
+  if (!f) return [check("plan.flights present", false)];
+  const outs = f.legs.filter((l) => l.dir === "out" && l.from === "FRA" && l.to === "AGP" && !l.tooLong && l.blockMin <= 180);
+  const r = [
+    check("flights: out FRA-AGP leg <= 3 h, not tooLong", outs.length > 0, f.legs.map((l) => `${l.from}${l.to}${l.blockMin}`).join(",")),
+    check("flights: mode proxy (2038 is beyond the horizon)", f.mode.out === "proxy" && f.mode.back === "proxy"),
+  ];
+  if (fresh && outs.length) {
+    const earliest = Math.min(...outs.map((l) => toMin(l.arr)));
+    const first = plan.days[0]?.stops.flatMap((s) => s.acts.map((a) => a.at)).filter(isHhmm).sort()[0];
+    r.push(check("day 1 first activity >= earliest arrival + 90 min", !first || toMin(first) >= earliest + 90, `first ${first}, arrival ${Math.min(...outs.map((l) => toMin(l.arr)))}`));
+  }
+  return r;
+}
+
+export function golfChecks(plan: Plan, c: EvalFixture["checks"], fresh = true): CheckResult[] {
+  const r: CheckResult[] = [...flightChecks(plan, fresh)];
   if (c.sportEveryDay) {
     const missing = plan.days.filter((d) => golfRefs(plan, d).length === 0).map((d) => d.n);
     r.push(check("golf round with course ref on every day", missing.length === 0, `missing days ${missing.join(",")}`));
@@ -147,8 +172,8 @@ export function tagChecks(id: FixtureId, tags: PurposeTags): CheckResult[] {
   return [check("tags: interests contain christmas_markets", tags.interests.includes("christmas_markets"), tags.interests.join(","))];
 }
 
-export function planChecks(id: FixtureId, fixture: EvalFixture, plan: Plan): CheckResult[] {
-  return id === "golf" ? golfChecks(plan, fixture.checks) : cruiseChecks(plan, fixture.checks, fixture.fixedSchedule ?? []);
+export function planChecks(id: FixtureId, fixture: EvalFixture, plan: Plan, fresh = true): CheckResult[] {
+  return id === "golf" ? golfChecks(plan, fixture.checks, fresh) : cruiseChecks(plan, fixture.checks, fixture.fixedSchedule ?? []);
 }
 
 export function patchChecks(a: {
