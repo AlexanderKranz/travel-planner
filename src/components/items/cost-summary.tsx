@@ -55,7 +55,7 @@ export function CostSummaryView({ costs, headingLevel = 3 }: { costs: CostSummar
                     <th scope="row" className="px-2 py-1.5 text-left text-xs font-medium">
                       {t(r.key)}
                     </th>
-                    <td className="px-2 py-1.5 font-semibold">{r.booked}</td>
+                    <td className="break-words px-2 py-1.5 font-semibold">{r.booked}</td>
                     <td className="break-words px-2 py-1.5">{r.expected}</td>
                   </tr>
                 ))}

@@ -5,6 +5,7 @@ import { cache } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { SharedPlanView } from "@/components/share/shared-plan-view";
 import { mutedCls } from "@/components/ui/styles";
+import { clientIp } from "@/lib/server/client-ip";
 import { getSharedPlanDocument } from "@/lib/server/plan-document";
 import { rateLimit } from "@/lib/server/rate-limit";
 import { hashShareToken, isShareTokenFormat } from "@/lib/server/share-token";
@@ -17,9 +18,8 @@ type Props = { params: Promise<{ locale: string; token: string }> };
 /** One read per request: metadata and page share it (so a view is counted once). */
 const load = cache(async (token: string) => {
   if (!isShareTokenFormat(token)) return { status: "missing" as const };
-  const fwd = (await headers()).get("x-forwarded-for");
-  const ip = fwd?.split(",")[0]?.trim() || "unknown";
-  const byIp = rateLimit(`share-ip:${ip}`, 60, 60_000);
+  const ip = clientIp(await headers());
+  const byIp = ip ? rateLimit(`share-ip:${ip}`, 60, 60_000) : { ok: true };
   const byToken = rateLimit(`share-tok:${hashShareToken(token).slice(0, 16)}`, 120, 60_000);
   if (!byIp.ok || !byToken.ok) return { status: "limited" as const };
   const doc = await getSharedPlanDocument(token, "page");

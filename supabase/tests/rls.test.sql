@@ -586,6 +586,13 @@ select is((select count(*)::int from public.trip_items where trip_id = 'a0000000
 select is((select count(*)::int from public.share_links where trip_id = 'a0000000-0000-4000-8000-000000000552'), 0, 'purge removes the share links');
 select is((select count(*)::int from public.share_links where trip_id = 'a0000000-0000-4000-8000-000000000551'), 1, 'purge keeps links of kept trips');
 
+-- item cap: 100 per trip enforced by trigger
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days) values
+  ('a0000000-0000-4000-8000-000000000561', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Cap', 3);
+insert into public.trip_items (owner_id, trip_id, category, title)
+  select 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000561', 'stay', 'i' || g from generate_series(1, 100) g;
+select throws_ok($$insert into public.trip_items (owner_id, trip_id, category, title) values ('aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000561', 'stay', 'x')$$, 'TP100', null, '101st item per trip is rejected');
+
 select * from finish();
 rollback;
 

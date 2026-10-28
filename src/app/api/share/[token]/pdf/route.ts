@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { pdfResponse } from "@/lib/pdf/response";
 import { logEvent } from "@/lib/server/events";
+import { clientIp } from "@/lib/server/client-ip";
 import { getSharedPlanDocument } from "@/lib/server/plan-document";
 import { rateLimit } from "@/lib/server/rate-limit";
 import { isShareTokenFormat } from "@/lib/server/share-token";
@@ -26,9 +27,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   if (!isShareTokenFormat(token)) return notFound();
 
   // IP is used only as an in-memory rate-limit key; never stored or logged.
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  const byIp = rateLimit(`share-pdf-ip:${ip}`, 6, 60_000);
-  if (!byIp.ok) return limited(byIp.retryAfterSeconds);
+  // Without an IP only the per-token limit applies (no shared "unknown" bucket).
+  const ip = clientIp(request.headers);
+  const byIp = ip ? rateLimit(`share-pdf-ip:${ip}`, 6, 60_000) : null;
+  if (byIp && !byIp.ok) return limited(byIp.retryAfterSeconds);
   const byTok = rateLimit(`share-tok:${createHash("sha256").update(token).digest("hex").slice(0, 16)}`, 120, 60_000);
   if (!byTok.ok) return limited(byTok.retryAfterSeconds);
 

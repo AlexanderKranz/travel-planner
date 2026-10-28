@@ -16,6 +16,9 @@ const Id = z.string().uuid();
 const Status = z.enum(ITEM_STATUSES);
 const FK_VIOLATION = "23503"; // trip of another user (or unknown) fails the composite FK
 
+/** SQLSTATE raised by trigger trip_items_cap (migration 22). */
+const ITEM_LIMIT_ERRCODE = "TP100";
+
 export async function listItems(tripId: string): Promise<ActionResult<TripItem[]>> {
   const session = await getUserSession();
   if (!session) return fail("unauthenticated");
@@ -50,7 +53,10 @@ export async function createItem(tripId: string, input: unknown): Promise<Action
     .insert({ trip_id: tripId, ...itemToWrite(parsed.data) })
     .select(ITEM_COLUMNS)
     .single<ItemRow>();
-  if (error) return fail(error.code === FK_VIOLATION ? "not_found" : "failed");
+  if (error) {
+    if (error.code === ITEM_LIMIT_ERRCODE) return fail("limit_reached");
+    return fail(error.code === FK_VIOLATION ? "not_found" : "failed");
+  }
   return { ok: true, data: rowToItem(data) };
 }
 
