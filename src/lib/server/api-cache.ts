@@ -40,6 +40,8 @@ export type FetchOutcome<T> = {
   latencyMs: number;
   units?: number;
   quotaRemaining?: number;
+  /** Which sub-source answered (Overpass mirror host), logged in api_calls.variant. */
+  variant?: string;
 };
 
 export type CachedResult<T> =
@@ -172,6 +174,7 @@ export async function cached<T>(opts: {
         latencyMs: outcome.latencyMs,
         units: outcome.units ?? null,
         quotaRemaining: outcome.quotaRemaining ?? null,
+        variant: outcome.variant ?? null,
       });
       return { ok: true, data, fetchedAt, stale: false, cache: "miss" };
     } catch (err) {

@@ -81,3 +81,11 @@ describe("runQuery with mirror fallback", () => {
     expect(h.postForm.mock.calls[0][2].timeoutMs).toBeLessThanOrEqual(10_000);
   });
 });
+
+describe("mirrorLabel", () => {
+  it("logs the host name only", async () => {
+    const { mirrorLabel } = await import("./overpass");
+    expect(mirrorLabel("https://overpass-api.de/api/interpreter?data=secret")).toBe("overpass-api.de");
+    expect(mirrorLabel("not a url")).toBe("unknown");
+  });
+});

@@ -85,6 +85,15 @@ export function parseElements(body: unknown): RawOsmElement[] {
   return out;
 }
 
+/** Host name of an Overpass instance, as logged in api_calls.variant (no path, no query). */
+export function mirrorLabel(url: string): string {
+  try {
+    return new URL(url).hostname.toLowerCase().replace(/[^a-z0-9.-]/g, "").slice(0, 60) || "unknown";
+  } catch {
+    return "unknown";
+  }
+}
+
 /** Primary (`OVERPASS_URL` or the default) followed by the mirrors, without duplicates. */
 export function overpassUrls(env: Record<string, string | undefined> = process.env): string[] {
   const primary = env.OVERPASS_URL?.trim() || DEFAULT_OVERPASS_URL;
@@ -98,7 +107,7 @@ export function overpassUrls(env: Record<string, string | undefined> = process.e
 export async function runQuery(
   query: string,
   opts: { deadline?: number } = {},
-): Promise<{ elements: RawOsmElement[]; status: number; latencyMs: number }> {
+): Promise<{ elements: RawOsmElement[]; status: number; latencyMs: number; mirror: string }> {
   const urls = overpassUrls();
   let lastError: unknown;
   for (const [i, url] of urls.entries()) {
@@ -107,7 +116,7 @@ export async function runQuery(
     const timeoutMs = Math.max(1_000, Math.min(OVERPASS_CLIENT_TIMEOUT_MS, remaining));
     try {
       const r = await postForm(url, { data: query }, { timeoutMs });
-      return { elements: parseElements(r.body), status: r.status, latencyMs: r.latencyMs };
+      return { elements: parseElements(r.body), status: r.status, latencyMs: r.latencyMs, mirror: mirrorLabel(url) };
     } catch (err) {
       lastError = err;
     }
