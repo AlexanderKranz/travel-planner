@@ -5,6 +5,12 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
+  // react-pdf ships its own fontkit/yoga; keep it out of the bundle and ship the fonts with the lambdas.
+  serverExternalPackages: ["@react-pdf/renderer"],
+  outputFileTracingIncludes: {
+    "/api/trips/[id]/pdf": ["./src/assets/fonts/**"],
+    "/api/share/[token]/pdf": ["./src/assets/fonts/**"],
+  },
   // Make the Vercel build info visible to the browser bundle (Sentry environment/release).
   env: {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV ?? "development",
