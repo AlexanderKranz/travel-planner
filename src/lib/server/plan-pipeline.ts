@@ -17,15 +17,17 @@ import type { TripPurpose } from "@/lib/domain/purpose";
 import type { ActionError } from "@/lib/domain/result";
 import type { Trip } from "@/lib/domain/trip";
 import { applyEdit } from "@/lib/plan/edit";
-import { canonicalJson, planInputHash, purposeTagsHash } from "@/lib/plan/hash";
-import { buildPlanInput } from "@/lib/plan/input";
+import { canonicalJson, planInputHash } from "@/lib/plan/hash";
+import { buildPlanInput, selectPlaces } from "@/lib/plan/input";
+import { interestsForTrip } from "@/lib/facts/interest-sources";
+import { placesPending } from "@/lib/plan/places-pending";
 import { applyPatch } from "@/lib/plan/patch";
 import { assemblePlan } from "@/lib/plan/assemble";
 import { composePlan, patchPlan } from "./ai/compose";
-import { needsTags, tagPurpose } from "./ai/purpose-tags";
 import { berlinMidnight, budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage, userCapMicroUsd, type BudgetInfo, type Role } from "./ai-usage";
 import { logEvent } from "./events";
 import { getTripFacts } from "./facts";
+import { getDriveTimes } from "./facts/drive-times";
 import { getGroup } from "./groups";
 import {
   acquireLock,
@@ -39,17 +41,23 @@ import {
   listVersionMetas,
   pruneVersions,
   releaseLock,
-  savePurposeTags,
   type PlanRow,
   type StoredVersion,
 } from "./plan-store";
 import { getProfile } from "./profile";
+import { tagAndSave, wantsTags } from "./purpose-tagging";
 import { getPurpose } from "./purposes";
 import { rateLimit } from "./rate-limit";
 import { getUserSession } from "./session";
 import { getTrip } from "./trips";
 
-const PLACES_BUDGET_MS = 30_000;
+/**
+ * Generation waits for places [D1]: up to 110 s Overpass + ~10 s drive times + 140 s Sonnet stays inside the
+ * route's 300 s. Cached interests are served instantly, whatever the budget.
+ */
+export const PLACES_BUDGET_MS = 110_000;
+/** Seconds the client should wait before retrying when places are still loading. */
+export const PLACES_RETRY_AFTER_S = 60;
 const RESERVE_TAGS = 2_000;
 const RESERVE_GENERATE = 150_000;
 const RESERVE_PATCH = 50_000;
@@ -234,7 +242,8 @@ function gate(userId: string): PipelineError | null {
   return null;
 }
 
-export async function generatePlan(tripId: string, locale: Locale): Promise<PipelineResult> {
+/** `force`: generate even when places are still loading (the user chose "generate anyway"). */
+export async function generatePlan(tripId: string, locale: Locale, opts: { force?: boolean } = {}): Promise<PipelineResult> {
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
   const c = loaded.ctx;
@@ -251,17 +260,10 @@ export async function generatePlan(tripId: string, locale: Locale): Promise<Pipe
     if (await hasBusyPlan(c.sb)) return err("busy");
     // 3. Haiku tags (once per purpose content, cached in parsed_*)
     let purpose = c.purpose;
-    if (purpose && purpose.tags == null && needsTags(purpose)) {
+    if (wantsTags(purpose)) {
       const blocked = await checkBudget(c, RESERVE_TAGS);
       if (blocked) return blocked;
-      const res = await tagPurpose(purpose, ai.ctx);
-      if (res.ok) {
-        const saved = await savePurposeTags(c.session.userId, purpose.id, res.data, purposeTagsHash(purpose));
-        // The save moves purpose.updated_at (trigger); use the new value so the plan basis stays current.
-        purpose = { ...purpose, tags: res.data, updatedAt: saved?.updatedAt ?? purpose.updatedAt };
-      } else {
-        await logEvent({ event: "purpose.tag_failed", level: "warn", userId: c.session.userId, props: { purposeId: purpose.id, reason: res.error } });
-      }
+      purpose = await tagAndSave(c.session.userId, purpose, ai.ctx);
     }
 
     // 4. facts + input
@@ -274,6 +276,22 @@ export async function generatePlan(tripId: string, locale: Locale): Promise<Pipe
         withFlights: c.trip.wantsFlights ? { homeAirports: c.homeAirports } : undefined,
       },
     );
+    const pending = placesPending(facts.places);
+    if (pending && !opts.force) {
+      await logEvent({ event: "plan.places_pending", level: "warn", userId: c.session.userId, props: { tripId: c.trip.id, interests: pending.join(",") } });
+      return err("places_pending", { retryAfter: PLACES_RETRY_AFTER_S });
+    }
+    // Drive times from the destination point to every place that goes into the input (one ORS matrix call).
+    const dest = c.trip.destination;
+    const picks = selectPlaces(facts, interestsForTrip(purpose?.guided, purpose?.tags).keys).picks;
+    const drive =
+      picks.length && dest.kind !== "freetext"
+        ? await getDriveTimes(
+            { lat: dest.lat, lon: dest.lon },
+            picks.map((p) => ({ key: p.key, lat: p.c.lat, lon: p.c.lon })),
+            { userId: c.session.userId, locale, today: berlinToday() },
+          )
+        : null;
     const built = buildPlanInput({
       trip: c.trip,
       group: c.group,
@@ -282,6 +300,7 @@ export async function generatePlan(tripId: string, locale: Locale): Promise<Pipe
       facts,
       locale,
       today: berlinToday(),
+      drive,
     });
     const inputHash = planInputHash(built.stored.llm);
 

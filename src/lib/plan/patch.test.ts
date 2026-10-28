@@ -133,3 +133,19 @@ describe("applyPatch fixed windows", () => {
     expect(r.plan.days[0].stops[0].fixed).toBeUndefined();
   });
 });
+
+describe("applyPatch alternatives", () => {
+  it("validates alts like ref and adds their places", () => {
+    const r = applyPatch({
+      base: basePlan(),
+      patch: patch({ days: [llmDay(2, { stops: [{ place: "Cala", acts: [{ kind: "sport", text: "Runde", ref: "p3", alts: ["p1", "p77"] }] }] })] }),
+      stored,
+      scope: [2],
+    });
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.plan.days[1].stops[0].acts[0]).toMatchObject({ ref: "node/3", alts: ["way/1"] });
+    expect(r.issues.invalid_ref).toBe(1);
+    expect(r.plan.places["node/3"]).toBeDefined();
+    expect(r.plan.places["way/1"]).toBeDefined();
+  });
+});

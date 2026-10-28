@@ -5,7 +5,7 @@ import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
 import { daylightFor } from "@/lib/facts/daylight";
 import { canonicalJson, planInputHash } from "./hash";
-import { buildPlanInput, localHhmm } from "./input";
+import { GENERAL_CAP, MAX_PLACES, buildPlanInput, localHhmm, selectPlaces } from "./input";
 
 const T = "2026-10-01T00:00:00.000Z";
 const trip = (over: Partial<Trip> = {}): Trip => ({
@@ -85,18 +85,49 @@ describe("buildPlanInput", () => {
     expect(planInputHash(a.stored.llm)).toBe(planInputHash(b.stored.llm));
   });
 
-  it("takes max 40 places with stable p ids and localized names", () => {
+  it("takes max 40 places with stable p ids and localized names; general is capped next to a specific interest", () => {
     const { stored } = build();
     const pl = stored.llm.places;
-    expect(pl).toHaveLength(40);
-    expect(pl.map((p) => p.id)).toEqual(Array.from({ length: 40 }, (_, i) => `p${i + 1}`));
-    expect(pl.filter((p) => p.i === "golf")).toHaveLength(20);
+    expect(pl).toHaveLength(30 + GENERAL_CAP);
+    expect(pl.map((p) => p.id)).toEqual(Array.from({ length: 30 + GENERAL_CAP }, (_, i) => `p${i + 1}`));
+    expect(pl.filter((p) => p.i === "golf")).toHaveLength(30); // fair share 20, then free slots
+    expect(pl.filter((p) => p.i === "general")).toHaveLength(GENERAL_CAP);
     expect(pl[0].name).toBe("golf DE");
     expect(pl[0].km).toBe(0);
     expect(stored.index.p1.key).toBe("way/1000");
     expect(stored.index.p1.place.fetchedAt).toBe(T);
     expect(stored.index.p2.place.website).toBeUndefined();
     expect(stored.llm.noSource).toEqual(["christmas_markets"]);
+  });
+
+  it("golf is never crowded out: general listed first still leaves golf its share", () => {
+    const { stored } = build(trip(), purpose(), [okGroup("general", 40, 100), okGroup("golf", 25)]);
+    const pl = stored.llm.places;
+    expect(pl.filter((p) => p.i === "golf")).toHaveLength(25);
+    expect(pl.filter((p) => p.i === "general")).toHaveLength(GENERAL_CAP);
+    expect(pl.length).toBeLessThanOrEqual(MAX_PLACES);
+  });
+
+  it("general alone fills all slots; picks feed the drive-time request", () => {
+    const f = facts(trip(), [okGroup("general", 50, 100)]);
+    const sel = selectPlaces(f, ["general"]);
+    expect(sel.picks).toHaveLength(MAX_PLACES);
+    expect(sel.picks[0]).toMatchObject({ interest: "general", key: "way/1100" });
+    const failed = { ...f, places: { status: "unavailable", reason: "provider_error" } } as TripFacts;
+    expect(selectPlaces(failed, ["golf"])).toEqual({ picks: [], noSource: ["golf"] });
+  });
+
+  it("drive minutes go into the input (min) and into the place (drive with source and date); unknown ones are omitted", () => {
+    const t = trip();
+    const groups = [okGroup("golf", 3)];
+    const drive = { byKey: { "way/1000": { min: 12, km: 9.4 }, "way/1002": { min: 41, km: 38 } }, fetchedAt: "2026-10-28T09:00:00.000Z" };
+    const { stored } = buildPlanInput({ trip: t, group: null, purpose: purpose(), profileBirthdate: null, facts: facts(t, groups), locale: "de", today: "2026-10-28", drive });
+    expect(stored.llm.places.map((p) => p.min)).toEqual([12, undefined, 41]);
+    expect(stored.index.p1.place.drive).toEqual({ min: 12, km: 9.4, source: "openrouteservice", fetchedAt: "2026-10-28T09:00:00.000Z" });
+    expect(stored.index.p2.place.drive).toBeUndefined();
+    expect(canonicalJson(stored.llm)).not.toMatch(/openrouteservice|09:00:00/);
+    const without = buildPlanInput({ trip: t, group: null, purpose: purpose(), profileBirthdate: null, facts: facts(t, groups), locale: "de", today: "2026-10-28" });
+    expect(without.stored.llm.places.every((p) => p.min === undefined)).toBe(true);
   });
 
   it("dedupes a place that appears in two interests", () => {

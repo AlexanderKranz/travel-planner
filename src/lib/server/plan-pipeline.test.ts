@@ -20,6 +20,10 @@ const h = vi.hoisted(() => ({
   saveTags: vi.fn(async () => ({ updatedAt: "pu2" })),
   assemble: vi.fn(),
   logEvent: vi.fn(),
+  facts: {} as Record<string, unknown>,
+  picks: [] as unknown[],
+  drive: vi.fn(async () => null as unknown),
+  build: vi.fn((a: unknown) => ({ stored: { llm: { v: 1 }, index: {} }, header: {}, digest: {}, a })),
 }));
 
 const Plan = { header: { basis: {}, timing: { kind: "none" } }, days: [{ n: 1 }, { n: 2 }, { n: 3 }] };
@@ -31,7 +35,8 @@ vi.mock("./trips", () => ({ getTrip: async () => ({ ok: true, data: h.trip }) })
 vi.mock("./groups", () => ({ getGroup: async () => ({ ok: false }) }));
 vi.mock("./purposes", () => ({ getPurpose: async () => ({ ok: true, data: h.purpose }) }));
 vi.mock("./events", () => ({ logEvent: h.logEvent }));
-vi.mock("./facts", () => ({ getTripFacts: async () => ({}) }));
+vi.mock("./facts", () => ({ getTripFacts: async () => h.facts }));
+vi.mock("./facts/drive-times", () => ({ getDriveTimes: h.drive }));
 vi.mock("./ai/compose", () => ({ composePlan: h.compose, patchPlan: h.patch }));
 vi.mock("./ai/purpose-tags", () => ({ needsTags: h.needsTags, tagPurpose: h.tag }));
 vi.mock("./ai-usage", () => ({
@@ -57,7 +62,7 @@ vi.mock("./plan-store", () => ({
   hasBusyPlan: async () => h.inFlight,
 }));
 vi.mock("@/lib/plan/hash", () => ({ canonicalJson: JSON.stringify, planInputHash: () => "hash-new", purposeTagsHash: () => "th" }));
-vi.mock("@/lib/plan/input", () => ({ buildPlanInput: () => ({ stored: { llm: { v: 1 }, index: {} }, header: {}, digest: {} }) }));
+vi.mock("@/lib/plan/input", () => ({ buildPlanInput: h.build, selectPlaces: () => ({ picks: h.picks, noSource: [] }) }));
 vi.mock("@/lib/plan/assemble", () => ({ assemblePlan: h.assemble }));
 vi.mock("@/lib/plan/patch", () => ({ applyPatch: vi.fn() }));
 vi.mock("@/lib/plan/edit", () => ({ applyEdit: vi.fn() }));
@@ -82,6 +87,9 @@ beforeEach(() => {
   h.trip.lengthDays = 3;
   h.planRow = { id: "plan1", latestVersion: 1, busyUntil: null };
   h.needsTags.mockReturnValue(false);
+  h.facts = { places: { status: "unavailable", reason: "no_location" } };
+  h.picks = [];
+  h.trip.destination = { kind: "city", lat: 36.5, lon: -4.9 };
   h.compose.mockResolvedValue({ ok: true, data: {}, usage: {} });
   h.assemble.mockReturnValue({ ok: true, plan: Plan, issues: {} });
 });
@@ -107,6 +115,41 @@ describe("busy guards", () => {
     await generatePlan(TRIP, "en");
     await generatePlan(TRIP, "en");
     expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "rate_limited" });
+  });
+});
+
+describe("places before the plan", () => {
+  const errorGroup = { places: { status: "ok", data: { radiusKm: 40, groups: [{ interest: "golf", status: "error" }], customInterests: [] } } };
+  it("places with a source still loading -> places_pending (retryable), no AI call", async () => {
+    h.facts = errorGroup;
+    const res = await generatePlan(TRIP, "en");
+    expect(res).toMatchObject({ ok: false, error: "places_pending", retryAfter: 60 });
+    expect(h.compose).not.toHaveBeenCalled();
+    expect(h.insert).not.toHaveBeenCalled();
+  });
+  it("force generates anyway", async () => {
+    h.facts = errorGroup;
+    await generatePlan(TRIP, "en", { force: true });
+    expect(h.compose).toHaveBeenCalledTimes(1);
+  });
+  it("empty groups and no_source are not pending", async () => {
+    h.facts = { places: { status: "ok", data: { radiusKm: 40, groups: [{ interest: "golf", status: "empty", fetchedAt: "f", stale: false }, { interest: "cruise", status: "no_source" }], customInterests: [] } } };
+    await generatePlan(TRIP, "en");
+    expect(h.compose).toHaveBeenCalledTimes(1);
+  });
+  it("drive times for the selected places go into the input; ORS failure still generates", async () => {
+    h.facts = { places: { status: "ok", data: { radiusKm: 40, groups: [], customInterests: [] } } };
+    h.picks = [{ key: "way/1", c: { lat: 36.6, lon: -4.7 } }];
+    const drive = { byKey: { "way/1": { min: 25, km: 21 } }, fetchedAt: "f" };
+    h.drive.mockResolvedValueOnce(drive);
+    await generatePlan(TRIP, "en");
+    expect(h.drive).toHaveBeenCalledWith({ lat: 36.5, lon: -4.9 }, [{ key: "way/1", lat: 36.6, lon: -4.7 }], expect.anything());
+    expect(h.build.mock.calls[0][0]).toMatchObject({ drive });
+    h.drive.mockResolvedValueOnce(null);
+    resetRateLimits();
+    await generatePlan(TRIP, "en");
+    expect(h.build.mock.calls[1][0]).toMatchObject({ drive: null });
+    expect(h.compose).toHaveBeenCalledTimes(2);
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Plan } from "@/lib/domain/plan";
+import { Plan, type LlmDay } from "@/lib/domain/plan";
 import { assemblePlan, noteTimes } from "./assemble";
 import type { PlanInputStored } from "./input";
 import { header, llmDay, llmPlan, storedFor } from "./test-helpers";
@@ -141,5 +141,44 @@ describe("fixed windows", () => {
       expect(r.plan.days[0].stops[0].fixed).toBeUndefined();
       expect(r.plan.days[0].stops[0].from).toBe(from || undefined);
     }
+  });
+});
+
+describe("alternatives (alts)", () => {
+  const withActs = (acts: LlmDay["stops"][number]["acts"]) => {
+    const p = llmPlan(3);
+    p.days[0] = llmDay(1, { stops: [{ place: "Marbella", acts }] });
+    return p;
+  };
+
+  it("maps ids to OSM keys like ref, drops unknown ids (counted), the ref itself and duplicates; max 2", () => {
+    const r = run(withActs([{ at: "09:00", kind: "sport", text: "Runde", ref: "p1", alts: ["p2", "p99", "p1", "p2", "p3"] }]));
+    if (!r.ok) throw new Error(r.reason);
+    const act = r.plan.days[0].stops[0].acts[0];
+    expect(act.alts).toEqual(["way/2", "node/3"]);
+    expect(r.issues.invalid_ref).toBe(1);
+    expect(Object.keys(r.plan.places).sort()).toEqual(["node/3", "way/1", "way/2"]);
+  });
+
+  it("alts without a valid ref are ignored; an empty result is omitted", () => {
+    const r = run(withActs([
+      { kind: "sport", text: "a", alts: ["p2"] },
+      { kind: "sport", text: "b", ref: "p404", alts: ["p3"] },
+      { kind: "sport", text: "c", ref: "p1", alts: ["p1"] },
+    ]));
+    if (!r.ok) throw new Error(r.reason);
+    const acts = r.plan.days[0].stops[0].acts;
+    expect(acts.map((a) => a.alts)).toEqual([undefined, undefined, undefined]);
+    expect(acts.every((a) => !("alts" in a))).toBe(true);
+    expect(r.plan.places["node/3"]).toBeUndefined();
+  });
+
+  it("stored plans without alts or drive still parse (backward compatible)", () => {
+    const r = run();
+    if (!r.ok) throw new Error(r.reason);
+    expect(Plan.safeParse(r.plan).success).toBe(true);
+    const bad = structuredClone(r.plan) as Plan;
+    bad.days[0].stops[0].acts[0].alts = ["way/1", "way/2", "way/3"];
+    expect(Plan.safeParse(bad).success).toBe(false);
   });
 });

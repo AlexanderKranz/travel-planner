@@ -7,7 +7,7 @@ import { badRequest, NO_STORE, respond } from "./respond";
 // Vercel Hobby with Fluid compute: default and maximum are 300 s. Sonnet may need 30-90 s.
 export const maxDuration = 300;
 
-const Body = z.object({ locale: Locale });
+const Body = z.object({ locale: Locale, force: z.boolean().optional() });
 
 /** GET /api/trips/[id]/plan[?v=n] -> { state: PlanState } (login required, RLS). Polled by the runner while busy. */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -22,7 +22,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 /**
- * POST /api/trips/[id]/plan {locale} -> generate. The client abort signal is deliberately NOT forwarded:
+ * POST /api/trips/[id]/plan {locale, force?} -> generate (`force`: even when places are still loading). The client abort signal is deliberately NOT forwarded:
  * the server finishes and saves the plan even if the browser leaves (the runner then polls GET).
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -33,6 +33,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const loaded = await loadPlanContext(id);
     return loaded.ok ? badRequest() : respond(loaded);
   }
-  return respond(await generatePlan(id, body.data.locale));
+  return respond(await generatePlan(id, body.data.locale, { force: body.data.force === true }));
 }
 

@@ -20,6 +20,7 @@ const WireAct = z.object({
   kind: z.string().describe(KINDS),
   text: z.string(),
   ref: z.string().optional(),
+  alts: z.array(z.string()).optional(),
 });
 const WireStop = z.object({
   place: z.string(),
@@ -104,9 +105,10 @@ function dayForModel(d: PlanDay, pid: Map<string, string>) {
     stops: d.stops.map((s) => ({
       ...s,
       acts: s.acts.map((a) => {
-        const { ref, ...rest } = a;
+        const { ref, alts, ...rest } = a;
         const id = ref ? pid.get(ref) : undefined;
-        return id ? { ...rest, ref: id } : rest;
+        const altIds = (alts ?? []).flatMap((k) => (pid.get(k) ? [pid.get(k)!] : []));
+        return id ? { ...rest, ref: id, ...(altIds.length ? { alts: altIds } : {}) } : rest;
       }),
     })),
     note: d.note,

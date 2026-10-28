@@ -1,5 +1,5 @@
 import type { EntryTraits, TravelGroup } from "@/lib/domain/group";
-import type { InterestOrGeneral, PlaceGroup, TripFacts } from "@/lib/domain/facts";
+import type { InterestOrGeneral, PlaceCandidate, PlaceGroup, TripFacts } from "@/lib/domain/facts";
 import type { GroupSummary, OsmKey, PlanFlights, PlanFactsDigest, PlanHeader, PlanPlace } from "@/lib/domain/plan";
 import type { Locale } from "@/lib/domain/profile";
 import type { TripPurpose } from "@/lib/domain/purpose";
@@ -56,7 +56,8 @@ export type PlanInput = {
     out: { f: string; t: string; dep: string; arr: string }[];
     back: { f: string; t: string; dep: string; arr: string }[];
   };
-  places: { id: string /* p1.. */; name: string; cat: string; km: number; ap?: number; i: string /* interest */ }[];
+  /** km = straight line from the destination point, min = drive minutes from there (code-computed), ap = km to the airport. */
+  places: { id: string /* p1.. */; name: string; cat: string; km: number; min?: number; ap?: number; i: string /* interest */ }[];
   /** Interests with no verified candidates. */
   noSource: string[];
 };
@@ -73,7 +74,11 @@ export type BuildPlanInputArgs = {
   facts: TripFacts;
   locale: Locale;
   today: string;
+  /** Drive times from the destination point by OSM key (OpenRouteService); null/absent = none. */
+  drive?: DriveInput | null;
 };
+
+export type DriveInput = { byKey: Record<string, { min: number; km: number }>; fetchedAt: string };
 
 export const MAX_PLACES = 40;
 export const MAX_LLM_LEGS = 3;
@@ -209,50 +214,78 @@ function purposeInput(p: TripPurpose): NonNullable<PlanInput["purpose"]> {
 
 type PlacesOut = { places: PlanInput["places"]; index: PlanInputStored["index"]; noSource: string[] };
 
+/** Cap for the pseudo interest "general" when the purpose has specific interests with places [D4]. */
+export const GENERAL_CAP = 8;
+
+export type PlacePick = { interest: InterestOrGeneral; c: PlaceCandidate; key: OsmKey; fetchedAt: string };
+
+/**
+ * Which candidates go into the LLM input (pure, also used for the drive-time request). Every interest with places
+ * gets a fair share first (specific interests before "general", which is capped), then free slots are filled in
+ * interest order up to MAX_PLACES. Result is grouped by interest in purpose order, so ids stay stable.
+ */
+export function selectPlaces(facts: TripFacts, fallbackKeys: InterestOrGeneral[]): { picks: PlacePick[]; noSource: string[] } {
+  if (facts.places.status !== "ok") return { picks: [], noSource: [...fallbackKeys] };
+  const groups = facts.places.data.groups;
+  const noSource: string[] = [];
+  for (const g of groups) if (g.status !== "ok" && !noSource.includes(g.interest)) noSource.push(g.interest);
+  const ok = groups.filter((g): g is Extract<PlaceGroup, { status: "ok" }> => g.status === "ok");
+  const specific = ok.filter((g) => g.interest !== "general").length;
+  const share = Math.max(MIN_PLACES_PER_INTEREST, Math.floor(MAX_PLACES / Math.max(1, ok.length)));
+  const quota = (g: (typeof ok)[number]) => (g.interest === "general" && specific > 0 ? Math.min(share, GENERAL_CAP) : share);
+  const seen = new Set<string>();
+  const taken = ok.map(() => [] as PlacePick[]);
+  const cursor = ok.map(() => 0);
+  let total = 0;
+  const take = (gi: number, limit: number) => {
+    const g = ok[gi];
+    while (total < MAX_PLACES && taken[gi].length < limit && cursor[gi] < g.candidates.length) {
+      const c = g.candidates[cursor[gi]++];
+      const key = `${c.osmType}/${c.osmId}` as OsmKey;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      taken[gi].push({ interest: g.interest, c, key, fetchedAt: g.fetchedAt });
+      total += 1;
+    }
+  };
+  // Pass 1: fair share, specific interests first. Pass 2: fill the rest (general last, still capped).
+  const order = ok.map((_, i) => i).sort((a, b) => Number(ok[a].interest === "general") - Number(ok[b].interest === "general"));
+  for (const gi of order) take(gi, quota(ok[gi]));
+  for (const gi of order) take(gi, ok[gi].interest === "general" && specific > 0 ? quota(ok[gi]) : Infinity);
+  return { picks: taken.flat(), noSource };
+}
+
 function placesInput(
   facts: TripFacts,
   lang: Locale,
   gateways: ReturnType<typeof gatewayAirports>,
   fallbackKeys: InterestOrGeneral[],
+  drive: DriveInput | null | undefined,
 ): PlacesOut {
-  const out: PlacesOut = { places: [], index: {}, noSource: [] };
-  if (facts.places.status !== "ok") {
-    out.noSource = [...fallbackKeys];
-    return out;
-  }
-  const groups = facts.places.data.groups;
-  const ok = groups.filter((g): g is Extract<PlaceGroup, { status: "ok" }> => g.status === "ok");
-  for (const g of groups) if (g.status !== "ok" && !out.noSource.includes(g.interest)) out.noSource.push(g.interest);
-  const perInterest = Math.max(MIN_PLACES_PER_INTEREST, Math.floor(MAX_PLACES / Math.max(1, ok.length)));
-  const seen = new Set<string>();
-  for (const g of ok) {
-    let taken = 0;
-    for (const c of g.candidates) {
-      if (out.places.length >= MAX_PLACES || taken >= perInterest) break;
-      const key = `${c.osmType}/${c.osmId}` as OsmKey;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      taken += 1;
-      const id = `p${out.places.length + 1}`;
-      const name = c.names[lang] ?? c.name;
-      const ap = nearestGatewayKm(c, gateways);
-      out.places.push({ id, name, cat: c.category, km: round1(c.distanceKm), ap, i: g.interest });
-      const place: PlanPlace = {
-        name,
-        category: c.category,
-        lat: c.lat,
-        lon: c.lon,
-        distanceKm: round1(c.distanceKm),
-        airportKm: ap,
-        osmUrl: c.osmUrl,
-        wikipedia: c.wikipedia,
-        website: safeUrl(c.website),
-        source: "osm",
-        fetchedAt: g.fetchedAt,
-      };
-      for (const k of Object.keys(place) as (keyof PlanPlace)[]) if (place[k] === undefined) delete place[k];
-      out.index[id] = { key, place };
-    }
+  const sel = selectPlaces(facts, fallbackKeys);
+  const out: PlacesOut = { places: [], index: {}, noSource: sel.noSource };
+  for (const { interest, c, key, fetchedAt } of sel.picks) {
+    const id = `p${out.places.length + 1}`;
+    const name = c.names[lang] ?? c.name;
+    const ap = nearestGatewayKm(c, gateways);
+    const d = drive?.byKey[key];
+    out.places.push({ id, name, cat: c.category, km: round1(c.distanceKm), min: d?.min, ap, i: interest });
+    const place: PlanPlace = {
+      name,
+      category: c.category,
+      lat: c.lat,
+      lon: c.lon,
+      distanceKm: round1(c.distanceKm),
+      airportKm: ap,
+      osmUrl: c.osmUrl,
+      wikipedia: c.wikipedia,
+      website: safeUrl(c.website),
+      source: "osm",
+      fetchedAt,
+      drive: d && drive ? { min: d.min, km: d.km, source: "openrouteservice", fetchedAt: drive.fetchedAt } : undefined,
+    };
+    for (const k of Object.keys(place) as (keyof PlanPlace)[]) if (place[k] === undefined) delete place[k];
+    out.index[id] = { key, place };
   }
   return out;
 }
@@ -312,7 +345,7 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   const verified = gateways.filter((x) => fl.foundGateways.has(x.iata));
   if (verified.length) gateways = verified;
   const fallbackKeys = interestsForTrip(purpose?.guided, purpose?.tags).keys;
-  const pl = placesInput(facts, locale, gateways, fallbackKeys);
+  const pl = placesInput(facts, locale, gateways, fallbackKeys, a.drive);
 
   const llm: PlanInput = {
     v: 1,
