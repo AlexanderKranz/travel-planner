@@ -3,6 +3,7 @@ import type { LlmPlan, Plan, PlanDay, PurposeTags } from "@/lib/domain/plan";
 import type { AssembleIssues } from "@/lib/plan/assemble";
 import { addDays } from "@/lib/facts/trip-timing";
 import { canonicalJson } from "@/lib/plan/hash";
+import { overlapsSlot } from "@/lib/plan/fixed-items";
 import type { PlanInputStored } from "@/lib/plan/input";
 import type { EvalFixture, FixtureId, ScheduleEntry } from "./build-input";
 
@@ -82,8 +83,11 @@ export function genericChecks(a: {
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 
-/** Flights: verified outbound leg, proxy label, and (only for a fresh recording) day 1 starts after arrival + 90 min. */
-export function flightChecks(plan: Plan, fresh: boolean): CheckResult[] {
+/**
+ * Flights: verified outbound leg, proxy label, and (only for a fresh recording) day 1 starts after arrival + 90 min.
+ * A fixed (booked/planned) arrival flight replaces the schedule heuristic: then fixedItemChecks covers day 1.
+ */
+export function flightChecks(plan: Plan, fresh: boolean, stored?: PlanInputStored): CheckResult[] {
   const f = plan.flights;
   if (!f) return [check("plan.flights present", false)];
   const outs = f.legs.filter((l) => l.dir === "out" && l.from === "FRA" && l.to === "AGP" && !l.tooLong && l.blockMin <= 180);
@@ -91,7 +95,8 @@ export function flightChecks(plan: Plan, fresh: boolean): CheckResult[] {
     check("flights: out FRA-AGP leg <= 3 h, not tooLong", outs.length > 0, f.legs.map((l) => `${l.from}${l.to}${l.blockMin}`).join(",")),
     check("flights: mode proxy (2038 is beyond the horizon)", f.mode.out === "proxy" && f.mode.back === "proxy"),
   ];
-  if (fresh && outs.length) {
+  const fixedArrival = (stored?.llm.fixed ?? []).some((x) => x.cat === "flight" && x.day === 1);
+  if (fresh && outs.length && !fixedArrival) {
     const earliest = Math.min(...outs.map((l) => toMin(l.arr)));
     const first = plan.days[0]?.stops.flatMap((s) => s.acts.map((a) => a.at)).filter(isHhmm).sort()[0];
     r.push(check("day 1 first activity >= earliest arrival + 90 min", !first || toMin(first) >= earliest + 90, `first ${first}, arrival ${Math.min(...outs.map((l) => toMin(l.arr)))}`));
@@ -137,8 +142,52 @@ export function familyPlaceChecks(plan: Plan, stored: PlanInputStored): CheckRes
   ];
 }
 
-export function golfChecks(plan: Plan, c: EvalFixture["checks"], fresh = true): CheckResult[] {
-  const r: CheckResult[] = [...flightChecks(plan, fresh), ...golfPlaceChecks(plan)];
+/** Timed activities of one day: [start, end] in minutes (end = until, else start). */
+const timedActs = (d: PlanDay) =>
+  d.stops.flatMap((s) => s.acts).flatMap((a) => (isHhmm(a.at) ? [{ a, from: toMin(a.at), to: isHhmm(a.until) ? toMin(a.until) : toMin(a.at) }] : []));
+
+/**
+ * Fixed items (plan-4, timed-items spec), on the model's raw plan (`raw`, before the code guard; falls back to
+ * `plan`): day-1 activities start >= 90 min after a fixed arrival flight ends, the last day's activities end
+ * >= 150 min before a fixed departure, no raw activity overlaps a fixed item. The stored plan (after the guard)
+ * must never overlap one.
+ */
+export function fixedItemChecks(plan: Plan, stored: PlanInputStored, issues?: AssembleIssues | null, raw?: Plan): CheckResult[] {
+  const fixed = stored.llm.fixed ?? [];
+  const r: CheckResult[] = [check("fixed items reach the model", fixed.length > 0, "none in input")];
+  const m = raw ?? plan;
+  const N = m.days.length;
+  for (const f of fixed.filter((x) => x.cat === "flight" && x.day === 1)) {
+    const ready = toMin(f.to ?? f.from) + 90;
+    const early = timedActs(m.days[0]).filter((x) => x.from < ready);
+    r.push(check(`day 1 activities start >= arrival ${f.to ?? f.from} + 90 min`, early.length === 0, early.map((x) => `${x.a.at} ${x.a.text}`).join(" | ")));
+  }
+  for (const f of fixed.filter((x) => x.cat === "flight" && x.day === N && x.day !== 1)) {
+    const latest = toMin(f.from) - 150;
+    const late = timedActs(m.days[N - 1]).filter((x) => x.to > latest);
+    r.push(check(`last day activities end <= departure ${f.from} - 150 min`, late.length === 0, late.map((x) => `${x.a.at} ${x.a.text}`).join(" | ")));
+  }
+  const overlapsIn = (p: Plan) =>
+    p.days.flatMap((d) =>
+      d.stops.flatMap((s) => s.acts).filter((a) => fixed.some((f) => f.day === d.n && overlapsSlot(a, f))).map((a) => `d${d.n} ${a.at} ${a.text}`),
+    );
+  const modelOverlaps = overlapsIn(m);
+  r.push(check("model: no activity overlaps a fixed item", modelOverlaps.length === 0 && (!!raw || !issues || issues.fixed_overlap === 0), modelOverlaps.slice(0, 3).join(" | ") || `guard dropped ${issues?.fixed_overlap}`));
+  const stored_ = overlapsIn(plan);
+  r.push(check("stored plan: no activity overlaps a fixed item", stored_.length === 0, stored_.slice(0, 3).join(" | ")));
+  return r;
+}
+
+export function golfChecks(
+  plan: Plan,
+  c: EvalFixture["checks"],
+  fresh = true,
+  stored?: PlanInputStored,
+  issues?: AssembleIssues | null,
+  raw?: Plan,
+): CheckResult[] {
+  const r: CheckResult[] = [...flightChecks(plan, fresh, stored), ...golfPlaceChecks(plan)];
+  if (c.fixedItems && stored && fresh) r.push(...fixedItemChecks(plan, stored, issues, raw));
   if (c.sportEveryDay) {
     const missing = plan.days.filter((d) => golfRefs(plan, d).length === 0).map((d) => d.n);
     r.push(check("golf round with course ref on every day", missing.length === 0, `missing days ${missing.join(",")}`));
@@ -210,8 +259,16 @@ export function tagChecks(id: FixtureId, tags: PurposeTags): CheckResult[] {
   return [check("tags: interests contain christmas_markets", tags.interests.includes("christmas_markets"), tags.interests.join(","))];
 }
 
-export function planChecks(id: FixtureId, fixture: EvalFixture, plan: Plan, fresh = true, stored?: PlanInputStored): CheckResult[] {
-  if (id === "golf") return golfChecks(plan, fixture.checks, fresh);
+export function planChecks(
+  id: FixtureId,
+  fixture: EvalFixture,
+  plan: Plan,
+  fresh = true,
+  stored?: PlanInputStored,
+  issues?: AssembleIssues | null,
+  raw?: Plan,
+): CheckResult[] {
+  if (id === "golf") return golfChecks(plan, fixture.checks, fresh, stored, issues, raw);
   const r = cruiseChecks(plan, fixture.checks, fixture.fixedSchedule ?? []);
   // Only for a recording made from the current input: an older one never saw the family places.
   if (stored && fresh) r.push(...familyPlaceChecks(plan, stored));

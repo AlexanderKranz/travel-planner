@@ -4,10 +4,14 @@ import type { LlmPatch, LlmPlan, Plan, PurposeTags } from "@/lib/domain/plan";
 import { planInputHash } from "@/lib/plan/hash";
 import { assemblePlan, type AssembleIssues } from "@/lib/plan/assemble";
 import { applyPatch } from "@/lib/plan/patch";
+import type { PlanInputStored } from "@/lib/plan/input";
 import { buildEvalInput, FIXTURES, PATCH_FEEDBACK, type FixtureId } from "./build-input";
 import { genericChecks, patchChecks, planChecks, rawRefs, tagChecks, type CheckResult } from "./checks";
 
 export const RECORDED_GENERATED_AT = "2026-10-28T00:00:00.000Z";
+
+/** Same input without fixed slots: assembling with it skips the overlap guard. */
+const unguarded = (s: PlanInputStored): PlanInputStored => ({ ...s, llm: { ...s.llm, fixed: undefined } });
 
 export function evaluateTags(id: FixtureId, tags: PurposeTags): CheckResult[] {
   return tagChecks(id, tags);
@@ -27,6 +31,15 @@ export function evaluateGenerate(id: FixtureId, tags: PurposeTags | null, llm: L
     flights: built.flights,
   });
   const fresh = opts.recordedHash === undefined || opts.recordedHash === planInputHash(built.stored.llm);
+  // The model's own timing, before the code guard drops overlaps (fixed-item checks measure the model).
+  const raw = assemblePlan({
+    llm,
+    stored: unguarded(built.stored),
+    header: { ...built.header, generatedAt: RECORDED_GENERATED_AT, model: MODEL_PLAN },
+    digest: built.digest,
+    locale: FIXTURES[id].locale,
+    flights: built.flights,
+  });
   if (!res.ok) {
     return { built, plan: null as Plan | null, issues: null as AssembleIssues | null, results: [{ name: "assemble", ok: false, detail: res.reason }] as CheckResult[] };
   }
@@ -34,7 +47,7 @@ export function evaluateGenerate(id: FixtureId, tags: PurposeTags | null, llm: L
   const results = [
     { name: "assemble", ok: true },
     ...genericChecks({ plan: res.plan, stored: built.stored, rawRefs: rawRefs(llm.days), issues: res.issues, startDate, flightsRecorded: !!built.facts.flights }),
-    ...planChecks(id, FIXTURES[id], res.plan, fresh, built.stored),
+    ...planChecks(id, FIXTURES[id], res.plan, fresh, built.stored, res.issues, raw.ok ? raw.plan : undefined),
   ];
   return { built, plan: res.plan as Plan | null, issues: res.issues as AssembleIssues | null, results };
 }
@@ -43,6 +56,7 @@ export function evaluatePatch(id: FixtureId, tags: PurposeTags | null, base: Pla
   const built = buildEvalInput(id, tags);
   const scope = PATCH_FEEDBACK[id].days;
   const res = applyPatch({ base, patch, stored: built.stored, scope });
+  const raw = applyPatch({ base, patch, stored: built.stored, scope, fixed: undefined });
   if (!res.ok) return { plan: null, results: [{ name: "applyPatch", ok: false, detail: res.reason }] as CheckResult[] };
   const startDate = built.trip.timing.kind === "date" ? built.trip.timing.startDate : undefined;
   const results: CheckResult[] = [
@@ -52,7 +66,7 @@ export function evaluatePatch(id: FixtureId, tags: PurposeTags | null, base: Pla
   ];
   if (id === "golf") {
     const fresh = opts.recordedHash === undefined || opts.recordedHash === planInputHash(built.stored.llm);
-    results.push(...planChecks(id, FIXTURES[id], res.plan, fresh));
+    results.push(...planChecks(id, FIXTURES[id], res.plan, fresh, built.stored, res.issues, raw.ok ? raw.plan : undefined));
   }
   return { plan: res.plan, changedDays: res.changedDays, results };
 }

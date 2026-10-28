@@ -40,5 +40,11 @@
       "open items listed"
     ]
   },
-  "checks": { "sportEveryDay": true, "twoRoundsOnOneDay": true, "airportNearDays": [1, 5], "airportMaxKm": 50 }
+  "$itemsComment": "Trip items (timed-items spec): a booked arrival flight (the later verified LH flight, so it overrides the schedule heuristic), a booked dinner, and an option that must stay out of the plan.",
+  "items": [
+    { "category": "flight", "title": "LH 1150 FRA → AGP", "status": "booked", "day": 1, "startTime": "13:00", "endTime": "16:00" },
+    { "category": "food", "title": "Tisch im Restaurant am Hafen", "status": "booked", "day": 3, "startTime": "20:00", "endTime": "22:00" },
+    { "category": "stay", "title": "Hotel Marbella", "status": "option", "day": 1, "startTime": "18:00" }
+  ],
+  "checks": { "sportEveryDay": true, "twoRoundsOnOneDay": true, "airportNearDays": [1, 5], "airportMaxKm": 50, "fixedItems": true }
 }
