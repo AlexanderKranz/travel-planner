@@ -13,14 +13,13 @@ export type NearbyTarget = { offset: -1 | 1; date: string; checked: string | nul
  * Days to look up around the trip date of one direction. `date` is the real calendar day. `checked` is the schedule
  * date to query: the same day in schedule mode, the proxy date shifted by the same offset in proxy mode.
  * Schedule mode: days in the past or beyond the horizon are not checked (`checked: null`), never proxied.
- * Null = no exact trip dates (sample week): nothing to offer.
+ * Month-only trips use the sample week's dates (the user's main way to look for other days there).
  */
 export function nearbyTargets(
   dates: FlightDates,
   dir: FlightDir,
   today: string,
 ): { mode: FlightMode; targets: NearbyTarget[] } | null {
-  if (dates.basis !== "trip_dates") return null;
   const base = dir === "out" ? dates.outDate : dates.backDate;
   const mode = dates.mode[dir];
   const targets = ([-1, 1] as const).map((offset): NearbyTarget => {

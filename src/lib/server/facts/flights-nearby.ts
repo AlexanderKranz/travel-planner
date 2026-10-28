@@ -41,7 +41,7 @@ export async function getNearbyFlights(
     if (!origins.includes(req.from) || !gateways.some((g) => g.iata === req.to)) return { status: "invalid" };
 
     const plan = nearbyTargets(dates, req.dir, a.ctx.today);
-    if (!plan) return unavailable("no_dates", SOURCE); // sample week: no exact date to look around
+    if (!plan) return unavailable("no_dates", SOURCE);
 
     const depart = req.dir === "out" ? req.from : req.to;
     const arrive = req.dir === "out" ? req.to : req.from;

@@ -124,7 +124,7 @@ function PairCard({ pair, data, adults, locale, tripId }: { pair: FlightPair; da
           />
         </div>
       )}
-      {canCheckNearby(pair, data) && (
+      {canCheckNearby(pair) && (
         <div className="mt-2 flex flex-col gap-1">
           <FlightsNearby tripId={tripId} pair={pair} dir="out" data={data} adults={adults} locale={locale} />
           <FlightsNearby tripId={tripId} pair={pair} dir="back" data={data} adults={adults} locale={locale} />

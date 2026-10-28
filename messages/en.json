@@ -554,7 +554,9 @@
         "links": {
           "google": "Google Flights, {date}",
           "skyscanner": "Skyscanner, {date}"
-        }
+        },
+        "dayBeforeSample": "day before the sample day",
+        "dayAfterSample": "day after the sample day"
       },
       "change": "Times and routes can change.",
       "newTab": "opens in a new tab",
