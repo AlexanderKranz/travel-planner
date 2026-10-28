@@ -1,4 +1,8 @@
 import { DEFAULT_RADIUS_KM, type Trip, type TripInput } from "@/lib/domain";
+import { draftToCompositionInput, tripEntryToDraft, type EntryDraft } from "@/components/groups/draft";
+
+/** Select value of "describe the group for this trip only" (never a real group id). */
+export const ONE_OFF_GROUP = "__text";
 
 export type DestinationDraft =
   | { mode: "none" }
@@ -27,7 +31,11 @@ export type TripDraft = {
   destination: DestinationDraft;
   lengthDays: number;
   timing: TimingDraft;
+  /** "" = none, ONE_OFF_GROUP = free text for this trip, else a saved group id. */
   groupId: string;
+  groupText: string;
+  /** The user's corrected structure of the one-off group (composition rows). */
+  groupStructure: EntryDraft[];
   purposeId: string;
   wantsFlights: boolean;
   useHomeAirports: boolean;
@@ -41,6 +49,8 @@ export const emptyTripDraft = (wantsFlights = true): TripDraft => ({
   lengthDays: 7,
   timing: { mode: "none", startDate: "", months: [] },
   groupId: "",
+  groupText: "",
+  groupStructure: [],
   purposeId: "",
   wantsFlights,
   useHomeAirports: true,
@@ -71,7 +81,9 @@ export function draftFromTrip(trip: Trip): TripDraft {
       startDate: trip.timing.kind === "date" ? trip.timing.startDate : "",
       months: trip.timing.kind === "months" ? trip.timing.months : [],
     },
-    groupId: trip.groupId ?? "",
+    groupId: trip.groupId ?? (trip.groupText ? ONE_OFF_GROUP : ""),
+    groupText: trip.groupText ?? "",
+    groupStructure: (trip.groupStructure ?? []).map(tripEntryToDraft),
     purposeId: trip.purposeId ?? "",
     wantsFlights: trip.wantsFlights,
     useHomeAirports: trip.originAirports.length === 0,
@@ -119,7 +131,11 @@ export function draftToInput(draft: TripDraft): TripInput {
     destination,
     lengthDays: draft.lengthDays,
     timing,
-    groupId: draft.groupId || null,
+    groupId: draft.groupId && draft.groupId !== ONE_OFF_GROUP ? draft.groupId : null,
+    // One-off group: text (and the corrected structure) only; exclusive with a saved group.
+    ...(draft.groupId === ONE_OFF_GROUP && draft.groupText.trim()
+      ? { groupText: draft.groupText.trim(), groupStructure: draft.groupStructure.map(draftToCompositionInput) }
+      : {}),
     purposeId: draft.purposeId || null,
     wantsFlights: draft.wantsFlights,
     originAirports: draft.wantsFlights && !draft.useHomeAirports ? draft.originAirports : [],

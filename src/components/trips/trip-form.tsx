@@ -3,12 +3,15 @@
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { AirportPicker } from "@/components/settings/airport-picker";
+import { emptyDraft, parseToDrafts } from "@/components/groups/draft";
+import { EntryEditor } from "@/components/groups/entry-editor";
+import { GroupTextField } from "@/components/groups/group-text-field";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "@/components/ui/fields";
 import { hasIssue, type Issue } from "@/components/ui/issues";
-import { btnPrimary, btnSecondary, inputCls } from "@/components/ui/styles";
+import { btnPrimary, btnSecondary, inputCls, mutedCls } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
-import { MAX_TRIP_DAYS, type ActionError, type Trip } from "@/lib/domain";
+import { MAX_ENTRIES_PER_GROUP, MAX_TRIP_DAYS, type ActionError, type GroupParse, type Trip } from "@/lib/domain";
 import { createTrip, updateTrip } from "@/lib/server/trips";
 import { DestinationPicker } from "./destination-picker";
 import { TimingField } from "./timing-field";
@@ -17,6 +20,7 @@ import {
   draftProblems,
   draftToInput,
   emptyTripDraft,
+  ONE_OFF_GROUP,
   type TripDraft,
 } from "./trip-draft";
 
@@ -28,6 +32,7 @@ export function TripForm({
   purposes,
   hasHomeAirports,
   countryCodes,
+  profileBirthdate,
 }: {
   trip?: Trip;
   groups: Option[];
@@ -36,8 +41,11 @@ export function TripForm({
   hasHomeAirports: boolean;
   /** ISO country codes for the free-text destination picker (from the server dataset). */
   countryCodes: string[];
+  /** For "about your age" in the recognised one-off group. */
+  profileBirthdate: string | null;
 }) {
   const t = useTranslations("trips.form");
+  const tg = useTranslations("groups");
   const router = useRouter();
   const [draft, setDraft] = useState<TripDraft>(() =>
     trip ? draftFromTrip(trip) : emptyTripDraft(hasHomeAirports),
@@ -46,7 +54,17 @@ export function TripForm({
   const [issues, setIssues] = useState<Issue[]>();
   const [local, setLocal] = useState<string[]>([]);
   const [pending, start] = useTransition();
+  const [today] = useState(() => new Date().toISOString().slice(0, 10));
+  const oneOff = draft.groupId === ONE_OFF_GROUP;
   const set = (patch: Partial<TripDraft>) => setDraft((d) => ({ ...d, ...patch }));
+  const adjustFromParse = (parse: GroupParse) =>
+    set({
+      groupStructure: parseToDrafts(parse, {
+        today,
+        profileBirthdate,
+        roleLabel: (role) => tg(`text.roles.${role}`),
+      }),
+    });
   const bad = (path: string) => (hasIssue(issues, path) || local.includes(path) ? t("invalid") : undefined);
 
   function onSubmit(e: React.FormEvent) {
@@ -158,19 +176,74 @@ export function TripForm({
         error={bad("title")}
       />
 
-      <SelectField
-        label={t("group")}
-        hint={t("groupHint")}
-        value={draft.groupId}
-        onChange={(e) => set({ groupId: e.target.value })}
-      >
-        <option value="">{t("none")}</option>
-        {groups.map((g) => (
-          <option key={g.id} value={g.id}>
-            {g.name}
-          </option>
-        ))}
-      </SelectField>
+      <div id="field-group" className="flex flex-col gap-3">
+        <SelectField
+          label={t("group")}
+          hint={t("groupHint")}
+          value={draft.groupId}
+          onChange={(e) => set({ groupId: e.target.value })}
+        >
+          <option value="">{t("none")}</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+          <option value={ONE_OFF_GROUP}>{t("groupOneOff")}</option>
+        </SelectField>
+        {oneOff && (
+          <>
+            <GroupTextField
+              label={t("groupText.label")}
+              hint={t("groupText.hint")}
+              value={draft.groupText}
+              onChange={(groupText) => set({ groupText })}
+              error={bad("groupText")}
+              saved={{ text: trip?.groupText, parse: trip?.groupParse }}
+              hasStructure={draft.groupStructure.length > 0}
+              canAccept
+              onAdjust={adjustFromParse}
+              date={today}
+              profileBirthdate={profileBirthdate}
+            />
+            {draft.groupStructure.length > 0 && (
+              <section aria-labelledby="trip-structure-title" className="flex flex-col gap-3">
+                <h3 id="trip-structure-title" className="font-semibold">
+                  {tg("exact.title")}
+                </h3>
+                <ol className="flex flex-col gap-3">
+                  {draft.groupStructure.map((entry, i) => (
+                    <EntryEditor
+                      key={entry.key}
+                      draft={entry}
+                      index={i}
+                      traitKeys={[]}
+                      onChange={(p) =>
+                        set({ groupStructure: draft.groupStructure.map((e) => (e.key === entry.key ? { ...e, ...p } : e)) })
+                      }
+                      onRemove={() => set({ groupStructure: draft.groupStructure.filter((e) => e.key !== entry.key) })}
+                    />
+                  ))}
+                </ol>
+              </section>
+            )}
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                className={btnSecondary}
+                disabled={draft.groupStructure.length >= MAX_ENTRIES_PER_GROUP}
+                aria-describedby="trip-add-composition-help"
+                onClick={() => set({ groupStructure: [...draft.groupStructure, emptyDraft("composition")] })}
+              >
+                {tg("addComposition")}
+              </button>
+              <p id="trip-add-composition-help" className={`text-sm ${mutedCls}`}>
+                {t("groupStructureHelp")}
+              </p>
+            </div>
+          </>
+        )}
+      </div>
 
       <SelectField
         label={t("purpose")}

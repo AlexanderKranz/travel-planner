@@ -33,7 +33,9 @@ export default async function GroupsPage({ params }: { params: Promise<{ locale:
                 <span className={`block text-sm ${mutedCls}`}>
                   {t("entryCount", { count: g.entryCount })}
                 </span>
-                {g.notes && <span className={`block truncate text-sm ${mutedCls}`}>{g.notes}</span>}
+                {(g.description ?? g.notes) && (
+                  <span className={`line-clamp-2 break-words text-sm ${mutedCls}`}>{g.description ?? g.notes}</span>
+                )}
               </Link>
             </li>
           ))}
