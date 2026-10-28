@@ -72,11 +72,24 @@ const defined = <T extends object>(o: T): T => {
 /** Is `t` inside [from, to]? Missing bounds are open. */
 const inside = (t: string, from?: string, to?: string) => (!from || t >= from) && (!to || t <= to);
 
+/** All HH:MM times written in free text ("7:00", "07:00", "7.00" → "07:00"). */
+export function noteTimes(notes: string | undefined): Set<string> {
+  const out = new Set<string>();
+  for (const m of (notes ?? "").matchAll(/(?<!\d)(\d{1,2})[:.](\d{2})(?!\d)/g)) {
+    const h = Number(m[1]);
+    const min = Number(m[2]);
+    if (h <= 23 && min <= 59) out.add(`${String(h).padStart(2, "0")}:${m[2]}`);
+  }
+  return out;
+}
+
 export type DayCtx = {
   date: string | null;
   index: PlanInputStored["index"];
   fallbackPlace: string;
   issues: AssembleIssues;
+  /** Times from the user's trip notes; a stop stays `fixed` only if all its window times are in here. */
+  noteTimes: Set<string>;
 };
 
 /** One model day → stored day (spec 4.5). `best` is resolved by the caller. */
@@ -112,7 +125,10 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
       place: clampText(s.place, LIMITS.place, issues) ?? ctx.fallbackPlace,
       from,
       to,
-      fixed: s.fixed === true ? true : undefined,
+      // "From your notes" is a claim about user input: only trust it when the user actually wrote both times.
+      // A one-sided window ("departs 16:00") is fine; every time it does give must be in the notes.
+      fixed:
+        s.fixed === true && (from || to) && [from, to].every((t) => !t || ctx.noteTimes.has(t)) ? true : undefined,
       acts,
     });
   });
@@ -208,8 +224,11 @@ export function assemblePlan(a: {
   const issues = emptyIssues();
   const fallbackPlace = stored.llm.trip.dest.slice(0, LIMITS.place);
   const sorted = [...llm.days].sort((x, y) => x.n - y.n);
+  const times = noteTimes(stored.llm.trip.notes);
   const days = keepOneBest(
-    sorted.map((d) => assembleDay(d, { date: dayList[d.n - 1]?.date ?? null, index: stored.index, fallbackPlace, issues })),
+    sorted.map((d) =>
+      assembleDay(d, { date: dayList[d.n - 1]?.date ?? null, index: stored.index, fallbackPlace, issues, noteTimes: times }),
+    ),
     issues,
   );
   const candidate = {

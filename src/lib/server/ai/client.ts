@@ -22,12 +22,39 @@ export type StructuredRequest<S extends z.ZodType> = {
   blocks: { text: string; cache?: boolean }[];
 };
 
-export const CLIENT_TIMEOUT_MS = 180_000;
+/**
+ * One attempt, no SDK retries: 140 s stays well inside the route's maxDuration (300 s) and the 5-minute plan lock.
+ * A retry would double a possibly billed call without ever being logged.
+ */
+export const CLIENT_TIMEOUT_MS = 140_000;
+export const CLIENT_MAX_RETRIES = 0;
 
 let shared: Anthropic | null = null;
 function defaultClient(): Anthropic {
-  shared ??= new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY, timeout: CLIENT_TIMEOUT_MS, maxRetries: 1 });
+  shared ??= new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    timeout: CLIENT_TIMEOUT_MS,
+    maxRetries: CLIENT_MAX_RETRIES,
+  });
   return shared;
+}
+
+/**
+ * Conservative cost for a failed call whose usage the API never returned (timeout, 5xx, network):
+ * the whole prompt (system + blocks, ~4 chars per token) billed once at the uncached input price, output at 0.
+ * Input is the part we can bound from our side; output of an aborted call is unknown, and charging max_tokens
+ * would block the budget after a few outages. Token columns stay 0 (they are not measured); only the cost is
+ * estimated (at least 1 µUSD), so the daily budget still counts the attempt.
+ */
+export function estimateFailedCostMicroUsd(req: Pick<StructuredRequest<z.ZodType>, "model" | "system" | "blocks">): number {
+  const chars = req.system.length + req.blocks.reduce((sum, b) => sum + b.text.length, 0);
+  const cost = costMicroUsd(req.model, {
+    inputTokens: Math.ceil(chars / 4),
+    outputTokens: 0,
+    cacheCreationInputTokens: 0,
+    cacheReadInputTokens: 0,
+  });
+  return Math.max(1, cost);
 }
 
 /** Short error class for `ai_usage.error_code` (never a message). */
@@ -103,6 +130,7 @@ export async function callStructured<S extends z.ZodType>(
     });
   } catch (e) {
     const usage = record("error", null, errorCode(e));
+    usage.costMicroUsd = estimateFailedCostMicroUsd(req);
     await report(usage);
     return { ok: false, error: "ai_unavailable", usage };
   }

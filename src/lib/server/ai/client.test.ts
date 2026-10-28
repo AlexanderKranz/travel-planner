@@ -3,7 +3,7 @@ import { LlmPatch, LlmPlan, PurposeTags } from "@/lib/domain/plan";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { AiUsageRecord } from "@/lib/domain/ai";
-import { callStructured, outputFormat } from "./client";
+import { CLIENT_MAX_RETRIES, CLIENT_TIMEOUT_MS, callStructured, estimateFailedCostMicroUsd, outputFormat } from "./client";
 
 vi.mock("server-only", () => ({}));
 
@@ -98,11 +98,24 @@ describe("callStructured", () => {
     [new Anthropic.APIConnectionTimeoutError(), "timeout"],
     [new Anthropic.APIConnectionError({ message: "x" }), "network"],
     [new Error("boom"), "unknown"],
-  ])("API error %# → ai_unavailable (%s)", async (err, code) => {
+  ])("API error %# → ai_unavailable (%s) with an estimated cost", async (err, code) => {
     const t = setup(err);
     const r = await t.run();
     expect(r).toMatchObject({ ok: false, error: "ai_unavailable" });
-    expect(t.records).toEqual([expect.objectContaining({ status: "error", errorCode: code, costMicroUsd: 0 })]);
+    expect(t.records).toEqual([expect.objectContaining({ status: "error", errorCode: code, inputTokens: 0, outputTokens: 0 })]);
+    expect(t.records[0].costMicroUsd).toBeGreaterThan(0);
+  });
+
+  it("estimates a failed call as prompt chars / 4 at the input price, no output", () => {
+    // 4000 chars → 1000 input tokens × 2 µUSD (plan model) = 2000; Haiku: 1000 × 0.1 = 100.
+    const blocks = [{ text: "x".repeat(3000) }];
+    expect(estimateFailedCostMicroUsd({ model: "claude-sonnet-5-5", system: "y".repeat(1000), blocks })).toBe(2000);
+    expect(estimateFailedCostMicroUsd({ model: "claude-haiku-5-5", system: "y".repeat(1000), blocks })).toBe(100);
+  });
+
+  it("makes one attempt within the route budget", () => {
+    expect(CLIENT_MAX_RETRIES).toBe(0);
+    expect(CLIENT_TIMEOUT_MS).toBeLessThanOrEqual(150_000);
   });
 
   it("survives a throwing onUsage", async () => {
