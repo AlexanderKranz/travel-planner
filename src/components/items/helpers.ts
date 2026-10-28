@@ -1,7 +1,28 @@
 import { ITEM_CATEGORIES, type ItemCategory, type SharedItem } from "@/lib/domain/items";
+import type { PlanFlights } from "@/lib/domain/plan";
 import { itemAmounts } from "@/lib/items/costs";
 
-export type Prefill = { title?: string; category?: ItemCategory; day?: number | null; ref?: string | null };
+/** Verified leg offered in the item form's flight select. */
+export type FlightLegOption = PlanFlights["legs"][number];
+
+/** Shared context of every item form entry point (add button, quick add, edit). */
+export type ItemFormCtx = {
+  tripId: string;
+  lengthDays: number;
+  partySize: number | null;
+  startDate?: string | null;
+  /** Verified legs of the latest plan (fitting ones); empty/absent = no select. */
+  flights?: FlightLegOption[];
+};
+
+export type Prefill = {
+  title?: string;
+  category?: ItemCategory;
+  day?: number | null;
+  ref?: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
+};
 
 export type DayGroup<T extends SharedItem> = { day: number | null; items: T[] };
 
@@ -15,7 +36,9 @@ export function groupItems<T extends SharedItem>(items: T[]): { groups: DayGroup
     if (i.status === "rejected") continue;
     byDay.set(i.day, [...(byDay.get(i.day) ?? []), i]);
   }
-  const cmp = (a: T, b: T) => catOrder(a.category) - catOrder(b.category) || a.title.localeCompare(b.title);
+  // Timed items first in time order, then category order, then title.
+  const cmp = (a: T, b: T) =>
+    (a.startTime ?? "~").localeCompare(b.startTime ?? "~") || catOrder(a.category) - catOrder(b.category) || a.title.localeCompare(b.title);
   const groups = [...byDay.entries()]
     .sort(([a], [b]) => (a === null ? 1 : b === null ? -1 : a - b))
     .map(([day, list]) => ({ day, items: [...list].sort(cmp) }));
@@ -67,18 +90,8 @@ export function priceLine(item: Pick<SharedItem, "priceCents" | "priceBasis" | "
   return { primary, secondary: other, sharedBy: item.priceBasis === "total" ? item.persons : null };
 }
 
-/** Quick-add prefill for a flight leg: outbound on day 1, return on the last day. */
-export function flightPrefill(
-  leg: { dir: "out" | "back"; number: string; from: string; to: string },
-  lengthDays: number,
-): Prefill {
-  return {
-    title: `${leg.number} ${leg.from} → ${leg.to}`,
-    category: "flight",
-    day: leg.dir === "out" ? 1 : Math.max(1, Math.min(60, lengthDays)),
-    ref: null,
-  };
-}
+/** Quick-add prefill for a flight leg (category, title, trip day, times): see lib/plan/fixed-items. */
+export { flightPrefill } from "@/lib/plan/fixed-items";
 
 /** Quick-add prefill for a place referenced in a day. */
 export function placePrefill(place: { name: string }, ref: string, day: number): Prefill {

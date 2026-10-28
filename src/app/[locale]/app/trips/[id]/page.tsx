@@ -86,7 +86,7 @@ export default async function TripDetailPage({
   const panel = { trip, purpose, ctx };
 
   return (
-    <main className="flex flex-col gap-6">
+    <main data-wide className="flex flex-col gap-6">
       <TripHeader trip={trip} />
       <TripContext
         trip={trip}
@@ -95,16 +95,19 @@ export default async function TripDetailPage({
         purpose={purpose}
         profileAirports={profile.homeAirports}
       />
-      <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} partySize={partySize} />
-      <ItemsSection tripId={trip.id} lengthDays={trip.lengthDays} startDate={startDate} partySize={partySize} />
-      <SharePanel tripId={trip.id} hasPlan={hasPlan} isDemo={profile.isDemo} />
+      <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} partySize={partySize} startDate={startDate} />
+      {/* Same 2/3 + 1/3 split as the plan at lg; stacked on phones. */}
+      <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:items-start lg:gap-x-8">
+        <ItemsSection tripId={trip.id} lengthDays={trip.lengthDays} startDate={startDate} partySize={partySize} />
+        <SharePanel tripId={trip.id} hasPlan={hasPlan} isDemo={profile.isDemo} />
+      </div>
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         {t("intro")}{" "}
         <Link href="/sources" className="underline underline-offset-2">
           {t("sourcesLink")}
         </Link>
       </p>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-8">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:gap-x-8">
         <Suspense
           fallback={
             <PanelFallback

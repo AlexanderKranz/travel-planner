@@ -5,6 +5,7 @@ import type { PlanDocument } from "@/lib/domain/share";
 import type { PlanPlace } from "@/lib/domain/plan";
 import { placeHref } from "@/lib/facts/sources";
 import { openItemKey } from "@/lib/plan/open-items";
+import { fixedItemsOf, mergeDayRows, timeRange } from "@/lib/plan/fixed-items";
 import type { Fmt } from "./format";
 import type { PdfT } from "./labels";
 
@@ -93,6 +94,8 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
   const items = doc.items?.filter((i) => i.status !== "rejected") ?? [];
   const party = doc.costs?.partySize ?? null;
   const hasNotes = items.some((i) => i.notes);
+  // Booked/planned items with day + start time, merged into the day rows (same as the web views).
+  const fixed = doc.items ? fixedItemsOf(doc.items, plan.days.length) : [];
 
   return (
     <Document title={h.title} language={plan.locale} creator="Travel Planner" producer="Travel Planner">
@@ -157,7 +160,10 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
                   <View style={{ flexDirection: "row" }}>
                     <Text style={{ width: 28 }}>{it.day ?? ""}</Text>
                     <Text style={{ width: 62 }}>{t(`categories.${it.category}`)}</Text>
-                    <Text style={s.grow}>{it.title}</Text>
+                    <Text style={s.grow}>
+                      {it.startTime ? `${timeRange(it.startTime, it.endTime)} · ` : ""}
+                      {it.title}
+                    </Text>
                     <Text style={{ width: 56 }}>{t(`statuses.${it.status}`)}</Text>
                     <Text style={{ width: 66, textAlign: "right" }}>{a.per === null ? "–" : fmt.cents(a.per, it.currency)}</Text>
                     <Text style={{ width: 66, textAlign: "right" }}>{a.total === null ? "–" : fmt.cents(a.total, it.currency)}</Text>
@@ -172,8 +178,10 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
         )}
 
         <Text style={s.h2}>{t("days")}</Text>
-        {plan.days.map((d) => (
-          <View key={d.n} style={s.day} wrap={d.stops.reduce((n, st) => n + st.acts.length + 1, 0) > 14}>
+        {plan.days.map((d) => {
+          const merged = mergeDayRows(d, fixed);
+          return (
+          <View key={d.n} style={s.day} wrap={merged.reduce((n, st) => n + st.rows.length + 1, 0) > 14}>
             <Text style={s.dayHead} minPresenceAhead={60}>
               {t("day", { n: d.n })}
               {d.date ? ` · ${fmt.dayDate(d.date)}` : ""} · {d.title}
@@ -185,7 +193,19 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
                   {st.place}
                   {st.from ? ` (${st.from}${st.to ? `–${st.to}` : ""})` : ""}
                 </Text>
-                {st.acts.map((a, j) => {
+                {merged[i].rows.map((row, j) => {
+                  if (row.kind === "fixed") {
+                    const it = row.item;
+                    return (
+                      <View key={`f${j}`} style={s.row}>
+                        <Text style={[s.time, s.bold]}>{timeRange(it.from, it.to)}</Text>
+                        <Text style={s.grow}>
+                          <Text style={s.bold}>{it.title}</Text> · {t(`categories.${it.category}`)} · {t(`statuses.${it.status}`)}
+                        </Text>
+                      </View>
+                    );
+                  }
+                  const a = row.act;
                   const place = a.ref ? plan.places[a.ref] : undefined;
                   const alts = place ? (a.alts ?? []).flatMap((k) => (plan.places[k] ? [plan.places[k]] : [])) : [];
                   return (
@@ -196,7 +216,6 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
                           {place ? <PlaceName place={place} bold /> : null}
                           {place ? " · " : ""}
                           {a.text}
-                          {place?.drive ? ` (${t("drive", { min: place.drive.min })})` : ""}
                         </Text>
                         {alts.length > 0 && (
                           <Text style={s.small}>
@@ -205,7 +224,6 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
                               <Text key={k}>
                                 {k > 0 ? " · " : ""}
                                 <PlaceName place={p} />
-                                {p.drive ? ` (${t("drive", { min: p.drive.min })})` : ""}
                               </Text>
                             ))}
                           </Text>
@@ -219,9 +237,10 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
             {d.note && <Text style={s.note}>{t("note")}: {d.note}</Text>}
             {d.warn && <Text style={s.warn}>{t("warning")}: {d.warn}</Text>}
           </View>
-        ))}
+          );
+        })}
 
-        {Object.values(plan.places).some((p) => p.drive) && <Text style={s.small}>{t("driveNote")}</Text>}
+        {/* Drive times are display-on-request in the web views and omitted in the PDF (spec timed-items [D15]). */}
 
         {plan.openItems.length > 0 && (
           <View>

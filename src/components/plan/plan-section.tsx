@@ -9,6 +9,7 @@ import { PlanEmpty } from "./plan-empty";
 import { PlanIterate, type IterateBlock } from "./plan-iterate";
 import { PlanVersions } from "./plan-versions";
 import { PlanView } from "./plan-view";
+import { PlanRegenerate } from "./plan-regenerate";
 
 /** The plan block of the trip page: empty state, or plan + iteration + version history. */
 export async function PlanSection({
@@ -17,12 +18,14 @@ export async function PlanSection({
   lengthDays,
   version,
   partySize,
+  startDate = null,
 }: {
   tripId: string;
   locale: string;
   lengthDays: number;
   version?: number;
   partySize: number | null;
+  startDate?: string | null;
 }) {
   const res = await getPlanState(tripId, version);
   if (!res.ok) {
@@ -41,7 +44,8 @@ export async function PlanSection({
     return <PlanEmpty state={state} locale={locale} tooLong={lengthDays > MAX_PLAN_DAYS} />;
   }
   const shown = state.version;
-  const openDone = (await getOwnerPlanDocument(tripId))?.openDone ?? [];
+  const doc = await getOwnerPlanDocument(tripId);
+  const openDone = doc?.openDone ?? [];
 
   const aiBlock: IterateBlock = !state.isLatest
     ? "notLatest"
@@ -58,11 +62,18 @@ export async function PlanSection({
   const bestDay = shown.plan.days.find((d) => d.best)?.n ?? null;
 
   return (
-    <section aria-labelledby="plan-title" className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-8">
-      <div className="min-w-0 lg:max-w-3xl">
-        <PlanView state={state} shown={shown} locale={locale} openDone={openDone} items={{ lengthDays, partySize }} />
+    <section aria-labelledby="plan-title" className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:gap-x-8">
+      <div className="min-w-0">
+        <PlanView
+          state={state}
+          shown={shown}
+          locale={locale}
+          openDone={openDone}
+          items={{ lengthDays, partySize, startDate, list: doc?.items ?? [], changed: doc?.itemsChanged === true }}
+        />
       </div>
-      <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
+      {/* Sticky side column; scrolls on its own when taller than the viewport. */}
+      <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pb-1">
         <PlanIterate
           key={shown.meta.versionNo}
           tripId={tripId}
@@ -75,6 +86,7 @@ export async function PlanSection({
         />
         <BudgetLine budget={state.budget} />
         <PlanVersions tripId={tripId} versions={state.versions} shown={shown.meta.versionNo} busy={state.busy} />
+        {state.isLatest && !state.busy && <PlanRegenerate tripId={tripId} locale={locale} aiEnabled={state.aiEnabled} />}
       </aside>
     </section>
   );

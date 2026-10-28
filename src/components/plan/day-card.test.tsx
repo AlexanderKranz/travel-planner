@@ -55,3 +55,49 @@ describe("DayCard places", () => {
     expect(oldHtml).not.toContain("openrouteservice");
   });
 });
+
+describe("DayCard fixed items", () => {
+  const fixed = [
+    { id: "f1", day: 1, from: "07:50", to: "08:40", category: "flight" as const, title: "LH 1150 FRA → AGP", status: "booked" as const },
+    { id: "f2", day: 1, from: "15:00", category: "stay" as const, title: "Check-in Hotel", status: "planned" as const },
+    { id: "f3", day: 2, from: "09:00", category: "activity" as const, title: "Other day", status: "booked" as const },
+  ];
+  const html = (locale: "de" | "en", messages: object) =>
+    renderToStaticMarkup(
+      <NextIntlClientProvider locale={locale} messages={messages} timeZone="Europe/Berlin">
+        <DayCard day={day} places={places} fixed={fixed} />
+      </NextIntlClientProvider>,
+    );
+  it("renders fixed rows in time order between the activities, with status and category (de)", () => {
+    const h = html("de", de);
+    const order = ["LH 1150 FRA → AGP", "18 Löcher", "Mittagessen", "Check-in Hotel"].map((s) => h.indexOf(s));
+    expect(order.every((i) => i > -1)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    expect(h).toContain("07:50–08:40");
+    expect(h).toContain("Gebucht");
+    expect(h).toContain("Geplant");
+    expect(h).toContain("Unterkunft");
+    expect(h).not.toContain("Other day");
+  });
+  it("labels them in English", () => {
+    const h = html("en", en);
+    expect(h).toContain("Booked");
+    expect(h).toContain("Stay");
+  });
+});
+
+describe("DayCard drive times and quick add", () => {
+  const html = renderToStaticMarkup(
+    <NextIntlClientProvider locale="de" messages={de} timeZone="Europe/Berlin">
+      <DayCard day={day} places={places} renderQuickAdd={(p) => <button type="button">add {p.name}</button>} />
+    </NextIntlClientProvider>,
+  );
+  it("drive badges and the ORS credit are hidden unless the plan scope shows drive times", () => {
+    expect(html).toMatch(/class="hidden group-data-\[drive=on\]\/plan:inline[^"]*"[^>]*>🚗 14 Min\./);
+    expect(html).toMatch(/class="hidden group-data-\[drive=on\]\/plan:inline">[^<]*<a href="https:\/\/openrouteservice.org\/"/);
+  });
+  it("the quick add sits in its own grid column, not inside the text", () => {
+    expect(html).toContain('class="group/act grid min-w-0 grid-cols-[minmax(0,1fr)_2.75rem]');
+    expect(html).toMatch(/<\/div><div class="-my-2\.5 flex justify-end"><button type="button">add Real Club/);
+  });
+});

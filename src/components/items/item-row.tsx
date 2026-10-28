@@ -1,6 +1,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import type { SharedItem } from "@/lib/domain/items";
+import { timeRange } from "@/lib/plan/fixed-items";
 import { hostOf, priceLine } from "./helpers";
 import { StatusBadge } from "./status-badge";
 
@@ -39,6 +40,7 @@ export function ItemRow({
             >
               {t(`categories.${item.category}`)}
             </span>
+            {item.startTime && <span className="font-medium tabular-nums">{timeRange(item.startTime, item.endTime)}</span>}
             <span className={`min-w-0 break-words font-medium ${rejected ? "line-through" : ""}`}>{item.title}</span>
           </p>
           <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm">

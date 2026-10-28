@@ -5,7 +5,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import type { Fact, FlightDir, FlightLeg, FlightPair, FlightsFacts, NearbyDay, NearbyFlights } from "@/lib/domain";
 import { btnSecondary, mutedCls } from "@/components/ui/styles";
 import { flightLinks } from "@/lib/flights/links";
-import { durationParts } from "@/lib/flights/ui";
+import { FlightList, FlightRow } from "@/components/flights/flight-row";
 
 type State =
   | { kind: "idle" }
@@ -20,22 +20,8 @@ export function canCheckNearby(pair: FlightPair, data: FlightsFacts): boolean {
 
 function NearbyLeg({ leg }: { leg: FlightLeg }) {
   const t = useTranslations("facts.flights");
-  const { h, m } = durationParts(leg.blockMin);
   return (
-    <li className={`flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-sm ${leg.tooLong ? "text-neutral-600 dark:text-neutral-400" : ""}`}>
-      <span className="min-w-0 basis-40 grow font-medium sm:grow-0">
-        <span className="whitespace-nowrap">{leg.number}</span>
-        {leg.airline && <span className={`ml-1 font-normal ${mutedCls}`}>{leg.airline}</span>}
-      </span>
-      <span className="whitespace-nowrap tabular-nums">
-        {leg.dep} → {leg.arr}
-        {leg.arrDayOffset === 1 && <sup className="ml-0.5 text-xs">{t("nextDay")}</sup>}
-        <span className="mx-1.5" aria-hidden="true">·</span>
-        <span className="sr-only">{t("duration")}: </span>
-        {t("hm", { h, m })}
-      </span>
-      {leg.tooLong && <span className="text-xs font-medium">{t("tooLongShort")}</span>}
-    </li>
+    <FlightRow leg={leg} showAirline extras={leg.tooLong ? <span className="text-xs font-medium">{t("tooLongShort")}</span> : undefined} />
   );
 }
 
@@ -68,11 +54,11 @@ function DayBlock({
         <p className="text-sm">{t("notChecked")}</p>
       ) : hasLegs ? (
         <>
-          <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
+          <FlightList withAction={false}>
             {day.legs.map((l) => (
               <NearbyLeg key={`${l.number}-${l.dep}`} leg={l} />
             ))}
-          </ul>
+          </FlightList>
           {!day.complete && <p className={`text-xs ${mutedCls}`}>{t("partial")}</p>}
           {links && (
             <p className="mt-1 flex flex-wrap gap-2">

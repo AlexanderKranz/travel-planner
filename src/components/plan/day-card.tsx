@@ -2,7 +2,9 @@ import { useFormatter, useTranslations } from "next-intl";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import type { Plan, PlanActivity, PlanDay, PlanStop } from "@/lib/domain/plan";
 import { placeHref } from "@/lib/facts/sources";
-import { windowKind } from "./helpers";
+import { StatusBadge } from "@/components/items/status-badge";
+import { mergeDayRows, timeRange, type FixedItem } from "@/lib/plan/fixed-items";
+import { DRIVE_ONLY, windowKind } from "./helpers";
 
 /** Owner-only slot: "+ item" next to a referenced place (bound to its day by DayCard). */
 type QuickAdd = (place: Plan["places"][string], ref: string) => React.ReactNode;
@@ -61,7 +63,7 @@ function DriveBadge({ place }: { place: Plan["places"][string] }) {
     date: f.dateTime(new Date(place.drive.fetchedAt), { dateStyle: "medium" }),
   });
   return (
-    <span className={`whitespace-nowrap text-xs tabular-nums ${mutedCls}`} title={title}>
+    <span className={`${DRIVE_ONLY} whitespace-nowrap text-xs tabular-nums ${mutedCls}`} title={title}>
       {t("drive", { min: place.drive.min })}
       <span className="sr-only"> ({title})</span>
     </span>
@@ -82,48 +84,71 @@ function Activity({
   const place = act.ref ? places[act.ref] : undefined;
   const alts = place ? (act.alts ?? []).flatMap((k) => (places[k] ? [places[k]] : [])) : [];
   const time = act.at ? (act.until ? `${act.at}–${act.until}` : act.at) : null;
+  const add = quickAdd && place && act.ref ? quickAdd(place, act.ref) : null;
+  // The quick add sits in a reserved right column, so the text never wraps around it (spec timed-items [D14]).
   return (
-    <li className="min-w-0 break-words">
-      {time && <span className="mr-1.5 font-medium tabular-nums">{time}</span>}
+    <li className={add ? "group/act grid min-w-0 grid-cols-[minmax(0,1fr)_2.75rem] items-start gap-x-1" : "min-w-0"}>
+      <div className="min-w-0 break-words">
+        {time && <span className="mr-1.5 font-medium tabular-nums">{time}</span>}
+        <span
+          className={`mr-1.5 rounded bg-neutral-100 px-1.5 py-px align-middle text-[0.7rem] font-medium uppercase tracking-wide dark:bg-neutral-800 ${mutedCls}`}
+        >
+          {t(`kinds.${act.kind}`)}
+        </span>
+        {place && (
+          <>
+            <PlaceLink place={place} strong />
+            {" · "}
+          </>
+        )}
+        {act.text}
+        {place &&
+          (place.drive ? (
+            <>
+              {" "}
+              <DriveBadge place={place} />
+            </>
+          ) : (
+            <span className={`ml-1 text-xs ${mutedCls}`}>({t("distance", { km: f.number(place.distanceKm, { maximumFractionDigits: 1 }) })})</span>
+          ))}
+        {alts.length > 0 && (
+          <span className={`block text-xs ${mutedCls}`}>
+            {t("alternatives")}{" "}
+            {alts.map((p, i) => (
+              <span key={i}>
+                {i > 0 && " · "}
+                <PlaceLink place={p} />
+                {p.drive && (
+                  <>
+                    {" "}
+                    <DriveBadge place={p} />
+                  </>
+                )}
+              </span>
+            ))}
+          </span>
+        )}
+      </div>
+      {add && <div className="-my-2.5 flex justify-end">{add}</div>}
+    </li>
+  );
+}
+
+/** A booked/planned item at its time (rendered from trip items, not from the plan JSON). */
+function FixedRow({ item }: { item: FixedItem }) {
+  const t = useTranslations("plan");
+  const ti = useTranslations("items");
+  return (
+    <li className="min-w-0 break-words rounded-md border-l-4 border-green-700 bg-green-50/60 py-1 pl-2 pr-1 dark:border-green-400 dark:bg-green-950/40" data-fixed-item={item.id}>
+      <span className="mr-1.5 font-medium tabular-nums">{timeRange(item.from, item.to)}</span>
       <span
         className={`mr-1.5 rounded bg-neutral-100 px-1.5 py-px align-middle text-[0.7rem] font-medium uppercase tracking-wide dark:bg-neutral-800 ${mutedCls}`}
       >
-        {t(`kinds.${act.kind}`)}
+        {ti(`categories.${item.category}`)}
       </span>
-      {place && (
-        <>
-          <PlaceLink place={place} strong />
-          {" · "}
-        </>
-      )}
-      {act.text}
-      {place && (
-        <span className={`ml-1 inline-flex flex-wrap items-baseline gap-x-1.5 text-sm ${mutedCls}`}>
-          {place.drive ? (
-            <DriveBadge place={place} />
-          ) : (
-            <span className="text-xs">({t("distance", { km: f.number(place.distanceKm, { maximumFractionDigits: 1 }) })})</span>
-          )}
-          {quickAdd && act.ref && quickAdd(place, act.ref)}
-        </span>
-      )}
-      {alts.length > 0 && (
-        <span className={`block text-xs ${mutedCls}`}>
-          {t("alternatives")}{" "}
-          {alts.map((p, i) => (
-            <span key={i}>
-              {i > 0 && " · "}
-              <PlaceLink place={p} />
-              {p.drive && (
-                <>
-                  {" "}
-                  <DriveBadge place={p} />
-                </>
-              )}
-            </span>
-          ))}
-        </span>
-      )}
+      <span className="mr-1.5 font-medium">{item.title}</span>
+      <span className="sr-only">({t("fixedItem")})</span>
+      <StatusBadge status={item.status} />
     </li>
   );
 }
@@ -157,11 +182,14 @@ export function DayCard({
   day,
   places,
   changed,
+  fixed = [],
   renderQuickAdd,
 }: {
   day: PlanDay;
   places: Plan["places"];
   changed?: boolean;
+  /** Booked/planned trip items with day + start time; merged into this day's rows in time order. */
+  fixed?: FixedItem[];
   renderQuickAdd?: (place: Plan["places"][string], ref: string, day: number) => React.ReactNode;
 }) {
   const t = useTranslations("plan");
@@ -203,7 +231,7 @@ export function DayCard({
               </span>
             )}
           </h3>
-          {day.stops.map((stop, i) => {
+          {mergeDayRows(day, fixed).map(({ stop, rows }, i) => {
             const showHead = day.stops.length > 1 || stop.place !== day.title || windowKind(stop.from, stop.to) || stop.fixed;
             return (
               <div key={i} className="flex min-w-0 flex-col gap-1">
@@ -213,16 +241,20 @@ export function DayCard({
                     <WindowBadge stop={stop} />
                   </p>
                 )}
-                {stop.acts.length > 0 && (
+                {rows.length > 0 && (
                   <ul className="flex flex-col gap-1 text-sm">
-                    {stop.acts.map((a, j) => (
-                      <Activity
-                        key={j}
-                        act={a}
-                        places={places}
-                        quickAdd={renderQuickAdd && ((p, ref) => renderQuickAdd(p, ref, day.n))}
-                      />
-                    ))}
+                    {rows.map((r, j) =>
+                      r.kind === "fixed" ? (
+                        <FixedRow key={`f-${r.item.id}`} item={r.item} />
+                      ) : (
+                        <Activity
+                          key={j}
+                          act={r.act}
+                          places={places}
+                          quickAdd={renderQuickAdd && ((p, ref) => renderQuickAdd(p, ref, day.n))}
+                        />
+                      ),
+                    )}
                   </ul>
                 )}
               </div>
@@ -252,12 +284,12 @@ export function DayCard({
               </a>{" "}
               · {t("checked", { date: f.dateTime(new Date(fetchedAt), { dateStyle: "medium" }) })}
               {hasDrive && (
-                <>
+                <span className={DRIVE_ONLY}>
                   {" · "}
                   <a href="https://openrouteservice.org/" target="_blank" rel="noopener noreferrer" className={linkCls}>
                     {t("driveCredit")}
                   </a>
-                </>
+                </span>
               )}
             </p>
           )}

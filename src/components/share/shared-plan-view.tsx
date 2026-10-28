@@ -9,6 +9,8 @@ import { PlanNotes, PlanOpenItems, PlanPacking } from "@/components/plan/plan-li
 import { PdfButton } from "@/components/pdf/pdf-button";
 import { mutedCls } from "@/components/ui/styles";
 import type { PlanDocument } from "@/lib/domain/share";
+import { fixedItemsOf } from "@/lib/plan/fixed-items";
+import { DriveTimesScope } from "@/components/plan/drive-times-scope";
 
 /** Read-only plan for the public share page. Imports no owner server actions. */
 export function SharedPlanView({ doc, token, uiLocale }: { doc: PlanDocument; token: string; uiLocale: string }) {
@@ -19,6 +21,8 @@ export function SharedPlanView({ doc, token, uiLocale }: { doc: PlanDocument; to
   const h = plan.header;
   const startDate = h.timing.kind === "date" ? h.timing.startDate : null;
   const tp = useTranslations("plan");
+  // Same merged rows as the owner view; only when the link shares items [D9].
+  const fixed = doc.items ? fixedItemsOf(doc.items, plan.days.length) : [];
   return (
     <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-4 px-4 py-4 sm:py-6">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-sm">
@@ -28,12 +32,17 @@ export function SharedPlanView({ doc, token, uiLocale }: { doc: PlanDocument; to
         <PdfButton href={`/api/share/${token}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} />
       </div>
       <h1 className="text-2xl font-bold">{h.title}</h1>
-      <PlanHeader plan={plan} uiLocale={uiLocale} readOnly />
-      <ol className="flex flex-col gap-3" aria-label={tp("daysLabel")}>
-        {plan.days.map((d) => (
-          <DayCard key={d.n} day={d} places={plan.places} />
-        ))}
-      </ol>
+      <DriveTimesScope
+        hasDrive={Object.values(plan.places).some((p) => p.drive)}
+        className="flex min-w-0 flex-col gap-4"
+        header={<PlanHeader plan={plan} uiLocale={uiLocale} readOnly />}
+      >
+        <ol className="flex flex-col gap-3" aria-label={tp("daysLabel")}>
+          {plan.days.map((d) => (
+            <DayCard key={d.n} day={d} places={plan.places} fixed={fixed} />
+          ))}
+        </ol>
+      </DriveTimesScope>
       {plan.flights && <PlanFlights flights={plan.flights} />}
       <PlanNotes notes={plan.notes} />
       <PlanOpenItems items={plan.openItems} done={doc.openDone} />

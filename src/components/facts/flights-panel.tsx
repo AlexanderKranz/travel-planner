@@ -3,7 +3,8 @@ import type { Fact, FlightLeg, FlightPair, FlightsFacts } from "@/lib/domain";
 import { Link } from "@/i18n/navigation";
 import { btnSecondary, cardCls, linkCls, mutedCls } from "@/components/ui/styles";
 import { flightLinks } from "@/lib/flights/links";
-import { durationParts, legsOfPair, limitHours, pairState, type PairState } from "@/lib/flights/ui";
+import { legsOfPair, limitHours, pairState, type PairState } from "@/lib/flights/ui";
+import { FlightList, FlightRow } from "@/components/flights/flight-row";
 import { FlightsNearby, canCheckNearby } from "./flights-nearby";
 import { FactUnavailable } from "./fact-unavailable";
 import { SourceNote } from "./source-note";
@@ -20,23 +21,9 @@ const badgeCls: Record<PairState, string> = {
 
 function LegRow({ leg, maxBlockMin }: { leg: FlightLeg; maxBlockMin: number | null }) {
   const t = useTranslations("facts.flights");
-  const { h, m } = durationParts(leg.blockMin);
   const days = new Set(leg.weekdays ?? []);
-  return (
-    <li
-      className={`flex flex-wrap items-center gap-x-3 gap-y-1 py-1.5 text-sm ${leg.tooLong ? "text-neutral-600 dark:text-neutral-400" : ""}`}
-    >
-      <span className="min-w-0 basis-40 grow font-medium sm:grow-0">
-        <span className="whitespace-nowrap">{leg.number}</span>
-        {leg.airline && <span className={`ml-1 font-normal ${mutedCls}`}>{leg.airline}</span>}
-      </span>
-      <span className="whitespace-nowrap tabular-nums">
-        {leg.dep} → {leg.arr}
-        {leg.arrDayOffset === 1 && <sup className="ml-0.5 text-xs">{t("nextDay")}</sup>}
-        <span className="mx-1.5" aria-hidden="true">·</span>
-        <span className="sr-only">{t("duration")}: </span>
-        {t("hm", { h, m })}
-      </span>
+  const extras = (
+    <>
       {leg.weekdays && leg.weekdays.length > 0 && (
         <span className="flex items-center gap-1">
           <span className="sr-only">{t("operatingOn")}: </span>
@@ -57,25 +44,26 @@ function LegRow({ leg, maxBlockMin }: { leg: FlightLeg; maxBlockMin: number | nu
         </span>
       )}
       {leg.operatingDays && (
-        <span className={`text-xs ${mutedCls}`}>{t("operatingDays", { days: leg.operatingDays.days, of: leg.operatingDays.of })}</span>
+        <span className="text-xs">{t("operatingDays", { days: leg.operatingDays.days, of: leg.operatingDays.of })}</span>
       )}
       {leg.tooLong && maxBlockMin != null && (
         <span className="text-xs font-medium">{t("tooLong", { h: limitHours(maxBlockMin) })}</span>
       )}
-    </li>
+    </>
   );
+  return <FlightRow leg={leg} extras={extras} showAirline />;
 }
 
 function Direction({ title, legs, maxBlockMin }: { title: string; legs: FlightLeg[]; maxBlockMin: number | null }) {
   if (legs.length === 0) return null;
   return (
     <div>
-      <h5 className="text-xs font-semibold uppercase tracking-wide text-neutral-600 dark:text-neutral-400">{title}</h5>
-      <ul className="divide-y divide-neutral-200 dark:divide-neutral-800">
+      <h5 className="text-sm font-semibold">{title}</h5>
+      <FlightList withAction={false}>
         {legs.map((l) => (
           <LegRow key={`${l.number}-${l.date}-${l.dep}`} leg={l} maxBlockMin={maxBlockMin} />
         ))}
-      </ul>
+      </FlightList>
     </div>
   );
 }
@@ -84,7 +72,7 @@ function PairCard({ pair, data, adults, locale, tripId }: { pair: FlightPair; da
   const t = useTranslations("facts.flights");
   const f = useFormatter();
   const state = pairState(pair, data.mode, data.legs);
-  const date = (iso: string, opts: { dateStyle?: "medium"; day?: "numeric"; month?: "short" | "long"; year?: "numeric" }) => f.dateTime(new Date(`${iso}T12:00:00Z`), { timeZone: "UTC", ...opts });
+  const date = (iso: string, opts: { dateStyle?: "medium"; weekday?: "short"; day?: "numeric"; month?: "short" | "long"; year?: "numeric" }) => f.dateTime(new Date(`${iso}T12:00:00Z`), { timeZone: "UTC", ...opts });
   const out = legsOfPair(pair, data.legs, "out");
   const back = legsOfPair(pair, data.legs, "back");
   const hasFound = pair.status === "found";
@@ -124,8 +112,16 @@ function PairCard({ pair, data, adults, locale, tripId }: { pair: FlightPair; da
       )}
       {(out.length > 0 || back.length > 0) && (
         <div className="mt-2 flex flex-col gap-2">
-          <Direction title={t("outbound", { date: date(data.outDate, { day: "numeric", month: "short" }) })} legs={out} maxBlockMin={data.maxBlockMin} />
-          <Direction title={t("inbound", { date: date(data.backDate, { day: "numeric", month: "short" }) })} legs={back} maxBlockMin={data.maxBlockMin} />
+          <Direction
+            title={t("groupOut", { date: date(data.outDate, { weekday: "short", day: "numeric", month: "long" }), route: `${pair.from} → ${pair.to}` })}
+            legs={out}
+            maxBlockMin={data.maxBlockMin}
+          />
+          <Direction
+            title={t("groupBack", { date: date(data.backDate, { weekday: "short", day: "numeric", month: "long" }), route: `${pair.to} → ${pair.from}` })}
+            legs={back}
+            maxBlockMin={data.maxBlockMin}
+          />
         </div>
       )}
       {canCheckNearby(pair, data) && (
@@ -202,7 +198,7 @@ export function FlightsPanel({ fact, tripId, adults, locale }: { fact: Fact<Flig
       {d.gateways.length === 0 || d.pairs.length === 0 ? (
         <p className="text-sm">{t("noGateway")}</p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="grid gap-3 xl:grid-cols-2">
           {d.pairs.map((p) => (
             <PairCard key={`${p.from}-${p.to}`} pair={p} data={d} adults={adults} locale={locale} tripId={tripId} />
           ))}

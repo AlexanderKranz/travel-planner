@@ -10,6 +10,7 @@ import type { TripItem } from "@/lib/domain/items";
 import { deleteItem } from "@/lib/server/items";
 import { ItemError } from "./item-error";
 import { ItemForm } from "./item-form";
+import type { ItemFormCtx } from "./helpers";
 
 /** Edit and delete for one item (owner only). */
 export function ItemActions({
@@ -17,12 +18,9 @@ export function ItemActions({
   tripId,
   lengthDays,
   partySize,
-}: {
-  item: TripItem;
-  tripId: string;
-  lengthDays: number;
-  partySize: number | null;
-}) {
+  startDate,
+  flights,
+}: ItemFormCtx & { item: TripItem }) {
   const t = useTranslations("items");
   const router = useRouter();
   const [edit, setEdit] = useState(false);
@@ -50,7 +48,7 @@ export function ItemActions({
       <div aria-live="polite" className="w-full empty:hidden">
         <ItemError error={error} />
       </div>
-      {edit && <ItemForm tripId={tripId} lengthDays={lengthDays} partySize={partySize} item={item} onClose={() => setEdit(false)} />}
+      {edit && <ItemForm tripId={tripId} lengthDays={lengthDays} partySize={partySize} startDate={startDate} flights={flights} item={item} onClose={() => setEdit(false)} />}
       {confirm && (
         <ConfirmDialog
           open

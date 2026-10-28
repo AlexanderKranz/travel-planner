@@ -38,11 +38,12 @@ export function TripContext({
   const airports = trip.originAirports.length > 0 ? trip.originAirports : profileAirports;
 
   return (
-    <section aria-labelledby="context-title" className={`${cardCls} flex flex-col gap-4`}>
-      <h2 id="context-title" className="text-lg font-semibold">
+    // Compact strip (spec timed-items [D16]): 3 columns from lg (group, purpose, flights), stacked on phones.
+    <section aria-labelledby="context-title" className={`${cardCls} grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-x-6`}>
+      <h2 id="context-title" className="text-lg font-semibold sm:col-span-2 lg:col-span-3">
         {t("context")}
       </h2>
-      <div>
+      <div className="min-w-0">
         <h3 className="font-medium">{t("group")}</h3>
         {group ? (
           <>
@@ -52,7 +53,7 @@ export function TripContext({
               </Link>
             </p>
             <p className={`text-sm ${mutedCls}`}>{tp("title", { date: ageDate })}</p>
-            <ul className="mt-1 flex flex-col gap-1 text-sm">
+            <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
               {group.ages.map((row, i) => {
                 const who = row.kind === "composition" ? (row.label ?? tp("person")) : row.isSelf ? tp("me") : (row.name ?? row.label ?? tp("person"));
                 return (
@@ -68,7 +69,7 @@ export function TripContext({
           <p className={`text-sm ${mutedCls}`}>{t("noGroup")}</p>
         )}
       </div>
-      <div>
+      <div className="min-w-0">
         <h3 className="font-medium">{t("purpose")}</h3>
         {purpose ? (
           <>
@@ -92,7 +93,7 @@ export function TripContext({
           <p className={`text-sm ${mutedCls}`}>{t("noPurpose")}</p>
         )}
       </div>
-      <div>
+      <div className="min-w-0">
         <h3 className="font-medium">{t("flights")}</h3>
         {!trip.wantsFlights ? (
           <p className={`text-sm ${mutedCls}`}>{t("flightsOff")}</p>
@@ -105,7 +106,7 @@ export function TripContext({
         )}
       </div>
       {trip.notes && (
-        <div>
+        <div className="min-w-0 sm:col-span-2 lg:col-span-3">
           <h3 className="font-medium">{t("notes")}</h3>
           <p className="whitespace-pre-line break-words text-sm">{trip.notes}</p>
         </div>
