@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BirthDate, optionalText } from "./common";
+import { GROUP_TEXT_MAX, type GroupParse } from "./group-text";
 
 export const AgeMode = z.enum(["exact", "approx", "relativeToMe"]);
 export type AgeMode = z.infer<typeof AgeMode>;
@@ -79,6 +80,8 @@ export const TravelGroupInput = z
   .object({
     name: z.string().trim().min(1).max(80),
     notes: optionalText(2000),
+    /** Free-text description of who travels ("5 friends, all my age"); Haiku turns it into a structure. */
+    description: optionalText(GROUP_TEXT_MAX),
     /** Which optional details are relevant for this group (ordered, duplicates dropped). */
     traitKeys: z
       .array(z.enum(TRAIT_KEYS))
@@ -103,6 +106,9 @@ export type TravelGroup = {
   id: string;
   name: string;
   notes?: string;
+  description?: string;
+  /** Haiku parse of `description`; set only when it belongs to the current text (hash match), else undefined. */
+  parse?: GroupParse;
   traitKeys: TraitKey[];
   createdAt: string;
   updatedAt: string;
@@ -113,6 +119,7 @@ export type TravelGroupSummary = {
   id: string;
   name: string;
   notes?: string;
+  description?: string;
   entryCount: number;
   updatedAt: string;
 };

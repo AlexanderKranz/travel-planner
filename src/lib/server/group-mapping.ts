@@ -1,4 +1,13 @@
 import { EntryTraits, type GroupEntry, type StoredEntry } from "@/lib/domain/group";
+import { GroupParse } from "@/lib/domain/group-text";
+import { groupTextHash } from "@/lib/plan/hash";
+
+/** A cached Haiku parse, only if it belongs to exactly this text (hash match) and is valid; else undefined. */
+export function cachedParse(text: string | null, raw: unknown, hash: string | null): GroupParse | undefined {
+  if (!text || !raw || hash !== groupTextHash(text)) return undefined;
+  const parsed = GroupParse.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
+}
 
 /** snake_case row of public.group_entries. */
 export type GroupEntryRow = {

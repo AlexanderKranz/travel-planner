@@ -3,7 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Plan, PlanFlights } from "@/lib/domain/plan";
 import type { SharedItem } from "@/lib/domain/items";
 import type { PlanDocument } from "@/lib/domain/share";
-import { computeCosts, partySize } from "@/lib/items/costs";
+import { berlinToday } from "@/lib/date";
+import { groupPartySize, resolveGroup, tripGroupSource, type GroupSource } from "@/lib/group-text";
+import { computeCosts } from "@/lib/items/costs";
+import { cachedParse } from "./group-mapping";
+import { rowToGroupStructure, type TripRow } from "./trip-mapping";
 import { logEvent } from "./events";
 import {
   ITEM_COLUMNS,
@@ -44,13 +48,39 @@ export function buildPlanDocument(parts: PlanDocumentParts): PlanDocument {
   };
 }
 
+const PARTY_TRIP_COLUMNS = "group_id, group_text, group_structure, group_parsed, group_parsed_hash";
+type PartyTripRow = Pick<TripRow, "group_id" | "group_text" | "group_structure" | "group_parsed" | "group_parsed_hash">;
+
+/**
+ * Party size from the same resolution as the plan input (saved entries > parse > text only), see lib/group-text.
+ * Explicit column lists: only what the count needs (the shared path calls this with the secret key).
+ */
 async function loadPartySize(sb: SupabaseClient, tripId: string): Promise<number | null> {
-  const { data: trip, error } = await sb.from("trips").select("group_id").eq("id", tripId).maybeSingle<{ group_id: string | null }>();
+  const { data: row, error } = await sb.from("trips").select(PARTY_TRIP_COLUMNS).eq("id", tripId).maybeSingle<PartyTripRow>();
   if (error) throw new Error("trip read failed");
-  if (!trip?.group_id) return null;
-  const { data, error: e2 } = await sb.from("group_entries").select("count").eq("group_id", trip.group_id).returns<{ count: number }[]>();
-  if (e2) throw new Error("group read failed");
-  return partySize(data.map((r) => r.count));
+  if (!row) return null;
+  let source: GroupSource | null = tripGroupSource({
+    groupText: row.group_text ?? undefined,
+    groupStructure: rowToGroupStructure(row.group_structure),
+    groupParse: cachedParse(row.group_text, row.group_parsed, row.group_parsed_hash),
+  });
+  if (row.group_id) {
+    const [{ data: g, error: e1 }, { data: entries, error: e2 }] = await Promise.all([
+      sb.from("travel_groups").select("description, parsed_structure, parsed_hash").eq("id", row.group_id).maybeSingle<{ description: string | null; parsed_structure: unknown; parsed_hash: string | null }>(),
+      sb.from("group_entries").select("kind, count").eq("group_id", row.group_id).returns<{ kind: "composition" | "member"; count: number }[]>(),
+    ]);
+    if (e1 || e2) throw new Error("group read failed");
+    source = g
+      ? {
+          entries: entries.map((e) => ({ kind: e.kind, count: e.count })),
+          traitKeys: [],
+          description: g.description ?? undefined,
+          parse: cachedParse(g.description, g.parsed_structure, g.parsed_hash),
+        }
+      : null;
+  }
+  // Counts do not depend on ages, so any date will do.
+  return source ? groupPartySize(resolveGroup(source, berlinToday())) : null;
 }
 
 type OwnerError = "unauthenticated" | "not_found" | "no_plan" | "failed";

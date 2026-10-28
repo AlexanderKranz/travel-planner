@@ -1,7 +1,12 @@
+import { z } from "zod";
+import { IsoDate } from "@/lib/domain/common";
+import { StatedAge } from "@/lib/domain/group";
+import { cachedParse } from "./group-mapping";
 import {
   DEFAULT_RADIUS_KM,
   type Destination,
   type Trip,
+  type TripGroupEntry,
   type TripInputParsed,
   type TripSummary,
   type TripTiming,
@@ -26,6 +31,11 @@ export type TripRow = {
   start_date: string | null;
   months: number[];
   group_id: string | null;
+  /** One-off group (spec group-text): free text, the user's corrected structure, and the Haiku parse cache. */
+  group_text: string | null;
+  group_structure: unknown;
+  group_parsed: unknown;
+  group_parsed_hash: string | null;
   purpose_id: string | null;
   wants_flights: boolean;
   origin_airports: string[];
@@ -35,10 +45,26 @@ export type TripRow = {
 };
 
 export const TRIP_COLUMNS =
-  "id, title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_country_code, dest_admin1, dest_lat, dest_lon, dest_timezone, dest_radius_km, length_days, start_date, months, group_id, purpose_id, wants_flights, origin_airports, notes, created_at, updated_at";
+  "id, title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_country_code, dest_admin1, dest_lat, dest_lon, dest_timezone, dest_radius_km, length_days, start_date, months, group_id, group_text, group_structure, group_parsed, group_parsed_hash, purpose_id, wants_flights, origin_airports, notes, created_at, updated_at";
 
-/** The writable columns (everything except id, owner_id and the timestamps). */
-export type TripWrite = Omit<TripRow, "id" | "created_at" | "updated_at">;
+/** The writable columns (everything except id, owner_id, the timestamps and the server-written parse cache). */
+export type TripWrite = Omit<TripRow, "id" | "created_at" | "updated_at" | "group_parsed" | "group_parsed_hash">;
+
+const StoredStructure = z.array(
+  z.object({
+    count: z.number().int().min(1).max(50),
+    label: z.string().optional(),
+    notes: z.string().optional(),
+    age: StatedAge.optional(),
+    ageAsOf: IsoDate.optional(),
+  }),
+);
+
+export function rowToGroupStructure(raw: unknown): TripGroupEntry[] {
+  const parsed = StoredStructure.safeParse(raw ?? []);
+  return parsed.success ? parsed.data : [];
+}
+
 
 export function rowToDestination(row: TripRow): Destination {
   if (
@@ -77,6 +103,9 @@ export function rowToTrip(row: TripRow): Trip {
     lengthDays: row.length_days,
     timing: rowToTiming(row),
     groupId: row.group_id,
+    groupText: row.group_text ?? undefined,
+    groupStructure: rowToGroupStructure(row.group_structure),
+    groupParse: cachedParse(row.group_text, row.group_parsed, row.group_parsed_hash),
     purposeId: row.purpose_id,
     wantsFlights: row.wants_flights,
     originAirports: row.origin_airports,
@@ -101,7 +130,7 @@ export function rowToSummary(row: TripSummaryRow): TripSummary {
     lengthDays: trip.lengthDays,
     timing: trip.timing,
     updatedAt: trip.updatedAt,
-    groupName: row.travel_groups?.name ?? null,
+    groupName: row.travel_groups?.name ?? (row.group_text ? row.group_text.slice(0, 40) : null),
     purposeName: row.trip_purposes?.name ?? null,
   };
 }
@@ -117,7 +146,35 @@ export function normalizeCountryCode(code: string | null | undefined): string | 
   return c && /^[A-Z]{2}$/.test(c) ? c : null;
 }
 
-export function buildTripWrite(input: TripInputParsed, place: GeoPlace | null): TripWrite {
+/**
+ * Corrected structure of the one-off group as stored. A numeric age gets `ageAsOf` = today, unless the entry at the
+ * same position kept the same stated age (then the old date stays, so the age keeps advancing from the statement).
+ */
+export function buildGroupStructure(
+  entries: TripInputParsed["groupStructure"],
+  existing: unknown,
+  today: string,
+): Record<string, unknown>[] {
+  const before = rowToGroupStructure(existing);
+  return entries.map((e, i) => {
+    const numeric = e.age && e.age.ageMode !== "relativeToMe" ? e.age : undefined;
+    const prev = before[i]?.age;
+    const same = numeric && prev && prev.ageMode === numeric.ageMode && "age" in prev && prev.age === numeric.age;
+    return {
+      count: e.count,
+      ...(e.label ? { label: e.label } : {}),
+      ...(e.notes ? { notes: e.notes } : {}),
+      ...(e.age ? { age: e.age } : {}),
+      ...(numeric ? { ageAsOf: same && before[i]?.ageAsOf ? before[i].ageAsOf : today } : {}),
+    };
+  });
+}
+
+export function buildTripWrite(
+  input: TripInputParsed,
+  place: GeoPlace | null,
+  opts: { today?: string; existing?: Pick<TripRow, "group_structure"> | null } = {},
+): TripWrite {
   const d = input.destination;
   const geo =
     d.kind === "freetext" || !place
@@ -152,6 +209,12 @@ export function buildTripWrite(input: TripInputParsed, place: GeoPlace | null): 
     start_date: t.kind === "date" ? t.startDate : null,
     months: t.kind === "months" ? t.months : [],
     group_id: input.groupId,
+    // Mutually exclusive with group_id (also a DB check). Without text there is no structure.
+    group_text: input.groupId ? null : (input.groupText ?? null),
+    group_structure:
+      input.groupId || !input.groupText || input.groupStructure.length === 0
+        ? null
+        : buildGroupStructure(input.groupStructure, opts.existing?.group_structure, opts.today ?? new Date().toISOString().slice(0, 10)),
     purpose_id: input.purposeId,
     wants_flights: input.wantsFlights,
     origin_airports: input.originAirports,

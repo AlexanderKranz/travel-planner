@@ -10,6 +10,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "evals:live": "EVAL_LIVE=1 vitest run --config evals/vitest.config.ts evals/live.eval.ts",
+    "evals:group-text": "EVAL_LIVE=1 vitest run --config evals/vitest.config.ts evals/group-text.eval.ts",
     "typecheck": "tsc --noEmit",
     "airports:build": "node scripts/airports/build.mjs",
     "countries:build": "node scripts/countries/build.mjs",

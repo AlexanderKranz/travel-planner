@@ -8,6 +8,7 @@ export type AiModel = typeof MODEL_PLAN | typeof MODEL_TAGS;
 /** Bump when the system rules or the input/output shape change (part of the input hashes). */
 export const PLAN_PROMPT_VERSION = "plan-4";
 export const TAGS_PROMPT_VERSION = "tags-1";
+export const GROUP_PROMPT_VERSION = "group-1";
 
 /**
  * USD per 1M tokens (spec 4.4). tokens × price = micro-USD.
@@ -18,7 +19,7 @@ export const PRICES: Record<AiModel, { input: number; output: number; cacheWrite
   [MODEL_TAGS]: { input: 0.1, output: 0.5, cacheWrite: 0.125, cacheRead: 0.01 },
 };
 
-export type AiTask = "purpose_tags" | "plan_generate" | "plan_patch";
+export type AiTask = "purpose_tags" | "group_parse" | "plan_generate" | "plan_patch";
 export type AiUsageStatus = "ok" | "refusal" | "max_tokens" | "invalid_output" | "error";
 
 /** Metadata of one Claude call, logged to `ai_usage`. Never prompt or response content. */

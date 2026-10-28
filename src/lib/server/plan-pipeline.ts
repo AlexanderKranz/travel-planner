@@ -3,7 +3,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { berlinToday } from "@/lib/date";
 import { MODEL_PLAN, type AiCtx } from "@/lib/domain/ai";
-import type { TravelGroup } from "@/lib/domain/group";
 import {
   MAX_PLAN_DAYS,
   Plan,
@@ -18,7 +17,8 @@ import type { ActionError } from "@/lib/domain/result";
 import type { Trip } from "@/lib/domain/trip";
 import { applyEdit } from "@/lib/plan/edit";
 import { canonicalJson, planInputHash } from "@/lib/plan/hash";
-import { buildPlanInput, selectPlaces } from "@/lib/plan/input";
+import { tripGroupSource } from "@/lib/group-text";
+import { buildPlanInput, selectPlaces, type GroupContext } from "@/lib/plan/input";
 import { interestsForTrip } from "@/lib/facts/interest-sources";
 import { placesPending } from "@/lib/plan/places-pending";
 import { applyPatch } from "@/lib/plan/patch";
@@ -85,7 +85,7 @@ export type PlanContext = {
   birthdate: string | null;
   homeAirports: string[];
   trip: Trip;
-  group: TravelGroup | null;
+  group: GroupContext | null;
   purpose: TripPurpose | null;
 };
 
@@ -100,11 +100,15 @@ export async function loadPlanContext(tripId: string): Promise<{ ok: true; ctx: 
   if (!tripRes.ok) return err(tripRes.error === "not_found" || tripRes.error === "invalid" ? "not_found" : "failed");
   if (!profile.ok) return err("failed");
   const trip = tripRes.data;
-  let group: TravelGroup | null = null;
+  let group: GroupContext | null = null;
   let purpose: TripPurpose | null = null;
   if (trip.groupId) {
     const g = await getGroup(trip.groupId);
     if (g.ok) group = g.data;
+  } else {
+    // One-off group of the trip: free text, corrected structure and Haiku parse live on the trip itself.
+    const src = tripGroupSource(trip);
+    if (src) group = { ...src, updatedAt: trip.updatedAt };
   }
   if (trip.purposeId) {
     const p = await getPurpose(trip.purposeId);

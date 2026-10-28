@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { MODEL_PLAN, PLAN_PROMPT_VERSION, TAGS_PROMPT_VERSION } from "@/lib/domain/ai";
+import { GROUP_PROMPT_VERSION, MODEL_PLAN, PLAN_PROMPT_VERSION, TAGS_PROMPT_VERSION } from "@/lib/domain/ai";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import { isInterestKey } from "@/lib/facts/interest-sources";
 import type { PlanInput } from "./input";
@@ -44,4 +44,9 @@ export function purposeTagsHash(p: Pick<TripPurpose, "text" | "constraints" | "g
       custom: customGuidedInterests(p),
     }),
   );
+}
+
+/** sha256 hex of `{ p: GROUP_PROMPT_VERSION, text }` (whitespace-normalised): the cache key of a group text parse. */
+export function groupTextHash(text: string): string {
+  return sha256(canonicalJson({ p: GROUP_PROMPT_VERSION, text: text.replace(/\s+/g, " ").trim() }));
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TripInput } from "@/lib/domain/trip";
 import type { GeoPlace } from "@/lib/domain/geo";
+import { groupTextHash } from "@/lib/plan/hash";
 import { buildTripWrite, factsInputsChanged, rowToTrip, type TripRow } from "./trip-mapping";
 
 const place: GeoPlace = {
@@ -93,6 +94,10 @@ const row: TripRow = {
   start_date: null,
   months: [3],
   group_id: null,
+  group_text: null,
+  group_structure: null,
+  group_parsed: null,
+  group_parsed_hash: null,
   purpose_id: null,
   wants_flights: true,
   origin_airports: [],
@@ -137,5 +142,63 @@ describe("normalizeCountryCode", () => {
     expect(_ncc("DEU")).toBeNull();
     expect(_ncc("")).toBeNull();
     expect(_ncc(null)).toBeNull();
+  });
+});
+
+describe("one-off group (spec group-text)", () => {
+  const free = { destination: { kind: "freetext" as const, name: "Irgendwo" }, lengthDays: 3 };
+  const text = "Ich und Ben, ähnliches Alter";
+
+  it("is exclusive with a saved group in the schema", () => {
+    const gid = "22222222-2222-4222-8222-222222222222";
+    expect(TripInput.safeParse({ ...free, groupId: gid, groupText: text }).success).toBe(false);
+    expect(TripInput.safeParse({ ...free, groupId: gid }).success).toBe(true);
+    expect(TripInput.safeParse({ ...free, groupText: text }).success).toBe(true);
+    expect(TripInput.safeParse({ ...free }).success).toBe(true); // all context optional
+  });
+
+  it("a structure needs the text", () => {
+    const entry = { kind: "composition" as const, count: 2 };
+    expect(TripInput.safeParse({ ...free, groupStructure: [entry] }).success).toBe(false);
+    expect(TripInput.safeParse({ ...free, groupText: text, groupStructure: [entry] }).success).toBe(true);
+  });
+
+  it("writes text and structure; a saved group clears them", () => {
+    const entry = { kind: "composition" as const, count: 2, age: { ageMode: "exact" as const, age: 41 }, label: "Freunde" };
+    const w = buildTripWrite(TripInput.parse({ ...free, groupText: text, groupStructure: [entry] }), null, { today: "2026-10-29" });
+    expect(w.group_id).toBeNull();
+    expect(w.group_text).toBe(text);
+    expect(w.group_structure).toEqual([{ count: 2, label: "Freunde", age: { ageMode: "exact", age: 41 }, ageAsOf: "2026-10-29" }]);
+    const gid = "22222222-2222-4222-8222-222222222222";
+    const saved = buildTripWrite({ ...TripInput.parse({ ...free, groupId: gid }), groupText: text }, null);
+    expect(saved).toMatchObject({ group_id: gid, group_text: null, group_structure: null });
+    expect(buildTripWrite(TripInput.parse(free), null)).toMatchObject({ group_text: null, group_structure: null });
+  });
+
+  it("keeps the old ageAsOf when the stated age did not change, resets it otherwise", () => {
+    const existing = { group_structure: [{ count: 2, age: { ageMode: "exact", age: 41 }, ageAsOf: "2026-01-05" }] };
+    const same = TripInput.parse({ ...free, groupText: text, groupStructure: [{ kind: "composition", count: 3, age: { ageMode: "exact", age: 41 } }] });
+    expect((buildTripWrite(same, null, { today: "2026-10-29", existing }).group_structure as { ageAsOf: string }[])[0].ageAsOf).toBe("2026-01-05");
+    const changed = TripInput.parse({ ...free, groupText: text, groupStructure: [{ kind: "composition", count: 3, age: { ageMode: "exact", age: 42 } }] });
+    expect((buildTripWrite(changed, null, { today: "2026-10-29", existing }).group_structure as { ageAsOf: string }[])[0].ageAsOf).toBe("2026-10-29");
+    const relative = TripInput.parse({ ...free, groupText: text, groupStructure: [{ kind: "composition", count: 2, age: { ageMode: "relativeToMe" } }] });
+    expect(buildTripWrite(relative, null, { today: "2026-10-29" }).group_structure).toEqual([{ count: 2, age: { ageMode: "relativeToMe" } }]);
+  });
+
+  it("the cached parse is only used for the exact text it belongs to", () => {
+    const parse = { v: 1, travellers: [{ count: 2 }], notes: [] };
+    const base = { ...row, group_text: text, group_parsed: parse, group_parsed_hash: groupTextHash(text) };
+    expect(rowToTrip(base).groupParse).toEqual(parse);
+    expect(rowToTrip({ ...base, group_text: text + " und Oma" }).groupParse).toBeUndefined(); // text changed: stale
+    expect(rowToTrip({ ...base, group_parsed_hash: null }).groupParse).toBeUndefined();
+    expect(rowToTrip({ ...base, group_parsed: { v: 2 } }).groupParse).toBeUndefined(); // invalid shape
+    expect(rowToTrip({ ...base, group_text: `  ${text}\n` }).groupParse).toEqual(parse); // whitespace-insensitive
+  });
+
+  it("reads a stored structure and ignores a broken one", () => {
+    const ok = [{ count: 2, age: { ageMode: "approx", age: 40 }, ageAsOf: "2026-10-29" }];
+    expect(rowToTrip({ ...row, group_text: text, group_structure: ok }).groupStructure).toEqual(ok);
+    expect(rowToTrip({ ...row, group_text: text, group_structure: [{ count: 0 }] }).groupStructure).toEqual([]);
+    expect(rowToTrip(row).groupStructure).toEqual([]);
   });
 });

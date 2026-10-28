@@ -29,11 +29,13 @@ export type ResolvedEntry = {
   name?: string;
   isSelf: boolean;
   age: ResolvedAge;
+  /** Only for rows read from a group text; says adult/child/infant when no age is known. */
+  role?: "adult" | "child" | "infant";
 };
 
 const UNKNOWN: ResolvedAge = { status: "unknown" };
 
-function safeAgeOn(birthdate: string, travelDate: string): number | null {
+export function safeAgeOn(birthdate: string, travelDate: string): number | null {
   try {
     return ageOn(birthdate, travelDate);
   } catch (error) {

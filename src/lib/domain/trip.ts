@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { IsoDate, optionalText } from "./common";
+import { CompositionEntry, MAX_ENTRIES_PER_GROUP, type StatedAge } from "./group";
+import { GROUP_TEXT_MAX, type GroupParse } from "./group-text";
 import { HomeAirports } from "./profile";
 
 export const MAX_TRIP_DAYS = 60;
@@ -38,17 +40,30 @@ export const DestinationInput = z.discriminatedUnion("kind", [
   }),
 ]);
 
-export const TripInput = z.object({
-  title: optionalText(120),
-  destination: DestinationInput,
-  lengthDays: z.number().int().min(1).max(MAX_TRIP_DAYS),
-  timing: TripTimingInput.default({ kind: "none" }),
-  groupId: z.string().uuid().nullable().default(null),
-  purposeId: z.string().uuid().nullable().default(null),
-  wantsFlights: z.boolean().default(true),
-  originAirports: HomeAirports.default([]), // isKnownIata checked server-side
-  notes: optionalText(2000),
-});
+export const TripInput = z
+  .object({
+    title: optionalText(120),
+    destination: DestinationInput,
+    lengthDays: z.number().int().min(1).max(MAX_TRIP_DAYS),
+    timing: TripTimingInput.default({ kind: "none" }),
+    groupId: z.string().uuid().nullable().default(null),
+    /** One-off group for this trip only (free text); mutually exclusive with `groupId`. */
+    groupText: optionalText(GROUP_TEXT_MAX),
+    /** The user's corrected structure for `groupText`; wins over the Haiku parse. Empty = none. */
+    groupStructure: z.array(CompositionEntry).max(MAX_ENTRIES_PER_GROUP).default([]),
+    purposeId: z.string().uuid().nullable().default(null),
+    wantsFlights: z.boolean().default(true),
+    originAirports: HomeAirports.default([]), // isKnownIata checked server-side
+    notes: optionalText(2000),
+  })
+  .superRefine((trip, ctx) => {
+    if (trip.groupId && (trip.groupText || trip.groupStructure.length > 0)) {
+      ctx.addIssue({ code: "custom", path: ["groupText"], message: "Either a saved group or a one-off group" });
+    }
+    if (trip.groupStructure.length > 0 && !trip.groupText) {
+      ctx.addIssue({ code: "custom", path: ["groupStructure"], message: "Structure needs a description" });
+    }
+  });
 export type TripInput = z.input<typeof TripInput>;
 export type TripInputParsed = z.output<typeof TripInput>;
 
@@ -72,6 +87,16 @@ export type Destination =
     }
   | { kind: "freetext"; name: string; countryCode: string | null };
 
+/** Entry of the one-off group's corrected structure, as stored in trips.group_structure. */
+export type TripGroupEntry = {
+  count: number;
+  label?: string;
+  notes?: string;
+  age?: StatedAge;
+  /** Date a numeric age was entered (server-set), so it keeps advancing to the travel date. */
+  ageAsOf?: string;
+};
+
 export type Trip = {
   id: string;
   title?: string;
@@ -79,6 +104,12 @@ export type Trip = {
   lengthDays: number;
   timing: TripTiming;
   groupId: string | null;
+  /** One-off group text (no saved group). */
+  groupText?: string;
+  /** User-corrected structure of `groupText` (empty = none). */
+  groupStructure?: TripGroupEntry[];
+  /** Haiku parse of `groupText`; set only when it belongs to the current text, else undefined. */
+  groupParse?: GroupParse;
   purposeId: string | null;
   wantsFlights: boolean;
   originAirports: string[]; // as stored; empty = use profile

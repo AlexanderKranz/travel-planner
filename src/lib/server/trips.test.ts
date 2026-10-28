@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   getPlaceById: vi.fn(),
   warm: vi.fn(),
   logEvent: vi.fn(),
+  ensureParse: vi.fn(async () => false),
   afterFns: [] as (() => Promise<void>)[],
 }));
 
@@ -37,6 +38,7 @@ vi.mock("./session", () => ({
 }));
 vi.mock("./events", () => ({ logEvent: h.logEvent }));
 vi.mock("./facts", () => ({ warmTripFacts: h.warm }));
+vi.mock("./group-text", () => ({ ensureGroupParse: h.ensureParse }));
 vi.mock("./purposes", () => ({ getPurpose: async () => ({ ok: false, error: "not_found" }) }));
 vi.mock("next/server", () => ({ after: (fn: () => Promise<void>) => h.afterFns.push(fn) }));
 vi.mock("@/lib/integrations/open-meteo-geocoding", () => ({ getPlaceById: h.getPlaceById }));
@@ -51,7 +53,8 @@ const row = {
   id: "11111111-1111-4111-8111-111111111111", title: null, dest_kind: "city", dest_name: "Marbella",
   dest_place_name: "Marbella", dest_geo_id: 2513918, dest_country_code: "ES", dest_admin1: "Andalusia",
   dest_lat: 36.51, dest_lon: -4.88, dest_timezone: "Europe/Madrid", dest_radius_km: null, length_days: 5,
-  start_date: null, months: [], group_id: null, purpose_id: null, wants_flights: true, origin_airports: [],
+  start_date: null, months: [], group_id: null, group_text: null, group_structure: null, group_parsed: null,
+  group_parsed_hash: null, purpose_id: null, wants_flights: true, origin_airports: [],
   notes: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
 };
 const input = { destination: { kind: "city" as const, geoId: 2513918 }, lengthDays: 5 };
@@ -109,7 +112,7 @@ describe("createTrip", () => {
     expect(ev.event).toBe("trip.created");
     expect(JSON.stringify(ev)).not.toMatch(/Secret|secret|Marbella/);
     expect(Object.keys(ev.props).sort()).toEqual(
-      ["destKind", "hasGroup", "hasPurpose", "lengthDays", "timingKind", "tripId"],
+      ["destKind", "hasGroup", "hasGroupText", "hasPurpose", "lengthDays", "timingKind", "tripId"],
     );
     expect(h.afterFns).toHaveLength(1);
     await h.afterFns[0]();
@@ -130,6 +133,46 @@ describe("createTrip", () => {
     const res = await createTrip({ destination: { kind: "freetext", name: "Alpen" }, lengthDays: 2 });
     expect(res.ok).toBe(true);
     expect(h.getPlaceById).not.toHaveBeenCalled();
+  });
+});
+
+describe("one-off group of the trip", () => {
+  const text = "Ich und Ben, ähnliches Alter";
+  it("stores the text, parses once and reloads the row", async () => {
+    h.results["trips.select"] = { count: 0, data: { ...row, group_text: text } };
+    h.results["trips.insert"] = { data: { ...row, group_text: text } };
+    h.ensureParse.mockResolvedValueOnce(true);
+    const res = await createTrip({ ...input, groupText: text });
+    expect(res).toMatchObject({ ok: true, data: { groupText: text, groupId: null } });
+    const insert = h.ops.find((o) => o.table === "trips" && o.op === "insert")!.payload as Record<string, unknown>;
+    expect(insert).toMatchObject({ group_id: null, group_text: text, group_structure: null });
+    expect(h.ensureParse).toHaveBeenCalledWith(expect.anything(), { table: "trips", id: row.id }, text, false);
+  });
+
+  it("a saved group wins over stray text: no text is stored", async () => {
+    const gid = "22222222-2222-4222-8222-222222222222";
+    const res = await createTrip({ ...input, groupId: gid, groupText: text });
+    expect(res).toMatchObject({ ok: false, error: "invalid" }); // exclusive in the schema
+  });
+
+  it("does not call Haiku without text", async () => {
+    h.results["trips.select"] = { count: 0 };
+    h.results["trips.insert"] = { data: row };
+    await createTrip(input);
+    expect(h.ensureParse).not.toHaveBeenCalled();
+  });
+
+  it("stores the corrected structure with ageAsOf", async () => {
+    h.results["trips.select"] = { count: 0 };
+    h.results["trips.insert"] = { data: { ...row, group_text: text } };
+    await createTrip({
+      ...input,
+      groupText: text,
+      groupStructure: [{ kind: "composition", count: 2, age: { ageMode: "approx", age: 40 } }],
+    });
+    const insert = h.ops.find((o) => o.table === "trips" && o.op === "insert")!.payload as { group_structure: { ageAsOf?: string }[] };
+    expect(insert.group_structure[0]).toMatchObject({ count: 2, age: { ageMode: "approx", age: 40 } });
+    expect(insert.group_structure[0].ageAsOf).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
 

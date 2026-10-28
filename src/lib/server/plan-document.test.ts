@@ -56,8 +56,9 @@ beforeEach(() => {
     plans: { id: "P1", latest_version: 3, open_done: ["abcd1234"] },
     plan_versions: { plan, version_no: 3, created_at: "2026-10-01T00:00:00Z" },
     trip_items: itemRows,
-    trips: { group_id: "G1" },
-    group_entries: [{ count: 2 }],
+    trips: { group_id: "G1", group_text: null, group_structure: null, group_parsed: null, group_parsed_hash: null },
+    travel_groups: { description: null, parsed_structure: null, parsed_hash: null },
+    group_entries: [{ kind: "composition", count: 2 }],
   };
 });
 
@@ -73,8 +74,9 @@ describe("getSharedPlanDocument", () => {
         table: "trip_items",
         select: "id, category, title, status, price_cents, price_basis, persons, currency, day, ref, url, start_time, end_time",
       },
-      { table: "trips", select: "group_id" },
-      { table: "group_entries", select: "count" },
+      { table: "trips", select: "group_id, group_text, group_structure, group_parsed, group_parsed_hash" },
+      { table: "travel_groups", select: "description, parsed_structure, parsed_hash" },
+      { table: "group_entries", select: "kind, count" },
     ]);
     expect(calls.some((c) => c.select.includes("*"))).toBe(false);
   });
