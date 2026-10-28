@@ -24,15 +24,15 @@ const DEFAULT_BUDGET_MS = 25_000;
 const MAX_ORIGINS = 2;
 
 /** One trip's lookups: shared budget, unit cap and bookkeeping for the fact's fetchedAt/stale/quotaLimited. */
-class Session {
+export class Session {
   spent = 0;
   quotaLimited = false;
   stale = false;
   oldest: string | null = null;
-  constructor(readonly ctx: FactsCtx, readonly deadline: number) {}
+  constructor(readonly ctx: FactsCtx, readonly deadline: number, readonly cap: number = TRIP_UNIT_CAP) {}
 
   async run<T>(cost: number, call: () => Promise<CachedResult<T>>): Promise<T | null> {
-    if (Date.now() >= this.deadline || this.spent + cost > TRIP_UNIT_CAP) return null;
+    if (Date.now() >= this.deadline || this.spent + cost > this.cap) return null;
     const r = await call();
     if (!r.ok) {
       if (r.error === "quota_exhausted") this.quotaLimited = true;
@@ -60,7 +60,7 @@ function routes(s: Session, a: string, date: string): Promise<RouteStat[] | null
   );
 }
 
-async function departures(s: Session, a: string, date: string): Promise<Lookup<FidsLeg[]>> {
+export async function departures(s: Session, a: string, date: string): Promise<Lookup<FidsLeg[]>> {
   const parts: FidsLeg[][] = [];
   for (const w of ["am", "pm"] as const) {
     const part = await s.run(UNITS.fids, () =>

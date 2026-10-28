@@ -196,3 +196,5 @@ Basic plan: 400 units/month (routes 6, FIDS 2, flight dates 2). Every call is lo
 The guard (`src/lib/server/flights-quota.ts`) reads those sums before each call. Knobs: `AERODATABOX_DAILY_UNITS` (daily cap) and `AERODATABOX_MIN_REMAINING` (monthly margin kept free, default 40).
 
 Accepted risk: there are no reservations, so parallel instances can each pass the check and overshoot the daily cap by a few calls. The monthly margin of 40 units absorbs this. Raise `AERODATABOX_MIN_REMAINING` if it ever bites.
+
+Nearby days ("±1 day" button in the flights panel, spec phase 4 section 12): each click spends up to 8 units (one airport, day −1 and +1, am+pm) through the same guard and cache keys (`fids_departures`); cached days are free. In `api_calls` they appear as `fids_departures` rows like the automatic lookup. If the monthly quota gets tight, the knobs above (`AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`) also limit these checks; to switch the feature off, hide the button via `canCheckNearby` in `src/components/facts/flights-nearby.tsx`.
