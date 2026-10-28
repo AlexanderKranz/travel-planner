@@ -39,7 +39,7 @@ class Session {
       else this.spent += cost; // failed requests are charged too
       return null;
     }
-    if (r.cache === "miss") this.spent += cost;
+    if (r.cache === "miss" || r.cache === "stale") this.spent += cost;
     if (r.stale) this.stale = true;
     if (!this.oldest || r.fetchedAt < this.oldest) this.oldest = r.fetchedAt;
     return r.data;

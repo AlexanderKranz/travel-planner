@@ -23,7 +23,7 @@ export function PlanFlights({ flights }: { flights: PlanFlightsData }) {
           return (
             <li key={`${l.dir}-${l.number}-${l.dep}`} className="flex flex-wrap gap-x-2">
               <span className="font-medium">{t(l.dir, { date: date(l.dir === "out" ? flights.outDate : flights.backDate) })}</span>
-              <span className="whitespace-nowrap">
+              <span className="min-w-0">
                 {l.number} · {l.from} {l.dep} → {l.to} {l.arr}
                 {l.arrDayOffset === 1 && <sup className="ml-0.5 text-xs">{t("nextDay")}</sup>} · {t("hm", { h, m })}
               </span>

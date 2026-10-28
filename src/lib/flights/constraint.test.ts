@@ -13,9 +13,15 @@ describe("max flight time", () => {
     ["flight up to 2.5 hours", 2.5],
     ["we fly at most 5h", 5],
     ["max. 3 h Flug", 3],
+    ["3h flight", 3],
+    ["3 Std Flug", 3],
+    ["höchstens 3 Stunden Flug", 3],
+    ["Flug nicht länger als 4 Stunden", 4],
+    ["flight no more than 2 hours", 2],
+    ["max 3 h Autofahrt, Flug höchstens 2 h", 2],
   ])("parses %s", (s, h) => expect(parseMaxFlightHours(s)).toBe(h));
 
-  it.each(["max 3 h drive to the hotel", "golf every day", "flight 3 h"])("ignores %s", (s) =>
+  it.each(["max 3 h Autofahrt, Flug egal", "max 3 h drive then flight", "max 3 h drive to the hotel", "golf every day", "flight 3 h"])("ignores %s", (s) =>
     expect(parseMaxFlightHours(s)).toBeNull(),
   );
 

@@ -89,6 +89,21 @@ function todayUtc(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Attach charged units to a post-send failure (keeps its class/name so classifyError codes stay `zod`/`timeout`). */
+function chargeError(err: unknown, units: number, quotaRemaining?: number): unknown {
+  if (err !== null && typeof err === "object") Object.assign(err, { units, quotaRemaining });
+  return err;
+}
+
+/** Normalize a body that was already paid for; a schema failure still reports the units. */
+function normalized<T>(fn: (b: unknown) => T, r: { body: unknown; quotaRemaining?: number }, units: number): T {
+  try {
+    return fn(r.body);
+  } catch (err) {
+    throw chargeError(err, units, r.quotaRemaining);
+  }
+}
+
 async function request(path: string, units: number): Promise<{ body: unknown; status: number; latencyMs: number; quotaRemaining?: number }> {
   const key = process.env.AERODATABOX_API_KEY?.trim();
   if (!key) throw new FlightsRequestError("AERODATABOX_API_KEY missing");
@@ -102,8 +117,8 @@ async function request(path: string, units: number): Promise<{ body: unknown; st
       cache: "no-store",
     }).catch((err: unknown) => {
       if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
-        const t = new Error("Timeout");
-        t.name = "TimeoutError";
+        // Sent but unanswered: the provider may have charged it, so count the nominal cost.
+        const t = Object.assign(new Error("Timeout"), { name: "TimeoutError", units });
         throw t;
       }
       throw err;
@@ -112,7 +127,13 @@ async function request(path: string, units: number): Promise<{ body: unknown; st
     const header = Number.parseInt(res.headers.get("x-ratelimit-api-units-remaining") ?? "", 10);
     const quotaRemaining = Number.isFinite(header) ? header : undefined;
     if (!res.ok) throw new AeroDataBoxHttpError(res.status, units, quotaRemaining);
-    return { body: (await res.json()) as unknown, status: res.status, latencyMs, quotaRemaining };
+    let body: unknown;
+    try {
+      body = (await res.json()) as unknown;
+    } catch (err) {
+      throw chargeError(err, units, quotaRemaining);
+    }
+    return { body, status: res.status, latencyMs, quotaRemaining };
   });
 }
 
@@ -124,7 +145,7 @@ function outcome<T>(data: T, r: { status: number; latencyMs: number; quotaRemain
 export async function fetchRoutesDaily(a: string, date: string): Promise<FetchOutcome<RouteStat[]>> {
   validateRequest({ iata: a, dates: [date] }, todayUtc());
   const r = await request(`/airports/iata/${a}/stats/routes/daily/${date}`, UNITS.routes);
-  return outcome(normalizeRoutes(r.body), r, UNITS.routes);
+  return outcome(normalized(normalizeRoutes, r, UNITS.routes), r, UNITS.routes);
 }
 
 /** All departures of airport `a` in the am (00:00-11:59) or pm (12:00-23:59) local window of `date` (2 units). */
@@ -133,7 +154,7 @@ export async function fetchDepartures(a: string, date: string, w: "am" | "pm"): 
   const [from, to] = w === "am" ? ["00:00", "11:59"] : ["12:00", "23:59"];
   const q = "direction=Departure&withLeg=true&withCancelled=false&withCodeshared=false&withCargo=false&withPrivate=false&withLocation=false";
   const r = await request(`/flights/airports/iata/${a}/${date}T${from}/${date}T${to}?${q}`, UNITS.fids);
-  return outcome(normalizeFids(r.body), r, UNITS.fids);
+  return outcome(normalized(normalizeFids, r, UNITS.fids), r, UNITS.fids);
 }
 
 /** ISO dates within month `m` ("YYYY-MM") on which flight `number` ("LH1148") is scheduled (2 units). */
@@ -146,5 +167,5 @@ export async function fetchFlightDates(number: string, month: string): Promise<F
   const to = `${month}-${String(last).padStart(2, "0")}`;
   validateRequest({ number: compact, dates: [from, to] }, todayUtc());
   const r = await request(`/flights/number/${compact}/dates/${from}/${to}`, UNITS.dates);
-  return outcome(normalizeFlightDates(r.body), r, UNITS.dates);
+  return outcome(normalized(normalizeFlightDates, r, UNITS.dates), r, UNITS.dates);
 }
