@@ -43,3 +43,35 @@ out center tags 150;`,
     );
   });
 });
+
+describe("interestsForTrip with purpose tags (phase 3)", () => {
+  it("appends tag interests after guided keys, still capped at 4 OSM queries", () => {
+    const r = interestsForTrip(
+      { interests: ["golf", "beach", "museums"] },
+      { interests: ["beach", "history", "hiking", "christmas_markets"] },
+    );
+    expect(r.keys).toEqual(["golf", "beach", "museums", "history", "christmas_markets"]);
+  });
+
+  it("uses tag interests when nothing is guided", () => {
+    expect(interestsForTrip(null, { interests: ["golf"] }).keys).toEqual(["golf", "general"]);
+  });
+
+  it("adds general when all keys come from tags", () => {
+    expect(interestsForTrip({}, { interests: ["christmas_markets"] }).keys).toEqual(["christmas_markets", "general"]);
+    // guided no-source keys stay as chosen
+    expect(interestsForTrip({ interests: ["christmas_markets"] }, { interests: [] }).keys).toEqual(["christmas_markets"]);
+  });
+
+  it("ignores unknown tag keys and null tags", () => {
+    expect(interestsForTrip(null, { interests: ["golfing" as never] }).keys).toEqual(["general"]);
+    expect(interestsForTrip(null, { interests: ["golf", "beach", "museums", "history", "hiking"] }).keys).toEqual([
+      "golf",
+      "beach",
+      "museums",
+      "history",
+      "general",
+    ]);
+    expect(interestsForTrip({ interests: ["golf"] }, null).keys).toEqual(["golf"]);
+  });
+});

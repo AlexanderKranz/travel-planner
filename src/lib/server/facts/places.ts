@@ -82,7 +82,7 @@ export async function getPlacesFacts(
     if (!dest) return unavailable("no_location");
     const budgetMs = opts.budgetMs ?? VIEW_BUDGET_MS;
     const started = Date.now();
-    const { keys, customInterests } = interestsForTrip(purpose?.guided);
+    const { keys, customInterests } = interestsForTrip(purpose?.guided, purpose?.tags);
     const baseRadius = tripRadiusKm(dest);
     const anchor = { lat: Number(dest.lat.toFixed(3)), lon: Number(dest.lon.toFixed(3)) };
     const groups: PlaceGroup[] = [];

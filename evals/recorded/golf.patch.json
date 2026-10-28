@@ -1,0 +1,46 @@
+{
+  "promptVersion": "plan-1",
+  "model": "claude-sonnet-5-5",
+  "inputHash": "f8216b85eb33c8e4faadcfc05136b29eb0da51ce961c482f23e708e3989bf300",
+  "output": {
+    "reply": "Tag 4 neu gestaltet: andere Golfplätze, Pausen und Abendprogramm.",
+    "days": [
+      {
+        "n": 4,
+        "title": "Golf an der Costa del Sol: Guadalmina",
+        "stops": [
+          {
+            "place": "Guadalmina",
+            "acts": [
+              {
+                "at": "08:30",
+                "kind": "food",
+                "text": "Frühstück im Hotel, danach Fahrt mit dem Mietwagen zum Platz"
+              },
+              {
+                "at": "09:30",
+                "until": "14:00",
+                "kind": "sport",
+                "text": "",
+                "ref": "p3"
+              }
+            ]
+          }
+        ],
+        "note": "Früh starten, damit die Runde komfortabel vor der Dämmerung endet."
+      }
+    ]
+  },
+  "usage": {
+    "task": "plan_patch",
+    "model": "claude-sonnet-5-5",
+    "status": "ok",
+    "inputTokens": 771,
+    "outputTokens": 228,
+    "cacheCreationInputTokens": 2136,
+    "cacheReadInputTokens": 2624,
+    "costMicroUsd": 9687,
+    "latencyMs": 5013
+  },
+  "recordedAt": "2026-10-28T07:54:15.579Z"
+}

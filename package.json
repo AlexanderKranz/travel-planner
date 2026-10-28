@@ -9,12 +9,14 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "evals:live": "EVAL_LIVE=1 vitest run --config evals/vitest.config.ts evals/live.eval.ts",
     "typecheck": "tsc --noEmit",
     "airports:build": "node scripts/airports/build.mjs",
     "countries:build": "node scripts/countries/build.mjs",
     "demo:reset": "node scripts/demo/reset.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
     "@sentry/nextjs": "^11.9.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",

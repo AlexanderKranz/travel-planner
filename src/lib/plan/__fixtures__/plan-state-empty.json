@@ -1,0 +1,15 @@
+{
+  "tripId": "00000000-0000-4000-8000-000000000001",
+  "version": null,
+  "isLatest": true,
+  "versions": [],
+  "busy": false,
+  "outdated": false,
+  "canIterate": false,
+  "aiEnabled": true,
+  "budget": {
+    "spentMicroUsd": 0,
+    "capMicroUsd": 500000,
+    "resetsAt": "2026-10-28T23:00:00.000Z"
+  }
+}

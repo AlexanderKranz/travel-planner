@@ -3,6 +3,7 @@ import type { InterestOrGeneral } from "@/lib/domain/facts";
 import { DEFAULT_RADIUS_KM } from "@/lib/domain/trip";
 import type { Trip } from "@/lib/domain/trip";
 import type { PurposeGuided } from "@/lib/domain/purpose";
+import type { PurposeTags } from "@/lib/domain/plan";
 
 /** Max 60 km regardless of trip radius or mapping (spec 3.5). */
 export const MAX_RADIUS_KM = 60;
@@ -86,11 +87,17 @@ const known = new Set<string>(INTEREST_KEYS);
 export const isInterestKey = (s: string): s is InterestKey => known.has(s);
 
 /**
- * Keys in purpose order (unique), custom text interests separately. Without any known key: ["general"].
- * Keys with an OSM source are capped to MAX_INTEREST_QUERIES (first in purpose order); `none` keys are all
- * returned (they cost no query). If every known key is `none`, "general" is NOT added (user chose them).
+ * Keys in purpose order (unique), then interest keys from Haiku tags (phase 3), custom text interests separately.
+ * Without any known key: ["general"].
+ * Keys with an OSM source are capped to MAX_INTEREST_QUERIES (guided keys first); `none` keys are all
+ * returned (they cost no query). If every guided key is `none`, "general" is NOT added (user chose them).
+ * When no key was chosen by the user (keys only from tags), "general" is always added: derived interests
+ * must not drop the main sights.
  */
-export function interestsForTrip(guided: PurposeGuided | null | undefined): {
+export function interestsForTrip(
+  guided: PurposeGuided | null | undefined,
+  tags?: Pick<PurposeTags, "interests"> | null,
+): {
   keys: InterestOrGeneral[];
   customInterests: string[];
 } {
@@ -102,6 +109,10 @@ export function interestsForTrip(guided: PurposeGuided | null | undefined): {
       if (!keys.includes(i)) keys.push(i);
     } else if (!custom.includes(i)) custom.push(i);
   }
+  const guidedCount = keys.length;
+  for (const i of tags?.interests ?? []) {
+    if (isInterestKey(i) && !keys.includes(i)) keys.push(i);
+  }
   if (keys.length === 0) return { keys: ["general"], customInterests: custom };
   let osm = 0;
   const kept = keys.filter((k) => {
@@ -109,6 +120,7 @@ export function interestsForTrip(guided: PurposeGuided | null | undefined): {
     osm += 1;
     return osm <= MAX_INTEREST_QUERIES;
   });
+  if (guidedCount === 0) return { keys: [...kept, "general"], customInterests: custom };
   return { keys: kept, customInterests: custom };
 }
 

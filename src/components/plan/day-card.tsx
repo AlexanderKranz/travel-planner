@@ -1,0 +1,189 @@
+import { useFormatter, useTranslations } from "next-intl";
+import { linkCls, mutedCls } from "@/components/ui/styles";
+import type { Plan, PlanActivity, PlanDay, PlanStop } from "@/lib/domain/plan";
+import { safeUrl } from "@/lib/facts/sources";
+import { windowKind } from "./helpers";
+
+const pill =
+  "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap";
+
+function WindowBadge({ stop }: { stop: PlanStop }) {
+  const t = useTranslations("plan");
+  const kind = windowKind(stop.from, stop.to);
+  if (!kind && !stop.fixed) return null;
+  const label =
+    kind === "both"
+      ? t("windowBoth", { from: stop.from!, to: stop.to! })
+      : kind === "from"
+        ? t("windowFrom", { time: stop.from! })
+        : kind === "to"
+          ? t("windowUntil", { time: stop.to! })
+          : null;
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {label && (
+        <span className={`${pill} border-neutral-400 tabular-nums dark:border-neutral-500`}>{label}</span>
+      )}
+      {stop.fixed && (
+        <span
+          className={`${pill} border-blue-700 bg-blue-50 text-blue-950 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100`}
+        >
+          {t("fromNotes")}
+        </span>
+      )}
+    </span>
+  );
+}
+
+function Activity({ act, places }: { act: PlanActivity; places: Plan["places"] }) {
+  const t = useTranslations("plan");
+  const f = useFormatter();
+  const place = act.ref ? places[act.ref] : undefined;
+  const href = place ? safeUrl(place.osmUrl) : null;
+  const time = act.at ? (act.until ? `${act.at}–${act.until}` : act.at) : null;
+  return (
+    <li className="min-w-0 break-words">
+      {time && <span className="mr-1.5 font-medium tabular-nums">{time}</span>}
+      <span
+        className={`mr-1.5 rounded bg-neutral-100 px-1.5 py-px align-middle text-[0.7rem] font-medium uppercase tracking-wide dark:bg-neutral-800 ${mutedCls}`}
+      >
+        {t(`kinds.${act.kind}`)}
+      </span>
+      {act.text}
+      {place && (
+        <span className={`ml-1 text-sm ${mutedCls}`}>
+          {"· "}
+          {href ? (
+            <a href={href} target="_blank" rel="noopener noreferrer" className={linkCls}>
+              {place.name}
+              <span className="sr-only"> ({t("opensExternal")})</span>
+            </a>
+          ) : (
+            place.name
+          )}{" "}
+          ({t("distance", { km: f.number(place.distanceKm, { maximumFractionDigits: 1 }) })})
+        </span>
+      )}
+    </li>
+  );
+}
+
+/** Left column: weekday + dd.MM. for dated trips, "Day n" otherwise. */
+function DateColumn({ day }: { day: PlanDay }) {
+  const t = useTranslations("plan");
+  const f = useFormatter();
+  const box =
+    "flex w-14 shrink-0 flex-col items-center justify-center self-start rounded-md bg-neutral-100 px-1 py-2 text-center dark:bg-neutral-800";
+  if (!day.date) {
+    return (
+      <div className={box} aria-hidden="true">
+        <span className={`text-xs uppercase ${mutedCls}`}>{t("dayShort")}</span>
+        <span className="text-xl font-bold leading-none">{day.n}</span>
+      </div>
+    );
+  }
+  const d = new Date(`${day.date}T12:00:00Z`);
+  return (
+    <div className={box} aria-hidden="true">
+      <span className={`text-xs uppercase ${mutedCls}`}>{f.dateTime(d, { weekday: "short", timeZone: "UTC" })}</span>
+      <span className="text-sm font-bold leading-tight">
+        {f.dateTime(d, { day: "2-digit", month: "2-digit", timeZone: "UTC" })}
+      </span>
+    </div>
+  );
+}
+
+export function DayCard({
+  day,
+  places,
+  changed,
+}: {
+  day: PlanDay;
+  places: Plan["places"];
+  changed?: boolean;
+}) {
+  const t = useTranslations("plan");
+  const f = useFormatter();
+  const used = day.stops.flatMap((s) => s.acts).flatMap((a) => (a.ref && places[a.ref] ? [places[a.ref]] : []));
+  const fetchedAt = used.map((p) => p.fetchedAt).sort()[0];
+  const border = day.best
+    ? "border-amber-500 dark:border-amber-400"
+    : changed
+      ? "border-blue-600 dark:border-blue-400"
+      : "border-neutral-300 dark:border-neutral-700";
+  return (
+    <li id={`day-${day.n}`} className="scroll-mt-4">
+      <article
+        aria-labelledby={`day-${day.n}-title`}
+        className={`flex min-w-0 gap-3 rounded-lg border p-3 sm:gap-4 sm:p-4 ${day.best ? "border-2" : ""} ${border}`}
+      >
+        <DateColumn day={day} />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <h3 id={`day-${day.n}-title`} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold">
+            <span className="sr-only">{t("day", { n: day.n })}: </span>
+            <span className="min-w-0 break-words">{day.title}</span>
+            {day.best && (
+              <span
+                className={`${pill} border-amber-700 bg-amber-100 text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-100`}
+              >
+                {t("bestDay")}
+              </span>
+            )}
+            {changed && (
+              <span
+                className={`${pill} border-blue-700 bg-blue-50 text-blue-950 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100`}
+              >
+                {t("changed")}
+              </span>
+            )}
+          </h3>
+          {day.stops.map((stop, i) => {
+            const showHead = day.stops.length > 1 || stop.place !== day.title || windowKind(stop.from, stop.to) || stop.fixed;
+            return (
+              <div key={i} className="flex min-w-0 flex-col gap-1">
+                {showHead && (
+                  <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium">
+                    <span className="min-w-0 break-words">{stop.place}</span>
+                    <WindowBadge stop={stop} />
+                  </p>
+                )}
+                {stop.acts.length > 0 && (
+                  <ul className="flex flex-col gap-1 text-sm">
+                    {stop.acts.map((a, j) => (
+                      <Activity key={j} act={a} places={places} />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+          {day.note && (
+            <p className={`rounded-md bg-neutral-100 px-2.5 py-1.5 text-sm dark:bg-neutral-800`}>
+              <span className="sr-only">{t("noteLabel")}: </span>
+              {day.note}
+            </p>
+          )}
+          {day.warn && (
+            <p className="rounded-md border border-amber-600 bg-amber-50 px-2.5 py-1.5 text-sm text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-100">
+              <span className="font-medium">{t("warnLabel")}: </span>
+              {day.warn}
+            </p>
+          )}
+          {fetchedAt && (
+            <p className={`text-xs ${mutedCls}`}>
+              <a
+                href="https://www.openstreetmap.org/copyright"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={linkCls}
+              >
+                {t("osmCredit")}
+              </a>{" "}
+              · {t("checked", { date: f.dateTime(new Date(fetchedAt), { dateStyle: "medium" }) })}
+            </p>
+          )}
+        </div>
+      </article>
+    </li>
+  );
+}

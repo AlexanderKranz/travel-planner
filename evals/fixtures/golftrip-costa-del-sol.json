@@ -3,6 +3,7 @@
   "locale": "de",
   "trip": {
     "destination": { "name": "Costa del Sol", "kind": "region" },
+    "anchor": { "placeName": "Marbella", "countryCode": "ES", "lat": 36.51543, "lon": -4.88583, "timezone": "Europe/Madrid", "radiusKm": 40 },
     "startDate": "2038-03-13",
     "endDate": "2038-03-17",
     "flights": true,
@@ -12,6 +13,7 @@
     "composition": [{ "count": 2, "ageMode": "relativeToMe", "label": "Golfer" }]
   },
   "purpose": {
+    "name": "Golftrip",
     "text": "Golftrip mit einem Freund: jeden Tag eine Runde, an einem Tag 36 Loch. Plätze nicht zu bergig. An- und Abreisetag sind Golftage.",
     "constraints": [
       "golf every day, 36 holes on one day",
@@ -37,5 +39,6 @@
       "cost summary per person",
       "open items listed"
     ]
-  }
+  },
+  "checks": { "sportEveryDay": true, "twoRoundsOnOneDay": true, "airportNearDays": [1, 5], "airportMaxKm": 50 }
 }

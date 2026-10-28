@@ -3,6 +3,7 @@
   "locale": "de",
   "trip": {
     "destination": { "name": "Donau (Passau – Wien – Linz)", "kind": "region" },
+    "anchor": { "placeName": "Passau", "countryCode": "DE", "lat": 48.5665, "lon": 13.43122, "timezone": "Europe/Berlin", "radiusKm": 15 },
     "startDate": "2037-12-19",
     "endDate": "2037-12-23",
     "flights": false
@@ -15,6 +16,7 @@
     "notes": "Kleinkind braucht Mittagsschlaf; Buggy auf Kopfsteinpflaster ungeeignet."
   },
   "purpose": {
+    "name": "Advents-Flusskreuzfahrt",
     "text": "Advents-Flusskreuzfahrt mit Kleinkind. Weihnachtsmärkte, entspanntes Tempo, Mittagsschlaf an Bord einplanen.",
     "constraints": ["fixed port schedule", "toddler nap midday", "early darkness"]
   },
@@ -38,5 +40,6 @@
       "one day flagged as highlight",
       "carrier instead of buggy hinted for cobblestones"
     ]
-  }
+  },
+  "checks": { "restWindow": ["11:00", "14:30"], "restExceptDays": [5], "portWindows": "fixedSchedule" }
 }

@@ -24,7 +24,7 @@ const trip = {
   timing: { kind: "none" as const },
   destination: { kind: "region" as const, name: "x", placeName: "x", geoId: 1, countryCode: "ES", admin1: null, lat: 36.5, lon: -4.9, timezone: "Europe/Madrid", radiusKm: 40 },
 };
-const purpose = (interests: string[]) => ({ id: "p", name: "p", guided: { interests }, constraints: [], createdAt: "", updatedAt: "" });
+const purpose = (interests: string[]) => ({ id: "p", name: "p", guided: { interests }, constraints: [], tags: null, createdAt: "", updatedAt: "" });
 const ctx = { userId: null, locale: "de" as const, today: "2026-10-28" };
 
 async function run(durations: number[], interests: string[]) {

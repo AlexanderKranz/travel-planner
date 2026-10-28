@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { optionalText } from "./common";
+import type { PurposeTags } from "./plan";
 
 export const PurposeGuided = z
   .object({
@@ -34,6 +35,8 @@ export type TripPurpose = {
   text?: string;
   guided: PurposeGuided;
   constraints: string[];
+  /** Haiku tags; set only when `parsed_hash === purposeTagsHash(purpose)`, else null. */
+  tags: PurposeTags | null;
   createdAt: string;
   updatedAt: string;
 };
