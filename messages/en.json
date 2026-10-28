@@ -1093,6 +1093,49 @@
     "expected": "Expected",
     "datesOpen": "Dates open",
     "persons": "people",
-    "alternatives": "or"
+    "alternatives": "or",
+    "kinds": {
+      "see": "Sights",
+      "do": "Activity",
+      "sport": "Sport",
+      "food": "Food",
+      "rest": "Rest",
+      "travel": "Travel",
+      "shop": "Shopping",
+      "free": "Free time"
+    },
+    "footer": "Created with Travel Planner",
+    "aiDisclaimer": "Written by AI on {date} from verified facts. Check times and opening hours before you go.",
+    "flightsOut": "Outbound · {date} · {route}",
+    "flightsBack": "Return · {date} · {route}",
+    "group": {
+      "adults": {
+        "one": "{count} adult",
+        "other": "{count} adults"
+      },
+      "children": {
+        "one": "{count} child",
+        "other": "{count} children"
+      },
+      "toddlers": {
+        "one": "{count} toddler",
+        "other": "{count} toddlers"
+      },
+      "unknown": {
+        "one": "{count} person of unknown age",
+        "other": "{count} people of unknown age"
+      }
+    },
+    "facts": {
+      "title": "Facts behind the plan",
+      "climate": "Climate",
+      "climateMonth": "{month} {tmax}°/{tmin}° C, {wet} wet days",
+      "daylight": "Daylight",
+      "daylightRange": "sunrise from {sunrise}, dusk until {dusk}",
+      "airports": "Airports nearby",
+      "km": "{km} km straight-line"
+    },
+    "dayShort": "DAY",
+    "daysUnit": "days"
   }
 }

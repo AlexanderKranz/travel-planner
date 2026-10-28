@@ -2,22 +2,12 @@ import { useFormatter, useTranslations } from "next-intl";
 import { FlightList, FlightRow } from "@/components/flights/flight-row";
 import { mutedCls } from "@/components/ui/styles";
 import type { PlanFlights as PlanFlightsData } from "@/lib/domain/plan";
+import { flightGroups } from "@/lib/flights/groups";
 import { fittingLegs } from "@/lib/flights/ui";
 
 type Leg = PlanFlightsData["legs"][number];
 
-/** Legs grouped by direction and route, in the order out → back, then by departure. */
-export function flightGroups(legs: Leg[]): { dir: Leg["dir"]; from: string; to: string; legs: Leg[] }[] {
-  const out: { dir: Leg["dir"]; from: string; to: string; legs: Leg[] }[] = [];
-  for (const dir of ["out", "back"] as const) {
-    for (const l of legs.filter((x) => x.dir === dir).sort((a, b) => a.dep.localeCompare(b.dep))) {
-      const g = out.find((x) => x.dir === dir && x.from === l.from && x.to === l.to);
-      if (g) g.legs.push(l);
-      else out.push({ dir, from: l.from, to: l.to, legs: [l] });
-    }
-  }
-  return out;
-}
+export { flightGroups };
 
 /**
  * The verified direct flights the plan was built on (fitting legs only), one heading per direction and route

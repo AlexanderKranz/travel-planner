@@ -5,7 +5,8 @@ import createNextIntlPlugin from "next-intl/plugin";
 const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
-  // react-pdf ships its own fontkit/yoga; keep it out of the bundle and ship the fonts with the lambdas.
+  // react-pdf ships its own fontkit/yoga; keep it out of the bundle and ship the fonts with the lambdas
+  // (the glob covers Inter, Fraunces and Noto Sans in src/assets/fonts; read at runtime via fs, so it must be traced).
   serverExternalPackages: ["@react-pdf/renderer"],
   outputFileTracingIncludes: {
     // pdfkit loads its standard-font metrics (Helvetica = default font) via a dynamic require that is not traced.

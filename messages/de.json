@@ -1093,6 +1093,49 @@
     "expected": "Erwartet",
     "datesOpen": "Reisedaten offen",
     "persons": "Personen",
-    "alternatives": "oder"
+    "alternatives": "oder",
+    "kinds": {
+      "see": "Sehenswert",
+      "do": "Aktivität",
+      "sport": "Sport",
+      "food": "Essen",
+      "rest": "Pause",
+      "travel": "Anreise",
+      "shop": "Einkaufen",
+      "free": "Freie Zeit"
+    },
+    "footer": "Erstellt mit Travel Planner",
+    "aiDisclaimer": "Von der KI am {date} auf Basis geprüfter Fakten geschrieben. Zeiten und Öffnungszeiten vor der Reise prüfen.",
+    "flightsOut": "Hinflug · {date} · {route}",
+    "flightsBack": "Rückflug · {date} · {route}",
+    "group": {
+      "adults": {
+        "one": "{count} Erwachsener",
+        "other": "{count} Erwachsene"
+      },
+      "children": {
+        "one": "{count} Kind",
+        "other": "{count} Kinder"
+      },
+      "toddlers": {
+        "one": "{count} Kleinkind",
+        "other": "{count} Kleinkinder"
+      },
+      "unknown": {
+        "one": "{count} Person ohne Altersangabe",
+        "other": "{count} Personen ohne Altersangabe"
+      }
+    },
+    "facts": {
+      "title": "Fakten hinter dem Plan",
+      "climate": "Klima",
+      "climateMonth": "{month} {tmax}°/{tmin}° C, {wet} Regentage",
+      "daylight": "Tageslicht",
+      "daylightRange": "Sonnenaufgang ab {sunrise}, Dämmerung bis {dusk}",
+      "airports": "Flughäfen in der Nähe",
+      "km": "{km} km Luftlinie"
+    },
+    "dayShort": "TAG",
+    "daysUnit": "Tage"
   }
 }
