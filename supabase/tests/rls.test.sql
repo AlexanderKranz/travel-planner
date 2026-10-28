@@ -341,10 +341,16 @@ insert into public.trips (id, owner_id, dest_kind, dest_name, length_days) value
   ('a0000000-0000-4000-8000-0000000000f1', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'A plan trip', 3),
   ('bbbbbbbb-0000-4000-8000-0000000000f2', 'bbbbbbbb-0000-4000-8000-000000000002', 'freetext', 'B plan trip', 3);
 
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days) values
+  ('a0000000-0000-4000-8000-0000000000d6', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'A second plan trip', 3);
+-- plan id is not insertable by users (column grant), so the fixture plan is seeded as postgres
+insert into public.plans (id, owner_id, trip_id) values
+  ('a0000000-0000-4000-8000-0000000000c1', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000f1');
+
 set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
 set local role authenticated;
-insert into public.plans (id, trip_id) values ('a0000000-0000-4000-8000-0000000000c1', 'a0000000-0000-4000-8000-0000000000f1');
-select is((select count(*)::int from public.plans), 1, 'A created a plan for own trip (owner_id from default)');
+insert into public.plans (trip_id) values ('a0000000-0000-4000-8000-0000000000d6');
+select is((select count(*)::int from public.plans), 2, 'A created a plan for own trip (owner_id from default) and sees both plans');
 select throws_ok($$insert into public.plans (trip_id) values ('a0000000-0000-4000-8000-0000000000f1')$$,
   '23505', null, 'one plan per trip (unique trip_id)');
 select throws_ok($$insert into public.plans (trip_id) values ('bbbbbbbb-0000-4000-8000-0000000000f2')$$,
