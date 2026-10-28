@@ -71,7 +71,7 @@ describe("getSharedPlanDocument", () => {
       { table: "plan_versions", select: "plan, version_no, created_at" },
       {
         table: "trip_items",
-        select: "id, category, title, status, price_cents, price_basis, persons, currency, day, ref, url",
+        select: "id, category, title, status, price_cents, price_basis, persons, currency, day, ref, url, start_time, end_time",
       },
       { table: "trips", select: "group_id" },
       { table: "group_entries", select: "count" },

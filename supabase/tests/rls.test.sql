@@ -506,6 +506,15 @@ select throws_ok($$insert into public.trip_items (trip_id, category, title, curr
 select throws_ok($$insert into public.trip_items (trip_id, category, title, url) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', 'javascript:alert(1)')$$, '23514', null, 'bad url rejected');
 select throws_ok($$insert into public.trip_items (trip_id, category, title, status) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', 'done')$$, '23514', null, 'bad status rejected');
 select throws_ok($$insert into public.trip_items (trip_id, category, title, price_cents) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', -1)$$, '23514', null, 'negative price rejected');
+-- item times (migration 20261101120023)
+select lives_ok($$insert into public.trip_items (trip_id, category, title, status, day, start_time, end_time)
+  values ('a0000000-0000-4000-8000-000000000501', 'flight', 'LH 1150 FRA → AGP', 'booked', 1, '07:50', '10:40')$$, 'A can add an item with start/end time');
+select lives_ok($$update public.trip_items set start_time = '23:10', end_time = '01:20' where title = 'LH 1150 FRA → AGP'$$, 'end before start is allowed (crosses midnight)');
+select lives_ok($$update public.trip_items set start_time = null, end_time = null where title = 'LH 1150 FRA → AGP'$$, 'times can be cleared');
+select throws_ok($$insert into public.trip_items (trip_id, category, title, start_time) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', '24:00')$$, '23514', null, 'bad start_time rejected');
+select throws_ok($$insert into public.trip_items (trip_id, category, title, start_time) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', '7:50')$$, '23514', null, 'start_time must be HH:MM');
+select throws_ok($$insert into public.trip_items (trip_id, category, title, start_time, end_time) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', '10:00', '10:60')$$, '23514', null, 'bad end_time rejected');
+select throws_ok($$insert into public.trip_items (trip_id, category, title, end_time) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', '10:00')$$, '23514', null, 'end_time needs start_time');
 
 -- share_links: token_hash unreadable, no update, owner select/insert/delete
 select is((select count(*)::int from public.share_links), 1, 'A sees own link (non-secret columns)');

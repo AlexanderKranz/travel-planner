@@ -15,16 +15,18 @@ export type ItemRow = {
   ref: string | null;
   url: string | null;
   notes: string | null;
+  start_time: string | null;
+  end_time: string | null;
   created_at: string;
   updated_at: string;
 };
 
 export const ITEM_COLUMNS =
-  "id, trip_id, category, title, status, price_cents, price_basis, persons, currency, day, ref, url, notes, created_at, updated_at";
+  "id, trip_id, category, title, status, price_cents, price_basis, persons, currency, day, ref, url, notes, start_time, end_time, created_at, updated_at";
 
 /** Public (share) read: no trip_id/timestamps; `notes` is appended only when the link allows it. */
 export const SHARED_ITEM_COLUMNS =
-  "id, category, title, status, price_cents, price_basis, persons, currency, day, ref, url";
+  "id, category, title, status, price_cents, price_basis, persons, currency, day, ref, url, start_time, end_time";
 
 export type SharedItemRow = Omit<ItemRow, "trip_id" | "created_at" | "updated_at" | "notes"> & { notes?: string | null };
 
@@ -46,6 +48,8 @@ export function rowToSharedItem(r: SharedItemRow, includeNotes: boolean): Shared
     ref: r.ref as SharedItem["ref"],
     url: r.url,
     notes: includeNotes ? (r.notes?.trim() ? r.notes : null) : null,
+    startTime: r.start_time ?? null,
+    endTime: r.start_time ? (r.end_time ?? null) : null,
   };
 }
 
@@ -63,5 +67,7 @@ export function itemToWrite(i: TripItemInputParsed) {
     ref: i.ref,
     url: i.url,
     notes: i.notes && i.notes.trim() ? i.notes.trim() : null,
+    start_time: i.startTime,
+    end_time: i.startTime ? i.endTime : null,
   };
 }
