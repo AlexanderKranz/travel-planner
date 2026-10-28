@@ -21,7 +21,7 @@ export const linkCls = `font-medium text-heading underline underline-offset-2 ho
 export const focusCls = focus;
 
 /** Small uppercase letter-spaced label (eyebrows, tile captions, table heads). */
-export const labelCls = "text-xs font-semibold uppercase tracking-[0.12em] text-subtle";
+export const labelCls = "font-sans text-xs font-semibold uppercase tracking-[0.12em] text-subtle";
 /** Terracotta variant of the label, used for eyebrows and section kickers. */
 export const eyebrowCls = "text-xs font-semibold uppercase tracking-[0.16em] text-accent-text";
 /** Neutral and accent pills. */
