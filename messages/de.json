@@ -20,7 +20,8 @@
     "signOut": "Abmelden",
     "demoBanner": "Demo-Modus – Daten sind für alle Demo-Besucher sichtbar und werden regelmäßig zurückgesetzt.",
     "demoLabel": "Demo-Hinweis",
-    "trips": "Reisen"
+    "trips": "Reisen",
+    "admin": "Admin"
   },
   "errors": {
     "unauthenticated": "Du bist nicht angemeldet.",
@@ -1137,5 +1138,121 @@
     },
     "dayShort": "TAG",
     "daysUnit": "Tage"
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Nur Auswertungen. Inhalte anderer Nutzer werden hier nicht angezeigt.",
+    "ofCap": "{used} von {cap}",
+    "noData": "Noch keine Daten.",
+    "level": {
+      "ok": "Im Budget",
+      "warn": "Über 80 %",
+      "over": "Limit erreicht"
+    },
+    "users": {
+      "title": "Nutzer",
+      "total": "Nutzer",
+      "admins": "Admins",
+      "active7": "Aktiv, 7 Tage",
+      "active30": "Aktiv, 30 Tage",
+      "newMonth": "Neu in diesem Monat",
+      "demoTitle": "Demo-Konto",
+      "demoLogins7": "Demo-Logins, 7 Tage",
+      "demoLogins30": "Demo-Logins, 30 Tage",
+      "demoAiCalls": "KI-Aufrufe in diesem Monat",
+      "demoAiCost": "KI-Kosten in diesem Monat",
+      "note": "Das Demo-Konto ist in den Nutzerzahlen nicht enthalten. Aktiv = angemeldet oder etwas angelegt im Zeitraum."
+    },
+    "usage": {
+      "title": "Reisen und Pläne",
+      "trips": "Reisen",
+      "tripsMonth": "Neue Reisen in diesem Monat",
+      "plans": "Reisen mit Plan",
+      "generated": "Pläne erstellt in diesem Monat",
+      "patched": "Änderungen in diesem Monat",
+      "versionsGenerate": "Pläne erstellt, gesamt",
+      "versionsPatch": "Änderungen, gesamt",
+      "shares": "Aktive Freigabelinks",
+      "perDay": "Planversionen pro Tag, letzte 14 Tage",
+      "generatedLabel": "erstellt",
+      "patchedLabel": "geändert"
+    },
+    "ai": {
+      "title": "KI-Kosten",
+      "today": "Heute",
+      "month": "Dieser Monat",
+      "todayHint": "Tageslimit für alle Nutzer zusammen (AI_GLOBAL_DAILY_USD)",
+      "monthHint": "Monatliche Warnschwelle (AI_MONTHLY_ALERT_USD)",
+      "calls": "Aufrufe in diesem Monat",
+      "failed": "Fehlgeschlagene Aufrufe",
+      "cacheShare": "Prompt-Cache-Anteil an den Input-Tokens",
+      "byTask": "Nach Aufgabe",
+      "byModel": "Nach Modell",
+      "calls_n": "{count} Aufrufe",
+      "tasks": {
+        "purpose_tags": "Reiseanlass-Tags (Haiku)",
+        "group_parse": "Gruppentext (Haiku)",
+        "plan_generate": "Plan (Sonnet)",
+        "plan_patch": "Änderung (Sonnet)"
+      }
+    },
+    "api": {
+      "title": "Externe APIs",
+      "provider": "Anbieter",
+      "callsToday": "Aufrufe heute",
+      "callsMonth": "Aufrufe in diesem Monat",
+      "hitShare": "Cache-Treffer",
+      "errorRate": "Fehlerrate",
+      "p50": "p50",
+      "p95": "p95",
+      "note": "Die Aufrufe enthalten Cache-Treffer. Fehlerrate und Latenz zählen nur echte Anfragen.",
+      "adbTitle": "AeroDataBox-Einheiten",
+      "adbToday": "Einheiten heute",
+      "adbMonth": "Einheiten in diesem Monat",
+      "adbRemaining": "Verbleibend in diesem Monat (von RapidAPI gemeldet)",
+      "adbMargin": "Sicherheitsabstand: {margin}",
+      "adbUnknown": "unbekannt",
+      "orsTitle": "OpenRouteService",
+      "orsToday": "Anfragen heute (Tageslimit ORS_DAILY_REQUESTS)",
+      "overpassTitle": "Overpass-Server, dieser Monat",
+      "overpassCalls": "{calls} Anfragen, {errors} fehlgeschlagen",
+      "overpassUnknown": "unbekannt (vor der Protokollierung)"
+    },
+    "health": {
+      "title": "Zustand",
+      "db": "Datenbank",
+      "up": "Erreichbar",
+      "down": "Nicht erreichbar",
+      "latency": "{ms} ms",
+      "aiEnabled": "KI-Pläne",
+      "demoEnabled": "Demo-Login",
+      "on": "An",
+      "off": "Aus",
+      "commit": "Bereitgestellter Commit",
+      "keys": "Schlüssel und Einstellungen",
+      "set": "Gesetzt",
+      "missing": "Fehlt",
+      "lastCron": "Letzte Budgetprüfung",
+      "never": "Noch nie gelaufen",
+      "keyNames": {
+        "supabaseSecretKey": "Supabase-Secret-Key",
+        "anthropicKey": "Anthropic-Schlüssel",
+        "aerodataboxKey": "AeroDataBox-Schlüssel",
+        "openrouteserviceKey": "OpenRouteService-Schlüssel",
+        "sentryDsn": "Sentry-DSN",
+        "cronSecret": "Cron-Secret",
+        "integrationsContact": "Kontakt für Integrationen"
+      }
+    },
+    "events": {
+      "title": "Letzte Warnungen und Fehler",
+      "empty": "Keine Warnungen oder Fehler protokolliert.",
+      "event": "Ereignis",
+      "route": "Route",
+      "time": "Zeit",
+      "code": "Grund",
+      "warn": "Warnung",
+      "error": "Fehler"
+    }
   }
 }

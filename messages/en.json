@@ -20,7 +20,8 @@
     "signOut": "Sign out",
     "demoBanner": "Demo mode – data is visible to all demo visitors and is reset regularly.",
     "demoLabel": "Demo notice",
-    "trips": "Trips"
+    "trips": "Trips",
+    "admin": "Admin"
   },
   "errors": {
     "unauthenticated": "You are not signed in.",
@@ -1137,5 +1138,121 @@
     },
     "dayShort": "DAY",
     "daysUnit": "days"
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Aggregates only. No content of other users is shown here.",
+    "ofCap": "{used} of {cap}",
+    "noData": "No data yet.",
+    "level": {
+      "ok": "Within budget",
+      "warn": "Above 80 %",
+      "over": "Cap reached"
+    },
+    "users": {
+      "title": "Users",
+      "total": "Users",
+      "admins": "Admins",
+      "active7": "Active, 7 days",
+      "active30": "Active, 30 days",
+      "newMonth": "New this month",
+      "demoTitle": "Demo account",
+      "demoLogins7": "Demo logins, 7 days",
+      "demoLogins30": "Demo logins, 30 days",
+      "demoAiCalls": "AI calls this month",
+      "demoAiCost": "AI cost this month",
+      "note": "Demo account excluded from the user counts. Active = signed in or created something in the period."
+    },
+    "usage": {
+      "title": "Trips and plans",
+      "trips": "Trips",
+      "tripsMonth": "New trips this month",
+      "plans": "Trips with a plan",
+      "generated": "Plans generated this month",
+      "patched": "Patches this month",
+      "versionsGenerate": "Plans generated, total",
+      "versionsPatch": "Patches, total",
+      "shares": "Active share links",
+      "perDay": "Plan versions per day, last 14 days",
+      "generatedLabel": "generated",
+      "patchedLabel": "patched"
+    },
+    "ai": {
+      "title": "AI cost",
+      "today": "Today",
+      "month": "This month",
+      "todayHint": "Daily cap for all users together (AI_GLOBAL_DAILY_USD)",
+      "monthHint": "Monthly alert threshold (AI_MONTHLY_ALERT_USD)",
+      "calls": "Calls this month",
+      "failed": "Failed calls",
+      "cacheShare": "Prompt cache share of input tokens",
+      "byTask": "By task",
+      "byModel": "By model",
+      "calls_n": "{count} calls",
+      "tasks": {
+        "purpose_tags": "Purpose tags (Haiku)",
+        "group_parse": "Group text (Haiku)",
+        "plan_generate": "Plan (Sonnet)",
+        "plan_patch": "Patch (Sonnet)"
+      }
+    },
+    "api": {
+      "title": "External APIs",
+      "provider": "Provider",
+      "callsToday": "Calls today",
+      "callsMonth": "Calls this month",
+      "hitShare": "Cache hits",
+      "errorRate": "Error rate",
+      "p50": "p50",
+      "p95": "p95",
+      "note": "Calls include cache hits. Error rate and latency count real requests only.",
+      "adbTitle": "AeroDataBox units",
+      "adbToday": "Units today",
+      "adbMonth": "Units this month",
+      "adbRemaining": "Remaining this month (reported by RapidAPI)",
+      "adbMargin": "Safety margin: {margin}",
+      "adbUnknown": "unknown",
+      "orsTitle": "OpenRouteService",
+      "orsToday": "Requests today (daily cap ORS_DAILY_REQUESTS)",
+      "overpassTitle": "Overpass mirrors, this month",
+      "overpassCalls": "{calls} requests, {errors} failed",
+      "overpassUnknown": "unknown (before logging)"
+    },
+    "health": {
+      "title": "Health",
+      "db": "Database",
+      "up": "Reachable",
+      "down": "Not reachable",
+      "latency": "{ms} ms",
+      "aiEnabled": "AI plans",
+      "demoEnabled": "Demo login",
+      "on": "On",
+      "off": "Off",
+      "commit": "Deployed commit",
+      "keys": "Keys and settings",
+      "set": "Set",
+      "missing": "Missing",
+      "lastCron": "Last budget check",
+      "never": "Never run",
+      "keyNames": {
+        "supabaseSecretKey": "Supabase secret key",
+        "anthropicKey": "Anthropic key",
+        "aerodataboxKey": "AeroDataBox key",
+        "openrouteserviceKey": "OpenRouteService key",
+        "sentryDsn": "Sentry DSN",
+        "cronSecret": "Cron secret",
+        "integrationsContact": "Integrations contact"
+      }
+    },
+    "events": {
+      "title": "Recent warnings and errors",
+      "empty": "No warnings or errors logged.",
+      "event": "Event",
+      "route": "Route",
+      "time": "Time",
+      "code": "Reason",
+      "warn": "Warning",
+      "error": "Error"
+    }
   }
 }

@@ -15,6 +15,7 @@ export async function AppShell({
   const t = await getTranslations("nav");
   const profile = await getProfile();
   const isDemo = profile.ok && profile.data.isDemo;
+  const isAdmin = profile.ok && profile.data.role === "admin";
   return (
     <div className="flex min-h-screen flex-col">
       {isDemo && (
@@ -43,7 +44,7 @@ export async function AppShell({
             </button>
           </form>
           <div className="w-full sm:order-2 sm:w-auto sm:flex-1">
-            <NavLinks />
+            <NavLinks isAdmin={isAdmin} />
           </div>
         </div>
       </header>

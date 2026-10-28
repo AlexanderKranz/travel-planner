@@ -10,13 +10,13 @@ const ITEMS = [
   { href: "/settings", key: "settings" },
 ] as const;
 
-export function NavLinks() {
+export function NavLinks({ isAdmin = false }: { isAdmin?: boolean }) {
   const t = useTranslations("nav");
   const pathname = usePathname();
   return (
     <nav aria-label={t("label")}>
       <ul className="flex flex-wrap gap-x-1 sm:gap-x-3">
-        {ITEMS.map(({ href, key }) => {
+        {[...ITEMS, ...(isAdmin ? ([{ href: "/app/admin", key: "admin" }] as const) : [])].map(({ href, key }) => {
           const current = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <li key={key}>
