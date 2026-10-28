@@ -4,6 +4,8 @@ export type ActionError =
   | "invalid" // Zod validation failed, see `issues`
   | "not_found"
   | "unknown_airport"
+  | "unknown_place" // trip destination geoId cannot be resolved
+  | "limit_reached" // per-user cap (e.g. 100 trips)
   | "failed";
 
 export type ActionResult<T = void> =

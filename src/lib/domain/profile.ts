@@ -7,7 +7,7 @@ export const MAX_HOME_AIRPORTS = 5;
 /** Format only. Whether the code exists is checked server-side with isKnownIata(). */
 export const Iata = z.string().regex(/^[A-Z]{3}$/, "Expected a 3-letter IATA code");
 
-const HomeAirports = z
+export const HomeAirports = z
   .array(Iata)
   .max(MAX_HOME_AIRPORTS)
   .refine((list) => new Set(list).size === list.length, "Duplicate airports");
@@ -24,6 +24,7 @@ export const Profile = z.object({
   /** Shared demo account: cannot delete the account or change the email. */
   isDemo: z.boolean(),
 });
+export type Locale = z.infer<typeof Locale>;
 export type Profile = z.infer<typeof Profile>;
 
 export const ProfileUpdate = z
