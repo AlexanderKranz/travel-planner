@@ -196,3 +196,7 @@ Basic plan: 400 units/month (routes 6, FIDS 2, flight dates 2). Every call is lo
 The guard (`src/lib/server/flights-quota.ts`) reads those sums before each call. Knobs: `AERODATABOX_DAILY_UNITS` (daily cap) and `AERODATABOX_MIN_REMAINING` (monthly margin kept free, default 40).
 
 Accepted risk: there are no reservations, so parallel instances can each pass the check and overshoot the daily cap by a few calls. The monthly margin of 40 units absorbs this. Raise `AERODATABOX_MIN_REMAINING` if it ever bites.
+
+### OpenRouteService quota
+
+Free Standard key: about 500 matrix requests per day. One plan generation makes at most one request (`src/lib/server/facts/drive-times.ts`), cached 90 days per destination point and place set. Every request is logged in `api_calls` (provider `openrouteservice`). The guard counts today's non-hit rows (Europe/Berlin day) before each request and refuses at `ORS_DAILY_REQUESTS` (default 400); it fails closed. When it refuses or ORS is down, plans generate without drive times. Check usage with `select count(*) from api_calls where provider='openrouteservice' and cache <> 'hit' and created_at >= date_trunc('day', now())`.
