@@ -9,6 +9,9 @@ import { canonicalJson, planInputHash, purposeTagsHash } from "@/lib/plan/hash";
 import { buildEvalInput, evalPurpose, FIXTURE_IDS, PATCH_FEEDBACK } from "./build-input";
 import { evaluateGenerate, evaluatePatch, evaluateTags, formatResults } from "./evaluate";
 import { readRecording } from "./recorded";
+import { familyPlaceChecks, golfPlaceChecks } from "./checks";
+import type { Plan } from "@/lib/domain/plan";
+import type { PlanInputStored } from "@/lib/plan/input";
 
 vi.mock("server-only", () => ({}));
 
@@ -50,5 +53,39 @@ describe.each(FIXTURE_IDS)("eval %s", (id) => {
     if (patchRec!.inputHash !== hash) console.warn(`[${id}] patch recording is from another prompt/input version`);
     const p = evaluatePatch(id, tags, g.plan!, patchRec!.output, { recordedHash: genRec!.inputHash });
     expect(failed(p.results), formatResults(`${id} patch`, p.results)).toEqual([]);
+  });
+});
+
+describe("concrete-place checks", () => {
+  const place = (category: string) => ({ name: "X", category, lat: 0, lon: 0, distanceKm: 1, osmUrl: "https://www.openstreetmap.org/way/1", source: "osm" as const, fetchedAt: "f" });
+  const planWith = (acts: { kind: string; text: string; ref?: string; alts?: string[] }[]) =>
+    ({
+      days: [{ n: 1, date: null, title: "t", stops: [{ place: "p", acts }] }],
+      places: { "way/1": place("leisure=golf_course"), "way/2": place("tourism=zoo"), "way/3": place("tourism=attraction") },
+    }) as unknown as Plan;
+  const stored = {
+    llm: { places: [{ id: "p1", i: "golf" }, { id: "p2", i: "family_activities" }, { id: "p3", i: "general" }] },
+    index: { p1: { key: "way/1" }, p2: { key: "way/2" }, p3: { key: "way/3" } },
+  } as unknown as PlanInputStored;
+
+  it("golf: generic or non-golf sport activities fail", () => {
+    expect(failed(golfPlaceChecks(planWith([{ kind: "sport", text: "18 Loch", ref: "way/1", alts: ["way/1"] }])))).toEqual([]);
+    expect(failed(golfPlaceChecks(planWith([{ kind: "sport", text: "Erste Runde auf einem Platz im Südwesten" }])))).toHaveLength(1);
+    expect(failed(golfPlaceChecks(planWith([{ kind: "sport", text: "x", ref: "way/1", alts: ["way/3"] }])))).toHaveLength(1);
+  });
+
+  it("family: a zoo text without (family) ref fails; a ref to a family place passes", () => {
+    expect(failed(familyPlaceChecks(planWith([{ kind: "do", text: "Tiergarten", ref: "way/2" }]), stored))).toEqual([]);
+    expect(failed(familyPlaceChecks(planWith([{ kind: "food", text: "Mittagessen" }]), stored))).toEqual([]);
+    for (const acts of [
+      [{ kind: "do", text: "Familienfreundlicher Vergnügungspark oder Tiergarten" }],
+      [{ kind: "do", text: "Zoo besuchen", ref: "way/3" }],
+    ]) {
+      expect(familyPlaceChecks(planWith(acts), stored).filter((r) => !r.ok).map((r) => r.name)).toEqual([
+        "zoo/park activities name a verified family place (ref)",
+      ]);
+    }
+    const none = { ...stored, llm: { places: [] } } as unknown as PlanInputStored;
+    expect(failed(familyPlaceChecks(planWith([]), none))).toHaveLength(1);
   });
 });

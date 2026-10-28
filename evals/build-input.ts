@@ -7,6 +7,7 @@ import golfJson from "./fixtures/golftrip-costa-del-sol.json";
 import cruiseJson from "./fixtures/donau-kreuzfahrt.json";
 import golfOsm from "@/lib/integrations/__fixtures__/overpass/golf-marbella-40km.json";
 import passauOsm from "@/lib/integrations/__fixtures__/overpass/general-passau-15km.json";
+import passauFamilyOsm from "@/lib/integrations/__fixtures__/overpass/family-passau-25km.json";
 import fraDeparturesPast from "@/lib/integrations/__fixtures__/aerodatabox/fids-departures-FRA-2026-03-07-past.json";
 import agpDeparturesPast from "@/lib/integrations/__fixtures__/aerodatabox/fids-departures-AGP-2026-03-18-past.json";
 import malagaArchive from "@/lib/integrations/__fixtures__/open-meteo/archive-malaga-2016-2025.json";
@@ -24,7 +25,9 @@ import { daylightDates, selectedMonths } from "@/lib/facts/trip-timing";
 import { getCountry } from "@/lib/integrations/countries";
 import { parseArchive } from "@/lib/integrations/open-meteo-archive";
 import { parseElements } from "@/lib/integrations/overpass";
-import { buildPlanInput } from "@/lib/plan/input";
+import { buildPlanInput, selectPlaces, type DriveInput } from "@/lib/plan/input";
+import { existsSync, readFileSync } from "node:fs";
+import { recordingPath } from "./recorded";
 import { gatewayAirports } from "@/lib/plan/airports";
 import { buildFlightsFacts } from "@/lib/flights/build";
 import { maxBlockMinutes } from "@/lib/flights/constraint";
@@ -75,7 +78,8 @@ export const FIXTURES: Record<FixtureId, EvalFixture> = {
 /** Recorded Overpass responses per interest; other OSM interests count as "error" (not recorded). */
 const OSM: Record<FixtureId, Partial<Record<InterestOrGeneral, unknown>>> = {
   golf: { golf: golfOsm },
-  cruise: { general: passauOsm, city_sightseeing: passauOsm },
+  // family_activities recorded live 2026-10-28 (overpass-api.de, the production query for 25 km around Passau).
+  cruise: { general: passauOsm, city_sightseeing: passauOsm, family_activities: passauFamilyOsm },
 };
 
 /** Patch feedback per fixture (spec 7). */
@@ -251,6 +255,26 @@ export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null
   };
 }
 
+/** Recorded drive times: OSM key → {min, km} from one live ORS matrix call (`EVAL_TASK=drive`). */
+export type DriveRecording = { source: "openrouteservice"; recordedAt: string; origin: { lat: number; lon: number }; byKey: Record<string, { min: number; km: number }> };
+
+/** The places the pipeline would send to ORS for this fixture (origin = destination point). */
+export function evalDrivePicks(id: FixtureId, tags: PurposeTags | null) {
+  const trip = evalTrip(id);
+  const purpose = evalPurpose(id, tags);
+  const facts = evalFacts(id, trip, purpose);
+  const a = FIXTURES[id].trip.anchor;
+  const picks = selectPlaces(facts, interestsForTrip(purpose?.guided, purpose?.tags).keys).picks;
+  return { origin: { lat: a.lat, lon: a.lon }, places: picks.map((p) => ({ key: p.key, lat: p.c.lat, lon: p.c.lon })) };
+}
+
+function evalDrive(id: FixtureId): DriveInput | null {
+  const p = recordingPath(id, "drive");
+  if (!existsSync(p)) return null;
+  const rec = JSON.parse(readFileSync(p, "utf8")) as DriveRecording;
+  return { byKey: rec.byKey, fetchedAt: EVAL_FETCHED_AT };
+}
+
 /** Everything the pipeline would build for this fixture, given (recorded or live) purpose tags. */
 export function buildEvalInput(id: FixtureId, tags: PurposeTags | null) {
   const trip = evalTrip(id);
@@ -258,6 +282,7 @@ export function buildEvalInput(id: FixtureId, tags: PurposeTags | null) {
   const purpose = evalPurpose(id, tags);
   const facts = evalFacts(id, trip, purpose);
   const built = buildPlanInput({
+    drive: evalDrive(id),
     trip,
     group,
     purpose,

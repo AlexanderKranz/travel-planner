@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { AiUsageRecord } from "@/lib/domain/ai";
 import type { FixtureId } from "./build-input";
 
-export type RecordedTask = "tags" | "generate" | "patch";
+export type RecordedTask = "tags" | "generate" | "patch" | "drive";
 export type Recording<T> = {
   promptVersion: string;
   model: string;

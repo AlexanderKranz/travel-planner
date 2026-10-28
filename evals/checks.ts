@@ -99,8 +99,46 @@ export function flightChecks(plan: Plan, fresh: boolean): CheckResult[] {
   return r;
 }
 
+/** OSM key → interest of the input place (from the stored input). */
+export function refInterests(stored: PlanInputStored): Map<string, string> {
+  const byId = new Map(stored.llm.places.map((p) => [p.id, p.i]));
+  return new Map(Object.entries(stored.index).map(([id, v]) => [v.key, byId.get(id) ?? ""]));
+}
+
+const allActs = (plan: Plan) => plan.days.flatMap((d) => d.stops.flatMap((s) => s.acts.map((a) => ({ d: d.n, a }))));
+
+/** Concrete places (plan-3): every sport activity names a golf course; alts are golf courses too. */
+export function golfPlaceChecks(plan: Plan): CheckResult[] {
+  const sport = allActs(plan).filter(({ a }) => a.kind === "sport");
+  const generic = sport.filter(({ a }) => !a.ref || plan.places[a.ref]?.category !== GOLF_CAT);
+  const badAlts = sport.filter(({ a }) => (a.alts ?? []).some((k) => plan.places[k]?.category !== GOLF_CAT));
+  return [
+    check("every sport activity has a ref to a golf course", sport.length > 0 && generic.length === 0, generic.map(({ d, a }) => `d${d} ${a.text}`).slice(0, 4).join(" | ")),
+    check("sport alternatives are golf courses", badAlts.length === 0, badAlts.map(({ d }) => `d${d}`).join(",")),
+  ];
+}
+
+/** Zoo/park/aquarium wording (de + en) that must point to a verified place when the input has family places. */
+export const FAMILY_TEXT = /\b(zoo|tierpark|tiergarten|aquarium|freizeitpark|vergnügungspark|erlebnispark|wasserpark|erlebnisbad|spaßbad|theme park|amusement park|water park|wildpark)/i;
+
+/**
+ * Concrete places (plan-3): with family places in the input, every zoo/park-type activity names one (ref);
+ * a generic "zoo or amusement park" without ref fails. Whether the model picks a family venue at all is a
+ * content choice (an advent cruise may skip it), so usage is not required.
+ */
+export function familyPlaceChecks(plan: Plan, stored: PlanInputStored): CheckResult[] {
+  const interests = refInterests(stored);
+  const available = stored.llm.places.filter((p) => p.i === "family_activities").length;
+  const acts = allActs(plan);
+  const generic = acts.filter(({ a }) => FAMILY_TEXT.test(a.text) && !(a.ref && interests.get(a.ref) === "family_activities"));
+  return [
+    check("family places reach the model", available > 0, "none in input"),
+    check("zoo/park activities name a verified family place (ref)", generic.length === 0, generic.map(({ d, a }) => `d${d} ${a.text}`).slice(0, 3).join(" | ")),
+  ];
+}
+
 export function golfChecks(plan: Plan, c: EvalFixture["checks"], fresh = true): CheckResult[] {
-  const r: CheckResult[] = [...flightChecks(plan, fresh)];
+  const r: CheckResult[] = [...flightChecks(plan, fresh), ...golfPlaceChecks(plan)];
   if (c.sportEveryDay) {
     const missing = plan.days.filter((d) => golfRefs(plan, d).length === 0).map((d) => d.n);
     r.push(check("golf round with course ref on every day", missing.length === 0, `missing days ${missing.join(",")}`));
@@ -172,8 +210,12 @@ export function tagChecks(id: FixtureId, tags: PurposeTags): CheckResult[] {
   return [check("tags: interests contain christmas_markets", tags.interests.includes("christmas_markets"), tags.interests.join(","))];
 }
 
-export function planChecks(id: FixtureId, fixture: EvalFixture, plan: Plan, fresh = true): CheckResult[] {
-  return id === "golf" ? golfChecks(plan, fixture.checks, fresh) : cruiseChecks(plan, fixture.checks, fixture.fixedSchedule ?? []);
+export function planChecks(id: FixtureId, fixture: EvalFixture, plan: Plan, fresh = true, stored?: PlanInputStored): CheckResult[] {
+  if (id === "golf") return golfChecks(plan, fixture.checks, fresh);
+  const r = cruiseChecks(plan, fixture.checks, fixture.fixedSchedule ?? []);
+  // Only for a recording made from the current input: an older one never saw the family places.
+  if (stored && fresh) r.push(...familyPlaceChecks(plan, stored));
+  return r;
 }
 
 export function patchChecks(a: {

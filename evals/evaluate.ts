@@ -34,7 +34,7 @@ export function evaluateGenerate(id: FixtureId, tags: PurposeTags | null, llm: L
   const results = [
     { name: "assemble", ok: true },
     ...genericChecks({ plan: res.plan, stored: built.stored, rawRefs: rawRefs(llm.days), issues: res.issues, startDate, flightsRecorded: !!built.facts.flights }),
-    ...planChecks(id, FIXTURES[id], res.plan, fresh),
+    ...planChecks(id, FIXTURES[id], res.plan, fresh, built.stored),
   ];
   return { built, plan: res.plan as Plan | null, issues: res.issues as AssembleIssues | null, results };
 }
