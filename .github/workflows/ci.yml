@@ -3,7 +3,8 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    # phase-* work branches too, so migrations and pgTAP run before a PR exists
+    branches: [main, "phase-*/**"]
 
 jobs:
   check:
