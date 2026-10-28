@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261031120021. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261101120024. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -601,6 +601,54 @@ insert into public.trips (id, owner_id, dest_kind, dest_name, length_days) value
 insert into public.trip_items (owner_id, trip_id, category, title)
   select 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000561', 'stay', 'i' || g from generate_series(1, 100) g;
 select throws_ok($$insert into public.trip_items (owner_id, trip_id, category, title) values ('aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000561', 'stay', 'x')$$, 'TP100', null, '101st item per trip is rejected');
+
+-- ---------- group text (migration 20261101120024) ----------
+reset role;
+set local request.jwt.claims = '';
+insert into public.travel_groups (id, owner_id, name) values
+  ('a0000000-0000-4000-8000-000000000091', 'aaaaaaaa-0000-4000-8000-000000000001', 'A text group');
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days) values
+  ('a0000000-0000-4000-8000-000000000092', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Texttown', 3);
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select lives_ok($$update public.travel_groups set description = 'Wir sind 5 Freunde' where id = 'a0000000-0000-4000-8000-000000000091'$$, 'owner can set the group description');
+select throws_ok($$update public.travel_groups set description = repeat('a', 1001) where id = 'a0000000-0000-4000-8000-000000000091'$$, '23514', null, 'group description over 1000 chars rejected');
+select throws_ok($$update public.travel_groups set parsed_structure = '{}' where id = 'a0000000-0000-4000-8000-000000000091'$$, '42501', null, 'owner cannot write parsed_structure');
+select throws_ok($$update public.travel_groups set parsed_hash = 'h' where id = 'a0000000-0000-4000-8000-000000000091'$$, '42501', null, 'owner cannot write parsed_hash');
+select throws_ok($$insert into public.travel_groups (name, parsed_hash) values ('x', 'h')$$, '42501', null, 'owner cannot insert parsed_hash');
+select lives_ok($$select public.replace_group_entries('a0000000-0000-4000-8000-000000000091', '{"name":"A text group","description":"Ich und Ben","trait_keys":[]}'::jsonb, '[]'::jsonb)$$, 'replace_group_entries sets the description');
+select is((select description from public.travel_groups where id = 'a0000000-0000-4000-8000-000000000091'), 'Ich und Ben', 'description updated by replace_group_entries');
+select lives_ok($$select public.replace_group_entries('a0000000-0000-4000-8000-000000000091', '{"name":"A text group","trait_keys":[]}'::jsonb, '[]'::jsonb)$$, 'replace_group_entries without a description key');
+select is((select description from public.travel_groups where id = 'a0000000-0000-4000-8000-000000000091'), 'Ich und Ben', 'missing description key keeps the stored description');
+select lives_ok($$select public.replace_group_entries('a0000000-0000-4000-8000-000000000091', '{"name":"A text group","description":null,"trait_keys":[]}'::jsonb, '[]'::jsonb)$$, 'replace_group_entries with description null');
+select is((select description from public.travel_groups where id = 'a0000000-0000-4000-8000-000000000091'), null, 'description null clears the text');
+
+-- trips: one-off group text, exclusive with a saved group
+select lives_ok($$update public.trips set group_text = 'Ich und Ben, ähnliches Alter', group_structure = '[{"count":2,"age":{"ageMode":"relativeToMe"}}]'::jsonb where id = 'a0000000-0000-4000-8000-000000000092'$$, 'owner can set group_text and group_structure');
+select throws_ok($$update public.trips set group_id = 'a0000000-0000-4000-8000-000000000091' where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'saved group and one-off text are mutually exclusive');
+select lives_ok($$update public.trips set group_text = null, group_structure = null, group_id = 'a0000000-0000-4000-8000-000000000091' where id = 'a0000000-0000-4000-8000-000000000092'$$, 'switching from one-off text to a saved group works');
+select throws_ok($$update public.trips set group_text = 'x' where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'one-off text with a saved group is rejected');
+select lives_ok($$update public.trips set group_id = null, group_text = 'x', group_structure = null where id = 'a0000000-0000-4000-8000-000000000092'$$, 'back to a one-off text');
+select throws_ok($$update public.trips set group_text = null, group_structure = '[]'::jsonb where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'a structure needs a text');
+select throws_ok($$update public.trips set group_structure = '{}'::jsonb where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'group_structure must be an array');
+select throws_ok($$update public.trips set group_text = repeat('a', 1001) where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'group_text over 1000 chars rejected');
+select throws_ok($$update public.trips set group_parsed = '{}' where id = 'a0000000-0000-4000-8000-000000000092'$$, '42501', null, 'owner cannot write group_parsed');
+select throws_ok($$update public.trips set group_parsed_hash = 'h' where id = 'a0000000-0000-4000-8000-000000000092'$$, '42501', null, 'owner cannot write group_parsed_hash');
+select lives_ok($$insert into public.trips (dest_kind, dest_name, length_days, group_text) values ('freetext', 'X', 2, 'nur ich')$$, 'owner can insert a trip with a one-off group text');
+
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+select is((select count(*)::int from public.trips where group_text is not null), 0, 'B does not see the one-off group text of A');
+with u as (update public.travel_groups set description = 'pwn' where id = 'a0000000-0000-4000-8000-000000000091' returning 1)
+select is((select count(*)::int from u), 0, 'B cannot update the description of A group');
+
+reset role;
+select ok(has_column_privilege('authenticated', 'public.travel_groups', 'description', 'update'), 'authenticated: can update description');
+select ok(not has_column_privilege('authenticated', 'public.travel_groups', 'parsed_structure', 'update'), 'authenticated: cannot update parsed_structure');
+select ok(not has_column_privilege('authenticated', 'public.travel_groups', 'parsed_structure', 'insert'), 'authenticated: cannot insert parsed_structure');
+select ok(has_column_privilege('authenticated', 'public.trips', 'group_text', 'insert'), 'authenticated: can insert trips.group_text');
+select ok(not has_column_privilege('authenticated', 'public.trips', 'group_parsed', 'update'), 'authenticated: cannot update trips.group_parsed');
+select lives_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'group_parse', 'claude-haiku-5-5', 'ok')$$, 'ai_usage accepts the group_parse task');
+select throws_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'bogus', 'claude-haiku-5-5', 'ok')$$, '23514', null, 'ai_usage still rejects unknown tasks');
 
 select * from finish();
 rollback;
