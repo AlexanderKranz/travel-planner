@@ -259,6 +259,7 @@
   "trips": {
     "title": "Trips",
     "intro": "A trip needs only a destination and a length. Everything else is optional.",
+    "retention": "Up to {max} trips. A trip is deleted automatically 18 months after it ends or was last edited, whichever is later.",
     "new": "New trip",
     "newTitle": "New trip",
     "editTitle": "Edit trip",

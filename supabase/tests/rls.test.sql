@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261029120013. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261029120014. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -320,6 +320,20 @@ select throws_ok($$insert into public.signup_allowlist (email) values (' padded@
 reset role;
 select is(public.hook_before_user_created('{"user":{"email":"A@Test.dev"}}'::jsonb), '{}'::jsonb, 'hook allows listed email (case-insensitive)');
 select is((public.hook_before_user_created('{"user":{"email":"nobody@test.dev"}}'::jsonb) -> 'error' ->> 'http_code'), '403', 'hook rejects unlisted email');
+
+-- ---------- trip retention (migration 20261029120014) ----------
+reset role;
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days, start_date, updated_at) values
+  ('a0000000-0000-4000-8000-0000000000e1', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Old undated', 3, null, now() - interval '19 months'),
+  ('a0000000-0000-4000-8000-0000000000e2', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Old edit, future trip', 3, current_date + 30, now() - interval '19 months'),
+  ('a0000000-0000-4000-8000-0000000000e3', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Ended long ago', 3, (current_date - interval '20 months')::date, now() - interval '20 months'),
+  ('a0000000-0000-4000-8000-0000000000e4', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Ended 17 months ago', 3, (current_date - interval '17 months')::date, now() - interval '19 months');
+select is(private.purge_expired_trips(), 2, 'purge deletes the two expired trips');
+select is((select array_agg(dest_name order by dest_name) from public.trips where id::text like 'a0000000-0000-4000-8000-0000000000e%'),
+  array['Ended 17 months ago', 'Old edit, future trip'], 'trips with a recent end date or a future trip are kept');
+select ok(exists (select 1 from public.app_events where event = 'trips.purged' and props ->> 'count' = '2'), 'purge logs an app_event with the count only');
+select ok(exists (select 1 from cron.job where jobname = 'purge-expired-trips'), 'nightly purge job is scheduled');
+select ok(not has_function_privilege('authenticated', 'private.purge_expired_trips()', 'execute'), 'authenticated cannot run the purge');
 
 select * from finish();
 rollback;

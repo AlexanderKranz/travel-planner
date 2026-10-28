@@ -1,6 +1,6 @@
 -- trips: destination inline, timing = exact date OR months OR nothing, nullable same-owner group/purpose.
 -- Requires PostgreSQL >= 15 (ON DELETE SET NULL (column list)).
--- Per-user cap (100 trips) is a business rule enforced in the server action, not here.
+-- Per-user cap (30 trips) is a business rule enforced in the server action, not here.
 
 -- Target of the composite FK (travel_groups already has unique (id, owner_id)).
 alter table public.trip_purposes

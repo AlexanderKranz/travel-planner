@@ -3,7 +3,7 @@ import { IsoDate, optionalText } from "./common";
 import { HomeAirports } from "./profile";
 
 export const MAX_TRIP_DAYS = 60;
-export const MAX_TRIPS_PER_USER = 100;
+export const MAX_TRIPS_PER_USER = 30;
 export const DEFAULT_RADIUS_KM = { city: 15, region: 40 } as const;
 
 export const Month = z.number().int().min(1).max(12);

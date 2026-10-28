@@ -78,8 +78,8 @@ describe("createTrip", () => {
     expect(h.ops).toHaveLength(0);
   });
 
-  it("limit_reached at 100 trips", async () => {
-    h.results["trips.select"] = { count: 100 };
+  it("limit_reached at 30 trips", async () => {
+    h.results["trips.select"] = { count: 30 };
     expect(await createTrip(input)).toEqual({ ok: false, error: "limit_reached" });
     expect(h.ops.some((o) => o.op === "insert")).toBe(false);
   });

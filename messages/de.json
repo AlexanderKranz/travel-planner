@@ -259,6 +259,7 @@
   "trips": {
     "title": "Reisen",
     "intro": "Eine Reise braucht nur ein Ziel und eine Dauer. Alles andere ist optional.",
+    "retention": "Bis zu {max} Reisen. Eine Reise wird 18 Monate nach ihrem Ende bzw. der letzten Bearbeitung automatisch gelöscht, je nachdem, was später ist.",
     "new": "Neue Reise",
     "newTitle": "Neue Reise",
     "editTitle": "Reise bearbeiten",

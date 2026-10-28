@@ -2,6 +2,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { TripCard } from "@/components/trips/trip-card";
 import { btnPrimary, cardCls, mutedCls } from "@/components/ui/styles";
+import { MAX_TRIPS_PER_USER } from "@/lib/domain/trip";
 import { listTrips } from "@/lib/server/trips";
 import { unwrap } from "@/lib/unwrap";
 
@@ -20,6 +21,7 @@ export default async function TripsPage({ params }: { params: Promise<{ locale: 
         </Link>
       </div>
       <p className={mutedCls}>{t("intro")}</p>
+      <p className={`text-sm ${mutedCls}`}>{t("retention", { max: MAX_TRIPS_PER_USER })}</p>
       {trips.length === 0 ? (
         <div className={`${cardCls} flex flex-col gap-3`}>
           <p>{t("empty")}</p>

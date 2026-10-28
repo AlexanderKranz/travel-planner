@@ -84,7 +84,9 @@ grant insert (title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_co
 grant update (<same list>) on public.trips to authenticated;
 -- + the four "trips: owner select/insert/update/delete" policies (template in phase-1 spec §1)
 ```
-Per-user cap: 100 trips, checked in the server action (business rule, not DB) **[D8]**.
+Per-user cap: 30 trips, checked in the server action (business rule, not DB) **[D8]**.
+
+Retention: a trip is deleted 18 months after the later of its last update and its end date (exact dates only). A nightly pg_cron job (`private.purge_expired_trips()`, migration 014) deletes expired trips and logs `trips.purged` with the count only **[D19]**.
 
 Phase 3 fit: `plan_versions` (phase 3) will reference `trips(id, owner_id)` the same way and store a **snapshot** `{ trip, group (resolved ages at the reference date), purpose, facts: TripFacts }`. Nothing on `trips` is snapshot data; `trips` holds live references only. `TripFacts` (section 6) is designed to be stored verbatim in that snapshot.
 
@@ -346,7 +348,7 @@ Route `GET /api/geocode?q=mar&lang=de` → `{ results: GeoPlace[] }` (max 8). 40
 ### 6.2 `src/lib/domain/trip.ts`
 ```ts
 export const MAX_TRIP_DAYS = 60;
-export const MAX_TRIPS_PER_USER = 100;
+export const MAX_TRIPS_PER_USER = 30;
 export const DEFAULT_RADIUS_KM = { city: 15, region: 40 } as const;
 
 export const Month = z.number().int().min(1).max(12);
@@ -619,11 +621,12 @@ Each item is implemented as described unless Alex changes it.
 - **[D1] Climate source = Historical Weather API (archive), 2016–2025, aggregated in code**, not the Climate API (model projections). One ~105-unit call per location per year, 12-row aggregate cached for 365 days. Alternative: 30-year normals (3× the units) or the Climate API (cheaper, less accurate).
 - **[D2] Regions = anchor place + radius.** Open-Meteo geocoding returns no bounding boxes, and Nominatim is avoided (usage policy). The user picks a place (e.g. Marbella), switches to "region", sets a radius (default city 15 km, region 40 km) and may rename it ("Costa del Sol"). Display name and anchor place are stored separately.
 - **[D3] Free-text fallback** when geocoding finds nothing: stores only the name and an optional country (so country facts still work). Weather, daylight, summary and places are "unavailable: no location" for free text.
-- **[D4] Months are alternatives** ("March or April"), stored without a year; they always mean the next occurrence (15th of the month, on or after the current month). A trip for "December" viewed in January then refers to next December. Alternative: store a year.
+- **[D4] Months are alternatives** ("March or April"), stored without a year; they always mean the next occurrence (15th of the month, on or after the current month). A trip for "December" viewed in January then refers to next December. *Confirmed by Alex 2026-10-28.*
 - **[D5] Trip length 1–60 days.**
 - **[D6] `wants_flights` defaults to true**; the form unchecks it when the profile has no home airports.
 - **[D7] Extra `notes` field on trips** (not in the brief): trip-specific context like ship name or port list; optional, ≤ 2000 chars, for phase 3.
-- **[D8] Cap of 100 trips per user** (server check), also bounds the shared demo account.
+- **[D8] Cap of 30 trips per user** (server check), also bounds the shared demo account. *Confirmed by Alex 2026-10-28 (changed from 100).*
+- **[D19] Retention 18 months** after the later of last update and trip end; nightly pg_cron purge. *Requested by Alex 2026-10-28.*
 - **[D9] Country facts from a static dataset built from REST Countries** (like airports), instead of runtime calls: deterministic, no outages, no cache rows. Rebuilt about yearly by script; the UI shows the dataset date as the check date.
 - **[D10] Plug types and voltage omitted in phase 2.** No machine-readable, public-domain, maintained source was found (IEC World Plugs and WorldStandards are copyrighted; Wikipedia is CC BY-SA and needs fragile parsing). The `plugs` field stays `null`. Backlog candidate: the US ITA "Electric Current Worldwide" table (US government work, public domain) after checking it is current.
 - **[D11] Destination summary from Wikivoyage (user locale) via geosearch**; title match, else nearest article within 5 km, else none. Shown verbatim with attribution, never sent to the LLM.

@@ -5,7 +5,7 @@ export type ActionError =
   | "not_found"
   | "unknown_airport"
   | "unknown_place" // trip destination geoId cannot be resolved
-  | "limit_reached" // per-user cap (e.g. 100 trips)
+  | "limit_reached" // per-user cap (e.g. 30 trips)
   | "failed";
 
 export type ActionResult<T = void> =
