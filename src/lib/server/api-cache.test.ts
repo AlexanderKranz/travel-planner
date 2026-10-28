@@ -172,3 +172,26 @@ describe("cached", () => {
     expect(state.calls[0]).toMatchObject({ error_code: "http_400", units: 2, quota_remaining: 311 });
   });
 });
+
+describe("cached fetchAllowed (time budget)", () => {
+  const gated = (allowed: boolean, fetcher = vi.fn()) =>
+    cached({ provider: "overpass", endpoint: "interpreter", key: "k", ttlSeconds: 60, schema, fetcher, ctx, fetchAllowed: () => allowed });
+
+  it("a fresh hit is served without consulting the budget", async () => {
+    state.row = { payload: { v: { n: 1 } }, fetched_at: "2026-01-01T00:00:00Z", expires_at: future() };
+    const allowed = vi.fn(() => false);
+    const res = await cached({ provider: "overpass", endpoint: "interpreter", key: "k", ttlSeconds: 60, schema, fetcher: vi.fn(), ctx, fetchAllowed: allowed });
+    expect(res).toMatchObject({ ok: true, cache: "hit" });
+    expect(allowed).not.toHaveBeenCalled();
+  });
+  it("refused on a miss: no fetch, no log, timeout", async () => {
+    const fetcher = vi.fn();
+    expect(await gated(false, fetcher)).toEqual({ ok: false, error: "timeout" });
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(state.calls).toHaveLength(0);
+  });
+  it("refused with an expired row: served stale", async () => {
+    state.row = { payload: { v: { n: 7 } }, fetched_at: "2026-01-01T00:00:00Z", expires_at: past() };
+    expect(await gated(false)).toMatchObject({ ok: true, data: { n: 7 }, stale: true, cache: "stale" });
+  });
+});

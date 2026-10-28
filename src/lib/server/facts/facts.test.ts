@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-type Opts = { key: string; provider: string; endpoint: string; ttlSeconds: number };
+type Opts = { key: string; provider: string; endpoint: string; ttlSeconds: number; fetchAllowed?: () => boolean };
 const mockState = vi.hoisted(() => ({ impl: ((o: unknown): unknown => o) as (o: unknown) => unknown, calls: [] as unknown[] }));
 const cachedMock = {
   get mock() { return { calls: mockState.calls.map((c) => [c as Opts]) }; },
@@ -143,12 +143,18 @@ describe("server facts", () => {
     expect(await getPlacesFacts(passau, null, ctx)).toMatchObject({ status: "unavailable", reason: "provider_error" });
     expect(cachedMock.mock.calls[0][0].key).toContain("interest=general");
 
+    // Over budget: cache hits are still served; a miss asks fetchAllowed(), which refuses after the first query.
     cachedMock.mockReset();
-    cachedMock.mockResolvedValue(hit([]));
+    const allowed: boolean[] = [];
+    cachedMock.mockImplementation(async (o: { fetchAllowed?: () => boolean }) => {
+      const ok = o.fetchAllowed ? o.fetchAllowed() : true;
+      allowed.push(ok);
+      return ok ? hit([]) : { ok: false, error: "timeout" };
+    });
     const f = await getPlacesFacts(passau, purpose(["golf", "beach"]), ctx, { budgetMs: -1 });
     if (f.status !== "ok") throw new Error("expected ok");
     expect(f.data.groups.map((g) => g.status)).toEqual(["empty", "error"]);
-    expect(cachedMock.mock.calls).toHaveLength(1);
+    expect(allowed).toEqual([true, false]);
   });
 
   it("getTripFacts bundles everything, never throws; warmTripFacts resolves", async () => {

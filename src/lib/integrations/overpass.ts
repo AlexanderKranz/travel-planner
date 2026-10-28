@@ -13,6 +13,9 @@ import { HttpError, UpstreamError, postForm } from "./http";
 
 export const DEFAULT_OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 export const FALLBACK_OVERPASS_URL = "https://maps.mail.ru/osm/tools/overpass/api/interpreter";
+/** Third instance (private.coffee, public, keyless) [D3]. */
+export const SECOND_FALLBACK_OVERPASS_URL = "https://overpass.private.coffee/api/interpreter";
+export const OVERPASS_MIRRORS = [FALLBACK_OVERPASS_URL, SECOND_FALLBACK_OVERPASS_URL] as const;
 /** Per-attempt client timeout. The public instances queue for 20-60 s before a slot opens (measured 2026-10-28). */
 export const OVERPASS_CLIENT_TIMEOUT_MS = 100_000;
 /** Server-side execution limit sent in the query (`[timeout:N]`); the slot queue is not counted. */
@@ -82,16 +85,21 @@ export function parseElements(body: unknown): RawOsmElement[] {
   return out;
 }
 
+/** Primary (`OVERPASS_URL` or the default) followed by the mirrors, without duplicates. */
+export function overpassUrls(env: Record<string, string | undefined> = process.env): string[] {
+  const primary = env.OVERPASS_URL?.trim() || DEFAULT_OVERPASS_URL;
+  return [...new Set([primary, ...OVERPASS_MIRRORS])];
+}
+
 /**
- * One query, primary instance first (`OVERPASS_URL` overrides it), then the mirror once on any failure
+ * One query, primary instance first (`OVERPASS_URL` overrides it), then each mirror once on any failure
  * (timeout, 429, 5xx, runtime-error remark). Sequential, never parallel. `deadline` (epoch ms) caps the total time.
  */
 export async function runQuery(
   query: string,
   opts: { deadline?: number } = {},
 ): Promise<{ elements: RawOsmElement[]; status: number; latencyMs: number }> {
-  const primary = process.env.OVERPASS_URL?.trim() || DEFAULT_OVERPASS_URL;
-  const urls = primary === FALLBACK_OVERPASS_URL ? [primary] : [primary, FALLBACK_OVERPASS_URL];
+  const urls = overpassUrls();
   let lastError: unknown;
   for (const [i, url] of urls.entries()) {
     const remaining = opts.deadline === undefined ? Infinity : opts.deadline - Date.now();

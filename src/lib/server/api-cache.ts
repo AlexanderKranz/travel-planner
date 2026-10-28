@@ -10,6 +10,7 @@ export const CacheProvider = z.enum([
   "wikivoyage",
   "wikipedia",
   "aerodatabox",
+  "openrouteservice",
 ]);
 export type CacheProvider = z.infer<typeof CacheProvider>;
 
@@ -101,8 +102,13 @@ export async function cached<T>(opts: {
   /** Throws on non-2xx / timeout / Zod error. */
   fetcher: () => Promise<FetchOutcome<T>>;
   ctx: CacheCtx;
+  /**
+   * Checked after a cache miss, right before fetching. `false` = no network call (time budget used up):
+   * an expired row is served as stale, otherwise `timeout`. Nothing is logged then (no call was made).
+   */
+  fetchAllowed?: () => boolean;
 }): Promise<CachedResult<T>> {
-  const { provider, endpoint, key, ttlSeconds, schema, fetcher, ctx } = opts;
+  const { provider, endpoint, key, ttlSeconds, schema, fetcher, ctx, fetchAllowed } = opts;
   const storeKey = `${key}${ENVELOPE_KEY_SUFFIX}`;
   const base = { provider, endpoint, userId: ctx.userId };
   const log = (row: Omit<ApiCallRow, "provider" | "endpoint" | "userId">) =>
@@ -139,6 +145,12 @@ export async function cached<T>(opts: {
     if (existing && existing.expiresAt > Date.now()) {
       await log({ cache: "hit", ok: true });
       return { ok: true, data: existing.data, fetchedAt: existing.fetchedAt, stale: false, cache: "hit" };
+    }
+
+    if (fetchAllowed && !fetchAllowed()) {
+      return existing
+        ? { ok: true, data: existing.data, fetchedAt: existing.fetchedAt, stale: true, cache: "stale" }
+        : { ok: false, error: "timeout" };
     }
 
     // 2. Fetch.

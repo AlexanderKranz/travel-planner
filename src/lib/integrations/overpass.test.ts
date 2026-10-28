@@ -5,7 +5,7 @@ const h = vi.hoisted(() => ({ postForm: vi.fn() }));
 vi.mock("./http", async (orig) => ({ ...(await orig<typeof import("./http")>()), postForm: h.postForm }));
 
 import { HttpError } from "./http";
-import { DEFAULT_OVERPASS_URL, FALLBACK_OVERPASS_URL, OVERPASS_CLIENT_TIMEOUT_MS, bboxAround, runQuery } from "./overpass";
+import { DEFAULT_OVERPASS_URL, FALLBACK_OVERPASS_URL, OVERPASS_CLIENT_TIMEOUT_MS, SECOND_FALLBACK_OVERPASS_URL, bboxAround, overpassUrls, runQuery } from "./overpass";
 
 const ok = (n = 1) => ({
   status: 200,
@@ -59,13 +59,20 @@ describe("runQuery with mirror fallback", () => {
   it("tries each instance only once and rethrows the last error", async () => {
     h.postForm.mockRejectedValue(new HttpError(502));
     await expect(runQuery("q")).rejects.toMatchObject({ status: 502 });
-    expect(h.postForm).toHaveBeenCalledTimes(2);
+    expect(h.postForm.mock.calls.map((c) => c[0])).toEqual([DEFAULT_OVERPASS_URL, FALLBACK_OVERPASS_URL, SECOND_FALLBACK_OVERPASS_URL]);
+  });
+  it("falls through to the third instance", async () => {
+    h.postForm.mockRejectedValueOnce(new HttpError(504)).mockRejectedValueOnce(new HttpError(429)).mockResolvedValueOnce(ok(3));
+    expect((await runQuery("q")).elements).toHaveLength(3);
+  });
+  it("an OVERPASS_URL equal to a mirror is not tried twice", () => {
+    expect(overpassUrls({ OVERPASS_URL: SECOND_FALLBACK_OVERPASS_URL })).toEqual([SECOND_FALLBACK_OVERPASS_URL, FALLBACK_OVERPASS_URL]);
   });
   it("OVERPASS_URL overrides the primary; the mirror stays the fallback", async () => {
     vi.stubEnv("OVERPASS_URL", "https://example.test/api/interpreter");
     h.postForm.mockRejectedValueOnce(new HttpError(500)).mockResolvedValueOnce(ok());
     await runQuery("q");
-    expect(h.postForm.mock.calls.map((c) => c[0])).toEqual(["https://example.test/api/interpreter", FALLBACK_OVERPASS_URL]);
+    expect(h.postForm.mock.calls.map((c) => c[0])).toEqual(["https://example.test/api/interpreter", FALLBACK_OVERPASS_URL]); // second succeeded
   });
   it("skips the fallback and shortens timeouts when the deadline is near", async () => {
     h.postForm.mockRejectedValue(new HttpError(500));
