@@ -535,6 +535,29 @@
       "notOperating": "no flight",
       "operatingDays": "{days} of {of} days",
       "tooLong": "over your {h} h limit",
+      "tooLongShort": "over your limit",
+      "nearby": {
+        "checkOut": "Outbound: check ±1 day",
+        "checkBack": "Return: check ±1 day",
+        "loading": "Checking …",
+        "hint": "Looks up the day before and after at the departure airport.",
+        "titleOut": "Outbound, other days ({from} → {to})",
+        "titleBack": "Return, other days ({from} → {to})",
+        "dayBefore": "day before your date",
+        "dayAfter": "day after your date",
+        "none": "No direct flight on this day.",
+        "notChecked": "Not checked (limit or date range), try again later.",
+        "partial": "Only part of the day could be checked.",
+        "proxy": "Flown on this weekday last year, not yet published. Check before booking.",
+        "quotaLimited": "The daily limit for flight lookups is reached. Try again tomorrow.",
+        "error": "Could not load the neighbouring days. Nothing is invented.",
+        "rateLimited": "Too many requests. Please try again in a minute.",
+        "newTab": "opens in a new tab",
+        "links": {
+          "google": "Google Flights, {date}",
+          "skyscanner": "Skyscanner, {date}"
+        }
+      },
       "change": "Times and routes can change.",
       "newTab": "opens in a new tab",
       "links": {
@@ -950,7 +973,9 @@
     "pdf": "Download PDF",
     "pdfHint": "A4, printable, with the latest plan version.",
     "cancel": "Cancel",
-    "createdTitle": "Link created"
+    "createdTitle": "Link created",
+    "pdfBusy": "Creating PDF…",
+    "pdfFailed": "The PDF could not be created. Please try again later."
   },
   "shared": {
     "banner": "Shared travel plan",
@@ -962,7 +987,9 @@
     "notFoundTitle": "Link not found",
     "notFoundText": "This link is invalid, expired or was revoked. Ask the person who shared it for a new one.",
     "metaTitle": "Shared travel plan",
-    "home": "Go to the home page"
+    "home": "Go to the home page",
+    "pdfBusy": "Creating PDF…",
+    "pdfFailed": "The PDF could not be created. Please try again later."
   },
   "pdf": {
     "title": "Travel plan",

@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { btnSecondary, cardCls, linkCls, mutedCls } from "@/components/ui/styles";
 import { flightLinks } from "@/lib/flights/links";
 import { durationParts, legsOfPair, limitHours, pairState, type PairState } from "@/lib/flights/ui";
+import { FlightsNearby, canCheckNearby } from "./flights-nearby";
 import { FactUnavailable } from "./fact-unavailable";
 import { SourceNote } from "./source-note";
 
@@ -79,7 +80,7 @@ function Direction({ title, legs, maxBlockMin }: { title: string; legs: FlightLe
   );
 }
 
-function PairCard({ pair, data, adults, locale }: { pair: FlightPair; data: FlightsFacts; adults: number; locale: "de" | "en" }) {
+function PairCard({ pair, data, adults, locale, tripId }: { pair: FlightPair; data: FlightsFacts; adults: number; locale: "de" | "en"; tripId: string }) {
   const t = useTranslations("facts.flights");
   const f = useFormatter();
   const state = pairState(pair, data.mode, data.legs);
@@ -125,6 +126,12 @@ function PairCard({ pair, data, adults, locale }: { pair: FlightPair; data: Flig
         <div className="mt-2 flex flex-col gap-2">
           <Direction title={t("outbound", { date: date(data.outDate, { day: "numeric", month: "short" }) })} legs={out} maxBlockMin={data.maxBlockMin} />
           <Direction title={t("inbound", { date: date(data.backDate, { day: "numeric", month: "short" }) })} legs={back} maxBlockMin={data.maxBlockMin} />
+        </div>
+      )}
+      {canCheckNearby(pair, data) && (
+        <div className="mt-2 flex flex-col gap-1">
+          <FlightsNearby tripId={tripId} pair={pair} dir="out" data={data} adults={adults} locale={locale} />
+          <FlightsNearby tripId={tripId} pair={pair} dir="back" data={data} adults={adults} locale={locale} />
         </div>
       )}
       {links && (
@@ -197,7 +204,7 @@ export function FlightsPanel({ fact, tripId, adults, locale }: { fact: Fact<Flig
       ) : (
         <ul className="flex flex-col gap-3">
           {d.pairs.map((p) => (
-            <PairCard key={`${p.from}-${p.to}`} pair={p} data={d} adults={adults} locale={locale} />
+            <PairCard key={`${p.from}-${p.to}`} pair={p} data={d} adults={adults} locale={locale} tripId={tripId} />
           ))}
         </ul>
       )}
