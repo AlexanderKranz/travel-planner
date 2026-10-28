@@ -342,7 +342,8 @@ insert into public.trips (id, owner_id, dest_kind, dest_name, length_days) value
   ('bbbbbbbb-0000-4000-8000-0000000000f2', 'bbbbbbbb-0000-4000-8000-000000000002', 'freetext', 'B plan trip', 3);
 
 insert into public.trips (id, owner_id, dest_kind, dest_name, length_days) values
-  ('a0000000-0000-4000-8000-0000000000d6', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'A second plan trip', 3);
+  ('a0000000-0000-4000-8000-0000000000d6', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'A second plan trip', 3),
+  ('a0000000-0000-4000-8000-0000000000d7', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'A trip without plan', 3);
 -- plan id is not insertable by users (column grant), so the fixture plan is seeded as postgres
 insert into public.plans (id, owner_id, trip_id) values
   ('a0000000-0000-4000-8000-0000000000c1', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000f1');
@@ -382,7 +383,7 @@ select is((select count(*)::int from public.plans), 0, 'B sees no plans of A');
 select is((select count(*)::int from public.plan_versions), 0, 'B sees no plan_versions of A');
 select throws_ok($$insert into public.plan_versions (plan_id, kind, plan, input, input_hash) values ('a0000000-0000-4000-8000-0000000000c1', 'generate', '{}', '{}', repeat('b', 64))$$,
   '23503', null, 'B cannot add a version to A plan');
-select throws_ok($$insert into public.plans (trip_id) values ('a0000000-0000-4000-8000-0000000000f1')$$,
+select throws_ok($$insert into public.plans (trip_id) values ('a0000000-0000-4000-8000-0000000000d7')$$,
   '23503', null, 'B cannot create a plan for A trip');
 with u as (update public.plans set busy_until = null where id = 'a0000000-0000-4000-8000-0000000000c1' returning 1)
 select is((select count(*)::int from u), 0, 'B cannot update A plan');

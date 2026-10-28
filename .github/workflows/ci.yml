@@ -37,12 +37,7 @@ jobs:
       - name: Start local Supabase (db, auth, rest, kong only)
         run: supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor
       - name: Run pgTAP tests
-        run: |
-          set +e
-          supabase test db > pgtap.out 2>&1
-          code=$?
-          grep -E "not ok|ERROR|Failed|Looks like|#|expected|have|want|caught" pgtap.out | head -30 | while IFS= read -r l; do echo "::error::${l}"; done
-          exit $code
+        run: supabase test db
       - name: Show status on failure
         if: failure()
         run: |
