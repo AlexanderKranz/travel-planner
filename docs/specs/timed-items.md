@@ -102,7 +102,7 @@ the model's raw output (before the guard): day-1 activities ≥ arrival end + 90
 | plan-3 recording vs. new fixture (before) | 14:00 golf (during the flight) | ≥ 17:30 | 2 (golf d1, tapas d3 20:00) |
 | plan-4 live 2026-10-28 (after) | 17:30 arrival/car, 18:15–19:45 9 holes | ≥ 17:30 | 0 |
 
-Golf generate and patch were re-recorded with plan-4, and all checks pass. Cruise was not re-recorded (see below).
+Golf and cruise (generate and patch) were re-recorded with plan-4, and all checks pass.
 Its plan-3 recordings still pass, and the stale-hash rule skips model-dependent checks.
 
 Tokens (golf): generate before plan-3: in 2316 + cache read 2842, out 1589, $0.021. After plan-4: in 2309 + cache
@@ -112,7 +112,5 @@ $0.020 (cold).
 
 ## Known limits
 
-- The cruise fixture has not been re-recorded with plan-4. A cruise generate needs a $0.15 ledger reserve, which
-  would have exceeded this task's $0.20 cap.
 - Overnight items do not spill into the next day's rows.
 - An item title that only names the route ("FRA → AGP") is not recognised as holding a leg.
