@@ -937,7 +937,9 @@
     "pdf": "PDF herunterladen",
     "pdfHint": "A4, druckbar, mit der neuesten Planversion.",
     "cancel": "Abbrechen",
-    "createdTitle": "Link erstellt"
+    "createdTitle": "Link erstellt",
+    "pdfBusy": "PDF wird erstellt …",
+    "pdfFailed": "Das PDF konnte nicht erstellt werden. Bitte versuche es später noch einmal."
   },
   "shared": {
     "banner": "Geteilter Reiseplan",
@@ -949,7 +951,9 @@
     "notFoundTitle": "Link nicht gefunden",
     "notFoundText": "Dieser Link ist ungültig, abgelaufen oder wurde widerrufen. Frag die Person, die ihn geteilt hat, nach einem neuen.",
     "metaTitle": "Geteilter Reiseplan",
-    "home": "Zur Startseite"
+    "home": "Zur Startseite",
+    "pdfBusy": "PDF wird erstellt …",
+    "pdfFailed": "Das PDF konnte nicht erstellt werden. Bitte versuche es später noch einmal."
   },
   "pdf": {
     "title": "Reiseplan",

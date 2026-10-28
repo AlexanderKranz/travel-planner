@@ -6,7 +6,8 @@ import { PlanFactsStrip } from "@/components/plan/plan-facts-strip";
 import { PlanFlights } from "@/components/plan/plan-flights";
 import { PlanHeader } from "@/components/plan/plan-header";
 import { PlanNotes, PlanOpenItems, PlanPacking } from "@/components/plan/plan-lists";
-import { btnSecondary, mutedCls } from "@/components/ui/styles";
+import { PdfButton } from "@/components/pdf/pdf-button";
+import { mutedCls } from "@/components/ui/styles";
 import type { PlanDocument } from "@/lib/domain/share";
 
 /** Read-only plan for the public share page. Imports no owner server actions. */
@@ -24,9 +25,7 @@ export function SharedPlanView({ doc, token, uiLocale }: { doc: PlanDocument; to
         <p className={mutedCls}>
           {t("banner")} · {t("version", { n: doc.versionNo })} · {t("updated", { date: f.dateTime(new Date(doc.versionAt), { dateStyle: "medium" }) })}
         </p>
-        <a href={`/api/share/${token}/pdf`} download className={`${btnSecondary} w-full sm:w-auto`}>
-          {t("pdf")}
-        </a>
+        <PdfButton href={`/api/share/${token}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} />
       </div>
       <h1 className="text-2xl font-bold">{h.title}</h1>
       <PlanHeader plan={plan} uiLocale={uiLocale} readOnly />

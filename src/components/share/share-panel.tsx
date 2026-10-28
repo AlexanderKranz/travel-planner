@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { btnSecondary, cardCls, mutedCls } from "@/components/ui/styles";
+import { PdfButton } from "@/components/pdf/pdf-button";
+import { cardCls, mutedCls } from "@/components/ui/styles";
 import { MAX_LINKS_PER_TRIP } from "@/lib/domain/share";
 import { listShareLinks } from "@/lib/server/shares";
 import { ShareCreate } from "./share-create";
@@ -21,9 +22,7 @@ export async function SharePanel({ tripId, hasPlan, isDemo }: { tripId: string; 
           {t("title")}
         </h2>
         {hasPlan && (
-          <a href={`/api/trips/${tripId}/pdf`} className={`${btnSecondary} w-full sm:w-auto`} download>
-            {t("pdf")}
-          </a>
+          <PdfButton href={`/api/trips/${tripId}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} />
         )}
       </div>
       {hasPlan && <p className={`-mt-2 text-sm ${mutedCls}`}>{t("pdfHint")}</p>}

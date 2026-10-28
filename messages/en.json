@@ -937,7 +937,9 @@
     "pdf": "Download PDF",
     "pdfHint": "A4, printable, with the latest plan version.",
     "cancel": "Cancel",
-    "createdTitle": "Link created"
+    "createdTitle": "Link created",
+    "pdfBusy": "Creating PDF…",
+    "pdfFailed": "The PDF could not be created. Please try again later."
   },
   "shared": {
     "banner": "Shared travel plan",
@@ -949,7 +951,9 @@
     "notFoundTitle": "Link not found",
     "notFoundText": "This link is invalid, expired or was revoked. Ask the person who shared it for a new one.",
     "metaTitle": "Shared travel plan",
-    "home": "Go to the home page"
+    "home": "Go to the home page",
+    "pdfBusy": "Creating PDF…",
+    "pdfFailed": "The PDF could not be created. Please try again later."
   },
   "pdf": {
     "title": "Travel plan",
