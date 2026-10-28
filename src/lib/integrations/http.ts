@@ -64,6 +64,19 @@ export function fetchJson(url: string, opts: { timeoutMs?: number } = {}): Promi
   return run(url, { method: "GET" }, opts.timeoutMs ?? 8000);
 }
 
+/** JSON POST with optional extra headers (e.g. `Authorization` for keyed providers; never logged). */
+export function postJson(
+  url: string,
+  body: unknown,
+  opts: { timeoutMs?: number; headers?: Record<string, string> } = {},
+): Promise<HttpResult> {
+  return run(
+    url,
+    { method: "POST", headers: { "Content-Type": "application/json", ...opts.headers }, body: JSON.stringify(body) },
+    opts.timeoutMs ?? 8000,
+  );
+}
+
 export function postForm(
   url: string,
   form: Record<string, string>,
