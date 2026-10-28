@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { cardCls, mutedCls } from "@/components/ui/styles";
+import { Link } from "@/i18n/navigation";
+import { btnPrimary, cardCls, mutedCls } from "@/components/ui/styles";
 import { getProfile } from "@/lib/server/profile";
 import { unwrap } from "@/lib/unwrap";
 
@@ -22,7 +23,10 @@ export default async function DashboardPage({
         <h2 id="trips-title" className="font-semibold">
           {t("tripsTitle")}
         </h2>
-        <p className={mutedCls}>{t("tripsPlaceholder")}</p>
+        <p className={`${mutedCls} mb-3`}>{t("tripsPlaceholder")}</p>
+        <Link href="/app/trips" className={btnPrimary}>
+          {t("tripsOpen")}
+        </Link>
       </section>
     </main>
   );

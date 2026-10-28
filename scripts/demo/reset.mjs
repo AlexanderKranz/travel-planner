@@ -89,6 +89,8 @@ const userId = user.id;
 
 // 4. Example data: wipe, then insert.
 {
+  const t = await sb.from("trips").delete().eq("owner_id", userId); // before groups/purposes: keeps FK actions quiet
+  check(t.error, "deleting demo trips");
   const g = await sb.from("travel_groups").delete().eq("owner_id", userId);
   check(g.error, "deleting demo groups");
   const p = await sb.from("trip_purposes").delete().eq("owner_id", userId);
@@ -139,6 +141,7 @@ const purposes = [
     name: "Advents-Flusskreuzfahrt",
     text: "Advents-Flusskreuzfahrt mit Kleinkind. Weihnachtsmärkte, entspanntes Tempo, Mittagsschlaf an Bord einplanen.",
     constraints: ["feste Hafenzeiten", "Kleinkind braucht Mittagsschlaf", "früh dunkel"],
+    guided: { v: 1, interests: ["christmas_markets", "cruise", "city_sightseeing"], pace: "relaxed" },
   },
   {
     name: "Golftrip",
@@ -151,15 +154,84 @@ const purposes = [
       "zentrale Basis, alle Plätze unter 1 Stunde Fahrt",
       "Mietwagen",
     ],
+    guided: { v: 1, interests: ["golf"], rooms: "single_rooms" },
   },
 ];
+const purposeIds = {};
 {
-  const { error } = await sb.from("trip_purposes").insert(
-    purposes.map((p) => ({ ...p, owner_id: userId })),
+  const { data, error } = await sb
+    .from("trip_purposes")
+    .insert(
+      purposes.map((p) => ({ ...p, owner_id: userId })),
+      { defaultToNull: false },
+    )
+    .select("id, name");
+  check(error, "inserting purposes");
+  for (const row of data) purposeIds[row.name] = row.id;
+  log("2 example purposes inserted");
+}
+
+// 5. Example trips. Months only (no real dates): they always point at the next December / March.
+// Destination values are hard-coded from Open-Meteo geocoding (GeoNames ids, language=de) so the
+// script needs no API call. Keep them in sync with docs/specs/phase-2-trips-facts.md section 8.
+const PASSAU = {
+  dest_geo_id: 2855328,
+  dest_place_name: "Passau",
+  dest_country_code: "DE",
+  dest_admin1: "Bayern",
+  dest_lat: 48.5665,
+  dest_lon: 13.43122,
+  dest_timezone: "Europe/Berlin",
+};
+const MARBELLA = {
+  dest_geo_id: 2514169,
+  dest_place_name: "Marbella",
+  dest_country_code: "ES",
+  dest_admin1: "Andalusien",
+  dest_lat: 36.51543,
+  dest_lon: -4.88583,
+  dest_timezone: "Europe/Madrid",
+};
+{
+  const groupIds = {};
+  const { data: groups, error: gErr } = await sb.from("travel_groups").select("id, name").eq("owner_id", userId);
+  check(gErr, "reading demo groups");
+  for (const g of groups) groupIds[g.name] = g.id;
+
+  const trips = [
+    {
+      title: "Advents-Donaukreuzfahrt",
+      dest_kind: "city",
+      dest_name: "Passau",
+      ...PASSAU,
+      dest_radius_km: null,
+      length_days: 7,
+      months: [12],
+      group_id: groupIds["Familie mit Kleinkind"],
+      purpose_id: purposeIds["Advents-Flusskreuzfahrt"],
+      wants_flights: false,
+      notes: "Passau – Wien – Budapest – Passau",
+    },
+    {
+      title: "Golf an der Costa del Sol",
+      dest_kind: "region",
+      dest_name: "Costa del Sol",
+      ...MARBELLA,
+      dest_radius_km: 40,
+      length_days: 5,
+      months: [3],
+      group_id: groupIds["Golf-Duo"],
+      purpose_id: purposeIds["Golftrip"],
+      wants_flights: true,
+      notes: null,
+    },
+  ];
+  const { error } = await sb.from("trips").insert(
+    trips.map((t) => ({ ...t, owner_id: userId })),
     { defaultToNull: false },
   );
-  check(error, "inserting purposes");
-  log("2 example purposes inserted");
+  check(error, "inserting trips");
+  log("2 example trips inserted");
 }
 
 log("done. Remember: DEMO_ENABLED=true must be set where the app runs.");

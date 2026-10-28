@@ -19,7 +19,8 @@
     "settings": "Settings",
     "signOut": "Sign out",
     "demoBanner": "Demo mode – data is visible to all demo visitors and is reset regularly.",
-    "demoLabel": "Demo notice"
+    "demoLabel": "Demo notice",
+    "trips": "Trips"
   },
   "errors": {
     "unauthenticated": "You are not signed in.",
@@ -27,7 +28,9 @@
     "not_found": "The item was not found.",
     "unknown_airport": "At least one airport is unknown.",
     "failed": "Something went wrong. Please try again later.",
-    "signInAgain": "Sign in again"
+    "signInAgain": "Sign in again",
+    "unknown_place": "This place could not be found. Please choose it again or use free text.",
+    "limit_reached": "You have reached the maximum number of trips. Delete one first."
   },
   "login": {
     "title": "Sign in",
@@ -54,7 +57,8 @@
     "welcome": "Welcome",
     "welcomeNamed": "Welcome, {name}",
     "tripsTitle": "Trips",
-    "tripsPlaceholder": "Trips are coming in phase 2."
+    "tripsPlaceholder": "Plan trips with your travel groups and purposes.",
+    "tripsOpen": "Open trips"
   },
   "groups": {
     "title": "Travel groups",
@@ -251,5 +255,275 @@
     "photography": "Photography",
     "festivals_events": "Festivals and events",
     "water_sports": "Water sports"
+  },
+  "trips": {
+    "title": "Trips",
+    "intro": "A trip needs only a destination and a length. Everything else is optional.",
+    "retention": "Up to {max} trips. A trip is deleted automatically 18 months after it ends or was last edited, whichever is later.",
+    "new": "New trip",
+    "newTitle": "New trip",
+    "editTitle": "Edit trip",
+    "empty": "No trips yet.",
+    "emptyHint": "Create a trip to see weather, daylight, country facts and places for your destination.",
+    "days": "{count, plural, one {# day} other {# days}}",
+    "timing": {
+      "fromDate": "from {date}",
+      "openShort": "dates open"
+    },
+    "back": "Back to trips",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "deleteTitle": "Delete trip?",
+    "deleteBody": "“{name}” will be deleted permanently. Groups and purposes are kept.",
+    "detail": {
+      "radius": "radius {km} km",
+      "context": "Travel context",
+      "group": "Travel group",
+      "noGroup": "No group chosen.",
+      "purpose": "Trip purpose",
+      "noPurpose": "No purpose chosen. General sights are shown.",
+      "interests": "Interests",
+      "flights": "Flights",
+      "flightsOff": "Flights are not wanted for this trip.",
+      "originAirports": "Departure airports for this trip",
+      "homeAirports": "Your home airports",
+      "noAirports": "No airports set. Add home airports in the settings.",
+      "notes": "Notes"
+    },
+    "form": {
+      "invalid": "Please check this field.",
+      "destination": {
+        "legend": "Destination",
+        "required": "Please choose a destination or enter one as free text.",
+        "search": "Search destination",
+        "placeholder": "City, region or place",
+        "searchHint": "Type at least 2 characters. No match? Use your text as free text.",
+        "results": "Destination suggestions",
+        "searching": "Searching…",
+        "noResults": "No place found. You can use your text as free text.",
+        "unavailable": "Place search is unavailable right now. You can use free text.",
+        "resultCount": "{count, plural, one {# suggestion} other {# suggestions}}",
+        "useFreeText": "Use “{query}” as free text",
+        "anchor": "Place",
+        "change": "Change",
+        "kind": "Destination type",
+        "city": "City / place",
+        "region": "Region",
+        "radius": "Radius around the place",
+        "radiusOption": "{km} km",
+        "radiusHint": "Weather and places are taken for this area around the place.",
+        "displayName": "Display name",
+        "displayNameHint": "You can rename it, for example “Costa del Sol”.",
+        "freeTextHint": "Without a known place there is no weather, daylight or place data, only country facts if you choose a country.",
+        "country": "Country (optional)",
+        "countryNone": "No country",
+        "countryHint": "Needed for country facts such as currency and language.",
+        "searchInstead": "Search for a place instead",
+        "rateLimited": "Too many searches – please wait a moment. You can also enter the name as free text."
+      },
+      "length": "Length of trip",
+      "lengthLess": "One day less",
+      "lengthMore": "One day more",
+      "lengthUnit": "days",
+      "lengthHint": "1 to {max} days.",
+      "lengthInvalid": "Please enter 1 to {max} days.",
+      "timing": {
+        "legend": "When",
+        "none": "Not yet",
+        "date": "Date",
+        "months": "Month(s)",
+        "noneHint": "Weather is shown for all twelve months.",
+        "startDate": "Start date",
+        "monthsHint": "Choose the months you are considering. They are alternatives, for example March or April.",
+        "monthsLabel": "Months",
+        "dateRequired": "Please choose a start date.",
+        "monthsRequired": "Please choose at least one month."
+      },
+      "title": "Title (optional)",
+      "titleHint": "Without a title, destination, month and length are shown.",
+      "group": "Travel group (optional)",
+      "groupHint": "Ages are calculated for the travel date.",
+      "purpose": "Trip purpose (optional)",
+      "purposeHint": "Interests of the purpose decide which places are suggested.",
+      "none": "None",
+      "flights": {
+        "title": "Flights",
+        "want": "Show flights",
+        "hint": "Flights are verified in a later step. For now only your wish is saved.",
+        "useHome": "Use my home airports",
+        "invalid": "An airport is unknown."
+      },
+      "notes": "Notes",
+      "notesLabel": "Notes for this trip",
+      "notesHint": "For example ship name or port list.",
+      "cancel": "Cancel",
+      "save": "Save",
+      "create": "Create trip",
+      "saving": "Saving…"
+    }
+  },
+  "facts": {
+    "title": "Facts about the destination",
+    "intro": "All values come from the sources named below, never from the AI.",
+    "sourcesLink": "Sources and licences",
+    "loading": "Loading…",
+    "stale": "may be outdated",
+    "staleHint": "The source could not be reached; the last saved data is shown.",
+    "source": "Source",
+    "checked": "checked {date}",
+    "unavailable": {
+      "no_location": "No weather, daylight or place data for this destination.",
+      "no_locationHint": "The destination was entered as free text. Pick a place from the search to get these facts.",
+      "no_country": "No country facts for this destination.",
+      "no_countryHint": "No country is known. Choose a place or a country when editing the trip.",
+      "not_found": "Nothing found for this destination.",
+      "not_foundHint": "There is no article or entry for this place in the source.",
+      "provider_error": "The source is not reachable right now.",
+      "provider_errorHint": "Nothing is invented in its place. Please reload the page later."
+    },
+    "weather": {
+      "title": "Climate",
+      "intro": "Average of the years {from} to {to} (reanalysis data, not a forecast).",
+      "month": "Month",
+      "tMax": "Max. temp.",
+      "tMin": "Min. temp.",
+      "rain": "Rain",
+      "wetDays": "Rainy days",
+      "sun": "Sunshine per day",
+      "selected": "travel month",
+      "captionSelected": "Climate in the travel months",
+      "captionAll": "Climate by month",
+      "showAll": "Show all 12 months"
+    },
+    "daylight": {
+      "title": "Daylight",
+      "intro": "Times in local time ({timezone}). “Dark from” is the end of civil twilight.",
+      "date": "Date",
+      "sunrise": "Sunrise",
+      "sunset": "Sunset",
+      "dusk": "Dark from",
+      "hours": "Daylight",
+      "duration": "{h} h {m} min",
+      "captionTrip": "Daylight on the travel days",
+      "captionMid": "Daylight in the middle of the month",
+      "polarDay": "Sun does not set",
+      "polarNight": "Sun does not rise"
+    },
+    "country": {
+      "title": "Country",
+      "name": "Country",
+      "capital": "Capital",
+      "currency": "Currency",
+      "languages": "Languages",
+      "callingCode": "Dialling code",
+      "driving": "Driving",
+      "left": "on the left",
+      "right": "on the right",
+      "timezone": "Time zone",
+      "zones": "All zones of the country"
+    },
+    "summary": {
+      "title": "About the destination",
+      "readMore": "Read more on Wikivoyage",
+      "license": "Text under licence"
+    },
+    "places": {
+      "title": "Places to consider",
+      "general": "Sights",
+      "intro": "Candidates from OpenStreetMap within {radius} km, sorted by notability and distance. They are not a plan.",
+      "distance": "{km} km away",
+      "linkOsm": "OpenStreetMap",
+      "linkWikipedia": "Wikipedia",
+      "linkWebsite": "Website",
+      "showMore": "Show {count} more",
+      "empty": "Nothing found nearby.",
+      "noSource": "No verified source for this interest. The AI plan will suggest without facts and mark it as unverified.",
+      "error": "The place source could not be reached. Please try again later.",
+      "custom": "Your own interests have no verified source yet: {list}",
+      "morePending": "More places will appear on your next visit.",
+      "notLoaded": "More places will appear on the next visit."
+    },
+    "category": {
+      "leisure_golf_course": "Golf course",
+      "natural_beach": "Beach",
+      "tourism_viewpoint": "Viewpoint",
+      "natural_peak": "Peak",
+      "tourism_attraction": "Attraction",
+      "historic_castle": "Castle",
+      "historic_monument": "Monument",
+      "historic_city_gate": "City gate",
+      "historic_fort": "Fort",
+      "historic_ruins": "Ruins",
+      "historic_archaeological_site": "Archaeological site",
+      "building_cathedral": "Cathedral",
+      "building_church": "Church",
+      "building_palace": "Palace",
+      "tourism_museum": "Museum",
+      "tourism_gallery": "Gallery",
+      "craft_winery": "Winery",
+      "craft_brewery": "Brewery",
+      "amenity_marketplace": "Market",
+      "amenity_public_bath": "Public bath",
+      "leisure_sauna": "Sauna",
+      "tourism_zoo": "Zoo",
+      "tourism_aquarium": "Aquarium",
+      "tourism_theme_park": "Theme park",
+      "leisure_water_park": "Water park",
+      "leisure_nature_reserve": "Nature reserve",
+      "boundary_national_park": "National park",
+      "amenity_bicycle_rental": "Bicycle rental",
+      "landuse_winter_sports": "Winter sports area",
+      "shop_mall": "Shopping mall",
+      "shop_department_store": "Department store",
+      "leisure_marina": "Marina",
+      "sport_scuba_diving": "Diving",
+      "sport_surfing": "Surfing",
+      "sport_kitesurfing": "Kitesurfing",
+      "sport_sailing": "Sailing",
+      "xmas_feature_market": "Christmas market"
+    }
+  },
+  "sources": {
+    "title": "Sources and licences",
+    "intro": "Facts shown for a trip come from these sources. Each block names its source and the date it was checked.",
+    "back": "Back",
+    "license": "Licence",
+    "website": "Website",
+    "licenseText": "Licence text",
+    "note": "Weather data is free for non-commercial use.",
+    "items": {
+      "open_meteo": {
+        "label": "Open-Meteo (ERA5 2016–2025)",
+        "provides": "Monthly climate averages.",
+        "license": "CC BY 4.0. Contains modified Copernicus Climate Change Service information."
+      },
+      "geonames": {
+        "label": "GeoNames via Open-Meteo",
+        "provides": "Place search and coordinates.",
+        "license": "CC BY 4.0"
+      },
+      "osm": {
+        "label": "© OpenStreetMap contributors",
+        "provides": "Candidate places such as sights and golf courses.",
+        "license": "ODbL 1.0. The copyright page must be linked."
+      },
+      "wikivoyage": {
+        "label": "Wikivoyage",
+        "provides": "Short destination description.",
+        "license": "CC BY-SA 4.0. A shortened excerpt is shown with a link to the article."
+      },
+      "rest_countries": {
+        "label": "Country data: mledoze/countries (ODbL)",
+        "provides": "Country facts such as currency, language and driving side from a bundled dataset (rebuilt about yearly).",
+        "license": "ODbL 1.0, data as of the build date."
+      },
+      "suncalc": {
+        "label": "computed (suncalc)",
+        "provides": "Sunrise, sunset and twilight, calculated from coordinates and date.",
+        "license": "No attribution required."
+      }
+    },
+    "builtOn": "Dataset built on {date}"
   }
 }

@@ -5,6 +5,7 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { focusCls } from "@/components/ui/styles";
 
 const ITEMS = [
+  { href: "/app/trips", key: "trips" },
   { href: "/app/groups", key: "groups" },
   { href: "/app/purposes", key: "purposes" },
   { href: "/settings", key: "settings" },
