@@ -51,8 +51,8 @@ as $$
   with days as (
     select d::date as day
     from generate_series(
-      (now() at time zone 'Europe/Berlin')::date - (least(greatest(p_days, 1), 90) - 1),
-      (now() at time zone 'Europe/Berlin')::date,
+      ((now() at time zone 'Europe/Berlin')::date - (least(greatest(p_days, 1), 90) - 1))::timestamp,
+      (now() at time zone 'Europe/Berlin')::date::timestamp,
       interval '1 day') as d
   ),
   per_day as (
