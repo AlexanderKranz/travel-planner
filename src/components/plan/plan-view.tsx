@@ -4,6 +4,7 @@ import { linkCls } from "@/components/ui/styles";
 import type { PlanState } from "@/lib/domain/plan";
 import { DayCard } from "./day-card";
 import { highlightedDays } from "./helpers";
+import { PlanFlights } from "./plan-flights";
 import { PlanFactsStrip } from "./plan-facts-strip";
 import { PlanHeader } from "./plan-header";
 import { PlanNotes, PlanOpenItems, PlanPacking } from "./plan-lists";
@@ -44,6 +45,7 @@ export function PlanView({ state, shown, locale }: { state: PlanState; shown: Sh
       <PlanNotes notes={plan.notes} />
       <PlanOpenItems items={plan.openItems} />
       <PlanPacking items={plan.packing} />
+      {plan.flights && <PlanFlights flights={plan.flights} />}
       <PlanFactsStrip facts={plan.facts} />
     </div>
   );

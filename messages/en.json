@@ -204,7 +204,12 @@
     "delete": "Delete purpose",
     "deleteTitle": "Delete trip purpose?",
     "deleteBody": "The trip purpose “{name}” will be deleted permanently.",
-    "fieldInvalid": "Please check this entry."
+    "fieldInvalid": "Please check this entry.",
+    "maxFlightHours": {
+      "label": "Maximum flight time (direct)",
+      "any": "Any",
+      "hours": "up to {h} h"
+    }
   },
   "settings": {
     "title": "Settings",
@@ -508,6 +513,68 @@
       "sport_kitesurfing": "Kitesurfing",
       "sport_sailing": "Sailing",
       "xmas_feature_market": "Christmas market"
+    },
+    "flights": {
+      "title": "Direct flights",
+      "loading": "Checking flight schedules …",
+      "basisDates": "For your dates {out} – {back}",
+      "basisSample": "Sample week in {month}",
+      "gatewayKm": "{km} km to destination",
+      "perDay": "≈ {n} per day",
+      "approx": "approx.",
+      "duration": "Flight time",
+      "hm": "{h} h {m}",
+      "nextDay": "+1",
+      "outbound": "Out {date}",
+      "inbound": "Back {date}",
+      "to": "to",
+      "operatingOn": "Operates on",
+      "notOperating": "no flight",
+      "operatingDays": "{days} of {of} days",
+      "tooLong": "over your {h} h limit",
+      "change": "Times and routes can change.",
+      "newTab": "opens in a new tab",
+      "links": {
+        "google": "Google Flights",
+        "skyscanner": "Skyscanner",
+        "airline": "Airline"
+      },
+      "badge": {
+        "found": "Verified",
+        "foundProxy": "Last year's flight",
+        "none": "No direct flight",
+        "notPublished": "Not yet published",
+        "notChecked": "Not checked"
+      },
+      "status": {
+        "found": "Direct, in the published schedule for {date}.",
+        "foundProxy": "Flown on {date} last year, not yet published for {month}. Check before booking.",
+        "none": "No direct flight found in the schedule.",
+        "notPublished": "Schedule not yet published.",
+        "notChecked": "Not checked (limit reached), try again tomorrow."
+      },
+      "unavailable": {
+        "no_origin": "Without a departure airport we cannot check flights.",
+        "no_location": "The destination is free text, so there is no destination airport.",
+        "no_dates": "Without travel dates (at least a month) we do not check flights.",
+        "disabled": "Flight checks are switched off right now.",
+        "provider_error": "Flight data is not reachable right now. Nothing is invented."
+      },
+      "toSettings": "Home airports in settings",
+      "toTripEdit": "Edit trip",
+      "quotaLimited": "The daily limit for flight lookups is reached. Unchecked routes are marked; try again tomorrow.",
+      "noGateway": "No airport within 150 km of the destination.",
+      "retry": "Try again",
+      "rateLimited": "Too many requests. Please try again in a minute.",
+      "weekdays": {
+        "1": "Monday",
+        "2": "Tuesday",
+        "3": "Wednesday",
+        "4": "Thursday",
+        "5": "Friday",
+        "6": "Saturday",
+        "7": "Sunday"
+      }
     }
   },
   "sources": {
@@ -740,6 +807,15 @@
       "patch": "Adjusted",
       "edit": "Edited",
       "restore": "Restored"
+    },
+    "flights": {
+      "title": "Direct flights",
+      "out": "Out {date}",
+      "back": "Back {date}",
+      "hm": "{h} h {m}",
+      "nextDay": "+1",
+      "proxyNote": "Last year's schedule, not yet published",
+      "source": "AeroDataBox, checked {date}. Times can change."
     }
   }
 }

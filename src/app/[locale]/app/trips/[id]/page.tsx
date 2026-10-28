@@ -16,6 +16,8 @@ import { getPurpose } from "@/lib/server/purposes";
 import { getUserSession } from "@/lib/server/session";
 import { getTrip } from "@/lib/server/trips";
 import { unwrap } from "@/lib/unwrap";
+import { adultsFromEntries } from "@/lib/flights/ui";
+import { FlightsPanelSection } from "./_panels/flights-panel";
 import { GlancePanel, glanceAsideCls } from "./_panels/glance-panel";
 import { PlacesPanel } from "./_panels/places-panel";
 import { SummaryPanel } from "./_panels/summary-panel";
@@ -105,7 +107,12 @@ export default async function TripDetailPage({
         <Suspense fallback={<PanelFallback title={t("glance.title")} className={glanceAsideCls} />}>
           <GlancePanel {...panel} />
         </Suspense>
-        <div className="order-3 min-w-0 lg:col-span-2">
+        {trip.wantsFlights && (
+          <div className="order-3 min-w-0 lg:col-span-2">
+            <FlightsPanelSection {...panel} adults={adultsFromEntries(group?.ages)} />
+          </div>
+        )}
+        <div className="order-4 min-w-0 lg:col-span-2">
           <Suspense fallback={<PanelFallback title={t("places.title")} />}>
             <PlacesPanel {...panel} />
           </Suspense>
