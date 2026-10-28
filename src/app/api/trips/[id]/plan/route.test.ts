@@ -59,12 +59,12 @@ describe("plan routes", () => {
     const res = await POST(post({ locale: "de" }), params);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ state: {}, unchanged: true });
-    expect(h.generate).toHaveBeenCalledWith("t1", "de", { force: false });
+    expect(h.generate).toHaveBeenCalledWith("t1", "de", { force: false, fresh: false });
   });
   it("POST: force passes through; places_pending is 503 with Retry-After", async () => {
     h.generate.mockResolvedValue({ ok: false, error: "places_pending", retryAfter: 60 });
     const res = await POST(post({ locale: "en", force: true }), params);
-    expect(h.generate).toHaveBeenCalledWith("t1", "en", { force: true });
+    expect(h.generate).toHaveBeenCalledWith("t1", "en", { force: true, fresh: false });
     expect(res.status).toBe(503);
     expect(res.headers.get("Retry-After")).toBe("60");
     expect(await res.json()).toEqual({ error: "places_pending", retryAfter: 60 });

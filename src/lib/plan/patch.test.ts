@@ -149,3 +149,39 @@ describe("applyPatch alternatives", () => {
     expect(r.plan.places["way/1"]).toBeDefined();
   });
 });
+
+describe("applyPatch keeps respecting fixed items", () => {
+  const slot = { day: 2, from: "08:30", to: "10:00", cat: "activity" as const, title: "Tee time" };
+  const overlapping = patch({
+    days: [llmDay(2, { stops: [{ place: "Cala", acts: [{ at: "09:00", kind: "sport", text: "Runde", ref: "p3" }, { at: "13:00", kind: "food", text: "Mittag" }] }] })],
+  });
+  it("drops patched activities that overlap a current fixed item and counts them", () => {
+    const r = applyPatch({ base: basePlan(), patch: overlapping, stored, scope: [2], fixed: [slot] });
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.issues.fixed_overlap).toBe(1);
+    expect(r.plan.days[1].stops[0].acts.map((a) => a.at)).toEqual(["13:00"]);
+  });
+  it("falls back to the fixed slots of the stored input", () => {
+    const s2: PlanInputStored = { ...stored, llm: { ...stored.llm, fixed: [slot] } };
+    const r = applyPatch({ base: basePlan(), patch: overlapping, stored: s2, scope: [2] });
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.issues.fixed_overlap).toBe(1);
+  });
+  it("an explicit empty current list (all items removed) keeps everything", () => {
+    const s2: PlanInputStored = { ...stored, llm: { ...stored.llm, fixed: [slot] } };
+    const r = applyPatch({ base: basePlan(), patch: overlapping, stored: s2, scope: [2], fixed: undefined });
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.issues.fixed_overlap).toBe(0);
+  });
+});
+
+describe("assemblePlan guards fixed items", () => {
+  it("drops generated activities that overlap a fixed slot", () => {
+    const s2: PlanInputStored = { ...stored, llm: { ...stored.llm, fixed: [{ day: 1, from: "08:00", to: "10:00", cat: "flight" }] } };
+    const r = assemblePlan({ llm: llmPlan(4), stored: s2, header: header(4), digest: {}, locale: "de" });
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.issues.fixed_overlap).toBe(1);
+    expect(r.plan.days[0].stops[0].acts).toEqual([]);
+    expect(r.plan.days[1].stops[0].acts).toHaveLength(1);
+  });
+});

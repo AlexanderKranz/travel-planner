@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { Plan } from "@/lib/domain/plan";
+import { Plan, PlanFlights } from "@/lib/domain/plan";
 import type { SharedItem } from "@/lib/domain/items";
 import type { PlanDocument } from "@/lib/domain/share";
 import { computeCosts, partySize } from "@/lib/items/costs";
@@ -13,6 +13,7 @@ import {
   type SharedItemRow,
 } from "./item-mapping";
 import { getUserSession } from "./session";
+import { itemsChangedSince } from "@/lib/plan/fixed-items";
 import { createSupabaseAdminClient } from "./supabase/admin";
 import { hashShareToken, isShareTokenFormat } from "./share-token";
 
@@ -91,17 +92,16 @@ export async function getOwnerPlanDocumentResult(
       .returns<ItemRow[]>();
     if (itemErr) return { ok: false, error: "failed" };
     const items = rows.map((r) => rowToSharedItem(r, true));
-    return {
-      ok: true,
-      doc: buildPlanDocument({
-        plan: plan.data,
-        versionNo: ver.version_no,
-        versionAt: ver.created_at,
-        openDone: planRow.open_done ?? [],
-        items,
-        partySize: await loadPartySize(sb, tripId),
-      }),
-    };
+    const doc = buildPlanDocument({
+      plan: plan.data,
+      versionNo: ver.version_no,
+      versionAt: ver.created_at,
+      openDone: planRow.open_done ?? [],
+      items,
+      partySize: await loadPartySize(sb, tripId),
+    });
+    const timed = rows.map((r) => ({ day: r.day, startTime: r.start_time, updatedAt: r.updated_at }));
+    return { ok: true, doc: { ...doc, itemsChanged: itemsChangedSince(timed, ver.created_at) } };
   } catch {
     return { ok: false, error: "failed" };
   }
@@ -188,6 +188,34 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
       items,
       partySize: party,
     });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Verified flight legs of the latest plan version (owner, RLS), for the flight select in the item form.
+ * Reads only `plan->flights`. Empty on any error or when the plan has no flights.
+ */
+export async function getOwnerPlanFlights(tripId: string): Promise<PlanFlights | null> {
+  const session = await getUserSession();
+  if (!session || !Id_RE.test(tripId)) return null;
+  try {
+    const sb = session.supabase;
+    const { data: planRow } = await sb
+      .from("plans")
+      .select("id, latest_version")
+      .eq("trip_id", tripId)
+      .maybeSingle<{ id: string; latest_version: number }>();
+    if (!planRow || planRow.latest_version < 1) return null;
+    const { data } = await sb
+      .from("plan_versions")
+      .select("flights:plan->flights")
+      .eq("plan_id", planRow.id)
+      .eq("version_no", planRow.latest_version)
+      .maybeSingle<{ flights: unknown }>();
+    const parsed = PlanFlights.safeParse(data?.flights);
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }

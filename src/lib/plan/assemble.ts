@@ -15,9 +15,10 @@ import {
   type PlanPlace,
   type PlanStop,
 } from "@/lib/domain/plan";
+import { dropOverlaps } from "./fixed-items";
 import type { PlanInputStored } from "./input";
 
-export type AssembleIssue = "invalid_ref" | "bad_time" | "truncated" | "extra_best" | "window_violation";
+export type AssembleIssue = "invalid_ref" | "bad_time" | "truncated" | "extra_best" | "window_violation" | "fixed_overlap";
 export type AssembleIssues = Record<AssembleIssue, number>;
 
 export const LIMITS = {
@@ -44,7 +45,15 @@ export const emptyIssues = (): AssembleIssues => ({
   truncated: 0,
   extra_best: 0,
   window_violation: 0,
+  fixed_overlap: 0,
 });
+
+/** Code guard [D6]: timed activities that overlap a fixed item of their day are dropped and counted. */
+export function guardFixed(day: PlanDay, fixed: PlanInputStored["llm"]["fixed"], issues: AssembleIssues): PlanDay {
+  const r = dropOverlaps(day, fixed);
+  issues.fixed_overlap += r.dropped;
+  return r.day;
+}
 
 /** Trim, collapse whitespace, cut with "…" at `max` chars; "" → undefined. */
 export function clampText(s: string | undefined, max: number, issues: AssembleIssues): string | undefined {
@@ -258,7 +267,11 @@ export function assemblePlan(a: {
   const times = noteTimes(stored.llm.trip.notes);
   const days = keepOneBest(
     sorted.map((d) =>
-      assembleDay(d, { date: dayList[d.n - 1]?.date ?? null, index: stored.index, fallbackPlace, issues, noteTimes: times }),
+      guardFixed(
+        assembleDay(d, { date: dayList[d.n - 1]?.date ?? null, index: stored.index, fallbackPlace, issues, noteTimes: times }),
+        stored.llm.fixed,
+        issues,
+      ),
     ),
     issues,
   );
