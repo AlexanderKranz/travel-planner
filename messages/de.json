@@ -30,7 +30,17 @@
     "failed": "Das hat leider nicht geklappt. Bitte versuche es später erneut.",
     "signInAgain": "Erneut anmelden",
     "unknown_place": "Dieser Ort wurde nicht gefunden. Bitte erneut wählen oder Freitext verwenden.",
-    "limit_reached": "Du hast die maximale Anzahl an Reisen erreicht. Lösche zuerst eine."
+    "limit_reached": "Du hast die maximale Anzahl an Reisen erreicht. Lösche zuerst eine.",
+    "busy": "Für diese Reise wird gerade ein Plan erstellt. Bitte einen Moment warten.",
+    "conflict": "Der Plan wurde zwischenzeitlich geändert. Die neueste Version wird jetzt angezeigt, bitte erneut versuchen.",
+    "budget_exceeded": "Das tägliche KI-Budget ist aufgebraucht. Es wird um Mitternacht (Berliner Zeit) zurückgesetzt.",
+    "rate_limited": "Zu viele Anfragen. Bitte eine Minute warten und erneut versuchen.",
+    "too_long": "Diese Reise ist für einen KI-Plan zu lang (maximal 21 Tage).",
+    "outdated": "Die Reise wurde seit der Planerstellung geändert. Bitte zuerst den Plan neu erstellen.",
+    "ai_disabled": "KI-Pläne sind derzeit abgeschaltet.",
+    "ai_unavailable": "Der KI-Dienst ist gerade nicht erreichbar. Bitte später erneut versuchen.",
+    "ai_refused": "Die KI hat diese Anfrage abgelehnt. Bitte formuliere sie um.",
+    "invalid_output": "Die KI-Antwort war unbrauchbar. Bitte erneut versuchen."
   },
   "login": {
     "title": "Anmelden",
@@ -546,5 +556,185 @@
       }
     },
     "builtOn": "Datensatz erstellt am {date}"
+  },
+  "plan": {
+    "title": "Reiseplan",
+    "aiBadge": "KI",
+    "aiTooltip": "Von einer KI geschrieben",
+    "aiNote": "Von der KI am {date} auf Basis der Fakten unten geschrieben. Zeiten und Öffnungszeiten vor der Reise prüfen.",
+    "datesOpen": "Termin offen",
+    "lengthDays": "{count, plural, one {# Tag} other {# Tage}}",
+    "groupLabel": "Reisegruppe",
+    "group": {
+      "adults": "{count, plural, one {# Erwachsener} other {# Erwachsene}}",
+      "children": "{count, plural, one {# Kind} other {# Kinder}}",
+      "toddlers": "{count, plural, one {# Kleinkind} other {# Kleinkinder}}",
+      "unknown": "{count, plural, one {# Person ohne Altersangabe} other {# Personen ohne Altersangabe}}"
+    },
+    "langMismatch": "Dieser Plan ist auf {language} geschrieben; zum Wechseln neu erstellen.",
+    "languages": {
+      "de": "Deutsch",
+      "en": "Englisch"
+    },
+    "outdated": {
+      "title": "Die Reise wurde seit der Planerstellung geändert.",
+      "body": "Neu erstellen, um die Änderungen zu berücksichtigen.",
+      "regenerate": "Plan neu erstellen"
+    },
+    "viewingOld": "Du siehst Version {n} (nur lesen).",
+    "backToLatest": "Zurück zur neuesten Version",
+    "daysLabel": "Tage",
+    "day": "Tag {n}",
+    "dayShort": "Tag",
+    "bestDay": "Bester Tag",
+    "changed": "Geändert",
+    "fromNotes": "aus deinen Notizen",
+    "windowBoth": "{from}–{to}",
+    "windowFrom": "ab {time}",
+    "windowUntil": "bis {time}",
+    "kinds": {
+      "see": "Sehenswert",
+      "do": "Aktivität",
+      "sport": "Sport",
+      "food": "Essen",
+      "rest": "Pause",
+      "travel": "Anreise",
+      "shop": "Einkaufen",
+      "free": "Freie Zeit"
+    },
+    "distance": "{km} km Luftlinie",
+    "osmCredit": "© OpenStreetMap",
+    "checked": "geprüft am {date}",
+    "opensExternal": "öffnet in neuem Tab",
+    "noteLabel": "Tipp",
+    "warnLabel": "Achtung",
+    "notes": {
+      "title": "Tipps und Hinweise",
+      "tip": "Tipp",
+      "warning": "Achtung"
+    },
+    "openItems": {
+      "title": "Noch zu klären"
+    },
+    "packing": {
+      "title": "Packliste"
+    },
+    "facts": {
+      "title": "Fakten hinter dem Plan",
+      "climate": "Klima",
+      "climateMonth": "{month} {tmax}°/{tmin}° C, {wet} Regentage",
+      "daylight": "Tageslicht",
+      "daylightRange": "Sonnenaufgang ab {sunrise}, Dämmerung bis {dusk}",
+      "airports": "Flughäfen in der Nähe",
+      "km": "{km} km Luftlinie",
+      "sources": "Open-Meteo (Klima), suncalc (Tageslicht), OpenStreetMap (Orte)",
+      "checked": "geprüft am {date}",
+      "sourcesLink": "Alle Quellen"
+    },
+    "empty": {
+      "body": "Erstelle aus Reise, Gruppe und Zweck einen Tagesplan. Die KI schreibt den Text; Wetter, Orte und Tageslicht stammen aus geprüften Quellen.",
+      "create": "Plan erstellen",
+      "aiDisabled": "KI-Pläne sind derzeit abgeschaltet.",
+      "tooLong": "Diese Reise ist für einen KI-Plan zu lang (maximal 21 Tage).",
+      "budget": "Das tägliche KI-Budget ist aufgebraucht. Versuche es nach dem Zurücksetzen erneut."
+    },
+    "budget": {
+      "line": "KI-Budget heute: {percent} % verbraucht, Zurücksetzen um {time} Uhr"
+    },
+    "runner": {
+      "start": "Plan erstellen",
+      "working": "Läuft…",
+      "facts": "Fakten werden gesammelt…",
+      "writing": "Dein Reiseplan wird geschrieben, meist unter einer Minute…",
+      "long": "Schreibt noch, das kann etwas länger dauern…",
+      "busyElsewhere": "Ein Plan wird erstellt. Diese Seite aktualisiert sich, sobald er fertig ist.",
+      "timedOut": "Das dauert ungewöhnlich lange.",
+      "reload": "Erneut prüfen"
+    },
+    "errors": {
+      "busy": "Für diese Reise wird gerade ein Plan erstellt. Bitte einen Moment warten.",
+      "conflict": "Der Plan wurde zwischenzeitlich geändert. Die neueste Version wird jetzt angezeigt, bitte erneut versuchen.",
+      "budget_exceeded": "Das tägliche KI-Budget ist aufgebraucht. Es wird um Mitternacht (Berliner Zeit) zurückgesetzt.",
+      "rate_limited": "Zu viele Anfragen. Bitte eine Minute warten und erneut versuchen.",
+      "too_long": "Diese Reise ist für einen KI-Plan zu lang (maximal 21 Tage).",
+      "outdated": "Die Reise wurde seit der Planerstellung geändert. Bitte zuerst den Plan neu erstellen.",
+      "ai_disabled": "KI-Pläne sind derzeit abgeschaltet.",
+      "ai_unavailable": "Der KI-Dienst ist gerade nicht erreichbar. Bitte später erneut versuchen.",
+      "ai_refused": "Die KI hat diese Anfrage abgelehnt. Bitte formuliere sie um.",
+      "invalid_output": "Die KI-Antwort war unbrauchbar. Bitte erneut versuchen.",
+      "unauthenticated": "Du bist nicht angemeldet.",
+      "invalid": "Bitte prüfe deine Eingaben.",
+      "not_found": "Die Reise wurde nicht gefunden.",
+      "failed": "Etwas ist schiefgelaufen. Bitte versuche es später erneut."
+    },
+    "iterate": {
+      "title": "Plan anpassen",
+      "done": "Der Plan wurde aktualisiert.",
+      "noChange": "Es hat sich nichts geändert.",
+      "saved": "Gespeichert.",
+      "chipsLabel": "Was soll sich ändern?",
+      "scopeLabel": "Welche Tage?",
+      "scopeHint": "Optional. Ohne Auswahl entscheidet die KI.",
+      "dayWord": "Tag",
+      "redoNeedsDay": "Wähle mindestens einen Tag zum Neugestalten.",
+      "textLabel": "Dein Wunsch",
+      "textPlaceholder": "Zum Beispiel: ruhigerer Vormittag an Tag 2",
+      "apply": "Anwenden",
+      "applying": "Läuft…",
+      "applyingHint": "Der Plan wird angepasst, meist wenige Sekunden…",
+      "chips": {
+        "more_rest": "Mehr Pausen",
+        "more_active": "Aktiver",
+        "less_travel": "Weniger Fahrerei",
+        "kid_friendly": "Kinderfreundlicher",
+        "rainy_day": "Regenalternative",
+        "redo_day": "Tag neu gestalten"
+      },
+      "blocked": {
+        "notLatest": "Du siehst eine ältere Version. Wechsle zur neuesten Version, um Änderungen vorzunehmen.",
+        "busy": "Der Plan wird gerade erstellt. Änderungen sind danach möglich.",
+        "aiDisabled": "KI-Änderungen sind derzeit abgeschaltet.",
+        "budget": "Das tägliche KI-Budget ist aufgebraucht.",
+        "outdated": "Die Reise wurde seit der Planerstellung geändert. Erstelle den Plan neu, um ihn anzupassen."
+      },
+      "edit": {
+        "title": "Ohne KI",
+        "hint": "Sofort und kostenlos."
+      },
+      "swap": {
+        "title": "Tage tauschen",
+        "a": "Tag",
+        "b": "mit Tag",
+        "apply": "Tauschen"
+      },
+      "best": {
+        "title": "Bester Tag",
+        "label": "Tag",
+        "none": "Keiner",
+        "apply": "Setzen"
+      }
+    },
+    "versions": {
+      "aria": "Versionsverlauf",
+      "title": "Versionen ({count})",
+      "shown": "angezeigt",
+      "view": "Ansehen",
+      "restore": "Wiederherstellen",
+      "restoreTitle": "Version {n} wiederherstellen?",
+      "restoreBody": "Version {n} wird als neue neueste Version kopiert. Nichts geht verloren.",
+      "restoreConfirm": "Wiederherstellen",
+      "cancel": "Abbrechen",
+      "changedDays": "Geänderte Tage: {days}",
+      "restoredFrom": "aus v{n}",
+      "swap": "Tage {a} und {b} getauscht",
+      "best": "Tag {n} als bester Tag markiert",
+      "bestNone": "bester Tag entfernt"
+    },
+    "versionKinds": {
+      "generate": "Erstellt",
+      "patch": "Angepasst",
+      "edit": "Bearbeitet",
+      "restore": "Wiederhergestellt"
+    }
   }
 }

@@ -30,7 +30,17 @@
     "failed": "Something went wrong. Please try again later.",
     "signInAgain": "Sign in again",
     "unknown_place": "This place could not be found. Please choose it again or use free text.",
-    "limit_reached": "You have reached the maximum number of trips. Delete one first."
+    "limit_reached": "You have reached the maximum number of trips. Delete one first.",
+    "busy": "A plan is already being generated for this trip. Please wait a moment.",
+    "conflict": "The plan was changed in the meantime. The latest version is shown now; please try again.",
+    "budget_exceeded": "The daily AI budget is used up. It resets at midnight (Berlin time).",
+    "rate_limited": "Too many requests. Please wait a minute and try again.",
+    "too_long": "This trip is too long for an AI plan (maximum 21 days).",
+    "outdated": "The trip changed since the plan was written. Regenerate the plan first.",
+    "ai_disabled": "AI plans are currently switched off.",
+    "ai_unavailable": "The AI service is not reachable right now. Please try again later.",
+    "ai_refused": "The AI declined this request. Please rephrase your input.",
+    "invalid_output": "The AI answer was unusable. Please try again."
   },
   "login": {
     "title": "Sign in",
@@ -546,5 +556,185 @@
       }
     },
     "builtOn": "Dataset built on {date}"
+  },
+  "plan": {
+    "title": "Itinerary",
+    "aiBadge": "AI",
+    "aiTooltip": "Written by an AI",
+    "aiNote": "Written by AI on {date} from the facts below. Check times and opening hours before you go.",
+    "datesOpen": "Dates open",
+    "lengthDays": "{count, plural, one {# day} other {# days}}",
+    "groupLabel": "Travel group",
+    "group": {
+      "adults": "{count, plural, one {# adult} other {# adults}}",
+      "children": "{count, plural, one {# child} other {# children}}",
+      "toddlers": "{count, plural, one {# toddler} other {# toddlers}}",
+      "unknown": "{count, plural, one {# person of unknown age} other {# people of unknown age}}"
+    },
+    "langMismatch": "This plan is written in {language}; regenerate to switch.",
+    "languages": {
+      "de": "German",
+      "en": "English"
+    },
+    "outdated": {
+      "title": "The trip has changed since this plan was written.",
+      "body": "Regenerate to take the changes into account.",
+      "regenerate": "Regenerate plan"
+    },
+    "viewingOld": "You are viewing version {n} (read-only).",
+    "backToLatest": "Back to the latest version",
+    "daysLabel": "Days",
+    "day": "Day {n}",
+    "dayShort": "Day",
+    "bestDay": "Best day",
+    "changed": "Changed",
+    "fromNotes": "from your notes",
+    "windowBoth": "{from}–{to}",
+    "windowFrom": "from {time}",
+    "windowUntil": "until {time}",
+    "kinds": {
+      "see": "Sights",
+      "do": "Activity",
+      "sport": "Sport",
+      "food": "Food",
+      "rest": "Rest",
+      "travel": "Travel",
+      "shop": "Shopping",
+      "free": "Free time"
+    },
+    "distance": "{km} km straight-line",
+    "osmCredit": "© OpenStreetMap",
+    "checked": "checked {date}",
+    "opensExternal": "opens in a new tab",
+    "noteLabel": "Tip",
+    "warnLabel": "Warning",
+    "notes": {
+      "title": "Tips and warnings",
+      "tip": "Tip",
+      "warning": "Warning"
+    },
+    "openItems": {
+      "title": "Still to clarify"
+    },
+    "packing": {
+      "title": "Packing list"
+    },
+    "facts": {
+      "title": "Facts behind the plan",
+      "climate": "Climate",
+      "climateMonth": "{month} {tmax}°/{tmin}° C, {wet} wet days",
+      "daylight": "Daylight",
+      "daylightRange": "sunrise from {sunrise}, dusk until {dusk}",
+      "airports": "Airports nearby",
+      "km": "{km} km straight-line",
+      "sources": "Open-Meteo (climate), suncalc (daylight), OpenStreetMap (places)",
+      "checked": "checked {date}",
+      "sourcesLink": "All sources"
+    },
+    "empty": {
+      "body": "Create a day-by-day itinerary from your trip, group and purpose. The AI writes the text; weather, places and daylight come from verified sources.",
+      "create": "Create plan",
+      "aiDisabled": "AI plans are currently switched off.",
+      "tooLong": "This trip is too long for an AI plan (maximum 21 days).",
+      "budget": "The daily AI budget is used up. Try again after the reset."
+    },
+    "budget": {
+      "line": "AI budget today: {percent} % used, resets at {time}"
+    },
+    "runner": {
+      "start": "Create plan",
+      "working": "Working…",
+      "facts": "Collecting facts…",
+      "writing": "Writing your itinerary, usually under a minute…",
+      "long": "Still writing, this can take a little longer…",
+      "busyElsewhere": "A plan is being generated. This page updates when it is done.",
+      "timedOut": "This is taking unusually long.",
+      "reload": "Check again"
+    },
+    "errors": {
+      "busy": "A plan is already being generated for this trip. Please wait a moment.",
+      "conflict": "The plan was changed in the meantime. The latest version is shown now; please try again.",
+      "budget_exceeded": "The daily AI budget is used up. It resets at midnight (Berlin time).",
+      "rate_limited": "Too many requests. Please wait a minute and try again.",
+      "too_long": "This trip is too long for an AI plan (maximum 21 days).",
+      "outdated": "The trip changed since the plan was written. Regenerate the plan first.",
+      "ai_disabled": "AI plans are currently switched off.",
+      "ai_unavailable": "The AI service is not reachable right now. Please try again later.",
+      "ai_refused": "The AI declined this request. Please rephrase your input.",
+      "invalid_output": "The AI answer was unusable. Please try again.",
+      "unauthenticated": "You are not signed in.",
+      "invalid": "Please check your input.",
+      "not_found": "The trip was not found.",
+      "failed": "Something went wrong. Please try again later."
+    },
+    "iterate": {
+      "title": "Adjust the plan",
+      "done": "The plan was updated.",
+      "noChange": "Nothing changed.",
+      "saved": "Saved.",
+      "chipsLabel": "What should change?",
+      "scopeLabel": "Which days?",
+      "scopeHint": "Optional. Without a selection the AI decides.",
+      "dayWord": "Day",
+      "redoNeedsDay": "Select at least one day to redo.",
+      "textLabel": "Your wish",
+      "textPlaceholder": "For example: a quieter morning on day 2",
+      "apply": "Apply",
+      "applying": "Working…",
+      "applyingHint": "Adjusting the plan, usually a few seconds…",
+      "chips": {
+        "more_rest": "More rest",
+        "more_active": "More active",
+        "less_travel": "Less travel",
+        "kid_friendly": "More kid-friendly",
+        "rainy_day": "Rainy-day option",
+        "redo_day": "Redo day"
+      },
+      "blocked": {
+        "notLatest": "You are viewing an older version. Go back to the latest version to make changes.",
+        "busy": "The plan is being generated. Changes are possible afterwards.",
+        "aiDisabled": "AI changes are currently switched off.",
+        "budget": "The daily AI budget is used up.",
+        "outdated": "The trip changed since the plan was written. Regenerate the plan to adjust it."
+      },
+      "edit": {
+        "title": "Without AI",
+        "hint": "Instant and free."
+      },
+      "swap": {
+        "title": "Swap days",
+        "a": "Day",
+        "b": "with day",
+        "apply": "Swap"
+      },
+      "best": {
+        "title": "Best day",
+        "label": "Day",
+        "none": "None",
+        "apply": "Set"
+      }
+    },
+    "versions": {
+      "aria": "Version history",
+      "title": "Versions ({count})",
+      "shown": "shown",
+      "view": "View",
+      "restore": "Restore",
+      "restoreTitle": "Restore version {n}?",
+      "restoreBody": "Version {n} is copied as a new latest version. Nothing is lost.",
+      "restoreConfirm": "Restore",
+      "cancel": "Cancel",
+      "changedDays": "Changed days: {days}",
+      "restoredFrom": "from v{n}",
+      "swap": "days {a} and {b} swapped",
+      "best": "day {n} marked as best",
+      "bestNone": "best day removed"
+    },
+    "versionKinds": {
+      "generate": "Generated",
+      "patch": "Adjusted",
+      "edit": "Edited",
+      "restore": "Restored"
+    }
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { btnDanger, btnSecondary } from "./styles";
 
 type Props = {
@@ -30,6 +30,7 @@ export function ConfirmDialog({
   children,
 }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
@@ -44,10 +45,10 @@ export function ConfirmDialog({
         e.preventDefault();
         onCancel();
       }}
-      aria-labelledby="confirm-title"
+      aria-labelledby={titleId}
       className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-neutral-400 bg-background p-5 text-foreground backdrop:bg-black/50"
     >
-      <h2 id="confirm-title" className="text-lg font-semibold">
+      <h2 id={titleId} className="text-lg font-semibold">
         {title}
       </h2>
       <p className="mt-2 text-sm">{description}</p>

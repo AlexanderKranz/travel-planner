@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { FactSkeleton } from "@/components/facts/fact-skeleton";
 import { cardCls } from "@/components/ui/styles";
+import { PlanSection } from "@/components/plan/plan-section";
 import { TripContext, type ContextGroup } from "@/components/trips/trip-context";
 import { TripHeader } from "@/components/trips/trip-header";
 import { Link } from "@/i18n/navigation";
@@ -33,10 +34,15 @@ function PanelFallback({ title, className }: { title: string; className?: string
 
 export default async function TripDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ locale: string; id: string }>;
+  searchParams: Promise<{ v?: string | string[] }>;
 }) {
   const { locale, id } = await params;
+  const { v } = await searchParams;
+  const versionNo = Number(Array.isArray(v) ? v[0] : v);
+  const version = Number.isInteger(versionNo) && versionNo > 0 ? versionNo : undefined;
   setRequestLocale(locale);
   const t = await getTranslations("facts");
   const trip = unwrap(await getTrip(id), locale);
@@ -78,6 +84,7 @@ export default async function TripDetailPage({
         purpose={purpose}
         profileAirports={profile.homeAirports}
       />
+      <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} />
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         {t("intro")}{" "}
         <Link href="/sources" className="underline underline-offset-2">
