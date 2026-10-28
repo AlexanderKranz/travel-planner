@@ -16,6 +16,8 @@ export type ActionError =
   | "ai_unavailable" // API/network error
   | "ai_refused" // model refusal
   | "invalid_output" // model output failed validation
+  | "demo_forbidden" // demo account cannot create share links
+  | "no_plan" // trip has no plan version yet
   | "failed";
 
 export type ActionResult<T = void> =

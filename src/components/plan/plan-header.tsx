@@ -6,7 +6,7 @@ import { AiBadge } from "./ai-badge";
 const chip =
   "inline-flex items-center rounded-full border border-neutral-400 px-2.5 py-0.5 text-xs dark:border-neutral-500";
 
-export function PlanHeader({ plan, uiLocale }: { plan: Plan; uiLocale: string }) {
+export function PlanHeader({ plan, uiLocale, readOnly }: { plan: Plan; uiLocale: string; readOnly?: boolean }) {
   const t = useTranslations("plan");
   const f = useFormatter();
   const h = plan.header;
@@ -21,7 +21,7 @@ export function PlanHeader({ plan, uiLocale }: { plan: Plan; uiLocale: string })
   return (
     <header className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 id="plan-title" className="text-xl font-bold">
+        <h2 id="plan-title" className={readOnly ? "sr-only" : "text-xl font-bold"}>
           {t("title")}
         </h2>
         <AiBadge />
@@ -41,7 +41,7 @@ export function PlanHeader({ plan, uiLocale }: { plan: Plan; uiLocale: string })
       <p className="text-sm">
         {t("aiNote", { date: f.dateTime(new Date(h.generatedAt), { dateStyle: "medium" }) })}
       </p>
-      {plan.locale !== uiLocale && (
+      {!readOnly && plan.locale !== uiLocale && (
         <p className={`text-sm ${mutedCls}`}>{t("langMismatch", { language: t(`languages.${plan.locale}`) })}</p>
       )}
     </header>

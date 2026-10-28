@@ -1,6 +1,7 @@
 import { useTranslations } from "next-intl";
 import { mutedCls } from "@/components/ui/styles";
 import type { Plan } from "@/lib/domain/plan";
+import { openItemKey } from "@/lib/plan/open-items";
 
 const box = "rounded-lg border border-neutral-300 p-3 dark:border-neutral-700 sm:p-4";
 
@@ -32,7 +33,8 @@ export function PlanNotes({ notes }: { notes: Plan["notes"] }) {
   );
 }
 
-export function PlanOpenItems({ items }: { items: Plan["openItems"] }) {
+/** Read-only open items; done ones (by `openItemKey`) are struck through. The owner view uses OpenItemsEditor. */
+export function PlanOpenItems({ items, done = [] }: { items: Plan["openItems"]; done?: string[] }) {
   const t = useTranslations("plan");
   if (items.length === 0) return null;
   return (
@@ -40,13 +42,20 @@ export function PlanOpenItems({ items }: { items: Plan["openItems"] }) {
       <h3 id="plan-open" className="mb-2 text-base font-semibold">
         {t("openItems.title")}
       </h3>
-      <ul className="list-disc space-y-1 pl-5 text-sm">
-        {items.map((it, i) => (
-          <li key={i}>
-            {it.text}
-            {it.day && <span className={mutedCls}> ({t("day", { n: it.day })})</span>}
-          </li>
-        ))}
+      <ul className="space-y-1 text-sm">
+        {items.map((it, i) => {
+          const isDone = done.includes(openItemKey(it.text));
+          return (
+            <li key={i} className="flex gap-2">
+              <span aria-hidden="true">{isDone ? "\u2611" : "\u2610"}</span>
+              <span className={isDone ? "line-through" : ""}>
+                {isDone && <span className="sr-only">{t("openItems.doneLabel")}: </span>}
+                {it.text}
+                {it.day && <span className={mutedCls}> ({t("day", { n: it.day })})</span>}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );

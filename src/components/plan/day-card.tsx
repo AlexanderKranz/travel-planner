@@ -4,6 +4,9 @@ import type { Plan, PlanActivity, PlanDay, PlanStop } from "@/lib/domain/plan";
 import { safeUrl } from "@/lib/facts/sources";
 import { windowKind } from "./helpers";
 
+/** Owner-only slot: "+ item" next to a referenced place (bound to its day by DayCard). */
+type QuickAdd = (place: Plan["places"][string], ref: string) => React.ReactNode;
+
 const pill =
   "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap";
 
@@ -35,7 +38,15 @@ function WindowBadge({ stop }: { stop: PlanStop }) {
   );
 }
 
-function Activity({ act, places }: { act: PlanActivity; places: Plan["places"] }) {
+function Activity({
+  act,
+  places,
+  quickAdd,
+}: {
+  act: PlanActivity;
+  places: Plan["places"];
+  quickAdd?: QuickAdd;
+}) {
   const t = useTranslations("plan");
   const f = useFormatter();
   const place = act.ref ? places[act.ref] : undefined;
@@ -62,6 +73,7 @@ function Activity({ act, places }: { act: PlanActivity; places: Plan["places"] }
             place.name
           )}{" "}
           ({t("distance", { km: f.number(place.distanceKm, { maximumFractionDigits: 1 }) })})
+          {quickAdd && act.ref && quickAdd(place, act.ref)}
         </span>
       )}
     </li>
@@ -97,10 +109,12 @@ export function DayCard({
   day,
   places,
   changed,
+  renderQuickAdd,
 }: {
   day: PlanDay;
   places: Plan["places"];
   changed?: boolean;
+  renderQuickAdd?: (place: Plan["places"][string], ref: string, day: number) => React.ReactNode;
 }) {
   const t = useTranslations("plan");
   const f = useFormatter();
@@ -150,7 +164,12 @@ export function DayCard({
                 {stop.acts.length > 0 && (
                   <ul className="flex flex-col gap-1 text-sm">
                     {stop.acts.map((a, j) => (
-                      <Activity key={j} act={a} places={places} />
+                      <Activity
+                        key={j}
+                        act={a}
+                        places={places}
+                        quickAdd={renderQuickAdd && ((p, ref) => renderQuickAdd(p, ref, day.n))}
+                      />
                     ))}
                   </ul>
                 )}

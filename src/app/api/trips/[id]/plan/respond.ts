@@ -21,6 +21,8 @@ const STATUS: Record<ActionError, number> = {
   unknown_airport: 422,
   unknown_place: 422,
   limit_reached: 422,
+  demo_forbidden: 403,
+  no_plan: 409,
   failed: 500,
 };
 

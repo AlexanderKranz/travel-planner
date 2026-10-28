@@ -1,0 +1,541 @@
+{
+  "plan": {
+    "v": 1,
+    "locale": "de",
+    "header": {
+      "title": "Golftrip Costa del Sol",
+      "destination": "Costa del Sol",
+      "timing": {
+        "kind": "date",
+        "startDate": "2038-03-13",
+        "endDate": "2038-03-17"
+      },
+      "lengthDays": 5,
+      "group": {
+        "total": 2,
+        "adults": 2,
+        "children": 0,
+        "toddlers": 0,
+        "unknown": 0
+      },
+      "purposeName": "Golf mit Freund",
+      "generatedAt": "2026-10-28T08:00:00.000Z",
+      "model": "claude-sonnet-5-5",
+      "basis": {
+        "tripUpdatedAt": "2026-10-27T18:00:00.000Z",
+        "groupUpdatedAt": "2026-10-01T10:00:00.000Z",
+        "purposeUpdatedAt": "2026-10-01T10:05:00.000Z"
+      }
+    },
+    "summary": "Fünf Golftage an der Costa del Sol mit Basis in Marbella: An- und Abreisetag auf dem Platz nahe dem Flughafen Málaga, dazwischen flache bis moderate Plätze westlich von Marbella und ein 36-Loch-Tag.",
+    "days": [
+      {
+        "n": 1,
+        "date": "2038-03-13",
+        "title": "Ankunft Málaga → Marbella",
+        "stops": [
+          {
+            "place": "Málaga",
+            "acts": [
+              {
+                "at": "10:30",
+                "kind": "travel",
+                "text": "Ankunft am Flughafen, Mietwagen abholen"
+              },
+              {
+                "at": "12:00",
+                "until": "16:30",
+                "kind": "sport",
+                "text": "18 Loch auf dem flachen Platz direkt am Meer",
+                "ref": "way/60046149"
+              }
+            ]
+          },
+          {
+            "place": "Marbella",
+            "acts": [
+              {
+                "at": "18:00",
+                "kind": "travel",
+                "text": "Fahrt nach Marbella und Check-in, Einzelzimmer"
+              },
+              {
+                "at": "20:00",
+                "kind": "food",
+                "text": "Abendessen in der Altstadt"
+              }
+            ]
+          }
+        ],
+        "note": "Startzeit für den ersten Tag frühzeitig anfragen."
+      },
+      {
+        "n": 2,
+        "date": "2038-03-14",
+        "title": "36 Loch in Nueva Andalucía",
+        "stops": [
+          {
+            "place": "Nueva Andalucía",
+            "acts": [
+              {
+                "at": "08:30",
+                "until": "13:00",
+                "kind": "sport",
+                "text": "Erste Runde, 18 Loch",
+                "ref": "way/97671239"
+              },
+              {
+                "at": "13:15",
+                "kind": "food",
+                "text": "Mittagessen im Clubhaus"
+              },
+              {
+                "at": "14:30",
+                "until": "18:30",
+                "kind": "sport",
+                "text": "Zweite Runde auf dem Nachbarplatz",
+                "ref": "way/97681590"
+              }
+            ]
+          }
+        ],
+        "warn": "Sonnenuntergang gegen 19:20, zweite Runde nicht später starten.",
+        "best": true
+      },
+      {
+        "n": 3,
+        "date": "2038-03-15",
+        "title": "Benahavís",
+        "stops": [
+          {
+            "place": "Benahavís",
+            "acts": [
+              {
+                "at": "10:00",
+                "until": "14:30",
+                "kind": "sport",
+                "text": "18 Loch, moderat hügelig mit Blick aufs Meer",
+                "ref": "way/139728265"
+              },
+              {
+                "at": "16:00",
+                "kind": "rest",
+                "text": "Freier Nachmittag am Pool"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "n": 4,
+        "date": "2038-03-16",
+        "title": "Marbella",
+        "stops": [
+          {
+            "place": "Nueva Andalucía",
+            "acts": [
+              {
+                "at": "09:30",
+                "until": "14:00",
+                "kind": "sport",
+                "text": "Runde auf dem flachen Parklandplatz",
+                "ref": "way/97681590"
+              }
+            ]
+          },
+          {
+            "place": "Marbella",
+            "acts": [
+              {
+                "at": "17:00",
+                "kind": "see",
+                "text": "Spaziergang an der Strandpromenade"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "n": 5,
+        "date": "2038-03-17",
+        "title": "Golf und Abreise",
+        "stops": [
+          {
+            "place": "Málaga",
+            "acts": [
+              {
+                "at": "08:00",
+                "until": "12:30",
+                "kind": "sport",
+                "text": "Abschlussrunde nahe dem Flughafen",
+                "ref": "way/60046149"
+              },
+              {
+                "at": "13:30",
+                "kind": "travel",
+                "text": "Mietwagen zurückgeben, Abflug"
+              }
+            ]
+          }
+        ],
+        "note": "Golftasche am Vorabend packen."
+      }
+    ],
+    "notes": [
+      {
+        "kind": "tip",
+        "text": "Im März sind Startzeiten am Vormittag gefragt, früh reservieren."
+      },
+      {
+        "kind": "warning",
+        "text": "Straßen an der A-7 sind morgens oft voll, Puffer einplanen."
+      }
+    ],
+    "openItems": [
+      {
+        "text": "Startzeiten für alle Runden anfragen"
+      },
+      {
+        "text": "36-Loch-Tag mit beiden Clubs abstimmen",
+        "day": 2
+      },
+      {
+        "text": "Mietwagen mit Platz für zwei Golftaschen buchen"
+      }
+    ],
+    "packing": [
+      "Golfschuhe",
+      "Regenjacke",
+      "Sonnencreme",
+      "Leichter Pullover für morgens"
+    ],
+    "places": {
+      "way/60046149": {
+        "name": "Club de Golf Málaga Parador",
+        "category": "leisure=golf_course",
+        "lat": 36.6542044,
+        "lon": -4.4717236,
+        "distanceKm": 40,
+        "airportKm": 3.4,
+        "osmUrl": "https://www.openstreetmap.org/way/60046149",
+        "website": "http://www.parador.es/malagagolf_en",
+        "source": "osm",
+        "fetchedAt": "2026-10-20T09:12:00.000Z"
+      },
+      "way/97671239": {
+        "name": "Real Club de Golf Las Brisas",
+        "category": "leisure=golf_course",
+        "lat": 36.5054188,
+        "lon": -4.9689362,
+        "distanceKm": 7.7,
+        "airportKm": 46,
+        "osmUrl": "https://www.openstreetmap.org/way/97671239",
+        "website": "https://realclubdegolflasbrisas.com/",
+        "source": "osm",
+        "fetchedAt": "2026-10-20T09:12:00.000Z"
+      },
+      "way/97681590": {
+        "name": "Magna Marbella Golf",
+        "category": "leisure=golf_course",
+        "lat": 36.5058752,
+        "lon": -4.978516,
+        "distanceKm": 8.6,
+        "airportKm": 46.7,
+        "osmUrl": "https://www.openstreetmap.org/way/97681590",
+        "website": "http://www.magnamarbellagolf.com/",
+        "source": "osm",
+        "fetchedAt": "2026-10-20T09:12:00.000Z"
+      },
+      "way/139728265": {
+        "name": "Flamingos Golf",
+        "category": "leisure=golf_course",
+        "lat": 36.4745218,
+        "lon": -5.0560583,
+        "distanceKm": 16,
+        "airportKm": 54.5,
+        "osmUrl": "https://www.openstreetmap.org/way/139728265",
+        "website": "https://www.villapadierna.es/en/flamingos/",
+        "source": "osm",
+        "fetchedAt": "2026-10-20T09:12:00.000Z"
+      }
+    },
+    "facts": {
+      "climate": {
+        "months": [
+          {
+            "month": 3,
+            "tMaxC": 19.6,
+            "tMinC": 9.4,
+            "wetDays": 5.2,
+            "sunshineHours": 7.1
+          }
+        ],
+        "period": {
+          "from": 2016,
+          "to": 2025
+        },
+        "fetchedAt": "2026-10-20T09:12:00.000Z"
+      },
+      "daylight": {
+        "timezone": "Europe/Madrid",
+        "days": [
+          {
+            "date": "2038-03-13",
+            "sunrise": "08:05",
+            "dusk": "19:45"
+          },
+          {
+            "date": "2038-03-14",
+            "sunrise": "08:04",
+            "dusk": "19:46"
+          },
+          {
+            "date": "2038-03-15",
+            "sunrise": "08:03",
+            "dusk": "19:47"
+          },
+          {
+            "date": "2038-03-16",
+            "sunrise": "08:02",
+            "dusk": "19:48"
+          },
+          {
+            "date": "2038-03-17",
+            "sunrise": "08:01",
+            "dusk": "19:49"
+          }
+        ]
+      },
+      "airports": [
+        {
+          "iata": "AGP",
+          "name": "Málaga-Costa del Sol",
+          "km": 38.8
+        },
+        {
+          "iata": "GIB",
+          "name": "Gibraltar",
+          "km": 57.8
+        }
+      ],
+      "placesFetchedAt": "2026-10-20T09:12:00.000Z"
+    }
+  },
+  "versionNo": 2,
+  "versionAt": "2026-10-28T08:00:00.000Z",
+  "openDone": [],
+  "items": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "category": "flight",
+      "title": "Flug FRA → AGP",
+      "status": "booked",
+      "priceCents": 43264,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": null,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "category": "stay",
+      "title": "Airbnb Marbella",
+      "status": "booked",
+      "priceCents": 45900,
+      "priceBasis": "total",
+      "persons": 2,
+      "currency": "EUR",
+      "day": null,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "category": "car",
+      "title": "Mietwagen",
+      "status": "booked",
+      "priceCents": 25500,
+      "priceBasis": "total",
+      "persons": 2,
+      "currency": "EUR",
+      "day": null,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "category": "activity",
+      "title": "Golf Santana",
+      "status": "planned",
+      "priceCents": 9500,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": 1,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "category": "activity",
+      "title": "Golf Santa Clara",
+      "status": "planned",
+      "priceCents": 11000,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": 2,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "category": "activity",
+      "title": "Golf Río Real",
+      "status": "planned",
+      "priceCents": 11500,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": 2,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "category": "activity",
+      "title": "Golf Sotogrande",
+      "status": "booked",
+      "priceCents": 42000,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": 3,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000008",
+      "category": "activity",
+      "title": "Golf Santana",
+      "status": "option",
+      "priceCents": 9500,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": 4,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000009",
+      "category": "activity",
+      "title": "Golf Río Real",
+      "status": "option",
+      "priceCents": 11500,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": 4,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000010",
+      "category": "activity",
+      "title": "Golf Santa Clara",
+      "status": "option",
+      "priceCents": 11000,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": 4,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "category": "activity",
+      "title": "Golf Los Naranjos",
+      "status": "option",
+      "priceCents": 18500,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": 4,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000012",
+      "category": "activity",
+      "title": "Golf Baviera",
+      "status": "planned",
+      "priceCents": 5500,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": 5,
+      "ref": null,
+      "url": null,
+      "notes": null
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000013",
+      "category": "activity",
+      "title": "Golf Finca Cortesín",
+      "status": "rejected",
+      "priceCents": 38200,
+      "priceBasis": "per_person",
+      "persons": null,
+      "currency": "EUR",
+      "day": null,
+      "ref": null,
+      "url": null,
+      "notes": null
+    }
+  ],
+  "costs": {
+    "partySize": 2,
+    "currencies": [
+      {
+        "currency": "EUR",
+        "booked": {
+          "totalCents": 241928,
+          "perPersonCents": 120964
+        },
+        "expected": {
+          "total": {
+            "minCents": 335928,
+            "maxCents": 353928
+          },
+          "perPerson": {
+            "minCents": 167964,
+            "maxCents": 176964
+          }
+        },
+        "counts": {
+          "option": 4,
+          "planned": 4,
+          "booked": 4,
+          "rejected": 1
+        },
+        "unpriced": 0,
+        "incomplete": 0
+      }
+    ]
+  }
+}
