@@ -128,7 +128,7 @@ function PairCard({ pair, data, adults, locale, tripId }: { pair: FlightPair; da
           <Direction title={t("inbound", { date: date(data.backDate, { day: "numeric", month: "short" }) })} legs={back} maxBlockMin={data.maxBlockMin} />
         </div>
       )}
-      {canCheckNearby(pair, data) && (
+      {canCheckNearby(pair) && (
         <div className="mt-2 flex flex-col gap-1">
           <FlightsNearby tripId={tripId} pair={pair} dir="out" data={data} adults={adults} locale={locale} />
           <FlightsNearby tripId={tripId} pair={pair} dir="back" data={data} adults={adults} locale={locale} />

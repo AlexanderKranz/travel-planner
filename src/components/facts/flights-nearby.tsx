@@ -13,9 +13,9 @@ type State =
   | { kind: "done"; fact: Fact<NearbyFlights> }
   | { kind: "error"; limited: boolean };
 
-/** The button is offered only for exact trip dates and for pairs that have a route in the schedule data. */
-export function canCheckNearby(pair: FlightPair, data: FlightsFacts): boolean {
-  return data.basis === "trip_dates" && (pair.status === "found" || pair.perDay !== undefined);
+/** The button is offered for pairs that have a route in the schedule data (exact dates or the sample week). */
+export function canCheckNearby(pair: FlightPair): boolean {
+  return (pair.status === "found" || pair.perDay !== undefined);
 }
 
 function NearbyLeg({ leg }: { leg: FlightLeg }) {
@@ -61,7 +61,7 @@ function DayBlock({
     <div className="rounded-md border border-dashed border-neutral-400 p-2 dark:border-neutral-500">
       <h6 className="text-sm font-semibold">
         {label}
-        <span className={`ml-2 text-xs font-normal ${mutedCls}`}>{t(day.offset === -1 ? "dayBefore" : "dayAfter")}</span>
+        <span className={`ml-2 text-xs font-normal ${mutedCls}`}>{t(data.basis === "trip_dates" ? (day.offset === -1 ? "dayBefore" : "dayAfter") : day.offset === -1 ? "dayBeforeSample" : "dayAfterSample")}</span>
       </h6>
       {mode === "proxy" && hasLegs && <p className={`text-xs ${mutedCls}`}>{t("proxy")}</p>}
       {!day.checked ? (
