@@ -33,11 +33,14 @@ const candidateSchema = z.object({
 const candidatesSchema = z.array(candidateSchema);
 
 /**
- * Total time budget for one places request (route handler maxDuration is 300 s, minus margin). A further Overpass
- * query may only start if elapsed + OVERPASS_CLIENT_TIMEOUT_MS <= budget, i.e. about 2-3 queries per request;
- * the remaining interests are fetched by the next request (cached ones return instantly).
+ * Total time budget for one places request (route handler maxDuration is 300 s, minus margin). Cached interests
+ * are always read, whatever the budget. A network query after the first one only starts with at least
+ * MIN_QUERY_WINDOW_MS left (each query is cut at the deadline); the remaining interests are fetched by the next
+ * request.
  */
 export const VIEW_BUDGET_MS = 280_000;
+/** Overpass answered in 25-60 s when measured (2026-10-28); less time than this is not worth a query. */
+export const MIN_QUERY_WINDOW_MS = 45_000;
 export const PLACES_REQUEST_BUDGET_MS = VIEW_BUDGET_MS;
 
 const inFlight = new Map<string, Promise<CachedResult<PlaceCandidate[]>>>();
@@ -48,6 +51,7 @@ function fetchCandidates(
   radiusKm: number,
   ctx: FactsCtx,
   deadline: number,
+  fetchAllowed: () => boolean,
 ): Promise<CachedResult<PlaceCandidate[]>> {
   const src = sourceFor(interest);
   if (src.source !== "osm") return Promise.resolve({ ok: false, error: "provider_error" });
@@ -61,6 +65,7 @@ function fetchCandidates(
     ttlSeconds: 30 * 86400, // empty results are cached too
     schema: candidatesSchema,
     ctx,
+    fetchAllowed,
     fetcher: async () => {
       const r = await runQuery(buildQuery(src.filters, anchor, radiusKm * 1000), { deadline });
       return { data: rankCandidates(r.elements, src.filters, anchor, src.exclude, radiusKm), status: r.status, latencyMs: r.latencyMs };
@@ -94,14 +99,16 @@ export async function getPlacesFacts(
         groups.push({ interest, status: "no_source" });
         continue;
       }
-      if (queried > 0 && Date.now() - started + OVERPASS_CLIENT_TIMEOUT_MS > budgetMs) {
-        groups.push({ interest, status: "error" }); // contract has no "pending": UI says "try again later"
-        continue;
-      }
-      queried += 1;
-      const res = await fetchCandidates(interest, anchor, radiusForInterest(interest, baseRadius), ctx, started + budgetMs);
+      // Budget gate only for real network queries: cached interests are always served (they cost no time).
+      const fetchAllowed = () => {
+        const left = budgetMs - (Date.now() - started);
+        if (queried > 0 && left < Math.min(MIN_QUERY_WINDOW_MS, OVERPASS_CLIENT_TIMEOUT_MS)) return false;
+        queried += 1;
+        return true;
+      };
+      const res = await fetchCandidates(interest, anchor, radiusForInterest(interest, baseRadius), ctx, started + budgetMs, fetchAllowed);
       if (!res.ok) {
-        groups.push({ interest, status: "error" });
+        groups.push({ interest, status: "error" }); // contract has no "pending": UI says "try again later"
         continue;
       }
       fetchedAts.push(res.fetchedAt);

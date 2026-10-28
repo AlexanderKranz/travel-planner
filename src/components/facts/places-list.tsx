@@ -2,14 +2,9 @@ import { useFormatter, useTranslations } from "next-intl";
 import type { PlaceCandidate, PlaceGroup, PlacesFacts } from "@/lib/domain";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import { StaleBadge } from "./source-note";
-import { safeUrl } from "@/lib/facts/sources";
+import { safeUrl, wikipediaUrl } from "@/lib/facts/sources";
 
-/** "de:Passauer Dom" -> https://de.wikipedia.org/wiki/Passauer_Dom (null if malformed). */
-export function wikipediaUrl(tag: string): string | null {
-  const m = /^([a-z]{2,3}(?:-[a-z]+)?):(.+)$/.exec(tag);
-  if (!m) return null;
-  return `https://${m[1]}.wikipedia.org/wiki/${encodeURIComponent(m[2].replace(/ /g, "_"))}`;
-}
+export { wikipediaUrl };
 
 /** Message key suffix for an OSM tag: "leisure=golf_course" -> "leisure_golf_course". */
 export function categoryKey(category: string): string {

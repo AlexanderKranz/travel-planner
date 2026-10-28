@@ -42,6 +42,18 @@ describe("compose requests", () => {
     expect(f).toEqual({ days: [4], do: ["Rewrite the given days with different activities."], text: "mehr Strand" });
   });
 
+  it("CURRENT_PLAN maps alts back to p ids (unknown keys dropped)", () => {
+    const p = structuredClone(plan) as Plan;
+    const act = p.days[3].stops.flatMap((s) => s.acts).find((a) => a.ref)!;
+    const other = keys.find((k) => k !== act.ref)!;
+    act.alts = [other, "way/999999"];
+    const [current] = patchBlocks(p, index, fb({ days: [4] }));
+    const day = JSON.parse(current.slice("CURRENT_PLAN\n".length)).days[3];
+    const mapped = day.stops.flatMap((s: { acts: { ref?: string; alts?: string[] }[] }) => s.acts).find((a: { alts?: string[] }) => a.alts);
+    expect(mapped.alts).toEqual([Object.keys(index).find((id) => index[id].key === other)]);
+    expect(current).not.toMatch(/way\/|node\//);
+  });
+
   it("scope: given days (deduped, in range) or all days", () => {
     expect(patchScope(fb({ days: [3, 3, 1, 9] }), 5)).toEqual([1, 3]);
     expect(patchScope(fb({}), 3)).toEqual([1, 2, 3]);

@@ -1,40 +1,34 @@
 {
-  "promptVersion": "plan-1",
+  "promptVersion": "plan-3",
   "model": "claude-sonnet-5-5",
-  "inputHash": "bc06e9321c6f1532270c54724add4c73ac3aa246d73faf0e77767d771423e8e5",
+  "inputHash": "7e624ce2288f9d20e6cb09cb62d54388f8f7378c83764724fde5fc704b086c00",
   "output": {
-    "reply": "Tag 2 entspannter gestaltet: weniger Programmpunkte, mehr Ruhe und Freizeit an Bord und in Wien.",
+    "reply": "Tag 2 ist entspannter: weniger Programm in Wien, mehr Ruhe und Freizeit an Bord.",
     "days": [
       {
         "n": 2,
-        "title": "Wien: Ruhiger Christkindlmarkt",
+        "title": "Wien: Ruhiger Adventsabend",
         "stops": [
           {
             "place": "An Bord",
             "acts": [
               {
-                "at": "08:00",
-                "until": "09:00",
+                "at": "09:00",
+                "until": "10:00",
                 "kind": "food",
-                "text": "Frühstück an Bord"
+                "text": "Gemütliches Frühstück an Bord"
               },
               {
-                "at": "09:30",
-                "until": "11:30",
+                "at": "10:30",
+                "until": "12:00",
                 "kind": "free",
-                "text": "Freie Zeit an Bord, Ankunft in Wien in Ruhe abwarten"
+                "text": "Flusslandschaft vom Deck genießen, Spielzeit in der Lounge"
               },
               {
-                "at": "11:30",
-                "until": "12:30",
+                "at": "12:15",
+                "until": "13:00",
                 "kind": "food",
-                "text": "Mittagessen an Bord"
-              },
-              {
-                "at": "12:30",
-                "until": "13:45",
-                "kind": "rest",
-                "text": "Mittagsschlaf des Kleinkinds in der Kabine"
+                "text": "Leichtes Mittagessen an Bord"
               }
             ]
           },
@@ -45,32 +39,40 @@
             "fixed": true,
             "acts": [
               {
-                "at": "14:30",
-                "until": "16:00",
-                "kind": "see",
-                "text": "Kurzer, gemütlicher Spaziergang in der Innenstadt, Kopfsteinpflaster meiden, Babytrage bereithalten"
+                "at": "14:00",
+                "until": "15:30",
+                "kind": "rest",
+                "text": "Mittagsschlaf des Kleinkinds an Bord, Eltern entspannen"
               },
               {
-                "at": "16:15",
-                "until": "18:15",
+                "at": "16:00",
+                "until": "17:30",
                 "kind": "do",
-                "text": "Weihnachtsmarkt mit Lichtern, Punsch für die Eltern, Kinderkarussell"
+                "text": "Ruhiger Besuch eines Weihnachtsmarkts mit Lichtern und Kinderkarussell, Punsch für die Eltern"
               },
               {
-                "at": "18:15",
-                "until": "19:15",
+                "at": "17:45",
+                "until": "18:45",
                 "kind": "food",
-                "text": "Abendessen mit österreichischer Küche"
+                "text": "Frühes Abendessen in einem Wiener Gasthaus"
+              },
+              {
+                "at": "19:00",
+                "until": "19:30",
+                "kind": "travel",
+                "text": "Rückkehr aufs Schiff, Kind ins Bett"
               },
               {
                 "at": "19:30",
-                "kind": "travel",
-                "text": "Rückkehr aufs Schiff, Kleinkind ins Bett"
+                "until": "21:00",
+                "kind": "free",
+                "text": "Ruhiger Abend an Bord, Eltern genießen die Ruhe"
               }
             ]
           }
         ],
-        "best": true
+        "warn": "Viele Märkte sind sehr voll und haben Kopfsteinpflaster; Buggy nur begrenzt nutzbar, Babytrage mitnehmen.",
+        "best": false
       }
     ]
   },
@@ -78,12 +80,12 @@
     "task": "plan_patch",
     "model": "claude-sonnet-5-5",
     "status": "ok",
-    "inputTokens": 961,
-    "outputTokens": 571,
-    "cacheCreationInputTokens": 0,
-    "cacheReadInputTokens": 4506,
-    "costMicroUsd": 8533,
-    "latencyMs": 4315
+    "inputTokens": 1069,
+    "outputTokens": 637,
+    "cacheCreationInputTokens": 5652,
+    "cacheReadInputTokens": 0,
+    "costMicroUsd": 22638,
+    "latencyMs": 5360
   },
-  "recordedAt": "2026-10-28T07:54:32.927Z"
+  "recordedAt": "2026-10-28T21:50:26.359Z"
 }

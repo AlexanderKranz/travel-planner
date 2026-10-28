@@ -84,6 +84,32 @@ export function noteTimes(notes: string | undefined): Set<string> {
   return out;
 }
 
+export const MAX_ALTS = 2;
+
+/**
+ * Alternative place ids → OSM keys, validated like `ref`: unknown ids are dropped (and counted as invalid_ref),
+ * the ref itself and duplicates are skipped, at most MAX_ALTS kept. Alternatives without a valid ref are ignored
+ * by the caller.
+ */
+export function resolveAlts(
+  ids: string[] | undefined,
+  ref: OsmKey,
+  index: PlanInputStored["index"],
+  issues: AssembleIssues,
+): OsmKey[] | undefined {
+  const out: OsmKey[] = [];
+  for (const raw of ids ?? []) {
+    const hit = index[String(raw).trim()];
+    if (!hit) {
+      issues.invalid_ref += 1;
+      continue;
+    }
+    if (hit.key === ref || out.includes(hit.key)) continue;
+    if (out.length < MAX_ALTS) out.push(hit.key);
+  }
+  return out.length ? out : undefined;
+}
+
 export type DayCtx = {
   date: string | null;
   index: PlanInputStored["index"];
@@ -112,6 +138,7 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
           refName = hit.place.name;
         } else issues.invalid_ref += 1;
       }
+      const alts = ref ? resolveAlts(a.alts, ref, ctx.index, issues) : undefined;
       // An empty text with a valid ref falls back to the place name (seen live in a patch); else the act is dropped.
       const text = clampText(a.text, LIMITS.text, issues) ?? clampText(refName, LIMITS.text, issues);
       if (!text) continue;
@@ -120,7 +147,7 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
       if ((from || to) && ((at && !inside(at, from, to)) || (until && !inside(until, from, to)))) {
         issues.window_violation += 1;
       }
-      acts.push(defined({ at, until, kind: ACT_KINDS.has(a.kind) ? a.kind : "do", text, ref }) as PlanActivity);
+      acts.push(defined({ at, until, kind: ACT_KINDS.has(a.kind) ? a.kind : "do", text, ref, alts }) as PlanActivity);
     }
     return defined({
       place: clampText(s.place, LIMITS.place, issues) ?? ctx.fallbackPlace,
@@ -185,7 +212,7 @@ export function assemblePacking(items: string[], issues: AssembleIssues): string
   return out.slice(0, LIMITS.packing);
 }
 
-/** Places referenced by any activity, looked up in `known` (base plan places) then in the index. */
+/** Places referenced by any activity (ref and alts), looked up in `known` (base plan places) then in the index. */
 export function referencedPlaces(
   days: PlanDay[],
   index: PlanInputStored["index"],
@@ -196,11 +223,12 @@ export function referencedPlaces(
   const out: Record<string, PlanPlace> = {};
   for (const d of days)
     for (const s of d.stops)
-      for (const a of s.acts) {
-        if (!a.ref || out[a.ref]) continue;
-        const p = known[a.ref] ?? byKey.get(a.ref);
-        if (p) out[a.ref] = p;
-      }
+      for (const a of s.acts)
+        for (const k of [a.ref, ...(a.ref ? (a.alts ?? []) : [])]) {
+          if (!k || out[k]) continue;
+          const p = known[k] ?? byKey.get(k);
+          if (p) out[k] = p;
+        }
   return out;
 }
 

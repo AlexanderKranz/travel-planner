@@ -1,7 +1,9 @@
 /**
  * Live eval runner (spec 7). Real Claude calls, guarded by the cost ledger (evals/.ledger.json) before each call.
- * Run: `npm run evals:live` with optional EVAL_FIXTURE=golf|cruise and EVAL_TASK=tags|generate|patch
- * (comma-separated). Usage goes to the ledger, not to ai_usage. Writes evals/recorded/*.json.
+ * Run: `npm run evals:live` with optional EVAL_FIXTURE=golf|cruise and EVAL_TASK=drive|tags|generate|patch
+ * (comma-separated; default tags,generate,patch). Usage goes to the ledger, not to ai_usage. Writes
+ * evals/recorded/*.json. `drive` makes one live OpenRouteService matrix call (no Anthropic cost) for the places
+ * of the current input and records it; run it after tags and before generate when the place selection changed.
  */
 import { existsSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
@@ -10,7 +12,10 @@ import type { LlmPatch, LlmPlan, PurposeTags } from "@/lib/domain/plan";
 import { planInputHash, purposeTagsHash, canonicalJson } from "@/lib/plan/hash";
 import { composePlan, patchPlan } from "@/lib/server/ai/compose";
 import { tagPurpose } from "@/lib/server/ai/purpose-tags";
-import { buildEvalInput, evalPurpose, FIXTURE_IDS, PATCH_FEEDBACK, type FixtureId } from "./build-input";
+import { buildEvalInput, evalDrivePicks, evalPurpose, FIXTURE_IDS, PATCH_FEEDBACK, type DriveRecording, type FixtureId } from "./build-input";
+import { fetchDriveMatrix } from "@/lib/integrations/openrouteservice";
+import { recordingPath } from "./recorded";
+import { writeFileSync } from "node:fs";
 import { evaluateGenerate, evaluatePatch, evaluateTags, formatResults } from "./evaluate";
 import { assertBudget, readLedger, recordSpend } from "./ledger";
 import { readRecording, writeRecording, type RecordedTask } from "./recorded";
@@ -24,7 +29,9 @@ if (LIVE && !process.env.ANTHROPIC_API_KEY && existsSync(".env.local")) process.
 const pick = <T extends string>(env: string | undefined, all: readonly T[]): T[] =>
   env ? (env.split(",").map((s) => s.trim()).filter((s) => (all as readonly string[]).includes(s)) as T[]) : [...all];
 const fixtures = pick<FixtureId>(process.env.EVAL_FIXTURE, FIXTURE_IDS);
-const tasks = pick<RecordedTask>(process.env.EVAL_TASK, ["tags", "generate", "patch"]);
+const tasks = process.env.EVAL_TASK
+  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "patch"])
+  : (["tags", "generate", "patch"] as RecordedTask[]);
 
 const usd = (micro: number) => `$${(micro / 1e6).toFixed(4)}`;
 const fmtUsage = (u: AiUsageRecord) =>
@@ -59,6 +66,19 @@ describe.runIf(LIVE)("live evals", () => {
           writeRecording(id, "tags", { promptVersion: TAGS_PROMPT_VERSION, model: MODEL_TAGS, inputHash: purposeTagsHash(purpose), output: r.data, usage: r.usage, recordedAt });
           console.log(formatResults(`[${id}] tags ${canonicalJson(r.data)}`, evaluateTags(id, r.data)));
         } else console.log(`[${id}] tags failed: ${r.error}`);
+      }
+
+      // 1b. Drive times (one ORS matrix call, recorded; no Anthropic spend)
+      if (tasks.includes("drive")) {
+        const { origin, places } = evalDrivePicks(id, tags);
+        const r = await fetchDriveMatrix(origin, places);
+        const byKey: DriveRecording["byKey"] = {};
+        r.drives.forEach((d, i) => {
+          if (d) byKey[places[i].key] = d;
+        });
+        const rec: DriveRecording = { source: "openrouteservice", recordedAt, origin, byKey };
+        writeFileSync(recordingPath(id, "drive"), JSON.stringify(rec, null, 2) + "\n");
+        console.log(`[${id}] drive: ${Object.keys(byKey).length}/${places.length} places reachable, ${r.latencyMs} ms`);
       }
 
       // 2. Generation (Sonnet)

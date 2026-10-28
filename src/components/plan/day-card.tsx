@@ -1,7 +1,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import type { Plan, PlanActivity, PlanDay, PlanStop } from "@/lib/domain/plan";
-import { safeUrl } from "@/lib/facts/sources";
+import { placeHref } from "@/lib/facts/sources";
 import { windowKind } from "./helpers";
 
 /** Owner-only slot: "+ item" next to a referenced place (bound to its day by DayCard). */
@@ -38,6 +38,36 @@ function WindowBadge({ stop }: { stop: PlanStop }) {
   );
 }
 
+function PlaceLink({ place, strong }: { place: Plan["places"][string]; strong?: boolean }) {
+  const t = useTranslations("plan");
+  const href = placeHref(place);
+  const cls = strong ? "font-medium" : "";
+  return href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={`${linkCls} ${cls}`}>
+      {place.name}
+      <span className="sr-only"> ({t("opensExternal")})</span>
+    </a>
+  ) : (
+    <span className={cls}>{place.name}</span>
+  );
+}
+
+function DriveBadge({ place }: { place: Plan["places"][string] }) {
+  const t = useTranslations("plan");
+  const f = useFormatter();
+  if (!place.drive) return null;
+  const title = t("driveTitle", {
+    km: f.number(place.drive.km, { maximumFractionDigits: 1 }),
+    date: f.dateTime(new Date(place.drive.fetchedAt), { dateStyle: "medium" }),
+  });
+  return (
+    <span className={`whitespace-nowrap text-xs tabular-nums ${mutedCls}`} title={title}>
+      {t("drive", { min: place.drive.min })}
+      <span className="sr-only"> ({title})</span>
+    </span>
+  );
+}
+
 function Activity({
   act,
   places,
@@ -50,7 +80,7 @@ function Activity({
   const t = useTranslations("plan");
   const f = useFormatter();
   const place = act.ref ? places[act.ref] : undefined;
-  const href = place ? safeUrl(place.osmUrl) : null;
+  const alts = place ? (act.alts ?? []).flatMap((k) => (places[k] ? [places[k]] : [])) : [];
   const time = act.at ? (act.until ? `${act.at}–${act.until}` : act.at) : null;
   return (
     <li className="min-w-0 break-words">
@@ -60,20 +90,38 @@ function Activity({
       >
         {t(`kinds.${act.kind}`)}
       </span>
+      {place && (
+        <>
+          <PlaceLink place={place} strong />
+          {" · "}
+        </>
+      )}
       {act.text}
       {place && (
-        <span className={`ml-1 text-sm ${mutedCls}`}>
-          {"· "}
-          {href ? (
-            <a href={href} target="_blank" rel="noopener noreferrer" className={linkCls}>
-              {place.name}
-              <span className="sr-only"> ({t("opensExternal")})</span>
-            </a>
+        <span className={`ml-1 inline-flex flex-wrap items-baseline gap-x-1.5 text-sm ${mutedCls}`}>
+          {place.drive ? (
+            <DriveBadge place={place} />
           ) : (
-            place.name
-          )}{" "}
-          ({t("distance", { km: f.number(place.distanceKm, { maximumFractionDigits: 1 }) })})
+            <span className="text-xs">({t("distance", { km: f.number(place.distanceKm, { maximumFractionDigits: 1 }) })})</span>
+          )}
           {quickAdd && act.ref && quickAdd(place, act.ref)}
+        </span>
+      )}
+      {alts.length > 0 && (
+        <span className={`block text-xs ${mutedCls}`}>
+          {t("alternatives")}{" "}
+          {alts.map((p, i) => (
+            <span key={i}>
+              {i > 0 && " · "}
+              <PlaceLink place={p} />
+              {p.drive && (
+                <>
+                  {" "}
+                  <DriveBadge place={p} />
+                </>
+              )}
+            </span>
+          ))}
         </span>
       )}
     </li>
@@ -118,8 +166,12 @@ export function DayCard({
 }) {
   const t = useTranslations("plan");
   const f = useFormatter();
-  const used = day.stops.flatMap((s) => s.acts).flatMap((a) => (a.ref && places[a.ref] ? [places[a.ref]] : []));
+  const used = day.stops
+    .flatMap((s) => s.acts)
+    .flatMap((a) => (a.ref ? [a.ref, ...(a.alts ?? [])] : []))
+    .flatMap((k) => (places[k] ? [places[k]] : []));
   const fetchedAt = used.map((p) => p.fetchedAt).sort()[0];
+  const hasDrive = used.some((p) => p.drive);
   const border = day.best
     ? "border-amber-500 dark:border-amber-400"
     : changed
@@ -199,6 +251,14 @@ export function DayCard({
                 {t("osmCredit")}
               </a>{" "}
               · {t("checked", { date: f.dateTime(new Date(fetchedAt), { dateStyle: "medium" }) })}
+              {hasDrive && (
+                <>
+                  {" · "}
+                  <a href="https://openrouteservice.org/" target="_blank" rel="noopener noreferrer" className={linkCls}>
+                    {t("driveCredit")}
+                  </a>
+                </>
+              )}
             </p>
           )}
         </div>

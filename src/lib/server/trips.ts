@@ -1,6 +1,5 @@
 "use server";
 
-import { after } from "next/server";
 import { z } from "zod";
 import type { GeoPlace } from "@/lib/domain/geo";
 import type { Locale } from "@/lib/domain/profile";
@@ -14,11 +13,9 @@ import {
 } from "@/lib/domain/trip";
 import { isKnownIata } from "@/lib/integrations/airports";
 import { getPlaceById } from "@/lib/integrations/open-meteo-geocoding";
-import { berlinToday } from "@/lib/date";
 import { logEvent } from "./events";
-import { warmTripFacts } from "./facts";
-import { getPurpose } from "./purposes";
 import { getUserSession } from "./session";
+import { scheduleTripWarm } from "./warm";
 import {
   buildTripWrite,
   factsInputsChanged,
@@ -32,9 +29,6 @@ import {
 
 const Id = z.string().uuid();
 const FK_VIOLATION = "23503"; // groupId/purposeId of another user (or unknown) fails the composite FK
-
-/** Total time after() may spend warming facts (pages export maxDuration = 300). */
-const WARM_BUDGET_MS = 280_000;
 
 type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;
 
@@ -76,31 +70,6 @@ async function resolvePlace(
     return place ? { ok: true, place } : { ok: false, error: "unknown_place" };
   } catch {
     return { ok: false, error: "failed" };
-  }
-}
-
-/** Fire-and-forget cache warming after the response (never blocks or fails the action). */
-async function scheduleWarm(session: Session, trip: Trip, locale: Locale): Promise<void> {
-  let purpose = null;
-  if (trip.purposeId) {
-    const res = await getPurpose(trip.purposeId);
-    if (res.ok) purpose = res.data;
-  }
-  try {
-    after(async () => {
-      try {
-        await warmTripFacts(
-          trip,
-          purpose,
-          { userId: session.userId, locale, today: berlinToday() },
-          { budgetMs: WARM_BUDGET_MS },
-        );
-      } catch {
-        // warming is best effort
-      }
-    });
-  } catch {
-    // after() unavailable (e.g. outside a request scope): skip
   }
 }
 
@@ -177,7 +146,7 @@ export async function createTrip(input: TripInput): Promise<ActionResult<Trip>> 
 
   const trip = rowToTrip(data);
   await logEvent({ event: "trip.created", userId: session.userId, props: eventProps(trip) });
-  await scheduleWarm(session, trip, locale);
+  await scheduleTripWarm(session, trip, locale);
   return { ok: true, data: trip };
 }
 
@@ -212,7 +181,7 @@ export async function updateTrip(id: string, input: TripInput): Promise<ActionRe
 
   const trip = rowToTrip(data);
   await logEvent({ event: "trip.updated", userId: session.userId, props: eventProps(trip) });
-  if (factsInputsChanged(before, write)) await scheduleWarm(session, trip, locale);
+  if (factsInputsChanged(before, write)) await scheduleTripWarm(session, trip, locale);
   return { ok: true, data: trip };
 }
 

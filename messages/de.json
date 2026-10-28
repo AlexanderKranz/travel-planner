@@ -42,7 +42,8 @@
     "ai_refused": "Die KI hat diese Anfrage abgelehnt. Bitte formuliere sie um.",
     "invalid_output": "Die KI-Antwort war unbrauchbar. Bitte erneut versuchen.",
     "demo_forbidden": "Im Demo-Konto lassen sich keine Links erstellen.",
-    "no_plan": "Erstelle zuerst einen Reiseplan."
+    "no_plan": "Erstelle zuerst einen Reiseplan.",
+    "places_pending": "Orte werden noch geladen. Bitte in einer Minute erneut versuchen."
   },
   "login": {
     "title": "Anmelden",
@@ -652,6 +653,11 @@
         "label": "berechnet (suncalc)",
         "provides": "Sonnenaufgang, -untergang und Dämmerung, berechnet aus Koordinaten und Datum.",
         "license": "Keine Namensnennung nötig."
+      },
+      "openrouteservice": {
+        "label": "Fahrzeiten: openrouteservice.org",
+        "provides": "Fahrzeit und Straßenentfernung mit dem Auto vom Zielort-Zentrum zu jedem vorgeschlagenen Ort.",
+        "license": "© openrouteservice.org by HeiGIT, Kartendaten © OpenStreetMap-Mitwirkende (ODbL 1.0)."
       }
     },
     "builtOn": "Datensatz erstellt am {date}"
@@ -752,7 +758,9 @@
       "long": "Schreibt noch, das kann etwas länger dauern…",
       "busyElsewhere": "Ein Plan wird erstellt. Diese Seite aktualisiert sich, sobald er fertig ist.",
       "timedOut": "Das dauert ungewöhnlich lange.",
-      "reload": "Erneut prüfen"
+      "reload": "Erneut prüfen",
+      "retry": "Erneut versuchen",
+      "generateAnyway": "Trotzdem erstellen"
     },
     "errors": {
       "busy": "Für diese Reise wird gerade ein Plan erstellt. Bitte einen Moment warten.",
@@ -768,7 +776,8 @@
       "unauthenticated": "Du bist nicht angemeldet.",
       "invalid": "Bitte prüfe deine Eingaben.",
       "not_found": "Die Reise wurde nicht gefunden.",
-      "failed": "Etwas ist schiefgelaufen. Bitte versuche es später erneut."
+      "failed": "Etwas ist schiefgelaufen. Bitte versuche es später erneut.",
+      "places_pending": "Orte werden noch geladen – bitte in einer Minute erneut versuchen. Ohne sie nennt der Plan keine konkreten Plätze, Sehenswürdigkeiten oder Parks."
     },
     "iterate": {
       "title": "Plan anpassen",
@@ -847,7 +856,11 @@
       "nextDay": "+1",
       "proxyNote": "Flugplan des Vorjahres, noch nicht veröffentlicht",
       "source": "AeroDataBox, geprüft am {date}. Zeiten können sich ändern."
-    }
+    },
+    "drive": "🚗 {min} Min.",
+    "driveTitle": "Mit dem Auto ab Zielort-Zentrum, {km} km (OpenRouteService, geprüft am {date})",
+    "driveCredit": "Fahrzeiten: © openrouteservice.org, ab Zielort-Zentrum",
+    "alternatives": "oder:"
   },
   "items": {
     "title": "Buchungen und Kosten",
@@ -996,7 +1009,7 @@
     "openItems": "Noch zu klären",
     "tips": "Tipps und Hinweise",
     "packing": "Packliste",
-    "sources": "Quellen: OpenStreetMap, Open-Meteo, AeroDataBox",
+    "sources": "Quellen: OpenStreetMap, Open-Meteo, AeroDataBox, openrouteservice.org",
     "generated": "erstellt am {date}",
     "page": "Seite {n} von {total}",
     "statuses": {
@@ -1019,6 +1032,9 @@
     "booked": "Gebucht",
     "expected": "Erwartet",
     "datesOpen": "Reisedaten offen",
-    "persons": "Personen"
+    "persons": "Personen",
+    "drive": "{min} Min. mit dem Auto",
+    "alternatives": "oder",
+    "driveNote": "Fahrzeiten mit dem Auto ab Zielort-Zentrum (openrouteservice.org)."
   }
 }

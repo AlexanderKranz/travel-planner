@@ -20,6 +20,7 @@ export const PlanActivity = z.object({
   kind: ActivityKind,
   text: z.string().min(1).max(200), // AI prose; never prices, opening hours, flight numbers
   ref: OsmKey.optional(), // key into plan.places; only ids that were in the input
+  alts: z.array(OsmKey).min(1).max(2).optional(), // up to 2 alternative places (plan-3+); only with a ref
 });
 export type PlanActivity = z.infer<typeof PlanActivity>;
 
@@ -64,6 +65,15 @@ export const PlanPlace = z.object({
   website: z.string().url().optional(),
   source: z.literal("osm"),
   fetchedAt: z.string(),
+  /** Car drive from the destination point (OpenRouteService); absent when unknown or unreachable by car. */
+  drive: z
+    .object({
+      min: z.number().int().min(0),
+      km: z.number().min(0),
+      source: z.literal("openrouteservice"),
+      fetchedAt: z.string(),
+    })
+    .optional(),
 });
 export type PlanPlace = z.infer<typeof PlanPlace>;
 
@@ -251,6 +261,7 @@ const LlmAct = z.object({
   kind: ActivityKind,
   text: z.string(),
   ref: z.string().optional() /* "p12" */,
+  alts: z.array(z.string()).optional() /* ["p3", "p7"] */,
 });
 const LlmStop = z.object({
   place: z.string(),

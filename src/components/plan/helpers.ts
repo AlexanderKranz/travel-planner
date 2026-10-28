@@ -16,6 +16,7 @@ const PLAN_ERRORS: readonly ActionError[] = [
   "ai_unavailable",
   "ai_refused",
   "invalid_output",
+  "places_pending",
   "failed",
 ];
 

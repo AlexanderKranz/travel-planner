@@ -23,6 +23,7 @@ const STATUS: Record<ActionError, number> = {
   limit_reached: 422,
   demo_forbidden: 403,
   no_plan: 409,
+  places_pending: 503,
   failed: 500,
 };
 

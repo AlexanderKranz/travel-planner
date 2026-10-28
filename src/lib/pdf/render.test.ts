@@ -56,6 +56,20 @@ describe("renderPlanPdf", () => {
     }
   }, 30_000);
 
+  it("renders place links, drive times and alternatives (plan-3)", async () => {
+    const doc = structuredClone(golf) as unknown as PlanDocument;
+    const keys = Object.keys(doc.plan.places);
+    expect(keys.length).toBeGreaterThan(2);
+    for (const k of keys) doc.plan.places[k].drive = { min: 25, km: 21.4, source: "openrouteservice", fetchedAt: "2026-10-28T10:00:00.000Z" };
+    const act = doc.plan.days[0].stops.flatMap((s) => s.acts).find((a) => a.ref)!;
+    act.alts = keys.filter((k) => k !== act.ref).slice(0, 2);
+    const t2 = (key: string, vars?: Record<string, string | number>) =>
+      key === "drive" ? `${vars?.min} Min. mit dem Auto` : key === "alternatives" ? "oder" : key === "driveNote" ? "Fahrzeiten ab Zielort-Zentrum" : t(key, vars);
+    const buf = await renderPlanPdf(doc, t2);
+    expect(asBuf(buf)).toBe("%PDF-");
+    expect(buf.length).toBeGreaterThan(10_000);
+  }, 30_000);
+
   it("renders without items and with the cruise fixture", async () => {
     const doc = { ...(cruise as unknown as PlanDocument), items: null, costs: null };
     const buf = await renderPlanPdf(doc, t);

@@ -42,7 +42,8 @@
     "ai_refused": "The AI declined this request. Please rephrase your input.",
     "invalid_output": "The AI answer was unusable. Please try again.",
     "demo_forbidden": "The demo account cannot create links.",
-    "no_plan": "Create a travel plan first."
+    "no_plan": "Create a travel plan first.",
+    "places_pending": "Places are still loading. Please try again in a minute."
   },
   "login": {
     "title": "Sign in",
@@ -652,6 +653,11 @@
         "label": "computed (suncalc)",
         "provides": "Sunrise, sunset and twilight, calculated from coordinates and date.",
         "license": "No attribution required."
+      },
+      "openrouteservice": {
+        "label": "Drive times: openrouteservice.org",
+        "provides": "Drive time and road distance by car from the destination centre to each suggested place.",
+        "license": "© openrouteservice.org by HeiGIT, map data © OpenStreetMap contributors (ODbL 1.0)."
       }
     },
     "builtOn": "Dataset built on {date}"
@@ -752,7 +758,9 @@
       "long": "Still writing, this can take a little longer…",
       "busyElsewhere": "A plan is being generated. This page updates when it is done.",
       "timedOut": "This is taking unusually long.",
-      "reload": "Check again"
+      "reload": "Check again",
+      "retry": "Try again",
+      "generateAnyway": "Generate anyway"
     },
     "errors": {
       "busy": "A plan is already being generated for this trip. Please wait a moment.",
@@ -768,7 +776,8 @@
       "unauthenticated": "You are not signed in.",
       "invalid": "Please check your input.",
       "not_found": "The trip was not found.",
-      "failed": "Something went wrong. Please try again later."
+      "failed": "Something went wrong. Please try again later.",
+      "places_pending": "Places are still loading – try again in a minute. Without them the plan names no concrete courses, sights or parks."
     },
     "iterate": {
       "title": "Adjust the plan",
@@ -847,7 +856,11 @@
       "nextDay": "+1",
       "proxyNote": "Last year's schedule, not yet published",
       "source": "AeroDataBox, checked {date}. Times can change."
-    }
+    },
+    "drive": "🚗 {min} min",
+    "driveTitle": "By car from the destination centre, {km} km (OpenRouteService, checked {date})",
+    "driveCredit": "Drive times: © openrouteservice.org, from the destination centre",
+    "alternatives": "or:"
   },
   "items": {
     "title": "Bookings and costs",
@@ -996,7 +1009,7 @@
     "openItems": "To clarify",
     "tips": "Tips and notes",
     "packing": "Packing list",
-    "sources": "Sources: OpenStreetMap, Open-Meteo, AeroDataBox",
+    "sources": "Sources: OpenStreetMap, Open-Meteo, AeroDataBox, openrouteservice.org",
     "generated": "generated {date}",
     "page": "Page {n} of {total}",
     "statuses": {
@@ -1019,6 +1032,9 @@
     "booked": "Booked",
     "expected": "Expected",
     "datesOpen": "Dates open",
-    "persons": "people"
+    "persons": "people",
+    "drive": "{min} min by car",
+    "alternatives": "or",
+    "driveNote": "Drive times by car from the destination centre (openrouteservice.org)."
   }
 }

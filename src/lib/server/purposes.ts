@@ -7,6 +7,7 @@ import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
 import { purposeTagsHash } from "@/lib/plan/hash";
 import { logEvent } from "./events";
 import { getUserSession } from "./session";
+import { schedulePurposeWarm } from "./warm";
 
 const COLUMNS = "id, name, text, guided, constraints, parsed_tags, parsed_hash, created_at, updated_at";
 const Id = z.string().uuid();
@@ -125,7 +126,10 @@ export async function updatePurpose(
     .maybeSingle();
   if (error) return fail("failed");
   if (!data) return fail("not_found");
-  return { ok: true, data: rowToPurpose(data) };
+  const purpose = rowToPurpose(data);
+  // New content → new tags → other places: refresh tags and places for trips using it in the background.
+  if (purpose.tags == null) await schedulePurposeWarm(session, purpose.id);
+  return { ok: true, data: purpose };
 }
 
 export async function deletePurpose(id: string): Promise<ActionResult> {

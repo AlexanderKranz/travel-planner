@@ -1,0 +1,676 @@
+{
+  "version": 0.6,
+  "generator": "Overpass API 0.7.62.11 87bfad18",
+  "osm3s": {
+    "timestamp_osm_base": "2026-10-28T21:45:23Z",
+    "copyright": "The data included in this document is from www.openstreetmap.org. The data is made available under ODbL."
+  },
+  "elements": [
+
+{
+  "type": "node",
+  "id": 307718929,
+  "lat": 48.5695747,
+  "lon": 13.7628281,
+  "tags": {
+    "leisure": "water_park",
+    "name": "Wasserrutsche"
+  }
+},
+{
+  "type": "node",
+  "id": 1337496521,
+  "lat": 48.4204767,
+  "lon": 13.1929823,
+  "tags": {
+    "leisure": "water_park",
+    "name": "Thermal Vitaloase",
+    "spa": "therme"
+  }
+},
+{
+  "type": "node",
+  "id": 1567381381,
+  "lat": 48.7845961,
+  "lon": 13.4426707,
+  "tags": {
+    "leisure": "water_park",
+    "name": "Ilztalperle Inklusionsbad"
+  }
+},
+{
+  "type": "node",
+  "id": 1646302233,
+  "lat": 48.5009567,
+  "lon": 13.7354976,
+  "tags": {
+    "name": "Wassererlebnis Mini-Donau",
+    "tourism": "theme_park",
+    "wheelchair": "limited"
+  }
+},
+{
+  "type": "node",
+  "id": 2839727003,
+  "lat": 48.4485612,
+  "lon": 13.6679349,
+  "tags": {
+    "bicycle": "no",
+    "entrance": "main",
+    "fee": "yes",
+    "foot": "yes",
+    "name": "Waldentdeckerwelt",
+    "opening_hours": "Mar-Nov 10:00-18:00",
+    "tourism": "theme_park",
+    "website": "https://waldentdeckerwelt.at"
+  }
+},
+{
+  "type": "node",
+  "id": 8583391544,
+  "lat": 48.7683202,
+  "lon": 13.2793934,
+  "tags": {
+    "name": "Damwild Gehege",
+    "tourism": "zoo",
+    "zoo": "wildlife_park"
+  }
+},
+{
+  "type": "node",
+  "id": 11612265633,
+  "lat": 48.6258345,
+  "lon": 13.1763813,
+  "tags": {
+    "leisure": "water_park",
+    "name": "Freibad Vilshofen"
+  }
+},
+{
+  "type": "node",
+  "id": 13276162270,
+  "lat": 48.4002928,
+  "lon": 13.7463546,
+  "tags": {
+    "addr:city": "Natternbach",
+    "addr:housenumber": "1",
+    "addr:postcode": "4723",
+    "addr:street": "Naturpfad",
+    "name": "IKUNA",
+    "phone": "+43 7278 20800",
+    "tourism": "theme_park",
+    "website": "https://www.ikuna.at/"
+  }
+},
+{
+  "type": "way",
+  "id": 8093850,
+  "center": {
+    "lat": 48.5587576,
+    "lon": 13.4093412
+  },
+  "tags": {
+    "barrier": "fence",
+    "landuse": "recreation_ground",
+    "leisure": "water_park",
+    "name": "Passauer Erlebnisbad (PEB)",
+    "note": "Freibad",
+    "sport": "swimming",
+    "url": "https://peb.stadtwerke-passau.de/"
+  }
+},
+{
+  "type": "way",
+  "id": 25389977,
+  "center": {
+    "lat": 48.6962842,
+    "lon": 13.2659084
+  },
+  "tags": {
+    "fee": "yes",
+    "leisure": "horse_riding",
+    "name": "Pullman City",
+    "tourism": "theme_park",
+    "website": "https://www.pullmancity.de/",
+    "wheelchair": "limited",
+    "wikidata": "Q116777647"
+  }
+},
+{
+  "type": "way",
+  "id": 28236908,
+  "center": {
+    "lat": 48.6040811,
+    "lon": 13.5525621
+  },
+  "tags": {
+    "leisure": "water_park",
+    "name": "Raßbach Badeweiher",
+    "natural": "water",
+    "water": "lake"
+  }
+},
+{
+  "type": "way",
+  "id": 32463707,
+  "center": {
+    "lat": 48.6411759,
+    "lon": 13.3970436
+  },
+  "tags": {
+    "addr:street": "Sonnenstraße",
+    "check_date": "2026-03-01",
+    "email": "freibad-haselbach@gmx.de",
+    "leisure": "water_park",
+    "name": "Freibad Haselbach",
+    "phone": "+498509644",
+    "website": "https://www.gemeinde-tiefenbach.de/freizeit-und-sport/sportlich-unterwegs/freibad-haselbach"
+  }
+},
+{
+  "type": "way",
+  "id": 33710025,
+  "center": {
+    "lat": 48.4383362,
+    "lon": 13.3425670
+  },
+  "tags": {
+    "addr:city": "Ruhstorf a.d.Rott",
+    "addr:country": "DE",
+    "addr:housenumber": "3",
+    "addr:postcode": "94099",
+    "addr:street": "Badstraße",
+    "leisure": "water_park",
+    "name": "Freibad Ruhstorf",
+    "phone": "+49 8531 32627",
+    "sport": "swimming",
+    "website": "https://www.ruhstorf.de/ruhstorf-erleben/natur-freizeit-und-sport/freibad"
+  }
+},
+{
+  "type": "way",
+  "id": 106102105,
+  "center": {
+    "lat": 48.3517655,
+    "lon": 13.3206155
+  },
+  "tags": {
+    "addr:city": "Bad Füssing",
+    "addr:country": "DE",
+    "addr:housenumber": "23",
+    "addr:postcode": "94072",
+    "addr:street": "Kurallee",
+    "email": "info@europatherme.de",
+    "leisure": "water_park",
+    "name": "Europa Therme",
+    "opening_hours": "Tu,Th,Sa,Su 07:00-19:00; Mo,We,Fr 07:00-22:00",
+    "phone": "+49853194470",
+    "sport": "swimming",
+    "website": "https://www.europatherme.de/"
+  }
+},
+{
+  "type": "way",
+  "id": 106309504,
+  "center": {
+    "lat": 48.3490118,
+    "lon": 13.3294302
+  },
+  "tags": {
+    "addr:city": "Bad Füssing",
+    "addr:country": "DE",
+    "addr:housenumber": "2",
+    "addr:postcode": "94072",
+    "addr:street": "Johannesstraße",
+    "email": "info@johannesbad.de",
+    "fax": "+49 8531 232986",
+    "int_name": "Johannestherme",
+    "leisure": "water_park",
+    "name": "Johannesbad Therme",
+    "phone": "+49 8531 230",
+    "website": "https://www.johannesbad-therme.de/"
+  }
+},
+{
+  "type": "way",
+  "id": 111737810,
+  "center": {
+    "lat": 48.5580309,
+    "lon": 13.6229837
+  },
+  "tags": {
+    "barrier": "fence",
+    "leisure": "water_park",
+    "name": "Freibad Obernzell",
+    "source": "Bing",
+    "sport": "swimming",
+    "water_park": "outdoor",
+    "water_slide": "no"
+  }
+},
+{
+  "type": "way",
+  "id": 111739987,
+  "center": {
+    "lat": 48.5533973,
+    "lon": 13.6901676
+  },
+  "tags": {
+    "fenced": "yes",
+    "leisure": "water_park",
+    "name": "Freibad Lämmersdorf",
+    "opening_hours": "Mo-Su,PH 10:00-20:00"
+  }
+},
+{
+  "type": "way",
+  "id": 135987947,
+  "center": {
+    "lat": 48.5373618,
+    "lon": 13.5795296
+  },
+  "tags": {
+    "landuse": "recreation_ground",
+    "leisure": "water_park",
+    "name": "Freibad Esternberg",
+    "phone": "+43 7714 6070",
+    "sport": "swimming",
+    "water_park": "outdoor",
+    "water_slide": "no",
+    "website": "https://www.esternberg.at/Unser_Esternberg/Tourismus_I_Freizeit/Freibad"
+  }
+},
+{
+  "type": "way",
+  "id": 138641947,
+  "center": {
+    "lat": 48.3864062,
+    "lon": 13.4572488
+  },
+  "tags": {
+    "designation": "Freibad",
+    "landuse": "recreation_ground",
+    "leisure": "water_park",
+    "name": "Freibad St. Marienkirchen bei Schärding",
+    "sport": "swimming",
+    "water_park": "outdoor",
+    "water_slide": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 139296857,
+  "center": {
+    "lat": 48.5529389,
+    "lon": 13.7690212
+  },
+  "tags": {
+    "leisure": "water_park",
+    "name": "Freibad Oberkappel",
+    "sport": "swimming",
+    "water_park": "outdoor",
+    "water_slide": "no"
+  }
+},
+{
+  "type": "way",
+  "id": 142047247,
+  "center": {
+    "lat": 48.3743843,
+    "lon": 13.5736044
+  },
+  "tags": {
+    "fixme": "Grenzen estimated",
+    "landuse": "recreation_ground",
+    "leisure": "water_park",
+    "name": "Freibad Andorf",
+    "water_park": "outdoor",
+    "water_slide": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 143235191,
+  "center": {
+    "lat": 48.7849035,
+    "lon": 13.4430999
+  },
+  "tags": {
+    "building": "yes",
+    "leisure": "water_park",
+    "name": "Ilztalperle"
+  }
+},
+{
+  "type": "way",
+  "id": 147122204,
+  "center": {
+    "lat": 48.5242486,
+    "lon": 13.3203652
+  },
+  "tags": {
+    "amenity": "public_bath",
+    "bath:open_air": "yes",
+    "fee": "yes",
+    "landuse": "grass",
+    "leisure": "water_park",
+    "name": "Freibad Fürstenzell",
+    "opening_hours": "Jun-Sep Mo-Su,PH 10:00-20:00",
+    "operator": "Markt Fürstenzell",
+    "source": "bing",
+    "sport": "swimming"
+  }
+},
+{
+  "type": "way",
+  "id": 158668819,
+  "center": {
+    "lat": 48.7660384,
+    "lon": 13.3603402
+  },
+  "tags": {
+    "attraction": "animal",
+    "landuse": "meadow",
+    "name": "Wildgehege",
+    "tourism": "zoo",
+    "zoo": "enclosure"
+  }
+},
+{
+  "type": "way",
+  "id": 182372904,
+  "center": {
+    "lat": 48.4889622,
+    "lon": 13.5773401
+  },
+  "tags": {
+    "landuse": "recreation_ground",
+    "leisure": "water_park",
+    "name": "Freibad Münzkirchen",
+    "water_park": "outdoor",
+    "water_slide": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 186546533,
+  "center": {
+    "lat": 48.6608380,
+    "lon": 13.1099171
+  },
+  "tags": {
+    "landuse": "recreation_ground",
+    "leisure": "water_park",
+    "name": "Freibad Pleinting"
+  }
+},
+{
+  "type": "way",
+  "id": 192030348,
+  "center": {
+    "lat": 48.5865611,
+    "lon": 13.3903873
+  },
+  "tags": {
+    "addr:city": "Passau",
+    "addr:country": "DE",
+    "addr:housenumber": "1",
+    "addr:postcode": "94036",
+    "addr:street": "Schaldinger Straße",
+    "addr:suburb": "Schalding r.d.D.",
+    "building": "yes",
+    "email": "passau@babalu-funpark.de",
+    "name": "Babalu Funpark Passau",
+    "opening_hours": "Mo-Fr 14:00-19:00; Sa-Su 10:00-19:00",
+    "phone": "+49 851 98868760",
+    "tourism": "theme_park",
+    "website": "https://babalu-passau.de/",
+    "wheelchair": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 224827107,
+  "center": {
+    "lat": 48.7561620,
+    "lon": 13.1738414
+  },
+  "tags": {
+    "leisure": "water_park",
+    "name": "Freibad Schöllnach",
+    "water_park": "outdoor"
+  }
+},
+{
+  "type": "way",
+  "id": 240795528,
+  "center": {
+    "lat": 48.4015197,
+    "lon": 13.7478220
+  },
+  "tags": {
+    "fee": "yes",
+    "name": "IKUNA Naturerlebnispark",
+    "opening_hours": "Apr-Oct PH,Mo-Su 09:00-19:00",
+    "tourism": "theme_park"
+  }
+},
+{
+  "type": "way",
+  "id": 243896768,
+  "center": {
+    "lat": 48.4508602,
+    "lon": 13.5386149
+  },
+  "tags": {
+    "addr:city": "Rainbach im Innkreis",
+    "addr:postcode": "4791",
+    "leisure": "water_park",
+    "name": "Freibad Rainbach",
+    "operator": "Gemeinde Rainbach im Innkreis",
+    "water_park": "outdoor",
+    "water_slide": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 273936724,
+  "center": {
+    "lat": 48.5623462,
+    "lon": 13.2513149
+  },
+  "tags": {
+    "contact:email": "tierpark-irgenoed@gmx.de",
+    "contact:phone": "+49 85 42 71 30;+4985 42 29 18",
+    "contact:website": "http://www.tierpark-irgenoed.de/",
+    "dog": "no",
+    "fee": "yes",
+    "name": "Tierpark Irgenöd",
+    "old_name": "Tier - & Vogelpark Irgenöd",
+    "opening_hours": "Apr-Nov 09:00-17:30",
+    "operator": "Frank Schobesberger",
+    "tourism": "zoo",
+    "wikidata": "Q15853066",
+    "wikipedia": "de:Vogel- und Tierpark Irgenöd"
+  }
+},
+{
+  "type": "way",
+  "id": 273942090,
+  "center": {
+    "lat": 48.5507609,
+    "lon": 13.2330290
+  },
+  "tags": {
+    "addr:city": "Ortenburg",
+    "addr:country": "DE",
+    "addr:housenumber": "3 1/2",
+    "addr:place": "Vorderschloß",
+    "addr:postcode": "94496",
+    "contact:email": "wildpark-ortenburg@gmx.de",
+    "contact:phone": "+49 8542 7171;+49 8542 7170",
+    "contact:website": "http://wildpark-ortenburg.de",
+    "dog": "leashed",
+    "dog:conditional": "no @ (Jun 14-Aug 31 00:00-24:00)",
+    "fee": "yes",
+    "name": "Wildpark Ortenburg",
+    "opening_hours": "Apr-Nov 09:00-17:30",
+    "operator": "Frank Schobesberger",
+    "tourism": "zoo",
+    "wheelchair": "limited",
+    "zoo": "wildlife_park"
+  }
+},
+{
+  "type": "way",
+  "id": 279719119,
+  "center": {
+    "lat": 48.4373966,
+    "lon": 13.6574430
+  },
+  "tags": {
+    "leisure": "water_park",
+    "name": "Freibad Kopfing",
+    "source": "geoimage.at MaxRes"
+  }
+},
+{
+  "type": "way",
+  "id": 321324439,
+  "center": {
+    "lat": 48.3427083,
+    "lon": 13.7691373
+  },
+  "tags": {
+    "barrier": "fence",
+    "landuse": "recreation_ground",
+    "leisure": "water_park",
+    "name": "Freibad Peuerbach",
+    "water_park": "outdoor",
+    "water_slide": "yes"
+  }
+},
+{
+  "type": "way",
+  "id": 323999610,
+  "center": {
+    "lat": 48.5524455,
+    "lon": 13.2102450
+  },
+  "tags": {
+    "addr:city": "Ortenburg",
+    "addr:country": "DE",
+    "addr:housenumber": "10",
+    "addr:postcode": "94496",
+    "addr:street": "Unteröd",
+    "barrier": "fence",
+    "leisure": "water_park",
+    "name": "Freibad Unteriglbach",
+    "natural": "grassland",
+    "operator": "Markt Ortenburg",
+    "phone": "+49 8542 16425",
+    "website": "https://www.gemeinde-ortenburg.de/"
+  }
+},
+{
+  "type": "way",
+  "id": 368830135,
+  "center": {
+    "lat": 48.6798136,
+    "lon": 13.1196719
+  },
+  "tags": {
+    "leisure": "water_park",
+    "name": "Freibad Hofkirchen"
+  }
+},
+{
+  "type": "way",
+  "id": 369091012,
+  "center": {
+    "lat": 48.4289745,
+    "lon": 13.1858490
+  },
+  "tags": {
+    "addr:city": "Bad Griesbach i.Rottal",
+    "addr:country": "DE",
+    "addr:housenumber": "4",
+    "addr:postcode": "94086",
+    "addr:street": "Thermalbadstraße",
+    "building": "yes",
+    "leisure": "water_park",
+    "name": "Wohlfühl-Therme",
+    "url": "https://www.wohlfuehltherme.de/"
+  }
+},
+{
+  "type": "way",
+  "id": 604713504,
+  "center": {
+    "lat": 48.4106275,
+    "lon": 13.4331656
+  },
+  "tags": {
+    "fee": "yes",
+    "leisure": "water_park",
+    "name": "Naturbad Suben"
+  }
+},
+{
+  "type": "way",
+  "id": 701460512,
+  "center": {
+    "lat": 48.6842472,
+    "lon": 13.1936427
+  },
+  "tags": {
+    "leisure": "water_park",
+    "name": "Freibad Garham"
+  }
+},
+{
+  "type": "way",
+  "id": 741118340,
+  "center": {
+    "lat": 48.7211121,
+    "lon": 13.6034874
+  },
+  "tags": {
+    "landuse": "recreation_ground",
+    "leisure": "water_park",
+    "name": "Karoli-Badepark",
+    "opening_hours": "10:00-22:00",
+    "phone": "+498581986990",
+    "website": "https://urlaub-in-waldkirchen.de/badepark/"
+  }
+},
+{
+  "type": "way",
+  "id": 1111890890,
+  "center": {
+    "lat": 48.3557531,
+    "lon": 13.3068773
+  },
+  "tags": {
+    "leisure": "water_park",
+    "name": "Freibad Bad Füssing",
+    "website": "https://www.badfuessing.com/de/erlebnis/sport/freibad"
+  }
+},
+{
+  "type": "relation",
+  "id": 9251596,
+  "center": {
+    "lat": 48.6661055,
+    "lon": 13.5136689
+  },
+  "tags": {
+    "landuse": "recreation_ground",
+    "leisure": "water_park",
+    "name": "Freibad Büchlberg",
+    "type": "multipolygon"
+  }
+}
+
+  ]
+}
