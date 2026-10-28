@@ -94,18 +94,6 @@ export async function logAiUsage(userId: string | null, isDemo: boolean, rec: Ai
   }
 }
 
-async function sumSince(
-  admin: ReturnType<typeof createSupabaseAdminClient>,
-  since: Date,
-  userId: string | null,
-): Promise<number> {
-  let q = admin.from("ai_usage").select("cost_micro_usd").gte("created_at", since.toISOString()).limit(10_000);
-  if (userId) q = q.eq("user_id", userId);
-  const { data, error } = await q;
-  if (error) throw new Error("ai_usage read failed");
-  return (data ?? []).reduce((sum, r) => sum + (r.cost_micro_usd as number), 0);
-}
-
 /**
  * Spend since Berlin midnight (user and global) and the caps. Reads with the secret key (aggregate over
  * all users for the global cap; only sums are returned). Fails closed: on a read error the caller must treat
@@ -120,7 +108,13 @@ export async function getBudgetStatus(
 ): Promise<BudgetInfo> {
   const since = berlinMidnight(now);
   const admin = createSupabaseAdminClient();
-  const [spent, globalSpent] = await Promise.all([sumSince(admin, since, userId), sumSince(admin, since, null)]);
+  // Sums are computed in SQL (a client-side sum would be cut off by PostgREST max_rows and fail open).
+  const { data, error } = await admin.rpc("ai_spend_micro_usd", { p_user: userId, p_from: since.toISOString() });
+  const row = Array.isArray(data) ? data[0] : data;
+  if (error || !row) throw new Error("ai_usage read failed");
+  const spent = Number(row.user_spent);
+  const globalSpent = Number(row.global_spent);
+  if (!Number.isFinite(spent) || !Number.isFinite(globalSpent)) throw new Error("ai_usage read failed");
   return {
     spentMicroUsd: spent,
     capMicroUsd: userCapMicroUsd(role, isDemo, env),

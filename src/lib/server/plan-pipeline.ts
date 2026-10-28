@@ -35,6 +35,7 @@ import {
   getVersion,
   insertVersion,
   isBusy,
+  hasBusyPlan,
   listVersionMetas,
   pruneVersions,
   releaseLock,
@@ -152,14 +153,18 @@ export async function loadPlanState(
     const row = await getPlanRow(c.sb, c.trip.id);
     const versions = row ? await listVersionMetas(c.sb, row.id) : [];
     const aiEnabled = isAiEnabled();
-    const info = await budgetInfo(c);
+    const busy = isBusy(row);
+    // While busy the client only polls for completion: skip the two admin aggregate queries (budget is static then).
+    const info = busy
+      ? { spentMicroUsd: 0, capMicroUsd: userCapMicroUsd(c.role, c.isDemo), resetsAt: berlinMidnight(new Date(), 1).toISOString(), globalSpentMicroUsd: 0, globalCapMicroUsd: 1 }
+      : await budgetInfo(c);
     const exhausted = info.globalSpentMicroUsd >= info.globalCapMicroUsd;
     const budget = {
       spentMicroUsd: exhausted ? info.capMicroUsd : info.spentMicroUsd,
       capMicroUsd: info.capMicroUsd,
       resetsAt: info.resetsAt,
     };
-    const base = { tripId: c.trip.id, versions, busy: isBusy(row), aiEnabled, budget };
+    const base = { tripId: c.trip.id, versions, busy, aiEnabled, budget };
     if (!row || versions.length === 0) {
       if (requested !== undefined) return err("not_found");
       return { ok: true, state: { ...base, version: null, isLatest: true, outdated: false, canIterate: false } };
@@ -221,7 +226,7 @@ function diffDays(a: Plan, b: Plan): number[] {
 
 /** Common gate: rate limit + AI switch. */
 function gate(userId: string): PipelineError | null {
-  const rl = rateLimit(`plan:${userId}`, 6, 60_000);
+  const rl = rateLimit(`plan:${userId}`, 2, 60_000);
   if (!rl.ok) return err("rate_limited", { retryAfter: rl.retryAfterSeconds });
   if (!isAiEnabled()) return err("ai_disabled");
   return null;
@@ -240,6 +245,8 @@ export async function generatePlan(tripId: string, locale: Locale): Promise<Pipe
   let plan: PlanRow | null = null;
   let locked = false;
   try {
+    // Per-user in-flight guard: parallel requests could otherwise all pass the budget check (spend is recorded late).
+    if (await hasBusyPlan(c.sb)) return err("busy");
     // 3. Haiku tags (once per purpose content, cached in parsed_*)
     let purpose = c.purpose;
     if (purpose && purpose.tags == null && needsTags(purpose)) {
@@ -276,6 +283,7 @@ export async function generatePlan(tripId: string, locale: Locale): Promise<Pipe
     // 5. dedupe (D13)
     plan = await ensurePlan(c.sb, c.trip.id);
     const latest = plan.latestVersion > 0 ? await getVersion(c.sb, plan.id, plan.latestVersion) : null;
+    if (isBusy(plan)) return err("busy");
     const hit = latest?.inputHash === inputHash ? latest : await findVersionByHash(c.sb, plan.id, inputHash);
     if (hit) {
       const refreshed = Plan.safeParse({ ...hit.plan, header: { ...hit.plan.header, ...built.header } });
@@ -283,7 +291,7 @@ export async function generatePlan(tripId: string, locale: Locale): Promise<Pipe
         const sameBasis = canonicalJson(refreshed.data.header) === canonicalJson(hit.plan.header);
         if (hit.meta.versionNo === latest?.meta.versionNo && sameBasis) {
           await logEvent({ event: "plan.generated", userId: c.session.userId, props: { tripId: c.trip.id, days: hit.plan.days.length, cached: true, unchanged: true, costMicroUsd: ai.cost() } });
-          return done(c, { unchanged: true });
+          return await done(c, { unchanged: true });
         }
         // Same input as an earlier version (or only the trip/group header changed): new version, no AI call.
         const no = await insertVersion(c.sb, plan.id, {
@@ -297,7 +305,7 @@ export async function generatePlan(tripId: string, locale: Locale): Promise<Pipe
         });
         await pruneVersions(c.sb, plan.id, no);
         await logEvent({ event: "plan.generated", userId: c.session.userId, props: { tripId: c.trip.id, days: refreshed.data.days.length, cached: true, durationMs: Date.now() - started, costMicroUsd: ai.cost() } });
-        return done(c);
+        return await done(c);
       }
     }
 
@@ -337,7 +345,7 @@ export async function generatePlan(tripId: string, locale: Locale): Promise<Pipe
       userId: c.session.userId,
       props: { tripId: c.trip.id, days: parsed.data.days.length, durationMs: Date.now() - started, costMicroUsd: ai.cost(), cached: false, ...assembled.issues },
     });
-    return done(c);
+    return await done(c);
   } catch {
     return failed(c, "exception", "failed");
   } finally {
@@ -368,6 +376,7 @@ export async function iteratePlan(
   let plan: PlanRow | null = null;
   let locked = false;
   try {
+    if (await hasBusyPlan(c.sb)) return err("busy");
     plan = await getPlanRow(c.sb, c.trip.id);
     if (!plan || plan.latestVersion === 0) return err("not_found");
     if (baseVersion !== plan.latestVersion) return err("conflict");
@@ -380,6 +389,9 @@ export async function iteratePlan(
     if (blocked) return blocked;
     if (!(await acquireLock(c.sb, plan.id))) return err("busy");
     locked = true;
+    // Re-read under the lock: another request may have added a version since the check above.
+    const fresh = await getPlanRow(c.sb, c.trip.id);
+    if (!fresh || fresh.latestVersion !== plan.latestVersion) return err("conflict");
 
     // The stored input of the base version keeps the cache prefix identical and avoids refetching facts.
     const res = await patchPlan({ llm: base.input.llm, plan: base.plan, index: base.input.index, feedback: fb.data }, ai.ctx);
@@ -391,7 +403,7 @@ export async function iteratePlan(
 
     if (patched.changedDays.length === 0) {
       await logEvent({ event: "plan.patched", userId: c.session.userId, props: { tripId: c.trip.id, changedDays: 0, costMicroUsd: ai.cost() } });
-      return done(c, { unchanged: true, reply: res.data.reply });
+      return await done(c, { unchanged: true, reply: res.data.reply });
     }
     const no = await insertVersion(c.sb, plan.id, {
       kind: "patch",
@@ -409,7 +421,7 @@ export async function iteratePlan(
       userId: c.session.userId,
       props: { tripId: c.trip.id, changedDays: patched.changedDays.length, durationMs: Date.now() - started, costMicroUsd: ai.cost(), ...patched.issues },
     });
-    return done(c, { reply: res.data.reply });
+    return await done(c, { reply: res.data.reply });
   } catch {
     return failed(c, "exception", "failed");
   } finally {
@@ -444,7 +456,7 @@ export async function editPlanVersion(tripId: string, baseVersion: number, edit:
     const out = applyEdit(cur.base.plan, e);
     const plan = Plan.safeParse(out.plan);
     if (!plan.success) return err("failed");
-    if (out.changedDays.length === 0) return done(c, { unchanged: true });
+    if (out.changedDays.length === 0) return await done(c, { unchanged: true });
     const no = await insertVersion(c.sb, cur.plan.id, {
       kind: "edit",
       plan: plan.data,
@@ -454,7 +466,7 @@ export async function editPlanVersion(tripId: string, baseVersion: number, edit:
       changedDays: out.changedDays,
     });
     await pruneVersions(c.sb, cur.plan.id, no);
-    return done(c);
+    return await done(c);
   } catch {
     return err("failed");
   }
@@ -470,7 +482,7 @@ export async function restoreVersion(tripId: string, versionNo: number): Promise
     const row = await getPlanRow(c.sb, c.trip.id);
     if (!row || row.latestVersion === 0) return err("not_found");
     if (isBusy(row)) return err("busy");
-    if (versionNo === row.latestVersion) return done(c, { unchanged: true });
+    if (versionNo === row.latestVersion) return await done(c, { unchanged: true });
     const [src, latest] = await Promise.all([getVersion(c.sb, row.id, versionNo), getVersion(c.sb, row.id, row.latestVersion)]);
     if (!src) return err("not_found");
     const no = await insertVersion(c.sb, row.id, {
@@ -483,7 +495,7 @@ export async function restoreVersion(tripId: string, versionNo: number): Promise
       model: src.meta.model,
     });
     await pruneVersions(c.sb, row.id, no);
-    return done(c);
+    return await done(c);
   } catch {
     return err("failed");
   }

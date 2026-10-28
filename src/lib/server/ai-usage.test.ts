@@ -9,25 +9,17 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock("./supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
-    from: () => {
-      let uid: string | null = null;
-      const b: Record<string, unknown> = {};
-      b.select = () => b;
-      b.gte = () => b;
-      b.limit = () => b;
-      b.eq = (_c: string, v: string) => ((uid = v), b);
-      b.insert = async (row: unknown) => {
+    from: () => ({
+      insert: async (row: unknown) => {
         h.inserted.push(row);
         if (h.insertError) throw new Error("boom");
         return { error: null };
-      };
-      b.then = (res: (v: unknown) => unknown) =>
-        Promise.resolve(
-          h.readError
-            ? { data: null, error: { code: "x" } }
-            : { data: h.rows.filter((r) => uid === null || r.user_id === uid), error: null },
-        ).then(res);
-      return b;
+      },
+    }),
+    rpc: async (_fn: string, args: { p_user: string }) => {
+      if (h.readError) return { data: null, error: { code: "x" } };
+      const sum = (rs: typeof h.rows) => rs.reduce((t, r) => t + r.cost_micro_usd, 0);
+      return { data: [{ user_spent: sum(h.rows.filter((r) => r.user_id === args.p_user)), global_spent: sum(h.rows) }], error: null };
     },
   }),
 }));

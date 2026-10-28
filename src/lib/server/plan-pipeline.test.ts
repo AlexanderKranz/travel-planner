@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   latest: null as unknown,
   byHash: null as unknown,
   lock: true,
+  inFlight: false,
   compose: vi.fn(),
   patch: vi.fn(),
   tag: vi.fn(),
@@ -52,7 +53,8 @@ vi.mock("./plan-store", () => ({
   acquireLock: async () => h.lock,
   releaseLock: h.release,
   savePurposeTags: h.saveTags,
-  isBusy: () => false,
+  isBusy: (r: { busyUntil?: string | null } | null) => !!r?.busyUntil,
+  hasBusyPlan: async () => h.inFlight,
 }));
 vi.mock("@/lib/plan/hash", () => ({ canonicalJson: JSON.stringify, planInputHash: () => "hash-new", purposeTagsHash: () => "th" }));
 vi.mock("@/lib/plan/input", () => ({ buildPlanInput: () => ({ stored: { llm: { v: 1 }, index: {} }, header: {}, digest: {} }) }));
@@ -74,6 +76,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.budgetOk = true;
   h.lock = true;
+  h.inFlight = false;
   h.latest = stored("hash-old", 1);
   h.byHash = null;
   h.trip.lengthDays = 3;
@@ -81,6 +84,30 @@ beforeEach(() => {
   h.needsTags.mockReturnValue(false);
   h.compose.mockResolvedValue({ ok: true, data: {}, usage: {} });
   h.assemble.mockReturnValue({ ok: true, plan: Plan, issues: {} });
+});
+
+describe("busy guards", () => {
+  it("generate: another plan in flight for the user -> busy, no AI", async () => {
+    h.inFlight = true;
+    expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "busy" });
+    expect(h.compose).not.toHaveBeenCalled();
+  });
+  it("generate: dedupe path respects a busy plan", async () => {
+    h.latest = stored("hash-new", 1);
+    h.planRow = { id: "plan1", latestVersion: 1, busyUntil: "2999-01-01T00:00:00Z" };
+    expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "busy" });
+    expect(h.insert).not.toHaveBeenCalled();
+  });
+  it("iterate: in flight -> busy", async () => {
+    h.inFlight = true;
+    expect(await iteratePlan(TRIP, 1, { days: [1], text: "x" } as never, "en")).toMatchObject({ ok: false, error: "busy" });
+  });
+  it("rate limit is 2 per minute", async () => {
+    h.inFlight = true;
+    await generatePlan(TRIP, "en");
+    await generatePlan(TRIP, "en");
+    expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "rate_limited" });
+  });
 });
 
 describe("generatePlan", () => {

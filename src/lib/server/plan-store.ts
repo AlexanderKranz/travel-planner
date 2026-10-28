@@ -102,6 +102,13 @@ export function isBusy(row: Pick<PlanRow, "busyUntil"> | null, now: number = Dat
   return !!row?.busyUntil && Date.parse(row.busyUntil) > now;
 }
 
+/** True when any of the caller's plans (RLS: own rows) holds an unexpired generation lock. Per-user in-flight guard. */
+export async function hasBusyPlan(sb: SupabaseClient, now: number = Date.now()): Promise<boolean> {
+  const { data, error } = await sb.from("plans").select("id").gt("busy_until", new Date(now).toISOString()).limit(1);
+  if (error) throw new Error("plan read failed");
+  return data.length > 0;
+}
+
 export async function getPlanRow(sb: SupabaseClient, tripId: string): Promise<PlanRow | null> {
   const { data, error } = await sb.from("plans").select(PLAN_COLUMNS).eq("trip_id", tripId).maybeSingle<PlanRowDb>();
   if (error) throw new Error("plan read failed");

@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261030120017. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261030120018. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -440,6 +440,20 @@ set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","r
 select is((select count(*)::int from public.ai_usage), 1, 'B sees only own ai_usage rows');
 set local request.jwt.claims = '{"sub":"cccccccc-0000-4000-8000-000000000003","role":"authenticated"}';
 select is((select count(*)::int from public.ai_usage), 4, 'admin sees all ai_usage rows (aggregates)');
+reset role;
+
+-- ---------- ai_spend_micro_usd (budget sums) ----------
+select is((select user_spent from public.ai_spend_micro_usd('aaaaaaaa-0000-4000-8000-000000000001', now() - interval '1 hour')), 90400::bigint, 'ai_spend: user sum');
+select is((select global_spent from public.ai_spend_micro_usd('aaaaaaaa-0000-4000-8000-000000000001', now() - interval '1 hour')), 90401::bigint, 'ai_spend: global sum');
+select is((select global_spent from public.ai_spend_micro_usd('aaaaaaaa-0000-4000-8000-000000000001', now() + interval '1 hour')), 0::bigint, 'ai_spend: window excludes older rows');
+set local role authenticated;
+select throws_ok($$select * from public.ai_spend_micro_usd('aaaaaaaa-0000-4000-8000-000000000001', now())$$, '42501', null, 'authenticated cannot execute ai_spend_micro_usd');
+reset role;
+set local role anon;
+select throws_ok($$select * from public.ai_spend_micro_usd('aaaaaaaa-0000-4000-8000-000000000001', now())$$, '42501', null, 'anon cannot execute ai_spend_micro_usd');
+reset role;
+set local role service_role;
+select lives_ok($$select * from public.ai_spend_micro_usd('aaaaaaaa-0000-4000-8000-000000000001', now())$$, 'service_role can execute ai_spend_micro_usd');
 reset role;
 
 select * from finish();
