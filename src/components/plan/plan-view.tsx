@@ -4,19 +4,37 @@ import { linkCls } from "@/components/ui/styles";
 import type { PlanState } from "@/lib/domain/plan";
 import { DayCard } from "./day-card";
 import { highlightedDays } from "./helpers";
+import { AddItemButton } from "@/components/items/add-item-button";
+import { flightPrefill, placePrefill } from "@/components/items/helpers";
 import { PlanFlights } from "./plan-flights";
 import { PlanFactsStrip } from "./plan-facts-strip";
 import { PlanHeader } from "./plan-header";
 import { PlanNotes, PlanOpenItems, PlanPacking } from "./plan-lists";
+import { OpenItemsEditor } from "./open-items-editor";
 import { PlanRunner } from "./plan-runner";
 
 type Shown = NonNullable<PlanState["version"]>;
 
 /** Read-only rendering of one plan version: header, banners, day cards, notes, facts digest. */
-export function PlanView({ state, shown, locale }: { state: PlanState; shown: Shown; locale: string }) {
+export function PlanView({
+  state,
+  shown,
+  locale,
+  openDone,
+  items,
+}: {
+  state: PlanState;
+  shown: Shown;
+  locale: string;
+  openDone: string[];
+  /** Context for the code-only "+ item" quick add (latest version only). */
+  items: { lengthDays: number; partySize: number | null };
+}) {
   const t = useTranslations("plan");
   const { plan, meta } = shown;
   const changed = new Set(highlightedDays(meta));
+  const ctx = { tripId: state.tripId, ...items };
+  const quick = state.isLatest;
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <PlanHeader plan={plan} uiLocale={locale} />
@@ -39,13 +57,36 @@ export function PlanView({ state, shown, locale }: { state: PlanState; shown: Sh
       {state.busy && <PlanRunner tripId={state.tripId} locale={locale} watchOnly />}
       <ol className="flex flex-col gap-3" aria-label={t("daysLabel")}>
         {plan.days.map((d) => (
-          <DayCard key={d.n} day={d} places={plan.places} changed={changed.has(d.n)} />
+          <DayCard
+            key={d.n}
+            day={d}
+            places={plan.places}
+            changed={changed.has(d.n)}
+            renderQuickAdd={
+              quick
+                ? (place, ref, n) => <AddItemButton ctx={ctx} prefill={placePrefill(place, ref, n)} quickLabel={place.name} />
+                : undefined
+            }
+          />
         ))}
       </ol>
       <PlanNotes notes={plan.notes} />
-      <PlanOpenItems items={plan.openItems} />
+      {state.isLatest ? (
+        <OpenItemsEditor tripId={state.tripId} items={plan.openItems} done={openDone} />
+      ) : (
+        <PlanOpenItems items={plan.openItems} done={openDone} />
+      )}
       <PlanPacking items={plan.packing} />
-      {plan.flights && <PlanFlights flights={plan.flights} />}
+      {plan.flights && (
+        <PlanFlights
+          flights={plan.flights}
+          renderQuickAdd={
+            quick
+              ? (leg) => <AddItemButton ctx={ctx} prefill={flightPrefill(leg, items.lengthDays)} quickLabel={`${leg.number} ${leg.from} → ${leg.to}`} />
+              : undefined
+          }
+        />
+      )}
       <PlanFactsStrip facts={plan.facts} />
     </div>
   );

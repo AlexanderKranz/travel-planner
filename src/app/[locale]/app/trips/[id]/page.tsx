@@ -2,6 +2,8 @@ import { Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { FactSkeleton } from "@/components/facts/fact-skeleton";
 import { cardCls } from "@/components/ui/styles";
+import { ItemsSection } from "@/components/items/items-section";
+import { SharePanel } from "@/components/share/share-panel";
 import { PlanSection } from "@/components/plan/plan-section";
 import { TripContext, type ContextGroup } from "@/components/trips/trip-context";
 import { TripHeader } from "@/components/trips/trip-header";
@@ -13,6 +15,8 @@ import { resolveGroupAges } from "@/lib/group";
 import { getGroup } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
 import { getPurpose } from "@/lib/server/purposes";
+import { getPlanState } from "@/lib/server/plans";
+import { partySize as sumParty } from "@/lib/items/costs";
 import { getUserSession } from "@/lib/server/session";
 import { getTrip } from "@/lib/server/trips";
 import { unwrap } from "@/lib/unwrap";
@@ -69,6 +73,11 @@ export default async function TripDetailPage({
       : null;
   const purpose = purposeRes?.ok ? purposeRes.data : null;
 
+  const partySize = group ? sumParty(group.ages.map((e) => e.count)) : null;
+  const startDate = trip.timing.kind === "date" ? trip.timing.startDate : null;
+  const planRes = await getPlanState(trip.id);
+  const hasPlan = planRes.ok && planRes.data.versions.length > 0;
+
   const ctx: FactsCtx = {
     userId: session?.userId ?? null,
     locale: Locale.catch("de").parse(locale),
@@ -86,7 +95,9 @@ export default async function TripDetailPage({
         purpose={purpose}
         profileAirports={profile.homeAirports}
       />
-      <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} />
+      <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} partySize={partySize} />
+      <ItemsSection tripId={trip.id} lengthDays={trip.lengthDays} startDate={startDate} partySize={partySize} />
+      <SharePanel tripId={trip.id} hasPlan={hasPlan} isDemo={profile.isDemo} />
       <p className="text-sm text-neutral-600 dark:text-neutral-400">
         {t("intro")}{" "}
         <Link href="/sources" className="underline underline-offset-2">

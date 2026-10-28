@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { MAX_PLAN_DAYS } from "@/lib/domain/plan";
+import { getOwnerPlanDocument } from "@/lib/server/plan-document";
 import { getPlanState } from "@/lib/server/plans";
 import { budgetExhausted } from "./helpers";
 import { BudgetLine } from "./budget-line";
@@ -15,11 +16,13 @@ export async function PlanSection({
   locale,
   lengthDays,
   version,
+  partySize,
 }: {
   tripId: string;
   locale: string;
   lengthDays: number;
   version?: number;
+  partySize: number | null;
 }) {
   const res = await getPlanState(tripId, version);
   if (!res.ok) {
@@ -38,6 +41,7 @@ export async function PlanSection({
     return <PlanEmpty state={state} locale={locale} tooLong={lengthDays > MAX_PLAN_DAYS} />;
   }
   const shown = state.version;
+  const openDone = (await getOwnerPlanDocument(tripId))?.openDone ?? [];
 
   const aiBlock: IterateBlock = !state.isLatest
     ? "notLatest"
@@ -56,7 +60,7 @@ export async function PlanSection({
   return (
     <section aria-labelledby="plan-title" className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-x-8">
       <div className="min-w-0 lg:max-w-3xl">
-        <PlanView state={state} shown={shown} locale={locale} />
+        <PlanView state={state} shown={shown} locale={locale} openDone={openDone} items={{ lengthDays, partySize }} />
       </div>
       <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:self-start">
         <PlanIterate

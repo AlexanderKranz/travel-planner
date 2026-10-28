@@ -4,7 +4,14 @@ import type { PlanFlights as PlanFlightsData } from "@/lib/domain/plan";
 import { durationParts, fittingLegs } from "@/lib/flights/ui";
 
 /** Compact strip of the verified direct flights the plan was built on (fitting legs only). */
-export function PlanFlights({ flights }: { flights: PlanFlightsData }) {
+export function PlanFlights({
+  flights,
+  renderQuickAdd,
+}: {
+  flights: PlanFlightsData;
+  /** Owner-only slot: "+ item" per leg. Absent on the share page. */
+  renderQuickAdd?: (leg: PlanFlightsData["legs"][number]) => React.ReactNode;
+}) {
   const t = useTranslations("plan.flights");
   const f = useFormatter();
   const date = (iso: string) => f.dateTime(new Date(`${iso}T12:00:00Z`), { timeZone: "UTC", day: "numeric", month: "short" });
@@ -27,6 +34,7 @@ export function PlanFlights({ flights }: { flights: PlanFlightsData }) {
                 {l.number} · {l.from} {l.dep} → {l.to} {l.arr}
                 {l.arrDayOffset === 1 && <sup className="ml-0.5 text-xs">{t("nextDay")}</sup>} · {t("hm", { h, m })}
               </span>
+              {renderQuickAdd?.(l)}
             </li>
           );
         })}
