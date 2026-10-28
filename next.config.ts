@@ -8,8 +8,9 @@ const nextConfig: NextConfig = {
   // react-pdf ships its own fontkit/yoga; keep it out of the bundle and ship the fonts with the lambdas.
   serverExternalPackages: ["@react-pdf/renderer"],
   outputFileTracingIncludes: {
-    "/api/trips/[id]/pdf": ["./src/assets/fonts/**"],
-    "/api/share/[token]/pdf": ["./src/assets/fonts/**"],
+    // pdfkit loads its standard-font metrics (Helvetica = default font) via a dynamic require that is not traced.
+    "/api/trips/[id]/pdf": ["./src/assets/fonts/**", "./node_modules/pdfkit/js/standard-fonts/**"],
+    "/api/share/[token]/pdf": ["./src/assets/fonts/**", "./node_modules/pdfkit/js/standard-fonts/**"],
   },
   // Make the Vercel build info visible to the browser bundle (Sentry environment/release).
   env: {
