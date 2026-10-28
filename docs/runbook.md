@@ -188,3 +188,11 @@ Sentry collects crashes from the browser and the server and emails you. Docs che
 4. If an issue contains an email or token that the scrubber missed: delete the event in Sentry (Issue -> Delete), then extend `src/lib/sentry-scrub.ts` and its test.
 
 **Rotating `SENTRY_AUTH_TOKEN`:** Sentry -> Settings -> Developer Settings -> Organization Tokens: create a new token, update it in Vercel, redeploy, then revoke the old one.
+
+### AeroDataBox quota
+
+Basic plan: 400 units/month (routes 6, FIDS 2, flight dates 2). Every call is logged in `api_calls` (provider `aerodatabox`, column `units`, including charged failures: HTTP errors, schema-invalid 200s and timeouts at nominal cost). Check usage with `select sum(units) from api_calls where provider='aerodatabox' and created_at >= date_trunc('month', now())` (and per day with `date_trunc('day', ...)`).
+
+The guard (`src/lib/server/flights-quota.ts`) reads those sums before each call. Knobs: `AERODATABOX_DAILY_UNITS` (daily cap) and `AERODATABOX_MIN_REMAINING` (monthly margin kept free, default 40).
+
+Accepted risk: there are no reservations, so parallel instances can each pass the check and overshoot the daily cap by a few calls. The monthly margin of 40 units absorbs this. Raise `AERODATABOX_MIN_REMAINING` if it ever bites.

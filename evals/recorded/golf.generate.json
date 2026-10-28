@@ -1,36 +1,31 @@
 {
-  "promptVersion": "plan-1",
+  "promptVersion": "plan-2",
   "model": "claude-sonnet-5-5",
-  "inputHash": "03d3147577f1c146e1b1902e0016c077f61ce59f11ebc42d7531189e2538e104",
+  "inputHash": "f2584f0bb8771cf1afef658dfebe634638b600c4132611ba1dde45af6edfe976",
   "output": {
-    "summary": "Fünf Golftage an der Costa del Sol mit Basis in Marbella: täglich Golf, an einem Tag 36 Loch. Am An- und Abreisetag wird nahe dem Flughafen gespielt. Mietwagen und Einzelzimmer sind eingeplant.",
+    "summary": "Fünf Golftage an der Costa del Sol mit zentraler Basis in Marbella, Einzelzimmern und Mietwagen. Jeden Tag steht mindestens eine Runde auf dem Programm, an einem Tag werden 36 Löcher gespielt. Anreise- und Abreisetag enthalten Golf in Flughafennähe.",
     "days": [
       {
         "n": 1,
-        "title": "Anreise & Golf nahe Flughafen",
+        "title": "Anreise und erste Runde nahe Flughafen",
         "stops": [
           {
-            "place": "Flughafen Málaga",
+            "place": "Málaga",
             "acts": [
               {
                 "kind": "travel",
-                "text": "Früher Flug ab Frankfurt, Ankunft in Málaga und Abholung des Mietwagens"
+                "text": "Ankunft, Mietwagen abholen und Transfer zum Platz"
               }
             ]
           },
           {
-            "place": "Cabopino",
+            "place": "Campo Los Olivos",
             "acts": [
               {
-                "at": "12:00",
+                "at": "14:00",
                 "kind": "sport",
-                "text": "Runde 18 Loch auf einem flachen bis moderaten Platz nahe dem Flughafen",
-                "ref": "p21"
-              },
-              {
-                "at": "17:30",
-                "kind": "food",
-                "text": "Später Snack im Clubhaus oder in der Nähe"
+                "text": "Erste Golfrunde nahe dem Flughafen, flaches bis moderates Gelände",
+                "ref": "p6"
               }
             ]
           },
@@ -40,78 +35,57 @@
               {
                 "at": "18:30",
                 "kind": "travel",
-                "text": "Check-in im Hotel (Einzelzimmer)"
+                "text": "Check-in im Hotel (Einzelzimmer) in Marbella"
               },
               {
-                "at": "20:30",
+                "at": "20:00",
                 "kind": "food",
-                "text": "Abendessen in der Altstadt von Marbella"
+                "text": "Abendessen in Marbella"
               }
             ]
           }
         ],
-        "warn": "Der Platz sollte wegen Dämmerung spätestens am frühen Nachmittag starten."
+        "note": "Die Runde ist bewusst spät angesetzt, damit der frühe Flug nicht knapp wird.",
+        "warn": "Bei später Startzeit auf die Dämmerung achten."
       },
       {
         "n": 2,
-        "title": "Marbella: Runde in Hotelnähe",
+        "title": "36 Löcher in Marbella",
         "stops": [
           {
-            "place": "Marbella",
-            "acts": [
-              {
-                "at": "09:00",
-                "kind": "sport",
-                "text": "Runde 18 Loch auf einem nahen, flachen Platz",
-                "ref": "p11"
-              },
-              {
-                "at": "14:00",
-                "kind": "food",
-                "text": "Mittagessen nach der Runde"
-              },
-              {
-                "at": "16:00",
-                "kind": "rest",
-                "text": "Erholung im Hotel oder am Pool"
-              },
-              {
-                "at": "20:30",
-                "kind": "food",
-                "text": "Abendessen in Puerto Banús oder Marbella"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "n": 3,
-        "title": "36-Loch-Tag",
-        "stops": [
-          {
-            "place": "Marbella",
+            "place": "Santa Clara Golf Club Marbella",
             "acts": [
               {
                 "at": "08:00",
                 "kind": "sport",
-                "text": "Erste Runde 18 Loch am Vormittag",
+                "text": "Erste Runde des Tages",
                 "ref": "p9"
-              },
+              }
+            ]
+          },
+          {
+            "place": "Marbella Golf Country Club",
+            "acts": [
               {
-                "at": "12:45",
+                "at": "12:00",
                 "kind": "food",
                 "text": "Schnelles Mittagessen im Clubhaus"
               },
               {
-                "at": "14:00",
+                "at": "13:30",
                 "kind": "sport",
-                "text": "Zweite Runde 18 Loch am Nachmittag, Abschlag früh genug vor Dämmerung",
-                "ref": "p15"
-              },
+                "text": "Zweite Runde, zusammen 36 Löcher",
+                "ref": "p11"
+              }
+            ]
+          },
+          {
+            "place": "Marbella",
+            "acts": [
               {
-                "at": "20:30",
+                "at": "19:30",
                 "kind": "food",
-                "text": "Abendessen und früh ins Bett"
+                "text": "Abendessen in der Altstadt"
               }
             ]
           }
@@ -119,32 +93,54 @@
         "best": true
       },
       {
-        "n": 4,
-        "title": "Golf in der Region",
+        "n": 3,
+        "title": "Runde in Estepona-Richtung",
         "stops": [
           {
-            "place": "Marbella",
+            "place": "Real Club de Golf Guadalmina",
             "acts": [
               {
                 "at": "09:00",
                 "kind": "sport",
-                "text": "Runde 18 Loch auf einem Platz westlich von Marbella",
+                "text": "Golfrunde auf flachem Küstenplatz",
                 "ref": "p3"
               },
               {
                 "at": "14:00",
-                "kind": "food",
-                "text": "Mittagessen in der Nähe"
-              },
-              {
-                "at": "16:00",
                 "kind": "free",
-                "text": "Freie Zeit, Spaziergang an der Strandpromenade"
+                "text": "Freie Zeit, Strand oder Pool"
               },
               {
-                "at": "20:30",
+                "at": "19:30",
                 "kind": "food",
-                "text": "Abendessen im Hotelviertel"
+                "text": "Abendessen am Hafen"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "n": 4,
+        "title": "Runde bei Mijas und Cabopino",
+        "stops": [
+          {
+            "place": "Cabopino golf",
+            "acts": [
+              {
+                "at": "09:00",
+                "kind": "sport",
+                "text": "Golfrunde auf moderatem Platz",
+                "ref": "p21"
+              },
+              {
+                "at": "14:00",
+                "kind": "rest",
+                "text": "Pause im Hotel"
+              },
+              {
+                "at": "19:30",
+                "kind": "food",
+                "text": "Abendessen in Marbella"
               }
             ]
           }
@@ -152,74 +148,65 @@
       },
       {
         "n": 5,
-        "title": "Letzte Runde & Abreise",
+        "title": "Letzte Runde und Abreise",
         "stops": [
           {
-            "place": "Mijas / Fuengirola",
+            "place": "Campo Los Olivos",
             "acts": [
               {
                 "at": "07:45",
-                "kind": "travel",
-                "text": "Check-out und Fahrt Richtung Flughafen"
-              },
-              {
-                "at": "09:00",
                 "kind": "sport",
-                "text": "Abschlussrunde auf einem flughafennahen Platz",
+                "text": "Letzte Golfrunde nahe dem Flughafen",
                 "ref": "p6"
               }
             ]
           },
           {
-            "place": "Flughafen Málaga",
+            "place": "Málaga",
             "acts": [
               {
-                "at": "14:00",
+                "at": "12:30",
                 "kind": "travel",
-                "text": "Mietwagen zurückgeben und einchecken"
+                "text": "Mietwagen zurückgeben und zum Flughafen"
               }
             ]
           }
         ],
-        "warn": "Genug Puffer für Rückgabe und Sicherheitskontrolle einplanen."
+        "warn": "Rückflugzeit ist unbekannt, Zeitpuffer großzügig planen."
       }
     ],
     "notes": [
       {
         "kind": "tip",
-        "text": "Im März ist es mild, aber es kann regnen. Regenkleidung einpacken."
+        "text": "Im März sind die Plätze gut bespielbar, aber morgens kann es kühl sein."
       },
       {
         "kind": "tip",
-        "text": "Auf Plätze mit wenig Höhenunterschied achten und Golfwagen erwägen."
+        "text": "Startzeiten früh reservieren, da die Plätze im Frühjahr stark gebucht sind."
       },
       {
         "kind": "warning",
-        "text": "Dämmerung gegen 19:50 Uhr, bei 36 Loch früh starten."
+        "text": "An 10 bis 11 Tagen im März ist Regen möglich, Regenkleidung mitnehmen."
       }
     ],
     "open": [
       {
-        "text": "Abschlagzeiten für alle Runden reservieren",
+        "text": "Startzeiten für alle Runden reservieren",
         "day": 1
       },
       {
-        "text": "Flug ab Frankfurt mit Flugzeit unter 3 Stunden buchen und Ankunftszeit prüfen",
-        "day": 1
+        "text": "Startzeiten für beide Runden am 36-Loch-Tag buchen",
+        "day": 2
       },
       {
-        "text": "Mietwagen und Einzelzimmer in Marbella buchen"
-      },
-      {
-        "text": "Verfügbarkeit und Abschlagzeiten für 36 Loch prüfen",
-        "day": 3
-      },
-      {
-        "text": "Platzauswahl auf Hügeligkeit prüfen"
-      },
-      {
-        "text": "Rückflugzeit festlegen und Abschlagzeit danach ausrichten",
+        "text": "Rückflug buchen und Zeit für Platz und Abgabe des Mietwagens prüfen",
         "day": 5
+      },
+      {
+        "text": "Hotel mit Einzelzimmern in Marbella und Mietwagen buchen"
+      },
+      {
+        "text": "Geländeprofil der Plätze prüfen, damit sie flach oder moderat sind"
       }
     ],
     "packing": [
@@ -229,24 +216,22 @@
       "Windjacke",
       "Sonnencreme",
       "Kappe",
-      "Golfhandschuhe",
-      "Schichtenkleidung",
+      "Handschuhe",
       "Ersatzsocken",
-      "Reiseadapter",
-      "Führerschein",
-      "Wasserflasche"
+      "Fahrerlaubnis",
+      "Adapter"
     ]
   },
   "usage": {
     "task": "plan_generate",
     "model": "claude-sonnet-5-5",
     "status": "ok",
-    "inputTokens": 2140,
-    "outputTokens": 1805,
-    "cacheCreationInputTokens": 2436,
+    "inputTokens": 2201,
+    "outputTokens": 1643,
+    "cacheCreationInputTokens": 2621,
     "cacheReadInputTokens": 0,
-    "costMicroUsd": 28420,
-    "latencyMs": 12250
+    "costMicroUsd": 27385,
+    "latencyMs": 11375
   },
-  "recordedAt": "2026-10-28T07:54:15.579Z"
+  "recordedAt": "2026-10-28T08:58:05.837Z"
 }

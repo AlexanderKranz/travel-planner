@@ -43,7 +43,7 @@ export type FetchOutcome<T> = {
 
 export type CachedResult<T> =
   | { ok: true; data: T; fetchedAt: string; stale: boolean; cache: "hit" | "miss" | "stale" }
-  | { ok: false; error: "provider_error" | "timeout" | "invalid_response" };
+  | { ok: false; error: "provider_error" | "timeout" | "invalid_response" | "quota_exhausted" };
 
 export type CacheCtx = { userId: string | null };
 
@@ -54,22 +54,35 @@ const ENVELOPE_KEY_SUFFIX = "#e1";
 
 type CacheRow = { payload: unknown; fetched_at: string; expires_at: string };
 
+/** Units the provider charged for a failed request (errors may carry `units`/`quotaRemaining`, e.g. AeroDataBox). */
+function chargedOf(err: unknown): { units: number | null; quotaRemaining: number | null } {
+  const e = err as { units?: unknown; quotaRemaining?: unknown } | null;
+  return {
+    units: typeof e?.units === "number" ? e.units : null,
+    quotaRemaining: typeof e?.quotaRemaining === "number" ? e.quotaRemaining : null,
+  };
+}
+
 /** Short, PII-free error class for api_calls.error_code and the CachedResult error. */
 function classifyError(err: unknown): {
   code: string;
   status: number | null;
-  error: "provider_error" | "timeout" | "invalid_response";
+  error: "provider_error" | "timeout" | "invalid_response" | "quota_exhausted";
+  units: number | null;
+  quotaRemaining: number | null;
 } {
-  if (err instanceof z.ZodError) return { code: "zod", status: null, error: "invalid_response" };
+  const base = chargedOf(err);
+  if (err instanceof z.ZodError) return { code: "zod", status: null, error: "invalid_response", ...base };
   const e = err as { name?: unknown; status?: unknown } | null;
   const name = typeof e?.name === "string" ? e.name : "";
+  if (name === "QuotaGuardError") return { code: "quota_guard", status: null, error: "quota_exhausted", ...base };
   if (name === "TimeoutError" || name === "AbortError") {
-    return { code: "timeout", status: null, error: "timeout" };
+    return { code: "timeout", status: null, error: "timeout", ...base };
   }
   if (typeof e?.status === "number") {
-    return { code: `http_${e.status}`, status: e.status, error: "provider_error" };
+    return { code: `http_${e.status}`, status: e.status, error: "provider_error", ...base };
   }
-  return { code: "network", status: null, error: "provider_error" };
+  return { code: "network", status: null, error: "provider_error", ...base };
 }
 
 /**
@@ -152,10 +165,10 @@ export async function cached<T>(opts: {
     } catch (err) {
       const c = classifyError(err);
       if (existing) {
-        await log({ cache: "stale", ok: false, status: c.status, errorCode: c.code });
+        await log({ cache: "stale", ok: false, status: c.status, errorCode: c.code, units: c.units, quotaRemaining: c.quotaRemaining });
         return { ok: true, data: existing.data, fetchedAt: existing.fetchedAt, stale: true, cache: "stale" };
       }
-      await log({ cache: "miss", ok: false, status: c.status, errorCode: c.code });
+      await log({ cache: "miss", ok: false, status: c.status, errorCode: c.code, units: c.units, quotaRemaining: c.quotaRemaining });
       return { ok: false, error: c.error };
     }
   } catch (error) {

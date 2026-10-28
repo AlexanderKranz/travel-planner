@@ -8,12 +8,14 @@ import { ChipList } from "./chip-list";
 const PACE = ["relaxed", "balanced", "packed"] as const;
 const BUDGET = ["low", "mid", "high", "luxury"] as const;
 const ACCOMMODATION = ["hotel", "apartment", "cruise_cabin", "camping", "any"] as const;
+const FLIGHT_HOURS = [1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12] as const;
 const ROOMS = ["shared", "single_rooms"] as const;
 
 export type GuidedState = {
   pace: string;
   budget: string;
   rooms: string;
+  maxFlightHours: string;
   accommodation: string[];
   interests: string[];
 };
@@ -22,6 +24,7 @@ export const emptyGuided: GuidedState = {
   pace: "",
   budget: "",
   rooms: "",
+  maxFlightHours: "",
   accommodation: [],
   interests: [],
 };
@@ -31,6 +34,7 @@ export function guidedFromStored(g: PurposeGuided): GuidedState {
     pace: g.pace ?? "",
     budget: g.budget ?? "",
     rooms: g.rooms ?? "",
+    maxFlightHours: g.maxFlightHours ? String(g.maxFlightHours) : "",
     accommodation: g.accommodation ?? [],
     interests: g.interests ?? [],
   };
@@ -42,6 +46,7 @@ export function guidedToInput(s: GuidedState) {
     ...(s.pace && { pace: s.pace as (typeof PACE)[number] }),
     ...(s.budget && { budget: s.budget as (typeof BUDGET)[number] }),
     ...(s.rooms && { rooms: s.rooms as (typeof ROOMS)[number] }),
+    ...(s.maxFlightHours && { maxFlightHours: Number(s.maxFlightHours) }),
     ...(s.accommodation.length && {
       accommodation: s.accommodation as (typeof ACCOMMODATION)[number][],
     }),
@@ -94,6 +99,18 @@ export function GuidedFields({
           {ROOMS.map((k) => (
             <option key={k} value={k}>
               {t(`roomsOptions.${k}`)}
+            </option>
+          ))}
+        </SelectField>
+        <SelectField
+          label={t("maxFlightHours.label")}
+          value={value.maxFlightHours}
+          onChange={(e) => set({ maxFlightHours: e.target.value })}
+        >
+          <option value="">{t("maxFlightHours.any")}</option>
+          {FLIGHT_HOURS.map((h) => (
+            <option key={h} value={String(h)}>
+              {t("maxFlightHours.hours", { h })}
             </option>
           ))}
         </SelectField>

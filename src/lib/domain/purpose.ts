@@ -14,6 +14,8 @@ export const PurposeGuided = z
       .max(5)
       .optional(),
     rooms: z.enum(["shared", "single_rooms"]).optional(),
+    /** Max direct flight time in hours (phase 4). */
+    maxFlightHours: z.number().min(1).max(15).multipleOf(0.5).optional(),
   })
   .partial({ v: true });
 export type PurposeGuided = z.infer<typeof PurposeGuided>;

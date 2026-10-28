@@ -1,0 +1,113 @@
+{
+  "status": "ok",
+  "source": "aerodatabox",
+  "sourceUrl": "https://aerodatabox.com",
+  "fetchedAt": "2026-10-28T09:00:00.000Z",
+  "stale": false,
+  "data": {
+    "basis": "trip_dates",
+    "outDate": "2027-03-13",
+    "backDate": "2027-03-18",
+    "mode": {
+      "out": "schedule",
+      "back": "schedule"
+    },
+    "checkedDates": {
+      "out": "2027-03-13",
+      "back": "2027-03-18"
+    },
+    "origins": [
+      "FRA"
+    ],
+    "gateways": [
+      {
+        "iata": "AGP",
+        "name": "Málaga",
+        "km": 8.4
+      }
+    ],
+    "pairs": [
+      {
+        "from": "FRA",
+        "to": "AGP",
+        "toName": "Málaga",
+        "gatewayKm": 8.4,
+        "status": "found",
+        "perDay": 1.7,
+        "operators": [
+          {
+            "iata": "LH",
+            "name": "Lufthansa"
+          }
+        ],
+        "approxBlockMin": 225
+      }
+    ],
+    "legs": [
+      {
+        "dir": "out",
+        "from": "FRA",
+        "to": "AGP",
+        "number": "LH 1148",
+        "airline": "Lufthansa",
+        "dep": "09:20",
+        "arr": "12:20",
+        "arrDayOffset": 0,
+        "blockMin": 180,
+        "date": "2027-03-13",
+        "weekdays": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7
+        ],
+        "operatingDays": {
+          "days": 25,
+          "of": 31,
+          "month": "2027-03"
+        }
+      },
+      {
+        "dir": "out",
+        "from": "FRA",
+        "to": "AGP",
+        "number": "LH 1146",
+        "airline": "Lufthansa",
+        "dep": "13:50",
+        "arr": "17:05",
+        "arrDayOffset": 0,
+        "blockMin": 195,
+        "date": "2027-03-13",
+        "tooLong": true
+      },
+      {
+        "dir": "back",
+        "from": "AGP",
+        "to": "FRA",
+        "number": "LH 1149",
+        "airline": "Lufthansa",
+        "dep": "13:05",
+        "arr": "16:55",
+        "arrDayOffset": 0,
+        "blockMin": 170,
+        "date": "2027-03-18",
+        "weekdays": [
+          1,
+          3,
+          5,
+          7
+        ],
+        "operatingDays": {
+          "days": 25,
+          "of": 31,
+          "month": "2027-03"
+        }
+      }
+    ],
+    "maxBlockMin": 180,
+    "quotaLimited": false
+  }
+}

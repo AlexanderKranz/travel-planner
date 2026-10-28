@@ -1,6 +1,6 @@
 import type { EntryTraits, TravelGroup } from "@/lib/domain/group";
 import type { InterestOrGeneral, PlaceGroup, TripFacts } from "@/lib/domain/facts";
-import type { GroupSummary, OsmKey, PlanFactsDigest, PlanHeader, PlanPlace } from "@/lib/domain/plan";
+import type { GroupSummary, OsmKey, PlanFlights, PlanFactsDigest, PlanHeader, PlanPlace } from "@/lib/domain/plan";
 import type { Locale } from "@/lib/domain/profile";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
@@ -50,6 +50,12 @@ export type PlanInput = {
   country?: { name: string; currency: string[]; drivingSide: "left" | "right"; tz?: string };
   /** Gateway airports (spec 3.2). */
   airports?: { iata: string; name: string; km: number }[];
+  /** Verified direct flights at fitting times only (no numbers, airlines or dates). */
+  flights?: {
+    mode: "schedule" | "proxy";
+    out: { f: string; t: string; dep: string; arr: string }[];
+    back: { f: string; t: string; dep: string; arr: string }[];
+  };
   places: { id: string /* p1.. */; name: string; cat: string; km: number; ap?: number; i: string /* interest */ }[];
   /** Interests with no verified candidates. */
   noSource: string[];
@@ -70,6 +76,52 @@ export type BuildPlanInputArgs = {
 };
 
 export const MAX_PLACES = 40;
+export const MAX_LLM_LEGS = 3;
+
+type FlightsOut = { llm?: PlanInput["flights"]; snapshot?: PlanFlights; foundGateways: Set<string> };
+
+/** Facts → LLM flight times (fitting legs only), the stored snapshot and the gateways with a verified route. */
+export function flightsFrom(facts: TripFacts, wanted: boolean): FlightsOut {
+  const f = wanted && facts.flights?.status === "ok" ? facts.flights : null;
+  const out: FlightsOut = { foundGateways: new Set() };
+  if (!f) return out;
+  const d = f.data;
+  for (const p of d.pairs) if (p.status === "found") out.foundGateways.add(p.to);
+  const pick = (dir: "out" | "back") =>
+    d.legs
+      .filter((l) => l.dir === dir && !l.tooLong)
+      .sort((a, b) => a.dep.localeCompare(b.dep))
+      .slice(0, MAX_LLM_LEGS)
+      .map((l) => ({ f: l.from, t: l.to, dep: l.dep, arr: l.arr }));
+  const o = pick("out");
+  const b = pick("back");
+  if (o.length || b.length) out.llm = { mode: d.mode.out === "proxy" || d.mode.back === "proxy" ? "proxy" : "schedule", out: o, back: b };
+  out.snapshot = {
+    basis: d.basis,
+    outDate: d.outDate,
+    backDate: d.backDate,
+    mode: d.mode,
+    pairs: d.pairs.slice(0, 4).map((p) => ({ from: p.from, to: p.to, status: p.status, perDay: p.perDay })),
+    legs: d.legs.slice(0, 12).map((l) => ({
+      dir: l.dir,
+      from: l.from,
+      to: l.to,
+      number: l.number,
+      airline: l.airline,
+      dep: l.dep,
+      arr: l.arr,
+      arrDayOffset: l.arrDayOffset,
+      blockMin: l.blockMin,
+      date: l.date,
+      weekdays: l.weekdays,
+      tooLong: l.tooLong,
+    })),
+    maxBlockMin: d.maxBlockMin,
+    source: "aerodatabox",
+    fetchedAt: f.fetchedAt,
+  };
+  return out;
+}
 export const MIN_PLACES_PER_INTEREST = 8;
 /** Raw purpose text is cut to this when tagging failed [D7]. */
 export const FALLBACK_SUMMARY_CHARS = 600;
@@ -213,6 +265,8 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   stored: PlanInputStored;
   header: Omit<PlanHeader, "generatedAt" | "model">;
   digest: PlanFactsDigest;
+  /** Code snapshot for `plan.flights` (never from the model). */
+  flights: PlanFlights | undefined;
 } {
   const { trip, group, purpose, facts, locale, today } = a;
   const dest = trip.destination;
@@ -252,7 +306,11 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   const weather = facts.weather.status === "ok" ? facts.weather : null;
   const climateMonths = weather && months.length ? weather.data.months.filter((m) => months.includes(m.month)) : [];
 
-  const gateways = trip.wantsFlights && geo ? gatewayAirports(geo) : [];
+  const fl = flightsFrom(facts, trip.wantsFlights);
+  let gateways = trip.wantsFlights && geo ? gatewayAirports(geo) : [];
+  // Gateways with a verified route replace the distance heuristic (spec D10).
+  const verified = gateways.filter((x) => fl.foundGateways.has(x.iata));
+  if (verified.length) gateways = verified;
   const fallbackKeys = interestsForTrip(purpose?.guided, purpose?.tags).keys;
   const pl = placesInput(facts, locale, gateways, fallbackKeys);
 
@@ -288,6 +346,7 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
         }
       : undefined,
     airports: gateways.length ? gateways.map((x) => ({ iata: x.iata, name: x.name, km: Math.round(x.km) })) : undefined,
+    flights: fl.llm,
     places: pl.places,
     noSource: pl.noSource,
   };
@@ -338,7 +397,12 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   if (llm.airports) digest.airports = llm.airports;
   if (facts.places.status === "ok") digest.placesFetchedAt = facts.places.fetchedAt;
 
-  return { stored: { llm: stripUndefined(llm), index: pl.index }, header, digest };
+  return {
+    stored: { llm: stripUndefined(llm), index: pl.index },
+    header,
+    digest,
+    flights: fl.snapshot ? stripUndefined(fl.snapshot) : undefined,
+  };
 }
 
 /** Drops `undefined` keys so the stored jsonb equals what was hashed and sent. */

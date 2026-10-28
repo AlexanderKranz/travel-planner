@@ -1,0 +1,27 @@
+[
+  {
+    "status": "unavailable",
+    "reason": "no_origin",
+    "source": "aerodatabox"
+  },
+  {
+    "status": "unavailable",
+    "reason": "no_location",
+    "source": "aerodatabox"
+  },
+  {
+    "status": "unavailable",
+    "reason": "no_dates",
+    "source": "aerodatabox"
+  },
+  {
+    "status": "unavailable",
+    "reason": "disabled",
+    "source": "aerodatabox"
+  },
+  {
+    "status": "unavailable",
+    "reason": "provider_error",
+    "source": "aerodatabox"
+  }
+]

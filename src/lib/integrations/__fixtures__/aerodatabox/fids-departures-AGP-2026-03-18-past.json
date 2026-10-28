@@ -1,0 +1,260 @@
+{
+ "_note": "GET /flights/airports/iata/AGP/2026-03-18T00:00/2026-03-18T23:59 Departure, withLeg (two 12 h windows merged), recorded 2026-10-28; trimmed from 178 to 4 departures. Proxy for the return of the 2038-03-13..2038-03-17 golf trip (proxyDate(2038-03-17) = 2026-03-18, a Wednesday).",
+ "departures": [
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2026-03-18 16:15Z",
+     "local": "2026-03-18 17:15+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-18 16:07Z",
+     "local": "2026-03-18 17:07+01:00"
+    },
+    "runwayTime": {
+     "utc": "2026-03-18 16:15Z",
+     "local": "2026-03-18 17:15+01:00"
+    },
+    "terminal": "PAX",
+    "checkInDesk": "361-361",
+    "gate": "D54",
+    "runway": "13",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "EDDF",
+     "iata": "FRA",
+     "name": "Frankfurt-am-Main",
+     "location": {
+      "lat": 50.0264,
+      "lon": 8.543129
+     },
+     "countryCode": "de",
+     "timeZone": "Europe/Berlin"
+    },
+    "scheduledTime": {
+     "utc": "2026-03-18 19:20Z",
+     "local": "2026-03-18 20:20+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-18 19:01Z",
+     "local": "2026-03-18 20:01+01:00"
+    },
+    "terminal": "1",
+    "gate": "B2",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "number": "VL 1151",
+   "callSign": "LHX1151",
+   "status": "Departed",
+   "codeshareStatus": "IsOperator",
+   "isCargo": false,
+   "aircraft": {
+    "reg": "D-AIJP",
+    "modeS": "3C6550",
+    "model": "Airbus A320 NEO"
+   },
+   "airline": {
+    "name": "Lufthansa City",
+    "iata": "VL",
+    "icao": "LHX"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2026-03-18 10:50Z",
+     "local": "2026-03-18 11:50+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-18 11:00Z",
+     "local": "2026-03-18 12:00+01:00"
+    },
+    "terminal": "PAX",
+    "checkInDesk": "359-360",
+    "gate": "D54",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "EDDM",
+     "iata": "MUC",
+     "name": "Munich",
+     "location": {
+      "lat": 48.3538,
+      "lon": 11.7861
+     },
+     "countryCode": "de",
+     "timeZone": "Europe/Berlin"
+    },
+    "scheduledTime": {
+     "utc": "2026-03-18 13:45Z",
+     "local": "2026-03-18 14:45+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-18 13:45Z",
+     "local": "2026-03-18 14:45+01:00"
+    },
+    "terminal": "2",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "number": "LH 1833",
+   "status": "Departed",
+   "codeshareStatus": "IsOperator",
+   "isCargo": false,
+   "aircraft": {
+    "model": "Airbus A320 NEO"
+   },
+   "airline": {
+    "name": "Lufthansa",
+    "iata": "LH",
+    "icao": "DLH"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2026-03-18 09:55Z",
+     "local": "2026-03-18 10:55+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-18 10:05Z",
+     "local": "2026-03-18 11:05+01:00"
+    },
+    "runwayTime": {
+     "utc": "2026-03-18 10:15Z",
+     "local": "2026-03-18 11:15+01:00"
+    },
+    "terminal": "PAX",
+    "checkInDesk": "363-369",
+    "gate": "D54",
+    "runway": "13",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "LOWW",
+     "iata": "VIE",
+     "name": "Vienna",
+     "location": {
+      "lat": 48.1103,
+      "lon": 16.5697
+     },
+     "countryCode": "at",
+     "timeZone": "Europe/Vienna"
+    },
+    "scheduledTime": {
+     "utc": "2026-03-18 13:10Z",
+     "local": "2026-03-18 14:10+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-18 13:13Z",
+     "local": "2026-03-18 14:13+01:00"
+    },
+    "terminal": "1",
+    "baggageBelt": "12",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "number": "FR 591",
+   "callSign": "RYR26YZ",
+   "status": "Departed",
+   "codeshareStatus": "IsOperator",
+   "isCargo": false,
+   "aircraft": {
+    "reg": "9H-IHH",
+    "modeS": "4D22C4",
+    "model": "Airbus A320"
+   },
+   "airline": {
+    "name": "Ryanair",
+    "iata": "FR",
+    "icao": "RYR"
+   }
+  },
+  {
+   "departure": {
+    "scheduledTime": {
+     "utc": "2026-03-18 18:20Z",
+     "local": "2026-03-18 19:20+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-18 18:17Z",
+     "local": "2026-03-18 19:17+01:00"
+    },
+    "terminal": "PAX",
+    "checkInDesk": "335-337",
+    "gate": "D42",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "arrival": {
+    "airport": {
+     "icao": "EDDL",
+     "iata": "DUS",
+     "name": "Düsseldorf",
+     "location": {
+      "lat": 51.2895,
+      "lon": 6.766779
+     },
+     "countryCode": "de",
+     "timeZone": "Europe/Berlin"
+    },
+    "scheduledTime": {
+     "utc": "2026-03-18 21:15Z",
+     "local": "2026-03-18 22:15+01:00"
+    },
+    "revisedTime": {
+     "utc": "2026-03-18 21:11Z",
+     "local": "2026-03-18 22:11+01:00"
+    },
+    "runwayTime": {
+     "utc": "2026-03-18 21:06Z",
+     "local": "2026-03-18 22:06+01:00"
+    },
+    "terminal": "B(4)",
+    "gate": "B57",
+    "baggageBelt": "08",
+    "quality": [
+     "Basic",
+     "Live"
+    ]
+   },
+   "number": "EW 9537",
+   "callSign": "EWG4UJ",
+   "status": "Departed",
+   "codeshareStatus": "IsOperator",
+   "isCargo": false,
+   "aircraft": {
+    "reg": "D-AIDT",
+    "modeS": "3C6494",
+    "model": "Airbus A321"
+   },
+   "airline": {
+    "name": "Eurowings",
+    "iata": "EW",
+    "icao": "EWG"
+   }
+  }
+ ]
+}

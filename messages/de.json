@@ -204,7 +204,12 @@
     "delete": "Reisezweck löschen",
     "deleteTitle": "Reisezweck löschen?",
     "deleteBody": "Der Reisezweck „{name}“ wird endgültig gelöscht.",
-    "fieldInvalid": "Bitte prüfe diese Angabe."
+    "fieldInvalid": "Bitte prüfe diese Angabe.",
+    "maxFlightHours": {
+      "label": "Maximale Flugzeit (Direktflug)",
+      "any": "Egal",
+      "hours": "bis {h} h"
+    }
   },
   "settings": {
     "title": "Einstellungen",
@@ -508,6 +513,68 @@
       "sport_kitesurfing": "Kitesurfen",
       "sport_sailing": "Segeln",
       "xmas_feature_market": "Weihnachtsmarkt"
+    },
+    "flights": {
+      "title": "Direktflüge",
+      "loading": "Flugpläne werden geprüft …",
+      "basisDates": "Für deine Reisedaten {out} – {back}",
+      "basisSample": "Beispielwoche im {month}",
+      "gatewayKm": "{km} km zum Ziel",
+      "perDay": "≈ {n} pro Tag",
+      "approx": "ca.",
+      "duration": "Flugzeit",
+      "hm": "{h} h {m}",
+      "nextDay": "+1",
+      "outbound": "Hin {date}",
+      "inbound": "Rück {date}",
+      "to": "nach",
+      "operatingOn": "Verkehrt am",
+      "notOperating": "kein Flug",
+      "operatingDays": "{days} von {of} Tagen",
+      "tooLong": "über deinem Limit von {h} h",
+      "change": "Zeiten und Strecken können sich ändern.",
+      "newTab": "öffnet in neuem Tab",
+      "links": {
+        "google": "Google Flights",
+        "skyscanner": "Skyscanner",
+        "airline": "Airline"
+      },
+      "badge": {
+        "found": "Geprüft",
+        "foundProxy": "Vorjahresflug",
+        "none": "Kein Direktflug",
+        "notPublished": "Noch nicht veröffentlicht",
+        "notChecked": "Nicht geprüft"
+      },
+      "status": {
+        "found": "Direkt, im veröffentlichten Flugplan für den {date}.",
+        "foundProxy": "Am {date} im Vorjahr geflogen, für {month} noch nicht veröffentlicht. Vor dem Buchen prüfen.",
+        "none": "Kein Direktflug im Flugplan gefunden.",
+        "notPublished": "Flugplan noch nicht veröffentlicht.",
+        "notChecked": "Nicht geprüft (Limit erreicht), versuche es morgen erneut."
+      },
+      "unavailable": {
+        "no_origin": "Ohne Abflughafen können wir keine Flüge prüfen.",
+        "no_location": "Das Ziel ist Freitext, daher gibt es keinen Zielflughafen.",
+        "no_dates": "Ohne Reisezeitraum (mindestens ein Monat) prüfen wir keine Flüge.",
+        "disabled": "Die Flugprüfung ist gerade abgeschaltet.",
+        "provider_error": "Die Flugdaten sind gerade nicht erreichbar. Es wird nichts erfunden."
+      },
+      "toSettings": "Heimatflughäfen in den Einstellungen",
+      "toTripEdit": "Reise bearbeiten",
+      "quotaLimited": "Das Tageslimit der Flugabfragen ist erreicht. Nicht geprüfte Strecken sind markiert, morgen geht es weiter.",
+      "noGateway": "Kein Flughafen im Umkreis von 150 km um das Ziel.",
+      "retry": "Erneut versuchen",
+      "rateLimited": "Zu viele Anfragen. Bitte in einer Minute erneut versuchen.",
+      "weekdays": {
+        "1": "Montag",
+        "2": "Dienstag",
+        "3": "Mittwoch",
+        "4": "Donnerstag",
+        "5": "Freitag",
+        "6": "Samstag",
+        "7": "Sonntag"
+      }
     }
   },
   "sources": {
@@ -548,6 +615,11 @@
         "label": "Länderdaten: mledoze/countries (ODbL)",
         "provides": "Länderinfos wie Währung, Sprache und Fahrseite aus einem mitgelieferten Datensatz (etwa jährlich neu erstellt).",
         "license": "ODbL 1.0, Daten zum Erstellungsdatum."
+      },
+      "aerodatabox": {
+        "label": "Flugpläne: AeroDataBox",
+        "provides": "Direktflug-Flugpläne über RapidAPI.",
+        "license": "RapidAPI Basic-Plan (nicht kommerzielle Nutzung, Namensnennung erforderlich)."
       },
       "suncalc": {
         "label": "berechnet (suncalc)",
@@ -735,6 +807,15 @@
       "patch": "Angepasst",
       "edit": "Bearbeitet",
       "restore": "Wiederhergestellt"
+    },
+    "flights": {
+      "title": "Direktflüge",
+      "out": "Hin {date}",
+      "back": "Rück {date}",
+      "hm": "{h} h {m}",
+      "nextDay": "+1",
+      "proxyNote": "Flugplan des Vorjahres, noch nicht veröffentlicht",
+      "source": "AeroDataBox, geprüft am {date}. Zeiten können sich ändern."
     }
   }
 }

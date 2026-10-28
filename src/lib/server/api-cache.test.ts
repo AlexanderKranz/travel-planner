@@ -153,4 +153,22 @@ describe("cached", () => {
     expect(JSON.stringify(state.calls)).not.toContain("secret-key");
     expect(Object.keys(state.calls[0])).not.toContain("cache_key");
   });
+
+  it("QuotaGuardError maps to quota_exhausted and serves stale data when present", async () => {
+    const guard = () => {
+      throw Object.assign(new Error("cap"), { name: "QuotaGuardError" });
+    };
+    expect(await run(async () => guard())).toEqual({ ok: false, error: "quota_exhausted" });
+    expect(state.calls[0]).toMatchObject({ ok: false, error_code: "quota_guard" });
+    state.row = { payload: { v: { n: 3 } }, fetched_at: "2026-01-01T00:00:00Z", expires_at: past() };
+    expect(await run(async () => guard())).toMatchObject({ ok: true, stale: true, data: { n: 3 } });
+  });
+
+  it("failed requests log the units and quota the error carries", async () => {
+    const res = await run(async () => {
+      throw Object.assign(new Error("HTTP 400"), { status: 400, units: 2, quotaRemaining: 311 });
+    });
+    expect(res).toEqual({ ok: false, error: "provider_error" });
+    expect(state.calls[0]).toMatchObject({ error_code: "http_400", units: 2, quota_remaining: 311 });
+  });
 });
