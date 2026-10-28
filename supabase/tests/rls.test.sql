@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261029120014. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261030120017. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -334,6 +334,106 @@ select is((select array_agg(dest_name order by dest_name) from public.trips wher
 select ok(exists (select 1 from public.app_events where event = 'trips.purged' and props ->> 'count' = '2'), 'purge logs an app_event with the count only');
 select ok(exists (select 1 from cron.job where jobname = 'purge-expired-trips'), 'nightly purge job is scheduled');
 select ok(not has_function_privilege('authenticated', 'private.purge_expired_trips()', 'execute'), 'authenticated cannot run the purge');
+
+-- ---------- plans / plan_versions / purge interaction (migrations 20261030120015..17) ----------
+reset role;
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days) values
+  ('a0000000-0000-4000-8000-0000000000f1', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'A plan trip', 3),
+  ('bbbbbbbb-0000-4000-8000-0000000000f2', 'bbbbbbbb-0000-4000-8000-000000000002', 'freetext', 'B plan trip', 3);
+
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+insert into public.plans (id, trip_id) values ('a0000000-0000-4000-8000-0000000000c1', 'a0000000-0000-4000-8000-0000000000f1');
+select is((select count(*)::int from public.plans), 1, 'A created a plan for own trip (owner_id from default)');
+select throws_ok($$insert into public.plans (trip_id) values ('a0000000-0000-4000-8000-0000000000f1')$$,
+  '23505', null, 'one plan per trip (unique trip_id)');
+select throws_ok($$insert into public.plans (trip_id) values ('bbbbbbbb-0000-4000-8000-0000000000f2')$$,
+  '23503', null, 'A cannot create a plan for B trip (composite FK)');
+select throws_ok($$insert into public.plans (trip_id, latest_version) values ('a0000000-0000-4000-8000-0000000000f1', 5)$$,
+  '42501', null, 'latest_version is not insertable');
+
+insert into public.plan_versions (plan_id, kind, plan, input, input_hash) values
+  ('a0000000-0000-4000-8000-0000000000c1', 'generate', '{"v":1}', '{"llm":{}}', repeat('a', 64)),
+  ('a0000000-0000-4000-8000-0000000000c1', 'patch',    '{"v":1}', '{"llm":{}}', repeat('a', 64)),
+  ('a0000000-0000-4000-8000-0000000000c1', 'edit',     '{"v":1}', '{"llm":{}}', repeat('a', 64));
+select is((select array_agg(version_no order by version_no) from public.plan_versions), array[1, 2, 3], 'trigger assigns version_no 1, 2, 3');
+select is((select latest_version from public.plans where id = 'a0000000-0000-4000-8000-0000000000c1'), 3, 'plans.latest_version follows the trigger');
+select throws_ok($$insert into public.plan_versions (plan_id, version_no, kind, plan, input, input_hash) values ('a0000000-0000-4000-8000-0000000000c1', 9, 'generate', '{}', '{}', repeat('a', 64))$$,
+  '42501', null, 'version_no is not insertable');
+select throws_ok($$insert into public.plan_versions (plan_id, kind, plan, input, input_hash) values ('a0000000-0000-4000-8000-0000000000c1', 'generate', '{}', '{}', 'nothex')$$,
+  '23514', null, 'input_hash must be 64 hex chars');
+select throws_ok($$insert into public.plan_versions (plan_id, kind, plan, input, input_hash) values ('a0000000-0000-4000-8000-0000000000c1', 'bogus', '{}', '{}', repeat('a', 64))$$,
+  '23514', null, 'kind is restricted');
+select throws_ok($$update public.plan_versions set kind = 'edit'$$, '42501', null, 'plan_versions are immutable (no update grant)');
+select throws_ok($$update public.plans set latest_version = 99 where id = 'a0000000-0000-4000-8000-0000000000c1'$$,
+  '42501', null, 'plans: latest_version not updatable');
+with u as (update public.plans set busy_until = now() + interval '5 minutes' where id = 'a0000000-0000-4000-8000-0000000000c1' returning 1)
+select is((select count(*)::int from u), 1, 'plans: busy_until updatable (lock)');
+
+-- user B cannot see or touch A's plan
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+select is((select count(*)::int from public.plans), 0, 'B sees no plans of A');
+select is((select count(*)::int from public.plan_versions), 0, 'B sees no plan_versions of A');
+select throws_ok($$insert into public.plan_versions (plan_id, kind, plan, input, input_hash) values ('a0000000-0000-4000-8000-0000000000c1', 'generate', '{}', '{}', repeat('b', 64))$$,
+  '23503', null, 'B cannot add a version to A plan');
+select throws_ok($$insert into public.plans (trip_id) values ('a0000000-0000-4000-8000-0000000000f1')$$,
+  '23503', null, 'B cannot create a plan for A trip');
+with u as (update public.plans set busy_until = null where id = 'a0000000-0000-4000-8000-0000000000c1' returning 1)
+select is((select count(*)::int from u), 0, 'B cannot update A plan');
+with d as (delete from public.plan_versions where plan_id = 'a0000000-0000-4000-8000-0000000000c1' returning 1)
+select is((select count(*)::int from d), 0, 'B cannot delete A versions');
+with d as (delete from public.plans where id = 'a0000000-0000-4000-8000-0000000000c1' returning 1)
+select is((select count(*)::int from d), 0, 'B cannot delete A plan');
+
+set local role anon;
+select throws_ok($$select 1 from public.plans$$, '42501', null, 'anon cannot read plans');
+select throws_ok($$select 1 from public.plan_versions$$, '42501', null, 'anon cannot read plan_versions');
+select throws_ok($$select 1 from public.ai_usage$$, '42501', null, 'anon cannot read ai_usage');
+
+-- A can prune own old versions (delete policy)
+reset role;
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+with d as (delete from public.plan_versions where version_no <= 1 returning 1)
+select is((select count(*)::int from d), 1, 'A can prune own versions');
+
+-- cascade: trip delete removes plan and versions
+reset role;
+delete from public.trips where id = 'a0000000-0000-4000-8000-0000000000f1';
+select is((select count(*)::int from public.plans where id = 'a0000000-0000-4000-8000-0000000000c1'), 0, 'trip delete cascades to plans');
+select is((select count(*)::int from public.plan_versions where plan_id = 'a0000000-0000-4000-8000-0000000000c1'), 0, 'trip delete cascades to plan_versions');
+
+-- purge: plan activity keeps an old trip alive; an old plan does not
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days, updated_at) values
+  ('a0000000-0000-4000-8000-0000000000f3', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Old trip, fresh plan', 3, now() - interval '19 months'),
+  ('a0000000-0000-4000-8000-0000000000f4', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Old trip, old plan', 3, now() - interval '19 months'),
+  ('a0000000-0000-4000-8000-0000000000f5', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Old trip, no plan', 3, now() - interval '19 months');
+insert into public.plans (id, owner_id, trip_id, updated_at) values
+  ('a0000000-0000-4000-8000-0000000000c3', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000f3', now()),
+  ('a0000000-0000-4000-8000-0000000000c4', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-0000000000f4', now() - interval '19 months');
+select is(private.purge_expired_trips(), 2, 'purge deletes old trips whose plan is old or missing');
+select is((select array_agg(dest_name) from public.trips where id::text like 'a0000000-0000-4000-8000-0000000000f%'),
+  array['Old trip, fresh plan'], 'a recently updated plan keeps its trip');
+select is((select count(*)::int from public.plans where id = 'a0000000-0000-4000-8000-0000000000c4'), 0, 'purge cascades to the plan of an expired trip');
+
+-- ---------- ai_usage ----------
+insert into public.ai_usage (user_id, task, model, status, cost_micro_usd) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'plan_generate', 'claude-sonnet-5-5', 'ok', 90000),
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'purpose_tags', 'claude-haiku-5-5', 'ok', 400),
+  ('bbbbbbbb-0000-4000-8000-000000000002', 'plan_patch', 'claude-sonnet-5-5', 'error', 0),
+  (null, 'plan_generate', 'claude-sonnet-5-5', 'ok', 1);
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select is((select count(*)::int from public.ai_usage), 2, 'owner sees only own ai_usage rows');
+select throws_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'plan_patch', 'claude-sonnet-5-5', 'ok')$$,
+  '42501', null, 'authenticated cannot insert ai_usage');
+select throws_ok($$update public.ai_usage set cost_micro_usd = 0$$, '42501', null, 'authenticated cannot update ai_usage');
+select throws_ok($$delete from public.ai_usage$$, '42501', null, 'authenticated cannot delete ai_usage');
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+select is((select count(*)::int from public.ai_usage), 1, 'B sees only own ai_usage rows');
+set local request.jwt.claims = '{"sub":"cccccccc-0000-4000-8000-000000000003","role":"authenticated"}';
+select is((select count(*)::int from public.ai_usage), 4, 'admin sees all ai_usage rows (aggregates)');
+reset role;
 
 select * from finish();
 rollback;

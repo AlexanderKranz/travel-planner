@@ -1,12 +1,14 @@
 "use server";
 
 import { z } from "zod";
+import { PurposeTags } from "@/lib/domain/plan";
 import { PurposeGuided, TripPurposeInput, type TripPurpose } from "@/lib/domain/purpose";
 import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
+import { purposeTagsHash } from "@/lib/plan/hash";
 import { logEvent } from "./events";
 import { getUserSession } from "./session";
 
-const COLUMNS = "id, name, text, guided, constraints, created_at, updated_at";
+const COLUMNS = "id, name, text, guided, constraints, parsed_tags, parsed_hash, created_at, updated_at";
 const Id = z.string().uuid();
 
 type PurposeRow = {
@@ -15,19 +17,35 @@ type PurposeRow = {
   text: string | null;
   guided: unknown;
   constraints: string[];
+  parsed_tags: unknown;
+  parsed_hash: string | null;
   created_at: string;
   updated_at: string;
 };
 
+/** Tags count only while the hash of the current content matches (edited purposes are re-tagged). */
+function rowTags(row: PurposeRow, guided: PurposeGuided): TripPurpose["tags"] {
+  if (row.parsed_tags == null || !row.parsed_hash) return null;
+  try {
+    const hash = purposeTagsHash({ text: row.text ?? undefined, constraints: row.constraints, guided });
+    if (hash !== row.parsed_hash) return null;
+  } catch {
+    return null;
+  }
+  const tags = PurposeTags.safeParse(row.parsed_tags);
+  return tags.success ? tags.data : null;
+}
+
 function rowToPurpose(row: PurposeRow): TripPurpose {
   const guided = PurposeGuided.safeParse(row.guided);
+  const guidedData = guided.success ? guided.data : {};
   return {
     id: row.id,
     name: row.name,
     text: row.text ?? undefined,
-    guided: guided.success ? guided.data : {},
+    guided: guidedData,
     constraints: row.constraints,
-    tags: null, // parsed_* mapping lands with the phase-3 backend step
+    tags: rowTags(row, guidedData),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

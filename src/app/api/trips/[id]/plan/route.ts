@@ -1,0 +1,38 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { Locale } from "@/lib/domain/profile";
+import { generatePlan, loadPlanContext, loadPlanState } from "@/lib/server/plan-pipeline";
+import { badRequest, NO_STORE, respond } from "./respond";
+
+// Vercel Hobby with Fluid compute: default and maximum are 300 s. Sonnet may need 30-90 s.
+export const maxDuration = 300;
+
+const Body = z.object({ locale: Locale });
+
+/** GET /api/trips/[id]/plan[?v=n] -> { state: PlanState } (login required, RLS). Polled by the runner while busy. */
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const v = new URL(request.url).searchParams.get("v");
+  const version = v === null ? undefined : Number(v);
+  if (version !== undefined && !(Number.isInteger(version) && version >= 1)) return badRequest();
+  const loaded = await loadPlanContext(id);
+  if (!loaded.ok) return respond(loaded);
+  const s = await loadPlanState(loaded.ctx, version);
+  return s.ok ? NextResponse.json({ state: s.state }, { headers: NO_STORE }) : respond(s);
+}
+
+/**
+ * POST /api/trips/[id]/plan {locale} -> generate. The client abort signal is deliberately NOT forwarded:
+ * the server finishes and saves the plan even if the browser leaves (the runner then polls GET).
+ */
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const body = Body.safeParse(await request.json().catch(() => null));
+  if (!body.success) {
+    // Auth first so anonymous callers learn nothing about the shape.
+    const loaded = await loadPlanContext(id);
+    return loaded.ok ? badRequest() : respond(loaded);
+  }
+  return respond(await generatePlan(id, body.data.locale));
+}
+

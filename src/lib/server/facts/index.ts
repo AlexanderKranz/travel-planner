@@ -39,9 +39,14 @@ async function collect(
   };
 }
 
-/** Phase 3 snapshot input. Never throws. */
-export function getTripFacts(trip: Trip, purpose: TripPurpose | null, ctx: FactsCtx): Promise<TripFacts> {
-  return collect(trip, purpose, ctx);
+/** Phase 3 snapshot input. `placesBudgetMs` caps Overpass time (groups that do not finish become no_source). Never throws. */
+export function getTripFacts(
+  trip: Trip,
+  purpose: TripPurpose | null,
+  ctx: FactsCtx,
+  options: { placesBudgetMs?: number } = {},
+): Promise<TripFacts> {
+  return collect(trip, purpose, ctx, options.placesBudgetMs);
 }
 
 export const WARM_BUDGET_MS = 280_000;
