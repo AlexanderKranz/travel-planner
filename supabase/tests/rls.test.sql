@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261030120018. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261031120021. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -455,6 +455,136 @@ reset role;
 set local role service_role;
 select lives_ok($$select * from public.ai_spend_micro_usd('aaaaaaaa-0000-4000-8000-000000000001', now())$$, 'service_role can execute ai_spend_micro_usd');
 reset role;
+
+-- ---------- phase 5: trip_items, share_links, open_done, retention (migrations 20261031120019..21) ----------
+reset role;
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days) values
+  ('a0000000-0000-4000-8000-000000000501', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'A item trip', 3),
+  ('bbbbbbbb-0000-4000-8000-000000000502', 'bbbbbbbb-0000-4000-8000-000000000002', 'freetext', 'B item trip', 3);
+insert into public.plans (id, owner_id, trip_id) values
+  ('a0000000-0000-4000-8000-000000000511', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000501');
+insert into public.trip_items (id, owner_id, trip_id, category, title) values
+  ('a0000000-0000-4000-8000-000000000521', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000501', 'stay', 'A hotel');
+insert into public.share_links (id, owner_id, trip_id, token_hash, label) values
+  ('a0000000-0000-4000-8000-000000000531', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000501', repeat('a', 64), 'A link');
+
+-- anon: nothing
+set local role anon;
+select throws_ok($$select count(*) from public.trip_items$$, '42501', null, 'anon has no privileges on trip_items');
+select throws_ok($$select count(*) from public.share_links$$, '42501', null, 'anon has no privileges on share_links');
+reset role;
+
+-- user B: no access to A's rows
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
+select is((select count(*)::int from public.trip_items), 0, 'B sees no items of A');
+select is((select count(*)::int from public.share_links), 0, 'B sees no share links of A');
+with u as (update public.trip_items set title = 'pwned' where id = 'a0000000-0000-4000-8000-000000000521' returning 1)
+select is((select count(*)::int from u), 0, 'B cannot update A item');
+with d as (delete from public.trip_items where id = 'a0000000-0000-4000-8000-000000000521' returning 1)
+select is((select count(*)::int from d), 0, 'B cannot delete A item');
+with d as (delete from public.share_links where id = 'a0000000-0000-4000-8000-000000000531' returning 1)
+select is((select count(*)::int from d), 0, 'B cannot revoke A link');
+select throws_ok($$insert into public.trip_items (trip_id, category, title) values ('a0000000-0000-4000-8000-000000000501', 'stay', 'x')$$,
+  '23503', null, 'B cannot add an item to A trip (composite FK)');
+select throws_ok($$insert into public.share_links (trip_id, token_hash) values ('a0000000-0000-4000-8000-000000000501', repeat('b', 64))$$,
+  '23503', null, 'B cannot link A trip (composite FK)');
+select throws_ok($$insert into public.trip_items (owner_id, trip_id, category, title) values ('aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000501', 'stay', 'x')$$,
+  '42501', null, 'owner_id is not insertable on trip_items');
+reset role;
+
+-- user A: owner path, checks, protected columns
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select is((select count(*)::int from public.trip_items), 1, 'A sees own item');
+select lives_ok($$insert into public.trip_items (trip_id, category, title, status, price_cents, currency, url)
+  values ('a0000000-0000-4000-8000-000000000501', 'activity', 'Golf', 'booked', 9500, 'EUR', 'https://x.test/a')$$, 'A can add an item');
+select lives_ok($$update public.trip_items set status = 'planned', price_cents = 100 where title = 'Golf'$$, 'A can update an item');
+select throws_ok($$update public.trip_items set owner_id = 'bbbbbbbb-0000-4000-8000-000000000002' where title = 'Golf'$$, '42501', null, 'owner_id not updatable');
+select throws_ok($$update public.trip_items set trip_id = 'a0000000-0000-4000-8000-0000000000f1' where title = 'Golf'$$, '42501', null, 'trip_id not updatable');
+select throws_ok($$insert into public.trip_items (trip_id, category, title, currency) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', 'eur')$$, '23514', null, 'bad currency rejected');
+select throws_ok($$insert into public.trip_items (trip_id, category, title, url) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', 'javascript:alert(1)')$$, '23514', null, 'bad url rejected');
+select throws_ok($$insert into public.trip_items (trip_id, category, title, status) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', 'done')$$, '23514', null, 'bad status rejected');
+select throws_ok($$insert into public.trip_items (trip_id, category, title, price_cents) values ('a0000000-0000-4000-8000-000000000501', 'other', 'x', -1)$$, '23514', null, 'negative price rejected');
+
+-- share_links: token_hash unreadable, no update, owner select/insert/delete
+select is((select count(*)::int from public.share_links), 1, 'A sees own link (non-secret columns)');
+select lives_ok($$select id, label, include_items, include_item_notes, expires_at, view_count from public.share_links$$, 'A can read the granted columns');
+select throws_ok($$select token_hash from public.share_links$$, '42501', null, 'token_hash is not readable by authenticated');
+select throws_ok($$update public.share_links set label = 'x'$$, '42501', null, 'share_links has no update privilege');
+select throws_ok($$update public.share_links set view_count = 99$$, '42501', null, 'view_count not writable by users');
+select lives_ok($$insert into public.share_links (trip_id, token_hash, label, include_items, include_item_notes, expires_at)
+  values ('a0000000-0000-4000-8000-000000000501', repeat('c', 64), 'Ben', true, true, now() + interval '7 days')$$, 'A can create a link');
+select throws_ok($$insert into public.share_links (trip_id, token_hash) values ('a0000000-0000-4000-8000-000000000501', 'not-hex')$$, '23514', null, 'token_hash must be sha256 hex');
+select throws_ok($$insert into public.share_links (trip_id, token_hash, include_items, include_item_notes)
+  values ('a0000000-0000-4000-8000-000000000501', repeat('d', 64), false, true)$$, '23514', null, 'item notes require items');
+select throws_ok($$insert into public.share_links (trip_id, token_hash, expires_at)
+  values ('a0000000-0000-4000-8000-000000000501', repeat('e', 64), now() - interval '1 day')$$, '23514', null, 'expiry must be after creation');
+select throws_ok($$insert into public.share_links (trip_id, token_hash) values ('a0000000-0000-4000-8000-000000000501', repeat('c', 64))$$, '23505', null, 'token_hash is unique');
+with d as (delete from public.share_links where label = 'Ben' returning 1)
+select is((select count(*)::int from d), 1, 'A can revoke (delete) a link');
+
+-- plans.open_done
+select lives_ok($$update public.plans set open_done = '{abcd1234}' where id = 'a0000000-0000-4000-8000-000000000511'$$, 'owner can update open_done');
+select throws_ok($$update public.plans set latest_version = 5 where id = 'a0000000-0000-4000-8000-000000000511'$$, '42501', null, 'latest_version still not updatable');
+select throws_ok($$update public.plans set open_done = (select array_agg(g::text) from generate_series(1, 51) g) where id = 'a0000000-0000-4000-8000-000000000511'$$, '23514', null, 'open_done max 50');
+reset role;
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
+with u as (update public.plans set open_done = '{deadbeef}' where id = 'a0000000-0000-4000-8000-000000000511' returning 1)
+select is((select count(*)::int from u), 0, 'B cannot update A open_done');
+reset role;
+
+-- demo account cannot create share links (policy), items stay allowed
+update public.profiles set is_demo = true where id = 'bbbbbbbb-0000-4000-8000-000000000002';
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
+select throws_ok($$insert into public.share_links (trip_id, token_hash) values ('bbbbbbbb-0000-4000-8000-000000000502', repeat('f', 64))$$,
+  '42501', null, 'demo profile cannot create a share link (RLS)');
+select lives_ok($$insert into public.trip_items (trip_id, category, title) values ('bbbbbbbb-0000-4000-8000-000000000502', 'stay', 'demo item')$$, 'demo profile can add items');
+reset role;
+update public.profiles set is_demo = false where id = 'bbbbbbbb-0000-4000-8000-000000000002';
+
+-- share_link_touch: server only
+set local role authenticated;
+select throws_ok($$select public.share_link_touch('a0000000-0000-4000-8000-000000000531')$$, '42501', null, 'authenticated cannot execute share_link_touch');
+reset role;
+set local role anon;
+select throws_ok($$select public.share_link_touch('a0000000-0000-4000-8000-000000000531')$$, '42501', null, 'anon cannot execute share_link_touch');
+reset role;
+set local role service_role;
+select lives_ok($$select public.share_link_touch('a0000000-0000-4000-8000-000000000531')$$, 'service_role can execute share_link_touch');
+reset role;
+select is((select view_count from public.share_links where id = 'a0000000-0000-4000-8000-000000000531'), 1, 'touch increments view_count');
+select isnt((select last_viewed_at from public.share_links where id = 'a0000000-0000-4000-8000-000000000531'), null, 'touch sets last_viewed_at');
+
+-- cascades: trip delete removes items and links
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days) values
+  ('a0000000-0000-4000-8000-000000000541', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Cascade trip', 3);
+insert into public.trip_items (owner_id, trip_id, category, title) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000541', 'stay', 'cascade item');
+insert into public.share_links (owner_id, trip_id, token_hash) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000541', repeat('9', 64));
+delete from public.trips where id = 'a0000000-0000-4000-8000-000000000541';
+select is((select count(*)::int from public.trip_items where trip_id = 'a0000000-0000-4000-8000-000000000541'), 0, 'trip delete cascades items');
+select is((select count(*)::int from public.share_links where trip_id = 'a0000000-0000-4000-8000-000000000541'), 0, 'trip delete cascades share links');
+
+-- retention: item activity keeps an old trip alive; otherwise purge removes trip, items and links
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days, start_date, updated_at) values
+  ('a0000000-0000-4000-8000-000000000551', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Old, fresh item', 3, null, now() - interval '19 months'),
+  ('a0000000-0000-4000-8000-000000000552', 'aaaaaaaa-0000-4000-8000-000000000001', 'freetext', 'Old, old item', 3, null, now() - interval '19 months');
+insert into public.trip_items (owner_id, trip_id, category, title, updated_at) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000551', 'stay', 'fresh', now()),
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000552', 'stay', 'stale', now() - interval '19 months');
+insert into public.share_links (owner_id, trip_id, token_hash) values
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000551', repeat('7', 64)),
+  ('aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000552', repeat('8', 64));
+select lives_ok($$select private.purge_expired_trips()$$, 'purge runs');
+select ok(exists (select 1 from public.trips where id = 'a0000000-0000-4000-8000-000000000551'), 'purge keeps an old trip with a recently updated item');
+select ok(not exists (select 1 from public.trips where id = 'a0000000-0000-4000-8000-000000000552'), 'purge deletes an old trip without item activity');
+select is((select count(*)::int from public.trip_items where trip_id = 'a0000000-0000-4000-8000-000000000552'), 0, 'purge removes the items');
+select is((select count(*)::int from public.share_links where trip_id = 'a0000000-0000-4000-8000-000000000552'), 0, 'purge removes the share links');
+select is((select count(*)::int from public.share_links where trip_id = 'a0000000-0000-4000-8000-000000000551'), 1, 'purge keeps links of kept trips');
 
 select * from finish();
 rollback;
