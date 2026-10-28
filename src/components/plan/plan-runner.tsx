@@ -84,7 +84,7 @@ export function PlanRunner({
     };
   }, [phase, url, done, watchOnly]);
 
-  async function run() {
+  async function run(force = false) {
     setError(null);
     setTimedOut(false);
     startedAt.current = Date.now();
@@ -94,7 +94,7 @@ export function PlanRunner({
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locale }),
+        body: JSON.stringify(force ? { locale, force: true } : { locale }),
       });
       if (res.ok) return done();
       const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -118,7 +118,7 @@ export function PlanRunner({
           <button
             type="button"
             className={secondary ? btnSecondary : btnPrimary}
-            onClick={run}
+            onClick={() => run()}
             disabled={disabled || working}
             aria-busy={working}
           >
@@ -146,6 +146,16 @@ export function PlanRunner({
         )}
       </div>
       <PlanErrorBanner error={error} />
+      {error === "places_pending" && !working && (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" className={btnPrimary} onClick={() => run()}>
+            {t("retry")}
+          </button>
+          <button type="button" className={btnSecondary} onClick={() => run(true)}>
+            {t("generateAnyway")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,7 +1,9 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Link, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import type { SharedItem } from "@/lib/domain/items";
 import type { PlanDocument } from "@/lib/domain/share";
+import type { PlanPlace } from "@/lib/domain/plan";
+import { placeHref } from "@/lib/facts/sources";
 import { openItemKey } from "@/lib/plan/open-items";
 import type { Fmt } from "./format";
 import type { PdfT } from "./labels";
@@ -49,6 +51,19 @@ function isDone(text: string, done: string[]): boolean {
   } catch {
     return false; // key helper not available: show unchecked
   }
+}
+
+/** Place name as a link (website → Wikipedia → OSM). */
+function PlaceName({ place, bold }: { place: PlanPlace; bold?: boolean }) {
+  const href = placeHref(place);
+  const style = bold ? { fontWeight: 700 } : {};
+  return href ? (
+    <Link src={href} style={{ ...style, color: ACCENT, textDecoration: "none" }}>
+      {place.name}
+    </Link>
+  ) : (
+    <Text style={style}>{place.name}</Text>
+  );
 }
 
 const Bullet = ({ children }: { children: string }) => (
@@ -171,14 +186,31 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
                   {st.from ? ` (${st.from}${st.to ? `–${st.to}` : ""})` : ""}
                 </Text>
                 {st.acts.map((a, j) => {
-                  const place = a.ref ? plan.places[a.ref]?.name : undefined;
+                  const place = a.ref ? plan.places[a.ref] : undefined;
+                  const alts = place ? (a.alts ?? []).flatMap((k) => (plan.places[k] ? [plan.places[k]] : [])) : [];
                   return (
                     <View key={j} style={s.row}>
                       <Text style={s.time}>{a.at ? `${a.at}${a.until ? `–${a.until}` : ""}` : ""}</Text>
-                      <Text style={s.grow}>
-                        {a.text}
-                        {place ? ` (${place})` : ""}
-                      </Text>
+                      <View style={s.grow}>
+                        <Text>
+                          {place ? <PlaceName place={place} bold /> : null}
+                          {place ? " · " : ""}
+                          {a.text}
+                          {place?.drive ? ` (${t("drive", { min: place.drive.min })})` : ""}
+                        </Text>
+                        {alts.length > 0 && (
+                          <Text style={s.small}>
+                            {t("alternatives")}{" "}
+                            {alts.map((p, k) => (
+                              <Text key={k}>
+                                {k > 0 ? " · " : ""}
+                                <PlaceName place={p} />
+                                {p.drive ? ` (${t("drive", { min: p.drive.min })})` : ""}
+                              </Text>
+                            ))}
+                          </Text>
+                        )}
+                      </View>
                     </View>
                   );
                 })}
@@ -188,6 +220,8 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
             {d.warn && <Text style={s.warn}>{t("warning")}: {d.warn}</Text>}
           </View>
         ))}
+
+        {Object.values(plan.places).some((p) => p.drive) && <Text style={s.small}>{t("driveNote")}</Text>}
 
         {plan.openItems.length > 0 && (
           <View>
