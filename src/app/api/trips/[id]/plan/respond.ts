@@ -24,6 +24,9 @@ const STATUS: Record<ActionError, number> = {
   demo_forbidden: 403,
   no_plan: 409,
   places_pending: 503,
+  forbidden: 403,
+  already_member: 409,
+  email_failed: 502,
   failed: 500,
 };
 

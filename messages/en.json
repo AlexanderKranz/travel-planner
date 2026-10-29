@@ -44,7 +44,10 @@
     "invalid_output": "The AI answer was unusable. Please try again.",
     "demo_forbidden": "The demo account cannot create links.",
     "no_plan": "Create a travel plan first.",
-    "places_pending": "Places are still loading. Please try again in a minute."
+    "places_pending": "Places are still loading. Please try again in a minute.",
+    "forbidden": "You do not have permission to do that.",
+    "already_member": "This address already has an account.",
+    "email_failed": "The address is on the invite list, but the email could not be sent."
   },
   "login": {
     "title": "Sign in",
@@ -65,7 +68,8 @@
       "button": "View demo",
       "hint": "Shared demo account – what you enter is visible to other demo visitors and is reset regularly.",
       "heading": "Or try it out"
-    }
+    },
+    "invited": "Invitation confirmed. Now enter your email address and we will send you the sign-in link."
   },
   "dashboard": {
     "welcome": "Welcome",
@@ -1253,6 +1257,33 @@
       "code": "Reason",
       "warn": "Warning",
       "error": "Error"
+    },
+    "invites": {
+      "title": "Invite",
+      "intro": "Only invited addresses can register. Inviting adds the address to the list and sends an email.",
+      "emailLabel": "Email address",
+      "submit": "Send invitation",
+      "sent": "Invitation sent.",
+      "mailNote": "Supabase's built-in mail sender allows only a few emails per hour and often lands in spam. If sending fails, the address is still on the list: the person can request a sign-in link on the login page themselves.",
+      "listTitle": "Invitations",
+      "empty": "No invitations yet.",
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "addedOn": "Added on",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke invitation?",
+      "revokeBody": "The address is removed from the list and an account that was never used is deleted.",
+      "cancel": "Cancel",
+      "errors": {
+        "forbidden": "Only admins can invite.",
+        "invalid": "Please enter a valid email address.",
+        "rate_limited": "Too many invitations in a short time. Please try again later.",
+        "already_member": "This address already has an account.",
+        "email_failed": "The address is on the list, but the email could not be sent (send limit?). The person can request a sign-in link on the login page themselves.",
+        "conflict": "This person has signed in in the meantime. The account stays.",
+        "not_found": "The invitation no longer exists.",
+        "failed": "That did not work. Please try again later."
+      }
     }
   }
 }

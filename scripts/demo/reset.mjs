@@ -192,15 +192,6 @@ const PASSAU = {
   dest_lon: 13.43122,
   dest_timezone: "Europe/Berlin",
 };
-const MARBELLA = {
-  dest_geo_id: 2514169,
-  dest_place_name: "Marbella",
-  dest_country_code: "ES",
-  dest_admin1: "Andalusien",
-  dest_lat: 36.51543,
-  dest_lon: -4.88583,
-  dest_timezone: "Europe/Madrid",
-};
 {
   const groupIds = {};
   const { data: groups, error: gErr } = await sb.from("travel_groups").select("id, name").eq("owner_id", userId);

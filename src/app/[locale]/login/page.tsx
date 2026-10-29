@@ -10,10 +10,10 @@ export default async function LoginPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; invited?: string }>;
 }) {
   const { locale } = await params;
-  const { error } = await searchParams;
+  const { error, invited } = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations("login");
   const tn = await getTranslations("nav");
@@ -25,7 +25,7 @@ export default async function LoginPage({
       </Link>
       <div className="flex flex-col gap-6 rounded-[14px] border border-line bg-card p-5 sm:p-8">
         <h1 className="text-3xl font-bold sm:text-4xl">{t("title")}</h1>
-        <LoginForm linkInvalid={error === "link_invalid"} />
+        <LoginForm linkInvalid={error === "link_invalid"} invited={invited === "1"} />
         {isDemoEnabled() && <DemoLogin />}
       </div>
       <Link href="/" className={`text-sm ${linkCls}`}>
