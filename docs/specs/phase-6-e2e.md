@@ -29,3 +29,9 @@ Not covered: "iterate" with the AI (AI is off; the code-only edits are covered),
 - **[D8] CI job `e2e`** runs in parallel with `check` and `db-test`: local Supabase (same minimal service list as `db-test`), build, Playwright with cached browsers, report and traces uploaded on failure. The reporter also emits GitHub annotations so failures are readable without downloading logs.
 - **[D9] Keys.** `scripts/e2e/env.sh` reads the URL and the (public, well-known) local demo keys from `supabase status`. NEXT_PUBLIC values must be present at build time.
 - **[D10] a11y.** `@axe-core/playwright`, tags wcag2a/aa and wcag21a/aa, only serious/critical fail.
+
+## Results (first green run, 2026-10-29)
+- 32 tests (16 per project) pass; the Playwright step takes about 40 s, the whole `e2e` job about 5 min (Supabase start about 2 min, build 1 min).
+- a11y: axe found one serious issue on the trip page and the share page, `color-contrast` of the small uppercase terracotta eyebrow (`text-accent-text`, about 4.4:1 on the cream page). Fixed by darkening `--accent-text` from `#b4532a` to `#a14a22` in `src/app/globals.css`. The login page had no violations.
+- Retries are off: several flows change data, so a retry would not start from the seed.
+- Gotcha: `browser.newContext()` inherits the project storage state, so the logged-out fixture passes an explicit empty state. The destination test must wait for the geocoded option, because the free-text row appears first.
