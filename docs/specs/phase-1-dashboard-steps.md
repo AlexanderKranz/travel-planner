@@ -91,7 +91,7 @@ Deleting an account (settings) also deletes the user's allowlist row, so a delet
 
 ## 7. Custom SMTP (before inviting anyone else)
 
-Deferred (see `docs/hosting-setup.md`). Until done, only Supabase team members receive magic links.
+Deferred (see `docs/hosting-setup.md`). Until done, only Supabase team members receive magic links. Click-by-click setup (provider candidates, Supabase steps, the **Invite user** template next to Magic Link) is in `docs/runbook.md` section 11. Invites sent from the admin page work with either sender.
 
 ## 8. Vercel environment variables
 
@@ -105,7 +105,7 @@ Requirements: **Authentication -> Sign In / Providers -> Email** must have passw
 
 Set up:
 1. Set `DEMO_ENABLED=true`, `DEMO_EMAIL` (a mailbox-like address, it never receives mail) and `DEMO_PASSWORD` (long random, e.g. `openssl rand -base64 32`) in `.env.local` and in Vercel (Production, and Preview if wanted). Server-only: never `NEXT_PUBLIC_`.
-2. After the migrations are applied (including `20261027120009_demo.sql`), run `npm run demo:reset`. It needs `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` as well, creates the user (or repairs it) and re-seeds the example groups and purposes. Run it again any time to reset the demo data; it is idempotent.
+2. After the migrations are applied (including `20261027120009_demo.sql`), run `npm run demo:reset`. It needs `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` as well, creates the user (or repairs it) and re-seeds the example groups, purposes and trips (one finished example trip with a recorded plan, cost items and a free-text group; no AI call, no share link). Run it again any time to reset the demo data; it is idempotent.
 3. Redeploy so Vercel picks up the variables.
 
 Switch off: set `DEMO_ENABLED=false` (or remove it) and redeploy. The button disappears and `signInDemo` refuses. Existing demo sessions stay valid until the JWT expires (1 hour) unless you also delete the user.
