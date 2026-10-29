@@ -63,6 +63,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false # no step pushes; keep the token out of .git/config
 
       - name: Install PostgreSQL client ${{ env.PG_MAJOR }}
         run: |
@@ -155,6 +157,7 @@ jobs:
 
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          persist-credentials: false # no step pushes; keep the token out of .git/config
           fetch-depth: 0 # the backup's git commit must be reachable to get its migrations
 
       - name: Install PostgreSQL client ${{ env.PG_MAJOR }}
