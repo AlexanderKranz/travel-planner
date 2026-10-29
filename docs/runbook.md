@@ -301,3 +301,14 @@ Steps (Supabase dashboard; menu names move occasionally, search for "SMTP" if th
 - "Added to the list, but the email could not be sent": the hourly mail limit (built-in sender) or an SMTP error. Wait, or tell the person to use the login page.
 - "This address already has an account": the person exists; nothing to do.
 - Revoked by mistake: invite again. A person who already signed in cannot be revoked here (their account stays); remove them by deleting the account (Settings -> delete account for themselves, or Dashboard -> Authentication -> Users).
+
+## 12. Runtime settings (admin page "Einstellungen")
+
+The switches and limits that used to need a Vercel env var change and a redeploy are editable on the admin page: AI plans on/off, demo access on/off, the five AI budgets (`AI_USER_DAILY_USD`, `AI_ADMIN_DAILY_USD`, `AI_DEMO_DAILY_USD`, `AI_GLOBAL_DAILY_USD`, `AI_MONTHLY_ALERT_USD`), `AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`, `ORS_DAILY_REQUESTS` and `ALERT_ERRORS_24H`. Secrets (API keys, `CRON_SECRET`, Supabase keys, `DEMO_PASSWORD`) are not settings and never appear there. Spec: `docs/specs/phase-6-hardening.md` section 6.
+
+- **Precedence:** admin value, else the environment variable, else the code default. The environment variables are therefore now the *defaults*; keep them as they are or remove them. Each row shows the effective value and its source (Admin / Umgebungsvariable / Standard).
+- **Zurücksetzen** deletes the admin value, so the environment variable or default applies again.
+- **Emergency off stays in Vercel:** `AI_ENABLED=false` or `DEMO_ENABLED=false` in the Vercel environment cannot be overridden from the admin page; the row then shows "Per Umgebungsvariable gesperrt" and the toggle is disabled. To switch AI or the demo off even if the admin page or database is unavailable, set the variable to `false` and redeploy. (Unset or any other value does not lock: then the admin value decides, default off.)
+- **Timing:** a save takes effect at once on the instance that handled it; other instances re-read within 30 seconds. After the first deploy of this feature the switches start from the env values.
+- **If the settings table cannot be read** the app uses the environment variables and defaults (finite budgets, never unlimited) and tries again after a few seconds. The migration `20261102120026_app_settings.sql` must be applied (merge to `main`, **Deploy database migrations** green) before values can be saved; until then the page shows the env values and saving fails with a friendly error.
+- **Audit:** every change writes an `app_events` row `settings.changed` (key, old value, new value, no user shown on the page). The last 20 are listed under the settings.

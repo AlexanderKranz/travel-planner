@@ -4,6 +4,7 @@ import { isDemoEnabled } from "@/lib/server/demo";
 import { LoginForm } from "@/components/auth/login-form";
 import { Link } from "@/i18n/navigation";
 import { linkCls } from "@/components/ui/styles";
+import { getEffectiveEnv } from "@/lib/server/settings";
 
 export default async function LoginPage({
   params,
@@ -26,7 +27,7 @@ export default async function LoginPage({
       <div className="flex flex-col gap-6 rounded-[14px] border border-line bg-card p-5 sm:p-8">
         <h1 className="text-3xl font-bold sm:text-4xl">{t("title")}</h1>
         <LoginForm linkInvalid={error === "link_invalid"} invited={invited === "1"} />
-        {isDemoEnabled() && <DemoLogin />}
+        {isDemoEnabled(await getEffectiveEnv()) && <DemoLogin />}
       </div>
       <Link href="/" className={`text-sm ${linkCls}`}>
         {t("home")}

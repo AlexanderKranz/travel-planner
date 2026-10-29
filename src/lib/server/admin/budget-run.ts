@@ -6,6 +6,7 @@ import { createSupabaseAdminClient } from "../supabase/admin";
 import { evaluateBudget, type Alert, type AlertKind, type BudgetMetrics } from "./budget";
 import { readBudgetConfig, type BudgetConfig } from "./config";
 import { adminPeriods, type AdminPeriods } from "./periods";
+import { getEffectiveEnv } from "../settings";
 
 export type BudgetDeps = {
   config: BudgetConfig;
@@ -86,11 +87,12 @@ async function logRun(summary: { alerts: number; sent: number }): Promise<void> 
   await logEvent({ event: "cron.budget_check", route: "cron:budget-check", props: summary });
 }
 
-export function defaultBudgetDeps(): BudgetDeps {
-  return { config: readBudgetConfig(), readMetrics, alreadySent, deliver, logRun };
+export async function defaultBudgetDeps(): Promise<BudgetDeps> {
+  return { config: readBudgetConfig(await getEffectiveEnv()), readMetrics, alreadySent, deliver, logRun };
 }
 
-export async function runBudgetCheck(now: Date = new Date(), deps: BudgetDeps = defaultBudgetDeps()): Promise<BudgetRunResult> {
+export async function runBudgetCheck(now: Date = new Date(), deps?: BudgetDeps): Promise<BudgetRunResult> {
+  deps ??= await defaultBudgetDeps();
   const p = adminPeriods(now);
   const metrics = await deps.readMetrics(p);
   const alerts = evaluateBudget(metrics, deps.config);

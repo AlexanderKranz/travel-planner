@@ -689,6 +689,31 @@ select is((select (v ->> 'errors')::int from jsonb_array_elements(public.admin_a
 select ok(public.admin_ai_stats(date_trunc('day', now()), date_trunc('month', now())) ? 'byTask', 'ai stats: has byTask');
 select throws_ok($$insert into public.api_calls (provider, endpoint, cache, ok, variant) values ('overpass', 'x', 'miss', true, 'Bad Host!')$$, '23514', null, 'api_calls.variant is constrained');
 
+-- ---------- phase 6 hardening: app_settings (migration 20261102120026) ----------
+reset role;
+select ok((select relrowsecurity from pg_class where oid = 'public.app_settings'::regclass), 'RLS enabled on app_settings');
+select is((select count(*)::int from pg_policies where schemaname = 'public' and tablename = 'app_settings'), 0, 'app_settings has no policies');
+select ok(not has_table_privilege('anon', 'public.app_settings', 'select'), 'anon has no select on app_settings');
+select ok(not has_table_privilege('authenticated', 'public.app_settings', 'select'), 'authenticated has no select on app_settings');
+select ok(not has_table_privilege('authenticated', 'public.app_settings', 'insert'), 'authenticated has no insert on app_settings');
+select ok(not has_table_privilege('authenticated', 'public.app_settings', 'update'), 'authenticated has no update on app_settings');
+select ok(not has_table_privilege('authenticated', 'public.app_settings', 'delete'), 'authenticated has no delete on app_settings');
+select ok(has_table_privilege('service_role', 'public.app_settings', 'select'), 'service_role can select app_settings');
+select ok(has_table_privilege('service_role', 'public.app_settings', 'insert'), 'service_role can insert app_settings');
+insert into public.app_settings (key, value) values ('ai_enabled', 'true'::jsonb);
+select throws_ok($$insert into public.app_settings (key, value) values ('x', '"a secret string"'::jsonb)$$, '23514', null, 'values must be boolean or number (no strings, so no secrets by accident)');
+select throws_ok($$insert into public.app_settings (key, value) values ('Bad Key!', '1'::jsonb)$$, '23514', null, 'key format is constrained');
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select throws_ok($$select * from public.app_settings$$, '42501', null, 'user cannot select app_settings');
+select throws_ok($$insert into public.app_settings (key, value) values ('ai_user_daily_usd', '100'::jsonb)$$, '42501', null, 'user cannot insert into app_settings');
+reset role;
+set local request.jwt.claims = '{"sub":"cccccccc-0000-4000-8000-000000000003","role":"authenticated"}';
+set local role authenticated;
+select throws_ok($$select * from public.app_settings$$, '42501', null, 'admin session cannot select app_settings (only the server with the secret key)');
+select throws_ok($$update public.app_settings set value = 'false'::jsonb$$, '42501', null, 'admin session cannot update app_settings');
+reset role;
+
 select * from finish();
 rollback;
 

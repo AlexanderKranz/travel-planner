@@ -1,5 +1,6 @@
 import "server-only";
 import { createSupabaseAdminClient } from "./supabase/admin";
+import { getEffectiveEnv } from "./settings";
 
 /**
  * Quota guard for AeroDataBox (RapidAPI Basic: 400 units/month). Spec phase 4, section 1.3.
@@ -14,8 +15,8 @@ export class QuotaGuardError extends Error {
 
 export type QuotaState = { usedToday: number; dailyCap: number; remaining: number | null; minRemaining: number };
 
-function intEnv(name: string, fallback: number): number {
-  const n = Number.parseInt(process.env[name] ?? "", 10);
+function intEnvFrom(env: Record<string, string | undefined>, name: string, fallback: number): number {
+  const n = Number.parseInt(env[name] ?? "", 10);
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
@@ -38,6 +39,7 @@ export function berlinMidnightUtc(now: Date = new Date()): Date {
 }
 
 export async function getQuotaState(now: Date = new Date()): Promise<QuotaState> {
+  const env = await getEffectiveEnv(); // admin-page settings > env > defaults
   const admin = createSupabaseAdminClient();
   const since = berlinMidnightUtc(now).toISOString();
   const [sum, last] = await Promise.all([
@@ -54,9 +56,9 @@ export async function getQuotaState(now: Date = new Date()): Promise<QuotaState>
   const usedToday = (sum.data ?? []).reduce((n, r) => n + (r.units ?? 0), 0);
   return {
     usedToday,
-    dailyCap: intEnv("AERODATABOX_DAILY_UNITS", 40),
+    dailyCap: intEnvFrom(env, "AERODATABOX_DAILY_UNITS", 40),
     remaining: last.data?.[0]?.quota_remaining ?? null,
-    minRemaining: intEnv("AERODATABOX_MIN_REMAINING", 40),
+    minRemaining: intEnvFrom(env, "AERODATABOX_MIN_REMAINING", 40),
   };
 }
 

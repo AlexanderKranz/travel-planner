@@ -6,6 +6,7 @@ import { ORS_MAX_DESTINATIONS, fetchDriveMatrix, type LonLat } from "@/lib/integ
 import { cacheKey, cached } from "../api-cache";
 import { berlinMidnightUtc, QuotaGuardError } from "../flights-quota";
 import { createSupabaseAdminClient } from "../supabase/admin";
+import { getEffectiveEnv } from "../settings";
 
 /** Drive time and road distance from the destination point, per OSM key. Only reachable places are present. */
 export type DriveTimes = { byKey: Record<string, { min: number; km: number }>; fetchedAt: string };
@@ -23,7 +24,7 @@ export function orsDailyCap(env: Record<string, string | undefined> = process.en
 
 /** Throws QuotaGuardError when today's network requests (Berlin day) reached the cap. Fails closed. */
 async function assertOrsQuota(): Promise<void> {
-  const cap = orsDailyCap();
+  const cap = orsDailyCap(await getEffectiveEnv());
   let used: number;
   try {
     const admin = createSupabaseAdminClient();

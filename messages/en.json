@@ -1285,6 +1285,54 @@
         "not_found": "The invitation no longer exists.",
         "failed": "That did not work. Please try again later."
       }
+    },
+    "settings": {
+      "title": "Settings",
+      "intro": "Switches and limits you can change here without a restart. Order: admin value, then environment variable, then default. A change takes effect at once on this instance; other instances catch up within 30 seconds. Secrets (API keys) are never stored here.",
+      "effective": "Current",
+      "source": "Source",
+      "sources": {
+        "admin": "Admin",
+        "env": "Environment variable",
+        "default": "Default"
+      },
+      "locked": "Locked by environment variable",
+      "lockedHint": "The variable is set to false (emergency off). It can only be changed in the Vercel environment variables.",
+      "save": "Save",
+      "reset": "Reset",
+      "saved": "Saved.",
+      "resetDone": "Reset.",
+      "on": "On",
+      "off": "Off",
+      "range": "Allowed: {min} to {max}",
+      "groups": {
+        "switches": "Switches",
+        "ai": "AI budgets (USD per Berlin day, month for the alert)",
+        "quotas": "Quotas and alerts"
+      },
+      "labels": {
+        "ai_enabled": "AI plans",
+        "demo_enabled": "Demo access",
+        "ai_user_daily_usd": "AI budget per user per day (USD)",
+        "ai_admin_daily_usd": "AI budget per admin per day (USD)",
+        "ai_demo_daily_usd": "AI budget demo account per day (USD)",
+        "ai_global_daily_usd": "AI budget total per day (USD)",
+        "ai_monthly_alert_usd": "AI alert per month (USD)",
+        "aerodatabox_daily_units": "AeroDataBox: units per day",
+        "aerodatabox_min_remaining": "AeroDataBox: monthly safety margin",
+        "ors_daily_requests": "OpenRouteService: requests per day",
+        "alert_errors_24h": "Error alert: errors in 24 hours"
+      },
+      "errors": {
+        "forbidden": "Not allowed (admin required, or locked by an environment variable).",
+        "invalid": "The value is invalid or outside the allowed range.",
+        "rate_limited": "Too many changes in a short time. Please wait a minute.",
+        "failed": "That did not work. Please try again later."
+      },
+      "changesTitle": "Recent changes",
+      "changesEmpty": "No changes yet.",
+      "changeLine": "{key}: {old} → {new}",
+      "noValue": "-"
     }
   },
   "errorPage": {

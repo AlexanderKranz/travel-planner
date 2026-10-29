@@ -53,6 +53,7 @@ import { getPurpose } from "./purposes";
 import { rateLimit } from "./rate-limit";
 import { getUserSession } from "./session";
 import { getTrip } from "./trips";
+import { getEffectiveEnv } from "./settings";
 
 /**
  * Generation waits for places [D1]: up to 110 s Overpass + ~10 s drive times + 140 s Sonnet stays inside the
@@ -135,7 +136,7 @@ async function budgetInfo(c: PlanContext): Promise<BudgetInfo> {
   try {
     return await getBudgetStatus(c.session.userId, c.role, c.isDemo);
   } catch {
-    const cap = userCapMicroUsd(c.role, c.isDemo);
+    const cap = userCapMicroUsd(c.role, c.isDemo, await getEffectiveEnv());
     return {
       spentMicroUsd: cap,
       capMicroUsd: cap,
@@ -169,11 +170,12 @@ export async function loadPlanState(
   try {
     const row = await getPlanRow(c.sb, c.trip.id);
     const versions = row ? await listVersionMetas(c.sb, row.id) : [];
-    const aiEnabled = isAiEnabled();
+    const env = await getEffectiveEnv();
+    const aiEnabled = isAiEnabled(env);
     const busy = isBusy(row);
     // While busy the client only polls for completion: skip the two admin aggregate queries (budget is static then).
     const info = busy
-      ? { spentMicroUsd: 0, capMicroUsd: userCapMicroUsd(c.role, c.isDemo), resetsAt: berlinMidnight(new Date(), 1).toISOString(), globalSpentMicroUsd: 0, globalCapMicroUsd: 1 }
+      ? { spentMicroUsd: 0, capMicroUsd: userCapMicroUsd(c.role, c.isDemo, env), resetsAt: berlinMidnight(new Date(), 1).toISOString(), globalSpentMicroUsd: 0, globalCapMicroUsd: 1 }
       : await budgetInfo(c);
     const exhausted = info.globalSpentMicroUsd >= info.globalCapMicroUsd;
     const budget = {
@@ -242,10 +244,10 @@ function diffDays(a: Plan, b: Plan): number[] {
 }
 
 /** Common gate: rate limit + AI switch. */
-function gate(userId: string): PipelineError | null {
+async function gate(userId: string): Promise<PipelineError | null> {
   const rl = rateLimit(`plan:${userId}`, 2, 60_000);
   if (!rl.ok) return err("rate_limited", { retryAfter: rl.retryAfterSeconds });
-  if (!isAiEnabled()) return err("ai_disabled");
+  if (!isAiEnabled(await getEffectiveEnv())) return err("ai_disabled");
   return null;
 }
 
@@ -268,7 +270,7 @@ export async function generatePlan(
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
   const c = loaded.ctx;
-  const g = gate(c.session.userId);
+  const g = await gate(c.session.userId);
   if (g) return g;
   if (c.trip.lengthDays > MAX_PLAN_DAYS) return err("too_long");
 
@@ -418,7 +420,7 @@ export async function iteratePlan(
   if (!fb.success || !z.number().int().min(1).safeParse(baseVersion).success) {
     return err("invalid", fb.success ? undefined : { issues: fb.error.issues.map((i) => ({ path: i.path.map(String).join("."), message: i.message })) });
   }
-  const g = gate(c.session.userId);
+  const g = await gate(c.session.userId);
   if (g) return g;
   if (c.trip.lengthDays > MAX_PLAN_DAYS) return err("too_long");
 

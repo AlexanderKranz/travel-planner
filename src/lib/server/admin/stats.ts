@@ -8,6 +8,7 @@ import { requireAdmin } from "./gate";
 import { adminPeriods } from "./periods";
 import { ApiStatsRaw, AiStatsRaw, RecentEventsRaw, UsageStatsRaw, UserStatsRaw } from "./schema";
 import { shapeDashboard } from "./shape";
+import { getEffectiveEnv } from "../settings";
 
 type Env = Record<string, string | undefined>;
 
@@ -46,12 +47,13 @@ export async function getAdminDashboard(now: Date = new Date()) {
     rpc("admin_api_stats", { p_day_start: day, p_month_start: month }, ApiStatsRaw),
     rpc("admin_recent_events", { p_limit: 50 }, RecentEventsRaw),
   ]);
-  return shapeDashboard({ users, usage, ai, api, events }, readBudgetConfig());
+  return shapeDashboard({ users, usage, ai, api, events }, readBudgetConfig(await getEffectiveEnv()));
 }
 
 /** DB reachability, feature switches, key presence and the last cron run (timestamp only). Admin only. */
-export async function getHealthInfo(env: Env = process.env) {
+export async function getHealthInfo(envArg?: Env) {
   await requireAdmin();
+  const env = envArg ?? (await getEffectiveEnv());
   const db = await checkDb();
   let lastCronAt: string | null = null;
   try {
