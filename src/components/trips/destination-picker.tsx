@@ -144,7 +144,7 @@ export function DestinationPicker({
     return (
       <fieldset className="flex flex-col gap-3">
         {legend}
-        <div className="flex items-center justify-between gap-2 rounded-md border border-neutral-300 p-2 pl-3 dark:border-neutral-700">
+        <div className="flex items-center justify-between gap-2 rounded-md border border-line p-2 pl-3">
           <p className="min-w-0 text-sm">
             <span className={`block ${mutedCls}`}>{t("anchor")}</span>
             <strong className="break-words">{value.placeLabel}</strong>
@@ -159,7 +159,7 @@ export function DestinationPicker({
             {(["city", "region"] as const).map((k) => (
               <label
                 key={k}
-                className="flex min-h-11 cursor-pointer items-center justify-center rounded-md border border-neutral-400 px-3 text-sm dark:border-neutral-500 has-[:checked]:border-blue-700 has-[:checked]:bg-blue-700 has-[:checked]:text-white dark:has-[:checked]:border-blue-400 dark:has-[:checked]:bg-blue-400 dark:has-[:checked]:text-neutral-950 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-blue-600"
+                className="flex min-h-11 cursor-pointer items-center justify-center rounded-md border border-line-strong px-3 text-sm has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-white has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus"
               >
                 <input
                   type="radio"
@@ -296,7 +296,7 @@ export function DestinationPicker({
             id={`${id}-list`}
             role="listbox"
             aria-label={t("results")}
-            className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-md border border-neutral-400 bg-background shadow-lg dark:border-neutral-500"
+            className="absolute z-10 mt-1 max-h-72 w-full overflow-auto rounded-md border border-line-strong bg-card shadow-lg"
           >
             {results.map((p, i) => (
               <li
@@ -307,7 +307,7 @@ export function DestinationPicker({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pickPlace(p)}
                 className={`flex min-h-11 cursor-pointer items-center px-3 py-1 text-sm ${
-                  i === active ? "bg-blue-100 dark:bg-blue-950" : ""
+                  i === active ? "bg-info-bg" : ""
                 }`}
               >
                 {label(p)}
@@ -319,8 +319,8 @@ export function DestinationPicker({
               aria-selected={active === results.length}
               onMouseDown={(e) => e.preventDefault()}
               onClick={pickFreeText}
-              className={`flex min-h-11 cursor-pointer items-center border-t border-neutral-300 px-3 py-1 text-sm dark:border-neutral-700 ${
-                active === results.length ? "bg-blue-100 dark:bg-blue-950" : ""
+              className={`flex min-h-11 cursor-pointer items-center border-t border-line px-3 py-1 text-sm ${
+                active === results.length ? "bg-info-bg" : ""
               }`}
             >
               {t("useFreeText", { query: q })}

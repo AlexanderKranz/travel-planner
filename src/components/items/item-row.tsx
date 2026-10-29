@@ -31,12 +31,12 @@ export function ItemRow({
   const host = hostOf(item.url);
   const rejected = item.status === "rejected";
   return (
-    <li className="min-w-0 rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
+    <li className="min-w-0 rounded-[14px] border border-line bg-card p-3">
       <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 basis-48">
           <p className="flex flex-wrap items-baseline gap-x-2">
             <span
-              className={`rounded bg-neutral-100 px-1.5 py-px text-[0.7rem] font-medium uppercase tracking-wide dark:bg-neutral-800 ${mutedCls}`}
+              className={`rounded bg-sunken px-1.5 py-px text-[0.7rem] font-medium uppercase tracking-wide ${mutedCls}`}
             >
               {t(`categories.${item.category}`)}
             </span>

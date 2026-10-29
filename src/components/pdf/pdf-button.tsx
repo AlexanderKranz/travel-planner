@@ -32,7 +32,7 @@ export function PdfButton({ href, label, busyLabel, errorText }: { href: string;
         {busy ? busyLabel : label}
       </button>
       {failed && (
-        <p role="alert" className="text-sm text-red-700 dark:text-red-400">
+        <p role="alert" className="text-sm text-danger">
           {errorText}
         </p>
       )}

@@ -13,7 +13,7 @@ export default async function GroupsPage({ params }: { params: Promise<{ locale:
   return (
     <main className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl">{t("title")}</h1>
         <Link href="/app/groups/new" className={btnPrimary}>
           {t("new")}
         </Link>
@@ -27,9 +27,9 @@ export default async function GroupsPage({ params }: { params: Promise<{ locale:
             <li key={g.id}>
               <Link
                 href={`/app/groups/${g.id}`}
-                className={`${cardCls} block hover:bg-neutral-100 dark:hover:bg-neutral-900 ${focusCls}`}
+                className={`${cardCls} block hover:bg-hover ${focusCls}`}
               >
-                <span className="block font-semibold">{g.name}</span>
+                <span className="block font-serif text-xl font-bold text-heading">{g.name}</span>
                 <span className={`block text-sm ${mutedCls}`}>
                   {t("entryCount", { count: g.entryCount })}
                 </span>

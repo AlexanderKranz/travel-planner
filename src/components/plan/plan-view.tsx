@@ -65,7 +65,7 @@ export function PlanView({
   return (
     <DriveTimesScope hasDrive={hasDrive} className="flex min-w-0 flex-col gap-4" header={<PlanHeader plan={plan} uiLocale={locale} />}>
       {!state.isLatest && (
-        <p role="note" className="rounded-md border border-blue-600 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100">
+        <p role="note" className="rounded-lg border border-info-line bg-info-bg p-3 text-sm text-info-fg">
           {t("viewingOld", { n: meta.versionNo })}{" "}
           <Link href={`/app/trips/${state.tripId}`} scroll={false} className={`${linkCls} inline-flex min-h-11 items-center`}>
             {t("backToLatest")}
@@ -73,7 +73,7 @@ export function PlanView({
         </p>
       )}
       {state.outdated && state.isLatest && (
-        <div role="note" className="flex flex-col gap-2 rounded-md border border-amber-600 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-100">
+        <div role="note" className="flex flex-col gap-2 rounded-lg border border-warn-line bg-warn-bg p-3 text-sm text-warn-fg">
           <p>
             <span className="font-medium">{t("outdated.title")}</span> {t("outdated.body")}
           </p>
@@ -81,7 +81,7 @@ export function PlanView({
         </div>
       )}
       {items.changed && state.isLatest && !state.outdated && (
-        <p role="note" className="rounded-md border border-neutral-400 px-3 py-2 text-sm dark:border-neutral-500">
+        <p role="note" className="rounded-md border border-line-strong px-3 py-2 text-sm">
           {t("itemsChanged")}
         </p>
       )}

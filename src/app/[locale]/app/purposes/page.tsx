@@ -13,7 +13,7 @@ export default async function PurposesPage({ params }: { params: Promise<{ local
   return (
     <main className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">{t("title")}</h1>
+        <h1 className="text-3xl font-bold sm:text-4xl">{t("title")}</h1>
         <Link href="/app/purposes/new" className={btnPrimary}>
           {t("new")}
         </Link>
@@ -27,9 +27,9 @@ export default async function PurposesPage({ params }: { params: Promise<{ local
             <li key={p.id}>
               <Link
                 href={`/app/purposes/${p.id}`}
-                className={`${cardCls} block hover:bg-neutral-100 dark:hover:bg-neutral-900 ${focusCls}`}
+                className={`${cardCls} block hover:bg-hover ${focusCls}`}
               >
-                <span className="block font-semibold">{p.name}</span>
+                <span className="block font-serif text-xl font-bold text-heading">{p.name}</span>
                 {p.text && <span className={`block truncate text-sm ${mutedCls}`}>{p.text}</span>}
               </Link>
             </li>

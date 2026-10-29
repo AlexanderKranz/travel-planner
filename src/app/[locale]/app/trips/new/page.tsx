@@ -16,7 +16,7 @@ export default async function NewTripPage({ params }: { params: Promise<{ locale
   const [groups, purposes, profile] = await Promise.all([listGroups(), listPurposes(), getProfile()]);
   return (
     <main className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{t("newTitle")}</h1>
+      <h1 className="text-3xl font-bold sm:text-4xl">{t("newTitle")}</h1>
       <TripForm
         groups={unwrap(groups, locale).map(({ id, name }) => ({ id, name }))}
         purposes={unwrap(purposes, locale).map(({ id, name }) => ({ id, name }))}

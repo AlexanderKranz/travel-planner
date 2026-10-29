@@ -159,7 +159,7 @@ export function PlanRunner({
           <p className="flex items-center gap-2">
             <span
               aria-hidden="true"
-              className="inline-block size-4 shrink-0 animate-spin rounded-full border-2 border-neutral-400 border-t-transparent motion-reduce:animate-none"
+              className="inline-block size-4 shrink-0 animate-spin rounded-full border-2 border-line-strong border-t-transparent motion-reduce:animate-none"
             />
             <span>{watchOnly || initialBusy ? t("busyElsewhere") : t(stage)}</span>
           </p>
@@ -196,7 +196,7 @@ export function PlanErrorBanner({ error }: { error: ActionError | null }) {
   return (
     <div
       role="alert"
-      className="rounded-md border border-red-600 bg-red-50 p-3 text-sm text-red-900 dark:border-red-400 dark:bg-red-950 dark:text-red-100"
+      className="rounded-lg border border-danger-line bg-danger-bg p-3 text-sm text-danger-fg"
     >
       {t(error)}
     </div>

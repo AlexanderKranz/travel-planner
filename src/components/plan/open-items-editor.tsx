@@ -48,7 +48,7 @@ export function OpenItemsEditor({
   }
 
   return (
-    <section aria-labelledby="plan-open" className="rounded-lg border border-neutral-300 p-3 dark:border-neutral-700 sm:p-4">
+    <section aria-labelledby="plan-open" className="rounded-[14px] border border-line bg-card p-4 sm:p-5">
       <h3 id="plan-open" className="mb-1 text-base font-semibold">
         {t("openItems.title")}
       </h3>
@@ -61,7 +61,7 @@ export function OpenItemsEditor({
               <label className="flex min-h-11 items-center gap-3">
                 <input
                   type="checkbox"
-                  className="size-5 shrink-0 accent-blue-700"
+                  className="size-5 shrink-0 accent-accent"
                   checked={isDone}
                   aria-label={isDone ? t("openItems.markOpen", { text: it.text }) : t("openItems.markDone", { text: it.text })}
                   onChange={(e) => toggle(key, e.target.checked)}

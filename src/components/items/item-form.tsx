@@ -115,8 +115,8 @@ export function ItemForm({
 
   const currencies = CURRENCIES.includes(currency as (typeof CURRENCIES)[number]) ? CURRENCIES : [...CURRENCIES, currency];
   const radio = (v: Basis, label: string) => (
-    <label className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-neutral-400 px-3 text-sm has-[:checked]:border-blue-700 has-[:checked]:bg-blue-50 has-[:checked]:font-semibold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-blue-600 dark:border-neutral-500 dark:has-[:checked]:border-blue-400 dark:has-[:checked]:bg-blue-950">
-      <input type="radio" name="basis" value={v} checked={basis === v} onChange={() => setBasis(v)} className="size-4 accent-blue-700" />
+    <label className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-md border border-line-strong px-3 text-sm has-[:checked]:border-info-line has-[:checked]:bg-info-bg has-[:checked]:font-semibold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-focus">
+      <input type="radio" name="basis" value={v} checked={basis === v} onChange={() => setBasis(v)} className="size-4 accent-accent" />
       {label}
     </label>
   );
@@ -129,7 +129,7 @@ export function ItemForm({
         e.preventDefault();
         onClose();
       }}
-      className="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto bg-background p-4 text-foreground backdrop:bg-black/50 sm:m-auto sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-lg sm:border sm:border-neutral-400 sm:p-5"
+      className="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto bg-card p-4 text-ink backdrop:bg-black/50 sm:m-auto sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-lg sm:border sm:border-line-strong sm:p-5"
     >
       <form onSubmit={submit} noValidate className="flex flex-col gap-3">
         <h2 id={titleId} className="text-lg font-semibold">

@@ -94,7 +94,7 @@ export function ShareCreate({ tripId, disabledReason }: { tripId: string; disabl
       </form>
       <ErrorBanner error={error} />
       {url && (
-        <div className="flex flex-col gap-2 rounded-md border border-green-700 bg-green-50 p-3 text-green-950 dark:border-green-400 dark:bg-green-950 dark:text-green-100">
+        <div className="flex flex-col gap-2 rounded-lg border border-ok-line bg-ok-bg p-3 text-ok-fg">
           <label htmlFor={urlId} className="text-sm font-medium">
             {t("createdTitle")}: {t("linkLabel")}
           </label>

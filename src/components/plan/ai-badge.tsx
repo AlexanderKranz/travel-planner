@@ -8,7 +8,7 @@ export function AiBadge() {
       title={t("aiTooltip")}
       aria-label={t("aiTooltip")}
       role="img"
-      className="inline-flex items-center rounded-full border border-violet-700 bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-950 dark:border-violet-400 dark:bg-violet-950 dark:text-violet-100"
+      className="inline-flex items-center rounded-full bg-accent-soft px-3 py-1 text-xs font-semibold text-accent-soft-fg"
     >
       {t("aiBadge")}
     </span>

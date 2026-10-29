@@ -9,7 +9,7 @@ export function ErrorBanner({ error }: { error: ActionError | null }) {
   return (
     <div
       role="alert"
-      className="rounded-md border border-red-600 bg-red-50 p-3 text-sm text-red-900 dark:border-red-400 dark:bg-red-950 dark:text-red-100"
+      className="rounded-lg border border-danger-line bg-danger-bg p-3 text-sm text-danger-fg"
     >
       {t(error)}{" "}
       {error === "unauthenticated" && (

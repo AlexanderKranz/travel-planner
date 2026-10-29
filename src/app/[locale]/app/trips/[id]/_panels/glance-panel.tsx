@@ -6,8 +6,7 @@ import { WeatherTable } from "@/components/facts/weather-table";
 import { getCountryFacts, getDaylightFacts, getWeatherFacts } from "@/lib/server/facts";
 import type { PanelProps } from "./types";
 
-export const glanceAsideCls =
-  "order-2 min-w-0 rounded-lg border border-neutral-200 bg-neutral-50 p-4 lg:col-start-2 lg:row-start-1 dark:border-neutral-800 dark:bg-neutral-900";
+export const glanceAsideCls = "min-w-0";
 
 /**
  * Awaits weather, daylight and country together (cached, fast) and renders the "At a glance"
@@ -22,9 +21,9 @@ export async function GlancePanel({ trip, ctx }: PanelProps) {
   ]);
   const fallbackMonth = Number(ctx.today.slice(5, 7));
   return (
-    <>
-      <aside aria-labelledby="glance-title" className={glanceAsideCls}>
-        <h2 id="glance-title" className="mb-3 text-lg font-bold">{t("glance.title")}</h2>
+     <div className="flex min-w-0 flex-col gap-3">
+      <section aria-labelledby="glance-title" className={glanceAsideCls}>
+        <h2 id="glance-title" className="sr-only">{t("glance.title")}</h2>
         <GlanceCard
           weather={weather}
           daylight={daylight}
@@ -32,9 +31,9 @@ export async function GlancePanel({ trip, ctx }: PanelProps) {
           fallbackMonth={fallbackMonth}
           locale={ctx.locale}
         />
-      </aside>
+      </section>
       {(weather.status === "ok" || daylight.status === "ok") && (
-        <div className="order-4 flex min-w-0 flex-col gap-2 lg:col-span-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <FactDetails title={t("weather.detailsTitle")} fact={weather}>
             {(data) => <WeatherTable data={data} locale={ctx.locale} />}
           </FactDetails>
@@ -43,6 +42,6 @@ export async function GlancePanel({ trip, ctx }: PanelProps) {
           </FactDetails>
         </div>
       )}
-    </>
+    </div>
   );
 }

@@ -12,11 +12,11 @@ import { SourceNote } from "./source-note";
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
 
 const badgeCls: Record<PairState, string> = {
-  found: "border-green-800 bg-green-800 text-white dark:border-green-300 dark:bg-green-300 dark:text-neutral-950",
-  foundProxy: "border-amber-700 bg-amber-100 text-amber-950 dark:border-amber-400 dark:bg-amber-950 dark:text-amber-100",
-  none: "border-neutral-400 text-neutral-700 dark:border-neutral-500 dark:text-neutral-300",
-  notPublished: "border-neutral-400 text-neutral-700 dark:border-neutral-500 dark:text-neutral-300",
-  notChecked: "border-neutral-400 border-dashed text-neutral-700 dark:border-neutral-500 dark:text-neutral-300",
+  found: "border-ok-solid bg-ok-solid text-white",
+  foundProxy: "border-warn-line bg-warn-bg text-warn-fg",
+  none: "border-line-strong text-muted",
+  notPublished: "border-line-strong text-muted",
+  notChecked: "border-line-strong border-dashed text-muted",
 };
 
 function LegRow({ leg, maxBlockMin }: { leg: FlightLeg; maxBlockMin: number | null }) {
@@ -33,8 +33,8 @@ function LegRow({ leg, maxBlockMin }: { leg: FlightLeg; maxBlockMin: number | nu
               aria-label={t(`weekdays.${d}`)}
               className={`inline-flex size-5 items-center justify-center rounded text-xs ${
                 days.has(d)
-                  ? "bg-neutral-800 text-white dark:bg-neutral-200 dark:text-neutral-950"
-                  : "border border-neutral-300 text-neutral-500 dark:border-neutral-700"
+                  ? "bg-heading text-page"
+                  : "border border-line text-subtle"
               }`}
             >
               {t(`weekdays.${d}`).slice(0, 1)}
@@ -88,7 +88,7 @@ function PairCard({ pair, data, adults, locale, tripId }: { pair: FlightPair; da
         })
       : t(`status.${state}`, { date: date(data.outDate, { dateStyle: "medium" }) });
   return (
-    <li className="min-w-0 rounded-md border border-neutral-300 p-3 dark:border-neutral-700">
+    <li className="min-w-0 rounded-md border border-line p-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <h4 className="text-base font-semibold">
           <span aria-label={`${pair.from} ${t("to")} ${pair.to}`}>
@@ -205,7 +205,7 @@ export function FlightsPanel({ fact, tripId, adults, locale }: { fact: Fact<Flig
         </ul>
       )}
       {d.quotaLimited && (
-        <p role="note" className="mt-3 rounded-md border border-blue-600 bg-blue-50 p-2 text-sm text-blue-950 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100">
+        <p role="note" className="mt-3 rounded-lg border border-info-line bg-info-bg p-2 text-sm text-info-fg">
           {t("quotaLimited")}
         </p>
       )}

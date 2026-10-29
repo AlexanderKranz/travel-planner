@@ -2,7 +2,6 @@
 
 import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
-import { focusCls } from "@/components/ui/styles";
 
 const ITEMS = [
   { href: "/app/trips", key: "trips" },
@@ -16,7 +15,7 @@ export function NavLinks() {
   const pathname = usePathname();
   return (
     <nav aria-label={t("label")}>
-      <ul className="flex flex-wrap gap-1">
+      <ul className="flex flex-wrap gap-x-1 sm:gap-x-3">
         {ITEMS.map(({ href, key }) => {
           const current = pathname === href || pathname.startsWith(`${href}/`);
           return (
@@ -24,10 +23,10 @@ export function NavLinks() {
               <Link
                 href={href}
                 aria-current={current ? "page" : undefined}
-                className={`inline-flex min-h-11 items-center rounded-md px-3 text-sm ${focusCls} ${
+                className={`inline-flex min-h-11 items-center border-b-2 px-3 text-[0.9375rem] font-medium focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-feature-accent ${
                   current
-                    ? "bg-neutral-200 font-semibold dark:bg-neutral-800"
-                    : "hover:bg-neutral-100 dark:hover:bg-neutral-900"
+                    ? "border-nav-underline text-header-fg"
+                    : "border-transparent text-header-muted hover:text-header-fg"
                 }`}
               >
                 {t(key)}

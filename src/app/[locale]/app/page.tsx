@@ -16,7 +16,7 @@ export default async function DashboardPage({
 
   return (
     <main className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">
+      <h1 className="text-3xl font-bold sm:text-4xl">
         {profile.displayName ? t("welcomeNamed", { name: profile.displayName }) : t("welcome")}
       </h1>
       <section className={cardCls} aria-labelledby="trips-title">

@@ -14,7 +14,7 @@ export default async function SourcesPage({ params }: { params: Promise<{ locale
       <Link href="/" className="inline-flex min-h-11 items-center text-sm underline underline-offset-2">
         {t("back")}
       </Link>
-      <h1 className="text-2xl font-bold">{t("title")}</h1>
+      <h1 className="text-3xl font-bold sm:text-4xl">{t("title")}</h1>
       <p className={mutedCls}>{t("intro")}</p>
       <ul className="flex flex-col gap-3">
         {SOURCE_IDS.map((id) => {

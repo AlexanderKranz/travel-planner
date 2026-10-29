@@ -26,7 +26,7 @@ export default async function EditTripPage({
   ]);
   return (
     <main className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">{t("editTitle")}</h1>
+      <h1 className="text-3xl font-bold sm:text-4xl">{t("editTitle")}</h1>
       <TripForm
         trip={unwrap(trip, locale)}
         groups={unwrap(groups, locale).map(({ id, name }) => ({ id, name }))}

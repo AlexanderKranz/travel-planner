@@ -31,7 +31,7 @@ export function ShareLinkRow({ link, now }: { link: ShareLink; now: number }) {
   }
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-lg border border-neutral-300 p-3 dark:border-neutral-700">
+    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-[14px] border border-line bg-card p-3">
       <div className="min-w-0 flex-1 basis-56 text-sm">
         <p className="break-words font-medium">{name}</p>
         <p className={mutedCls}>
