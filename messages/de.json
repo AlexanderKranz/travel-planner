@@ -1355,7 +1355,80 @@
     "actions": "Aktionen",
     "reference": "Referenz",
     "notFoundTitle": "Seite nicht gefunden",
-    "notFoundText": "Diese Seite gibt es nicht oder du hast keinen Zugriff darauf.",
-    "loading": "Wird geladen …"
+    "notFoundText": "Diese Seite gibt es nicht oder du hast keinen Zugriff darauf."
+  },
+  "start": {
+    "eyebrow": "Willkommen",
+    "title": "Erste Schritte",
+    "lead": "In vier kurzen Schritten richtest du ein, was der Reiseplaner über dich wissen darf. Alles ist freiwillig: Du kannst jeden Schritt überspringen und jederzeit zurückkommen.",
+    "skipAll": "Einführung überspringen",
+    "finish": "Fertig, zu meinen Reisen",
+    "finishHint": "Du findest diese Seite jederzeit wieder unter Einstellungen und auf der Reisen-Seite.",
+    "failed": "Das konnte nicht gespeichert werden. Bitte versuche es noch einmal.",
+    "progress": {
+      "label": "Fortschritt der Einführung",
+      "summary": "{done} von {total} Schritten erledigt"
+    },
+    "status": {
+      "done": "Erledigt",
+      "open": "Offen"
+    },
+    "later": "Später",
+    "fillIn": "Jetzt ausfüllen",
+    "skippedNote": "Übersprungen. Du kannst das jederzeit nachholen.",
+    "about": {
+      "title": "Über dich",
+      "airportsWhy": "Mit deinen Heimatflughäfen suchen wir später nur Direktflüge, die wirklich ab dir starten.",
+      "birthdateWhy": "Mit deinem Geburtsdatum rechnen wir „in meinem Alter“ aus und kennen dein Alter am Reisetag.",
+      "done": "Gespeichert. Du kannst das jederzeit in den Einstellungen ändern.",
+      "settings": "Alle Einstellungen öffnen",
+      "edit": "Angaben ändern",
+      "save": "Speichern"
+    },
+    "group": {
+      "title": "Wer reist mit?",
+      "why": "Eine Reisegruppe beschreibt, für wen geplant wird. Ein Satz genügt, Details sind optional.",
+      "example1": "„Wir sind 5 Freunde, alle in meinem Alter“",
+      "example2": "„Familie: Anna (1985), Ben (1983), Mia (2022)“",
+      "examples": "Zwei Beispiele",
+      "name": "Name der Gruppe",
+      "namePlaceholder": "z. B. Familie",
+      "description": "Wer reist?",
+      "descriptionHint": "Frei formuliert. Die App erkennt daraus Anzahl und Alter.",
+      "save": "Gruppe anlegen",
+      "done": "Gruppe „{name}“ angelegt.",
+      "doneExisting": "Du hast schon eine Reisegruppe.",
+      "manage": "Gruppen verwalten",
+      "another": "Weitere Gruppe anlegen"
+    },
+    "purpose": {
+      "title": "Warum reist ihr?",
+      "why": "Ein Reisezweck sagt, worum es geht: Erholung, Sport, Kultur. Frei als Text oder mit Auswahlfeldern, später verwendbar für jede Reise.",
+      "example1": "„Golftrip: flache Plätze, abends gutes Essen“",
+      "example2": "„Städtetrip mit Kind: kurze Wege, Spielplätze“",
+      "examples": "Zwei Beispiele",
+      "name": "Name des Reisezwecks",
+      "namePlaceholder": "z. B. Golftrip",
+      "text": "Worum geht es?",
+      "textHint": "Frei formuliert, optional.",
+      "save": "Reisezweck anlegen",
+      "done": "Reisezweck „{name}“ angelegt.",
+      "doneExisting": "Du hast schon einen Reisezweck.",
+      "manage": "Reisezwecke verwalten",
+      "another": "Weiteren Zweck anlegen"
+    },
+    "trip": {
+      "title": "Deine erste Reise",
+      "why": "Für eine Reise brauchst du nur ein Ziel und eine Dauer. Gruppe, Zweck und alles andere sind optional und lassen sich später ergänzen.",
+      "button": "Erste Reise anlegen",
+      "done": "Du hast schon eine Reise angelegt.",
+      "open": "Zu meinen Reisen"
+    },
+    "link": {
+      "settings": "Erste Schritte ansehen",
+      "settingsHint": "Eine kurze Einführung: Heimatflughäfen, Reisegruppen, Reisezwecke und die erste Reise.",
+      "settingsTitle": "Erste Schritte",
+      "trips": "Erste Schritte ansehen"
+    }
   }
 }

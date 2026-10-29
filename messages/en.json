@@ -1355,7 +1355,80 @@
     "actions": "Actions",
     "reference": "Reference",
     "notFoundTitle": "Page not found",
-    "notFoundText": "This page does not exist or you do not have access to it.",
-    "loading": "Loading …"
+    "notFoundText": "This page does not exist or you do not have access to it."
+  },
+  "start": {
+    "eyebrow": "Welcome",
+    "title": "Getting started",
+    "lead": "In four short steps you set up what the travel planner may know about you. Everything is optional: skip any step and come back whenever you like.",
+    "skipAll": "Skip the introduction",
+    "finish": "Done, go to my trips",
+    "finishHint": "You can find this page again under Settings and on the Trips page.",
+    "failed": "Could not save that. Please try again.",
+    "progress": {
+      "label": "Introduction progress",
+      "summary": "{done} of {total} steps done"
+    },
+    "status": {
+      "done": "Done",
+      "open": "Open"
+    },
+    "later": "Later",
+    "fillIn": "Fill in now",
+    "skippedNote": "Skipped. You can catch up on this any time.",
+    "about": {
+      "title": "About you",
+      "airportsWhy": "With your home airports we later look only for direct flights that really start near you.",
+      "birthdateWhy": "With your birthdate we work out “my age” and know your age on the travel date.",
+      "done": "Saved. You can change this any time in Settings.",
+      "settings": "Open all settings",
+      "edit": "Change details",
+      "save": "Save"
+    },
+    "group": {
+      "title": "Who is travelling?",
+      "why": "A travel group describes who the plan is for. One sentence is enough, details are optional.",
+      "example1": "“We are 5 friends, all my age”",
+      "example2": "“Family: Anna (1985), Ben (1983), Mia (2022)”",
+      "examples": "Two examples",
+      "name": "Group name",
+      "namePlaceholder": "e.g. Family",
+      "description": "Who is travelling?",
+      "descriptionHint": "In your own words. The app picks out the number and ages.",
+      "save": "Create group",
+      "done": "Group “{name}” created.",
+      "doneExisting": "You already have a travel group.",
+      "manage": "Manage groups",
+      "another": "Create another group"
+    },
+    "purpose": {
+      "title": "Why are you travelling?",
+      "why": "A trip purpose says what the trip is about: relaxing, sport, culture. Free text or guided fields, reusable for every trip.",
+      "example1": "“Golf trip: flat courses, good food in the evening”",
+      "example2": "“City trip with a child: short distances, playgrounds”",
+      "examples": "Two examples",
+      "name": "Purpose name",
+      "namePlaceholder": "e.g. Golf trip",
+      "text": "What is it about?",
+      "textHint": "In your own words, optional.",
+      "save": "Create purpose",
+      "done": "Purpose “{name}” created.",
+      "doneExisting": "You already have a trip purpose.",
+      "manage": "Manage purposes",
+      "another": "Create another purpose"
+    },
+    "trip": {
+      "title": "Your first trip",
+      "why": "A trip needs only a destination and a length. Group, purpose and everything else are optional and can be added later.",
+      "button": "Create first trip",
+      "done": "You have already created a trip.",
+      "open": "Go to my trips"
+    },
+    "link": {
+      "settings": "View getting started",
+      "settingsHint": "A short introduction: home airports, travel groups, trip purposes and your first trip.",
+      "settingsTitle": "Getting started",
+      "trips": "View getting started"
+    }
   }
 }

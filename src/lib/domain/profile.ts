@@ -23,6 +23,8 @@ export const Profile = z.object({
   birthdate: BirthDate.nullable(),
   /** Shared demo account: cannot delete the account or change the email. */
   isDemo: z.boolean(),
+  /** When the getting-started guide was finished or skipped; null = not yet. */
+  onboardingDoneAt: z.string().nullable(),
 });
 export type Locale = z.infer<typeof Locale>;
 export type Profile = z.infer<typeof Profile>;

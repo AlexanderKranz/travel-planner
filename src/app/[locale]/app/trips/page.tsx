@@ -1,7 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { TripCard } from "@/components/trips/trip-card";
-import { btnPrimary, cardCls, mutedCls } from "@/components/ui/styles";
+import { btnPrimary, cardCls, linkCls, mutedCls } from "@/components/ui/styles";
 import { MAX_TRIPS_PER_USER } from "@/lib/domain/trip";
 import { listTrips } from "@/lib/server/trips";
 import { unwrap } from "@/lib/unwrap";
@@ -10,6 +10,7 @@ export default async function TripsPage({ params }: { params: Promise<{ locale: 
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("trips");
+  const ts = await getTranslations("start");
   const trips = unwrap(await listTrips(), locale);
 
   return (
@@ -26,6 +27,9 @@ export default async function TripsPage({ params }: { params: Promise<{ locale: 
         <div className={`${cardCls} flex flex-col gap-3`}>
           <p>{t("empty")}</p>
           <p className={`text-sm ${mutedCls}`}>{t("emptyHint")}</p>
+          <Link href="/app/start" className={`${linkCls} inline-flex min-h-11 items-center self-start`}>
+            {ts("link.trips")}
+          </Link>
         </div>
       ) : (
         <ul className="flex flex-col gap-2">

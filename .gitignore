@@ -45,3 +45,8 @@ next-env.d.ts
 
 # live eval cost ledger (phase 3)
 /evals/.ledger.json
+
+# e2e
+/playwright-report/
+/test-results/
+/e2e/.auth/
