@@ -38,39 +38,39 @@ instead of naming the zoo or course.
   drive time ("🚗 35 Min." on the web, "35 Min. mit dem Auto" in the PDF) and "oder: X · Y". The day footer
   credits openrouteservice.org.
 
-## Decisions to review
+## Decisions (reviewed by Alex 2026-10-28)
 
-- **[D1] Places budget 110 s.** Tagging (~3 s) + places 110 s + ORS 10 s + Sonnet 140 s ≈ 263 s, which stays
+- **[D1] Places budget 110 s.** *Accepted by Alex 2026-10-28.* Tagging (~3 s) + places 110 s + ORS 10 s + Sonnet 140 s ≈ 263 s, which stays
   under the route's 300 s maxDuration. Worst case Generate now takes about 2 minutes longer when places are not
   cached. Warming makes that rare.
-- **[D2] `places_pending` instead of silently generic content.** This applies only to interests that have an OSM
+- **[D2] `places_pending` instead of silently generic content.** *Accepted by Alex 2026-10-28.* This applies only to interests that have an OSM
   source and ended in `error`. `empty`, `no_source` and free-text destinations never block. "Generate anyway"
   always works, so the user is never stuck.
-- **[D3] Third Overpass mirror private.coffee.** On 2026-10-28 it answered a tiny query with HTTP 200 after
+- **[D3] Third Overpass mirror private.coffee.** *Accepted by Alex 2026-10-28.* On 2026-10-28 it answered a tiny query with HTTP 200 after
   204 s. Its OSM data is from 2026-07-24, so it is about 3 months behind. That night all three instances were
   slow or failing (502/504), and the primary answered our family query after 42 s on a later try. The mirror is
   last in the chain and only helps when time is left.
-- **[D4] `general` capped at 8 next to specific interests.** This keeps golf courses or family venues from being
+- **[D4] `general` capped at 8 next to specific interests.** *Accepted by Alex 2026-10-28.* This keeps golf courses or family venues from being
   crowded out and saves tokens. If `general` is the only interest, it gets all 40 slots.
-- **[D5] Warm-up tags the purpose (Haiku) right after the trip is saved.** This is the same single cached call
+- **[D5] Warm-up tags the purpose (Haiku) right after the trip is saved.** *Accepted by Alex 2026-10-28.* This is the same single cached call
   Generate would make, just earlier. It is skipped when AI is off or the budget would not allow it. A side
   effect: saving tags moves `purpose.updated_at`, which is already the case today when Generate tags.
-- **[D6] Drive times.** Driving-car from the destination point, not from the hotel or between places. Values
+- **[D6] Drive times.** *Accepted by Alex 2026-10-28; Alex will check drive times live.* Driving-car from the destination point, not from the hotel or between places. Values
   that are null and "drives" over 180 min are omitted. ORS routes via ferries (Marbella → Palma came back as
   15 h). Cache key = rounded origin (3 decimals) + hash of the sorted place keys and coordinates, kept 90 days.
   The daily cap `ORS_DAILY_REQUESTS` (default 400) counts non-hit `api_calls` rows and fails closed. Without a
   key or on any error the plan generates without times.
 - **[D7] The text no longer repeats the place name** (the UI leads with it). This saves output tokens. Plans
-  generated before plan-3 still read fine, because the name is shown as a link either way.
+  generated before plan-3 still read fine, because the name is shown as a link either way. *Accepted by Alex 2026-10-28.*
 - **[D8] Generic text stays allowed for stops far from the destination** (places lie within their km of the
   anchor). A Danube cruise anchored in Passau gets places near Passau only, so Wien/Linz/Melk activities stay
-  generic. Multi-anchor trips (one place query per port) would be the next step if wanted.
-- **[D9] Prompt rule 5 tightened:** "a fixed stop never gets a time that is not in trip.notes". plan-3 twice
+  generic. Multi-anchor trips (one place query per port) would be the next step if wanted. *Accepted by Alex 2026-10-28.*
+- **[D9] Prompt rule 5 tightened:** *Accepted by Alex 2026-10-28 (option 2: strict prompt rule, no code relaxation).* "a fixed stop never gets a time that is not in trip.notes". plan-3 twice
   merged an invented 10:00 start into the departure-only Passau window. That made the stop lose its "from your
   notes" badge, because code only trusts times that appear in the notes. The code rule stays strict on purpose.
 - **[D10] `leisure=water_park` includes outdoor pools ("Freibad")**, which are useless in December. They are
   not filtered for now: the model saw the month and picked the indoor Erlebnisbad. A name filter would also
-  hide them in summer.
+  hide them in summer. *Accepted by Alex 2026-10-28.*
 
 ## Evals (recorded with plan-3, all checks pass)
 

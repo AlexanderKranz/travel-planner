@@ -3,13 +3,14 @@
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/fields";
-import { btnPrimary, btnSecondary, focusCls } from "@/components/ui/styles";
+import { btnPrimary, btnSecondary, focusCls, mutedCls } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
 import type { ActionError } from "@/lib/domain";
 import { ITEM_CATEGORIES, ITEM_STATUSES, type ItemCategory, type ItemStatus, type TripItem } from "@/lib/domain/items";
 import { parseMoney } from "@/lib/items/money";
 import { createItem, updateItem } from "@/lib/server/items";
-import { centsToInput, CURRENCIES, type Prefill } from "./helpers";
+import { flightPrefill } from "@/lib/plan/fixed-items";
+import { centsToInput, CURRENCIES, type FlightLegOption, type Prefill } from "./helpers";
 import { ItemError } from "./item-error";
 
 type Basis = "total" | "per_person";
@@ -19,6 +20,8 @@ export function ItemForm({
   tripId,
   lengthDays,
   partySize,
+  startDate = null,
+  flights = [],
   item,
   prefill,
   onClose,
@@ -26,6 +29,8 @@ export function ItemForm({
   tripId: string;
   lengthDays: number;
   partySize: number | null;
+  startDate?: string | null;
+  flights?: FlightLegOption[];
   item?: TripItem;
   prefill?: Prefill;
   onClose: () => void;
@@ -43,6 +48,9 @@ export function ItemForm({
   const [persons, setPersons] = useState(item?.persons ? String(item.persons) : "");
   const [currency, setCurrency] = useState(item?.currency ?? "EUR");
   const [day, setDay] = useState(String(item?.day ?? prefill?.day ?? ""));
+  const [startTime, setStartTime] = useState(item?.startTime ?? prefill?.startTime ?? "");
+  const [endTime, setEndTime] = useState(item?.endTime ?? prefill?.endTime ?? "");
+  const [leg, setLeg] = useState("");
   const [url, setUrl] = useState(item?.url ?? "");
   const [notes, setNotes] = useState(item?.notes ?? "");
   const [priceError, setPriceError] = useState(false);
@@ -74,6 +82,8 @@ export function ItemForm({
       persons: persons.trim() === "" ? null : Number(persons),
       currency,
       day: day === "" ? null : Number(day),
+      startTime: startTime === "" ? null : startTime,
+      endTime: endTime === "" || startTime === "" ? null : endTime,
       ref: item?.ref ?? prefill?.ref ?? null,
       url: url.trim() === "" ? null : url.trim(),
       notes: notes.trim() === "" ? null : notes,
@@ -89,6 +99,19 @@ export function ItemForm({
       }
     });
   }
+
+  function pickLeg(v: string) {
+    setLeg(v);
+    const l = v === "" ? undefined : flights[Number(v)];
+    if (!l) return;
+    const p = flightPrefill(l, lengthDays, startDate);
+    setTitle(p.title);
+    setDay(String(p.day));
+    setStartTime(p.startTime);
+    setEndTime(p.endTime);
+  }
+  const legLabel = (l: FlightLegOption) =>
+    `${t(`flightDir.${l.dir}`)} · ${l.number} ${l.from} → ${l.to} · ${l.dep}–${l.arr}${l.arrDayOffset ? " +1" : ""}`;
 
   const currencies = CURRENCIES.includes(currency as (typeof CURRENCIES)[number]) ? CURRENCIES : [...CURRENCIES, currency];
   const radio = (v: Basis, label: string) => (
@@ -128,6 +151,16 @@ export function ItemForm({
             ))}
           </SelectField>
         </div>
+        {category === "flight" && flights.length > 0 && (
+          <SelectField label={t("fields.verifiedFlight")} hint={t("fields.verifiedFlightHint")} value={leg} onChange={(e) => pickLeg(e.target.value)}>
+            <option value="">{t("fields.manualFlight")}</option>
+            {flights.map((l, i) => (
+              <option key={`${l.dir}-${l.number}-${l.date}-${l.dep}`} value={i}>
+                {legLabel(l)}
+              </option>
+            ))}
+          </SelectField>
+        )}
         <TextField
           label={t("fields.title")}
           value={title}
@@ -183,6 +216,24 @@ export function ItemForm({
             ))}
           </SelectField>
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <TextField
+            label={t("fields.startTime")}
+            type="time"
+            value={startTime}
+            onChange={(e) => setStartTime(e.target.value)}
+            error={issues["startTime"]}
+          />
+          <TextField
+            label={t("fields.endTime")}
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            disabled={startTime === ""}
+            error={issues["endTime"]}
+          />
+        </div>
+        <p className={`-mt-2 text-sm ${mutedCls}`}>{t("fields.timesHint")}</p>
         <TextField
           label={t("fields.link")}
           type="url"

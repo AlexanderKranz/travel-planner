@@ -124,7 +124,12 @@ export function patchScope(feedback: PlanFeedback, totalDays: number): number[] 
 }
 
 /** CURRENT_PLAN + FEEDBACK blocks: scoped days in full, other days as title + refs only. */
-export function patchBlocks(plan: Plan, index: PlanInputStored["index"], feedback: PlanFeedback) {
+export function patchBlocks(
+  plan: Plan,
+  index: PlanInputStored["index"],
+  feedback: PlanFeedback,
+  fixed?: { now: PlanInput["fixed"]; input: PlanInput["fixed"] },
+) {
   const pid = new Map(Object.entries(index).map(([id, v]) => [v.key as string, id]));
   const scope = new Set(patchScope(feedback, plan.days.length));
   const days = plan.days.map((d) => {
@@ -132,7 +137,9 @@ export function patchBlocks(plan: Plan, index: PlanInputStored["index"], feedbac
     const refs = [...new Set(d.stops.flatMap((s) => s.acts.flatMap((a) => (a.ref && pid.get(a.ref) ? [pid.get(a.ref)!] : []))))];
     return { n: d.n, title: d.title, refs };
   });
-  const current = { days, notes: plan.notes, open: plan.openItems };
+  // Items changed since INPUT was built: the current fixed slots go here ([] = all removed); INPUT stays cached.
+  const changed = fixed && canonicalJson(fixed.now ?? []) !== canonicalJson(fixed.input ?? []);
+  const current = { days, notes: plan.notes, open: plan.openItems, ...(changed ? { fixed: fixed.now ?? [] } : {}) };
   const fb = {
     do: feedback.chips.map((c) => CHIP_INSTRUCTIONS[c]),
     days: feedback.days.length ? [...scope] : undefined,
@@ -147,8 +154,10 @@ export function patchRequest(a: {
   plan: Plan;
   index: PlanInputStored["index"];
   feedback: PlanFeedback;
+  /** Current fixed slots; sent only when they differ from `llm.fixed`. */
+  fixed?: PlanInput["fixed"];
 }): StructuredRequest<typeof WirePatch> {
-  const [current, fb] = patchBlocks(a.plan, a.index, a.feedback);
+  const [current, fb] = patchBlocks(a.plan, a.index, a.feedback, "fixed" in a ? { now: a.fixed, input: a.llm.fixed } : undefined);
   return {
     task: "plan_patch",
     model: MODEL_PLAN,
@@ -161,7 +170,7 @@ export function patchRequest(a: {
 }
 
 export async function patchPlan(
-  a: { llm: PlanInput; plan: Plan; index: PlanInputStored["index"]; feedback: PlanFeedback },
+  a: { llm: PlanInput; plan: Plan; index: PlanInputStored["index"]; feedback: PlanFeedback; fixed?: PlanInput["fixed"] },
   ctx: AiCtx,
 ): Promise<AiResult<LlmPatch>> {
   const r = await callStructured(patchRequest(a), ctx);

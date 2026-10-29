@@ -56,7 +56,7 @@ describe("renderPlanPdf", () => {
     }
   }, 30_000);
 
-  it("renders place links, drive times and alternatives (plan-3)", async () => {
+  it("renders place links and alternatives, no drive times (plan-3)", async () => {
     const doc = structuredClone(golf) as unknown as PlanDocument;
     const keys = Object.keys(doc.plan.places);
     expect(keys.length).toBeGreaterThan(2);
@@ -64,7 +64,7 @@ describe("renderPlanPdf", () => {
     const act = doc.plan.days[0].stops.flatMap((s) => s.acts).find((a) => a.ref)!;
     act.alts = keys.filter((k) => k !== act.ref).slice(0, 2);
     const t2 = (key: string, vars?: Record<string, string | number>) =>
-      key === "drive" ? `${vars?.min} Min. mit dem Auto` : key === "alternatives" ? "oder" : key === "driveNote" ? "Fahrzeiten ab Zielort-Zentrum" : t(key, vars);
+      key === "alternatives" ? "oder" : t(key, vars);
     const buf = await renderPlanPdf(doc, t2);
     expect(asBuf(buf)).toBe("%PDF-");
     expect(buf.length).toBeGreaterThan(10_000);
@@ -72,6 +72,20 @@ describe("renderPlanPdf", () => {
 
   it("renders without items and with the cruise fixture", async () => {
     const doc = { ...(cruise as unknown as PlanDocument), items: null, costs: null };
+    const buf = await renderPlanPdf(doc, t);
+    expect(asBuf(buf)).toBe("%PDF-");
+  }, 30_000);
+});
+
+describe("renderPlanPdf fixed items", () => {
+  it("renders booked/planned items with times in the day rows and the item list", async () => {
+    const doc = structuredClone(golf) as unknown as PlanDocument;
+    const base = doc.items![0];
+    doc.items = [
+      ...doc.items!,
+      { ...base, id: "fx1", category: "flight", title: "LH 1150 FRA → AGP", status: "booked", day: 1, startTime: "07:50", endTime: "10:40" },
+      { ...base, id: "fx2", category: "food", title: "Late dinner", status: "planned", day: 2, startTime: "23:30", endTime: "00:30" },
+    ];
     const buf = await renderPlanPdf(doc, t);
     expect(asBuf(buf)).toBe("%PDF-");
   }, 30_000);

@@ -2,7 +2,9 @@ import { getTranslations } from "next-intl/server";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { cardCls, mutedCls } from "@/components/ui/styles";
 import { computeCosts } from "@/lib/items/costs";
+import { fittingLegs } from "@/lib/flights/ui";
 import { listItems } from "@/lib/server/items";
+import { getOwnerPlanFlights } from "@/lib/server/plan-document";
 import { AddItemButton } from "./add-item-button";
 import { CostSummaryView } from "./cost-summary";
 import { ItemActions } from "./item-actions";
@@ -22,8 +24,8 @@ export async function ItemsSection({
   partySize: number | null;
 }) {
   const t = await getTranslations("items");
-  const res = await listItems(tripId);
-  const ctx = { tripId, lengthDays, partySize };
+  const [res, planFlights] = await Promise.all([listItems(tripId), getOwnerPlanFlights(tripId)]);
+  const ctx = { tripId, lengthDays, partySize, startDate, flights: planFlights ? fittingLegs(planFlights.legs) : [] };
   return (
     <section aria-labelledby="items-title" className={`${cardCls} flex min-w-0 flex-col gap-4`}>
       <div className="flex flex-wrap items-center justify-between gap-3">

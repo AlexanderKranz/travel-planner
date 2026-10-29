@@ -3,9 +3,14 @@ import { Link } from "@/i18n/navigation";
 import { linkCls } from "@/components/ui/styles";
 import type { PlanState } from "@/lib/domain/plan";
 import { DayCard } from "./day-card";
-import { highlightedDays } from "./helpers";
+import { highlightedDays, QUICK_ADD_HOVER } from "./helpers";
+import { DriveTimesScope } from "./drive-times-scope";
 import { AddItemButton } from "@/components/items/add-item-button";
-import { flightPrefill, placePrefill } from "@/components/items/helpers";
+import { placePrefill } from "@/components/items/helpers";
+import { statusTone } from "@/components/items/status-badge";
+import type { SharedItem } from "@/lib/domain/items";
+import { fittingLegs } from "@/lib/flights/ui";
+import { fixedItemsOf, flightPrefill, flightTitle, itemForLeg } from "@/lib/plan/fixed-items";
 import { PlanFlights } from "./plan-flights";
 import { PlanFactsStrip } from "./plan-facts-strip";
 import { PlanHeader } from "./plan-header";
@@ -27,17 +32,38 @@ export function PlanView({
   shown: Shown;
   locale: string;
   openDone: string[];
-  /** Context for the code-only "+ item" quick add (latest version only). */
-  items: { lengthDays: number; partySize: number | null };
+  /**
+   * Trip items and the context for the code-only "+ item" quick add (latest version only). `list` feeds the fixed
+   * rows of the day cards; `changed` = a timed item changed after this version.
+   */
+  items: { lengthDays: number; partySize: number | null; startDate: string | null; list: SharedItem[]; changed: boolean };
 }) {
   const t = useTranslations("plan");
+  const ti = useTranslations("items");
   const { plan, meta } = shown;
   const changed = new Set(highlightedDays(meta));
-  const ctx = { tripId: state.tripId, ...items };
+  const legs = plan.flights ? fittingLegs(plan.flights.legs) : [];
+  const ctx = { tripId: state.tripId, lengthDays: items.lengthDays, partySize: items.partySize, startDate: items.startDate, flights: legs };
   const quick = state.isLatest;
+  const fixed = fixedItemsOf(items.list, plan.days.length);
+  const flightAction = (leg: (typeof legs)[number]) => {
+    const held = itemForLeg(leg, items.list, items.lengthDays, items.startDate);
+    if (held) {
+      return (
+        <span className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium ${statusTone[held.status]}`}>
+          <span aria-hidden="true">✓&nbsp;</span>
+          {ti(`statuses.${held.status}`)}
+          <span className="sr-only"> ({flightTitle(leg)})</span>
+        </span>
+      );
+    }
+    return quick ? (
+      <AddItemButton ctx={ctx} prefill={flightPrefill(leg, items.lengthDays, items.startDate)} quickLabel={flightTitle(leg)} />
+    ) : null;
+  };
+  const hasDrive = Object.values(plan.places).some((p) => p.drive);
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <PlanHeader plan={plan} uiLocale={locale} />
+    <DriveTimesScope hasDrive={hasDrive} className="flex min-w-0 flex-col gap-4" header={<PlanHeader plan={plan} uiLocale={locale} />}>
       {!state.isLatest && (
         <p role="note" className="rounded-md border border-blue-600 bg-blue-50 p-3 text-sm text-blue-950 dark:border-blue-400 dark:bg-blue-950 dark:text-blue-100">
           {t("viewingOld", { n: meta.versionNo })}{" "}
@@ -54,6 +80,11 @@ export function PlanView({
           <PlanRunner tripId={state.tripId} locale={locale} label={t("outdated.regenerate")} secondary disabled={!state.aiEnabled} />
         </div>
       )}
+      {items.changed && state.isLatest && !state.outdated && (
+        <p role="note" className="rounded-md border border-neutral-400 px-3 py-2 text-sm dark:border-neutral-500">
+          {t("itemsChanged")}
+        </p>
+      )}
       {state.busy && <PlanRunner tripId={state.tripId} locale={locale} watchOnly />}
       <ol className="flex flex-col gap-3" aria-label={t("daysLabel")}>
         {plan.days.map((d) => (
@@ -62,9 +93,10 @@ export function PlanView({
             day={d}
             places={plan.places}
             changed={changed.has(d.n)}
+            fixed={fixed}
             renderQuickAdd={
               quick
-                ? (place, ref, n) => <AddItemButton ctx={ctx} prefill={placePrefill(place, ref, n)} quickLabel={place.name} />
+                ? (place, ref, n) => <AddItemButton ctx={ctx} prefill={placePrefill(place, ref, n)} quickLabel={place.name} icon className={QUICK_ADD_HOVER} />
                 : undefined
             }
           />
@@ -78,16 +110,9 @@ export function PlanView({
       )}
       <PlanPacking items={plan.packing} />
       {plan.flights && (
-        <PlanFlights
-          flights={plan.flights}
-          renderQuickAdd={
-            quick
-              ? (leg) => <AddItemButton ctx={ctx} prefill={flightPrefill(leg, items.lengthDays)} quickLabel={`${leg.number} ${leg.from} → ${leg.to}`} />
-              : undefined
-          }
-        />
+        <PlanFlights flights={plan.flights} renderAction={flightAction} />
       )}
       <PlanFactsStrip facts={plan.facts} />
-    </div>
+    </DriveTimesScope>
   );
 }

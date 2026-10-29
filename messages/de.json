@@ -528,8 +528,6 @@
       "duration": "Flugzeit",
       "hm": "{h} h {m}",
       "nextDay": "+1",
-      "outbound": "Hin {date}",
-      "inbound": "Rück {date}",
       "to": "nach",
       "operatingOn": "Verkehrt am",
       "notOperating": "kein Flug",
@@ -602,7 +600,9 @@
         "5": "Freitag",
         "6": "Samstag",
         "7": "Sonntag"
-      }
+      },
+      "groupOut": "Hinflug · {date} · {route}",
+      "groupBack": "Rückflug · {date} · {route}"
     }
   },
   "sources": {
@@ -850,27 +850,38 @@
     },
     "flights": {
       "title": "Direktflüge",
-      "out": "Hin {date}",
-      "back": "Rück {date}",
       "hm": "{h} h {m}",
       "nextDay": "+1",
       "proxyNote": "Flugplan des Vorjahres, noch nicht veröffentlicht",
-      "source": "AeroDataBox, geprüft am {date}. Zeiten können sich ändern."
+      "source": "AeroDataBox, geprüft am {date}. Zeiten können sich ändern.",
+      "groupOut": "Hinflug · {date} · {route}",
+      "groupBack": "Rückflug · {date} · {route}"
     },
     "drive": "🚗 {min} Min.",
     "driveTitle": "Mit dem Auto ab Zielort-Zentrum, {km} km (OpenRouteService, geprüft am {date})",
     "driveCredit": "Fahrzeiten: © openrouteservice.org, ab Zielort-Zentrum",
-    "alternatives": "oder:"
+    "alternatives": "oder:",
+    "itemsChanged": "Kostenpunkte mit Uhrzeit wurden nach dieser Planversion geändert. Der Tagesplan zeigt sie schon an; damit die Aktivitäten darum herum passen, den Plan neu erstellen.",
+    "fixedItem": "fester Termin",
+    "regenerate": {
+      "title": "Neu erstellen",
+      "button": "Plan neu erstellen",
+      "confirm": "Erstellt mit KI eine neue Version. Die aktuelle bleibt im Versionsverlauf.",
+      "confirmButton": "Ja, neu erstellen",
+      "cancel": "Abbrechen",
+      "disabled": "KI ist derzeit abgeschaltet."
+    },
+    "showDrive": "Fahrzeiten anzeigen"
   },
   "items": {
     "title": "Buchungen und Kosten",
-    "add": "Eintrag hinzufügen",
+    "add": "Kostenpunkt hinzufügen",
     "edit": "Bearbeiten",
     "delete": "Löschen",
     "editFor": "{title} bearbeiten",
     "deleteFor": "{title} löschen",
     "confirmDelete": "„{title}“ löschen? Das lässt sich nicht rückgängig machen.",
-    "empty": "Noch keine Einträge. Hotels, Mietwagen, Golfrunden oder Flüge mit Status und Preis festhalten.",
+    "empty": "Noch keine Kostenpunkte. Hotels, Mietwagen, Golfrunden oder Flüge mit Status und Preis festhalten.",
     "noDay": "Ohne Tag",
     "dayHeading": "Tag {n}",
     "rejectedGroup": "Abgelehnt ({count})",
@@ -903,16 +914,22 @@
       "currency": "Währung",
       "day": "Tag",
       "link": "Link",
-      "notes": "Notizen"
+      "notes": "Notizen",
+      "startTime": "Beginn",
+      "endTime": "Ende",
+      "timesHint": "Ortszeit, optional. Gebuchte und geplante Kostenpunkte mit Tag und Beginn erscheinen im Tagesplan. Ende vor Beginn heißt: endet am nächsten Tag.",
+      "verifiedFlight": "Geprüfter Flug",
+      "verifiedFlightHint": "Füllt Titel, Tag und Zeiten aus. Alles bleibt änderbar.",
+      "manualFlight": "Selbst eingeben"
     },
     "priceInvalid": "Bitte einen Betrag wie 432,64 eingeben.",
     "sharedBy": "geteilt durch {count}",
     "pricePerPerson": "{amount} p. P.",
     "priceTotal": "{amount} gesamt",
     "noPrice": "kein Preis",
-    "limit": "Du hast die maximale Zahl an Einträgen erreicht (100).",
-    "quickAdd": "Eintrag",
-    "quickAddFor": "Eintrag hinzufügen: {title}",
+    "limit": "Du hast die maximale Zahl an Kostenpunkten erreicht (100).",
+    "quickAdd": "Kostenpunkt hinzufügen",
+    "quickAddFor": "Kostenpunkt hinzufügen: {title}",
     "save": "Speichern",
     "cancel": "Abbrechen",
     "close": "Schließen",
@@ -920,7 +937,11 @@
     "less": "Weniger",
     "opensExternal": "öffnet in neuem Tab",
     "noDayOption": "Kein Tag",
-    "itemsLabel": "Einträge"
+    "itemsLabel": "Kostenpunkte",
+    "flightDir": {
+      "out": "Hinflug",
+      "back": "Rückflug"
+    }
   },
   "costs": {
     "title": "Kostenübersicht",
@@ -929,10 +950,10 @@
     "perPerson": "Pro Person",
     "total": "Gesamt",
     "forPeople": "für {count, plural, one {# Person} other {# Personen}}",
-    "noParty": "Ohne Gruppe: Personenzahl pro Eintrag angeben, um Beträge pro Person zu sehen.",
-    "unpriced": "{count, plural, one {# Eintrag ohne Preis} other {# Einträge ohne Preis}}",
-    "incomplete": "{count, plural, one {# Eintrag ohne Personenzahl, nur teilweise gerechnet} other {# Einträge ohne Personenzahl, nur teilweise gerechnet}}",
-    "rejected": "{count, plural, one {# abgelehnter Eintrag nicht eingerechnet} other {# abgelehnte Einträge nicht eingerechnet}}",
+    "noParty": "Ohne Gruppe: Personenzahl pro Kostenpunkt angeben, um Beträge pro Person zu sehen.",
+    "unpriced": "{count, plural, one {# Kostenpunkt ohne Preis} other {# Kostenpunkte ohne Preis}}",
+    "incomplete": "{count, plural, one {# Kostenpunkt ohne Personenzahl, nur teilweise gerechnet} other {# Kostenpunkte ohne Personenzahl, nur teilweise gerechnet}}",
+    "rejected": "{count, plural, one {# abgelehnter Kostenpunkt nicht eingerechnet} other {# abgelehnte Kostenpunkte nicht eingerechnet}}",
     "noFx": "Preise sind deine eigenen Angaben, ohne Währungsumrechnung. „Erwartet“ rechnet bei Optionen pro Tag und Kategorie mit der günstigsten und teuersten Alternative."
   },
   "share": {
@@ -948,8 +969,8 @@
       "90": "90 Tage"
     },
     "includeItems": "Buchungen und Kosten einschließen",
-    "includeItemsHint": "Wer den Link hat, sieht alle Einträge samt Preisen.",
-    "includeNotes": "Notizen der Einträge einschließen",
+    "includeItemsHint": "Wer den Link hat, sieht alle Kostenpunkte samt Preisen.",
+    "includeNotes": "Notizen der Kostenpunkte einschließen",
     "includeNotesHint": "Notizen können Buchungscodes enthalten. Nur mit Buchungen und Kosten möglich.",
     "copy": "Kopieren",
     "copied": "Link kopiert",
@@ -1009,7 +1030,7 @@
     "openItems": "Noch zu klären",
     "tips": "Tipps und Hinweise",
     "packing": "Packliste",
-    "sources": "Quellen: OpenStreetMap, Open-Meteo, AeroDataBox, openrouteservice.org",
+    "sources": "Quellen: OpenStreetMap, Open-Meteo, AeroDataBox",
     "generated": "erstellt am {date}",
     "page": "Seite {n} von {total}",
     "statuses": {
@@ -1033,8 +1054,6 @@
     "expected": "Erwartet",
     "datesOpen": "Reisedaten offen",
     "persons": "Personen",
-    "drive": "{min} Min. mit dem Auto",
-    "alternatives": "oder",
-    "driveNote": "Fahrzeiten mit dem Auto ab Zielort-Zentrum (openrouteservice.org)."
+    "alternatives": "oder"
   }
 }

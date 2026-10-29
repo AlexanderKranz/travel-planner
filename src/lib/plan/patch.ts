@@ -6,6 +6,7 @@ import {
   assembleOpen,
   clampText,
   emptyIssues,
+  guardFixed,
   noteTimes,
   referencedPlaces,
   type AssembleIssues,
@@ -55,6 +56,8 @@ export function applyPatch(a: {
   patch: LlmPatch;
   stored: PlanInputStored;
   scope: number[];
+  /** Current fixed slots (trip items now); defaults to the ones in the stored input. */
+  fixed?: PlanInputStored["llm"]["fixed"];
 }):
   | { ok: true; plan: Plan; changedDays: number[]; issues: AssembleIssues }
   | { ok: false; reason: "day_count" | "schema" | "out_of_scope_only" } {
@@ -77,7 +80,7 @@ export function applyPatch(a: {
       issues,
       noteTimes: times,
     });
-    replaced.set(d.n, keepFixedStops(base.days[d.n - 1], day));
+    replaced.set(d.n, guardFixed(keepFixedStops(base.days[d.n - 1], day), "fixed" in a ? a.fixed : stored.llm.fixed, issues));
   }
 
   // At most one best: an untouched base day keeps its badge; otherwise the first patched day that claims it.

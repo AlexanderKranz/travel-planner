@@ -528,8 +528,6 @@
       "duration": "Flight time",
       "hm": "{h} h {m}",
       "nextDay": "+1",
-      "outbound": "Out {date}",
-      "inbound": "Back {date}",
       "to": "to",
       "operatingOn": "Operates on",
       "notOperating": "no flight",
@@ -602,7 +600,9 @@
         "5": "Friday",
         "6": "Saturday",
         "7": "Sunday"
-      }
+      },
+      "groupOut": "Outbound · {date} · {route}",
+      "groupBack": "Return · {date} · {route}"
     }
   },
   "sources": {
@@ -850,27 +850,38 @@
     },
     "flights": {
       "title": "Direct flights",
-      "out": "Out {date}",
-      "back": "Back {date}",
       "hm": "{h} h {m}",
       "nextDay": "+1",
       "proxyNote": "Last year's schedule, not yet published",
-      "source": "AeroDataBox, checked {date}. Times can change."
+      "source": "AeroDataBox, checked {date}. Times can change.",
+      "groupOut": "Outbound · {date} · {route}",
+      "groupBack": "Return · {date} · {route}"
     },
     "drive": "🚗 {min} min",
     "driveTitle": "By car from the destination centre, {km} km (OpenRouteService, checked {date})",
     "driveCredit": "Drive times: © openrouteservice.org, from the destination centre",
-    "alternatives": "or:"
+    "alternatives": "or:",
+    "itemsChanged": "Cost items with a time changed after this plan version. The daily plan already shows them; regenerate the plan so the activities fit around them.",
+    "fixedItem": "fixed booking",
+    "regenerate": {
+      "title": "Regenerate",
+      "button": "Regenerate plan",
+      "confirm": "Creates a new version with AI. The current one stays in the version history.",
+      "confirmButton": "Yes, regenerate",
+      "cancel": "Cancel",
+      "disabled": "AI is currently switched off."
+    },
+    "showDrive": "Show drive times"
   },
   "items": {
     "title": "Bookings and costs",
-    "add": "Add item",
+    "add": "Add cost item",
     "edit": "Edit",
     "delete": "Delete",
     "editFor": "Edit {title}",
     "deleteFor": "Delete {title}",
     "confirmDelete": "Delete “{title}”? This cannot be undone.",
-    "empty": "No items yet. Track hotels, cars, golf rounds or flights with status and price.",
+    "empty": "No cost items yet. Track hotels, cars, golf rounds or flights with status and price.",
     "noDay": "No day",
     "dayHeading": "Day {n}",
     "rejectedGroup": "Rejected ({count})",
@@ -903,16 +914,22 @@
       "currency": "Currency",
       "day": "Day",
       "link": "Link",
-      "notes": "Notes"
+      "notes": "Notes",
+      "startTime": "Start",
+      "endTime": "End",
+      "timesHint": "Local time, optional. Booked and planned cost items with a day and start time appear in the daily plan. End before start means it ends the next day.",
+      "verifiedFlight": "Verified flight",
+      "verifiedFlightHint": "Fills in title, day and times. Everything stays editable.",
+      "manualFlight": "Enter manually"
     },
     "priceInvalid": "Enter an amount like 432.64.",
     "sharedBy": "shared by {count}",
     "pricePerPerson": "{amount} p. p.",
     "priceTotal": "{amount} total",
     "noPrice": "no price",
-    "limit": "You have reached the maximum number of items (100).",
-    "quickAdd": "Item",
-    "quickAddFor": "Add item: {title}",
+    "limit": "You have reached the maximum number of cost items (100).",
+    "quickAdd": "Add cost item",
+    "quickAddFor": "Add cost item: {title}",
     "save": "Save",
     "cancel": "Cancel",
     "close": "Close",
@@ -920,7 +937,11 @@
     "less": "Less",
     "opensExternal": "opens in a new tab",
     "noDayOption": "No day",
-    "itemsLabel": "Items"
+    "itemsLabel": "Cost items",
+    "flightDir": {
+      "out": "Outbound",
+      "back": "Return"
+    }
   },
   "costs": {
     "title": "Cost summary",
@@ -929,10 +950,10 @@
     "perPerson": "Per person",
     "total": "Total",
     "forPeople": "for {count, plural, one {# person} other {# people}}",
-    "noParty": "No group: set the number of people per item to see per-person amounts.",
-    "unpriced": "{count, plural, one {# item without a price} other {# items without a price}}",
-    "incomplete": "{count, plural, one {# item without a head count, only partly counted} other {# items without a head count, only partly counted}}",
-    "rejected": "{count, plural, one {# rejected item not counted} other {# rejected items not counted}}",
+    "noParty": "No group: set the number of people per cost item to see per-person amounts.",
+    "unpriced": "{count, plural, one {# cost item without a price} other {# cost items without a price}}",
+    "incomplete": "{count, plural, one {# cost item without a head count, only partly counted} other {# cost items without a head count, only partly counted}}",
+    "rejected": "{count, plural, one {# rejected cost item not counted} other {# rejected cost items not counted}}",
     "noFx": "Prices are your own entries, with no currency conversion. “Expected” counts the cheapest and the most expensive alternative of options per day and category."
   },
   "share": {
@@ -948,8 +969,8 @@
       "90": "90 days"
     },
     "includeItems": "Include bookings and costs",
-    "includeItemsHint": "Anyone with the link sees all items including prices.",
-    "includeNotes": "Include item notes",
+    "includeItemsHint": "Anyone with the link sees all cost items including prices.",
+    "includeNotes": "Include cost item notes",
     "includeNotesHint": "Notes may contain booking codes. Only available together with bookings and costs.",
     "copy": "Copy",
     "copied": "Link copied",
@@ -1009,7 +1030,7 @@
     "openItems": "To clarify",
     "tips": "Tips and notes",
     "packing": "Packing list",
-    "sources": "Sources: OpenStreetMap, Open-Meteo, AeroDataBox, openrouteservice.org",
+    "sources": "Sources: OpenStreetMap, Open-Meteo, AeroDataBox",
     "generated": "generated {date}",
     "page": "Page {n} of {total}",
     "statuses": {
@@ -1033,8 +1054,6 @@
     "expected": "Expected",
     "datesOpen": "Dates open",
     "persons": "people",
-    "drive": "{min} min by car",
-    "alternatives": "or",
-    "driveNote": "Drive times by car from the destination centre (openrouteservice.org)."
+    "alternatives": "or"
   }
 }

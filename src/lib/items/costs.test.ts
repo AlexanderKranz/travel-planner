@@ -5,7 +5,7 @@ import { computeCosts, itemAmounts, partySize } from "./costs";
 
 const base: SharedItem = {
   id: "x", category: "stay", title: "t", status: "booked", priceCents: 10000, priceBasis: "total",
-  persons: null, currency: "EUR", day: null, ref: null, url: null, notes: null,
+  persons: null, currency: "EUR", day: null, ref: null, url: null, notes: null, startTime: null, endTime: null,
 };
 const it_ = (o: Partial<SharedItem>): SharedItem => ({ ...base, ...o });
 

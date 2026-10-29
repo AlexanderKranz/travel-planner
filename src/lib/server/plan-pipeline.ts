@@ -23,6 +23,9 @@ import { interestsForTrip } from "@/lib/facts/interest-sources";
 import { placesPending } from "@/lib/plan/places-pending";
 import { applyPatch } from "@/lib/plan/patch";
 import { assemblePlan } from "@/lib/plan/assemble";
+import { fixedItemsOf, fixedSlots } from "@/lib/plan/fixed-items";
+import type { TripItem } from "@/lib/domain/items";
+import { ITEM_COLUMNS, rowToItem, type ItemRow } from "./item-mapping";
 import { composePlan, patchPlan } from "./ai/compose";
 import { berlinMidnight, budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage, userCapMicroUsd, type BudgetInfo, type Role } from "./ai-usage";
 import { logEvent } from "./events";
@@ -242,8 +245,22 @@ function gate(userId: string): PipelineError | null {
   return null;
 }
 
-/** `force`: generate even when places are still loading (the user chose "generate anyway"). */
-export async function generatePlan(tripId: string, locale: Locale, opts: { force?: boolean } = {}): Promise<PipelineResult> {
+/** Trip items with the user session (RLS). Throws on read errors (the callers map them to `failed`). */
+export async function loadTripItems(sb: SupabaseClient, tripId: string): Promise<TripItem[]> {
+  const { data, error } = await sb.from("trip_items").select(ITEM_COLUMNS).eq("trip_id", tripId).returns<ItemRow[]>();
+  if (error) throw new Error("items read failed");
+  return data.map(rowToItem);
+}
+
+/**
+ * `force`: generate even when places are still loading (the user chose "generate anyway").
+ * `fresh`: always call the model, even when the input equals an earlier version (the user's "Regenerate plan").
+ */
+export async function generatePlan(
+  tripId: string,
+  locale: Locale,
+  opts: { force?: boolean; fresh?: boolean } = {},
+): Promise<PipelineResult> {
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
   const c = loaded.ctx;
@@ -301,6 +318,7 @@ export async function generatePlan(tripId: string, locale: Locale, opts: { force
       locale,
       today: berlinToday(),
       drive,
+      items: await loadTripItems(c.sb, c.trip.id),
     });
     const inputHash = planInputHash(built.stored.llm);
 
@@ -308,7 +326,11 @@ export async function generatePlan(tripId: string, locale: Locale, opts: { force
     plan = await ensurePlan(c.sb, c.trip.id);
     const latest = plan.latestVersion > 0 ? await getVersion(c.sb, plan.id, plan.latestVersion) : null;
     if (isBusy(plan)) return err("busy");
-    const hit = latest?.inputHash === inputHash ? latest : await findVersionByHash(c.sb, plan.id, inputHash);
+    const hit = opts.fresh
+      ? null
+      : latest?.inputHash === inputHash
+        ? latest
+        : await findVersionByHash(c.sb, plan.id, inputHash);
     if (hit) {
       const refreshed = Plan.safeParse({ ...hit.plan, header: { ...hit.plan.header, ...built.header } });
       if (refreshed.success) {
@@ -419,9 +441,11 @@ export async function iteratePlan(
     if (!fresh || fresh.latestVersion !== plan.latestVersion) return err("conflict");
 
     // The stored input of the base version keeps the cache prefix identical and avoids refetching facts.
-    const res = await patchPlan({ llm: base.input.llm, plan: base.plan, index: base.input.index, feedback: fb.data }, ai.ctx);
+    // Current timed items (may have changed since the base version); sent only when they differ from INPUT.fixed.
+    const fixed = fixedSlots(fixedItemsOf(await loadTripItems(c.sb, c.trip.id), base.plan.days.length));
+    const res = await patchPlan({ llm: base.input.llm, plan: base.plan, index: base.input.index, feedback: fb.data, fixed }, ai.ctx);
     if (!res.ok) return failed(c, res.error, res.error);
-    const patched = applyPatch({ base: base.plan, patch: res.data, stored: base.input, scope: fb.data.days });
+    const patched = applyPatch({ base: base.plan, patch: res.data, stored: base.input, scope: fb.data.days, fixed });
     if (!patched.ok) return failed(c, patched.reason, "invalid_output");
     const parsed = Plan.safeParse(patched.plan);
     if (!parsed.success) return failed(c, "schema", "invalid_output");

@@ -8,6 +8,8 @@ import { tripRadiusKm, interestsForTrip, isInterestKey } from "@/lib/facts/inter
 import { addDays, ageReferenceDate, selectedMonths } from "@/lib/facts/trip-timing";
 import { resolveGroupAges, stripTraits } from "@/lib/group";
 import { gatewayAirports, nearestGatewayKm } from "./airports";
+import { fixedItemsOf, fixedSlots, type FixedSlot } from "./fixed-items";
+import type { SharedItem } from "@/lib/domain/items";
 
 /** What Sonnet sees (spec 3.1). Canonical JSON, compact keys, no timestamps or other volatile values. */
 export type PlanInput = {
@@ -60,6 +62,8 @@ export type PlanInput = {
   places: { id: string /* p1.. */; name: string; cat: string; km: number; min?: number; ap?: number; i: string /* interest */ }[];
   /** Interests with no verified candidates. */
   noSource: string[];
+  /** The user's booked/planned items with a day and start time (plan-4). Code renders them; the model plans around. */
+  fixed?: FixedSlot[];
 };
 type Dow = "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su";
 
@@ -76,6 +80,8 @@ export type BuildPlanInputArgs = {
   today: string;
   /** Drive times from the destination point by OSM key (OpenRouteService); null/absent = none. */
   drive?: DriveInput | null;
+  /** Trip items; only booked/planned ones with day + start time reach the model as `fixed`. */
+  items?: Pick<SharedItem, "id" | "day" | "startTime" | "endTime" | "category" | "title" | "status">[];
 };
 
 export type DriveInput = { byKey: Record<string, { min: number; km: number }>; fetchedAt: string };
@@ -339,7 +345,15 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   const weather = facts.weather.status === "ok" ? facts.weather : null;
   const climateMonths = weather && months.length ? weather.data.months.filter((m) => months.includes(m.month)) : [];
 
+  const fixed = fixedSlots(fixedItemsOf(a.items ?? [], days));
   const fl = flightsFrom(facts, trip.wantsFlights);
+  // A booked/planned flight on day 1 (last day) replaces the verified-schedule heuristic for that direction [D5].
+  if (fl.llm && fixed) {
+    const flightOn = (n: number) => fixed.some((f) => f.cat === "flight" && f.day === n);
+    const out = flightOn(1) ? [] : fl.llm.out;
+    const back = flightOn(days) ? [] : fl.llm.back;
+    fl.llm = out.length || back.length ? { ...fl.llm, out, back } : undefined;
+  }
   let gateways = trip.wantsFlights && geo ? gatewayAirports(geo) : [];
   // Gateways with a verified route replace the distance heuristic (spec D10).
   const verified = gateways.filter((x) => fl.foundGateways.has(x.iata));
@@ -382,6 +396,7 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
     flights: fl.llm,
     places: pl.places,
     noSource: pl.noSource,
+    fixed,
   };
 
   const header: Omit<PlanHeader, "generatedAt" | "model"> = {

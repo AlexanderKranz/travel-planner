@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import type { AiTask } from "@/lib/domain/ai";
 
 export const LEDGER_PATH = join(dirname(fileURLToPath(import.meta.url)), ".ledger.json");
-export const DEFAULT_CAP_MICRO_USD = 1_000_000;
+export const DEFAULT_CAP_MICRO_USD = 2_000_000; // raised from $1 by Alex, 2026-10-28
 /** Reserve per task: the worst case we accept before the call (spec 7). */
 export const RESERVE_MICRO_USD: Record<AiTask, number> = { purpose_tags: 2_000, plan_generate: 150_000, plan_patch: 50_000 };
 

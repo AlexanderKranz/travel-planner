@@ -23,6 +23,8 @@ export function PlanRunner({
   watchOnly = false,
   disabled = false,
   secondary = false,
+  fresh = false,
+  confirm,
 }: {
   tripId: string;
   locale: string;
@@ -31,6 +33,10 @@ export function PlanRunner({
   watchOnly?: boolean;
   disabled?: boolean;
   secondary?: boolean;
+  /** Regenerate: a new AI version even when the input is unchanged (sent with force, so pending places don't block). */
+  fresh?: boolean;
+  /** Ask before starting: inline confirmation with this text and button labels. */
+  confirm?: { text: string; yes: string; no: string };
 }) {
   const t = useTranslations("plan.runner");
   const router = useRouter();
@@ -38,6 +44,7 @@ export function PlanRunner({
   const [error, setError] = useState<ActionError | null>(null);
   const [timedOut, setTimedOut] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [asking, setAsking] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const startedAt = useRef(Date.now());
   const url = `/api/trips/${encodeURIComponent(tripId)}/plan`;
@@ -94,7 +101,7 @@ export function PlanRunner({
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(force ? { locale, force: true } : { locale }),
+        body: JSON.stringify(fresh ? { locale, force: true, fresh: true } : force ? { locale, force: true } : { locale }),
       });
       if (res.ok) return done();
       const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -113,17 +120,38 @@ export function PlanRunner({
 
   return (
     <div className="flex flex-col gap-3">
-      {!watchOnly && (
+      {!watchOnly && !asking && (
         <div>
           <button
             type="button"
             className={secondary ? btnSecondary : btnPrimary}
-            onClick={() => run()}
+            onClick={() => (confirm ? setAsking(true) : run())}
             disabled={disabled || working}
             aria-busy={working}
           >
             {working ? t("working") : (label ?? t("start"))}
           </button>
+        </div>
+      )}
+      {!watchOnly && asking && confirm && (
+        <div role="group" aria-label={label} className="flex flex-col gap-2">
+          <p className="text-sm">{confirm.text}</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={btnPrimary}
+              disabled={disabled}
+              onClick={() => {
+                setAsking(false);
+                void run();
+              }}
+            >
+              {confirm.yes}
+            </button>
+            <button type="button" className={btnSecondary} onClick={() => setAsking(false)}>
+              {confirm.no}
+            </button>
+          </div>
         </div>
       )}
       <div role="status" aria-live="polite" className="text-sm">

@@ -34,4 +34,6 @@ export type PlanDocument = {
   openDone: string[];
   items: SharedItem[] | null; // null = not shared / no items section; notes already null-ed when not shared
   costs: CostSummary | null;
+  /** Owner view only: a timed item changed after this plan version (soft "regenerate?" hint). */
+  itemsChanged?: boolean;
 };

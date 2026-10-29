@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const h = vi.hoisted(() => ({
-  session: { userId: "u1", supabase: {} } as unknown,
+  session: { userId: "u1", supabase: {} } as { userId: string; supabase: unknown },
+  itemRows: [] as unknown[],
   trip: { id: "11111111-1111-4111-8111-111111111111", lengthDays: 3, groupId: null, purposeId: "p1", timing: { kind: "none" }, updatedAt: "t" } as Record<string, unknown>,
   purpose: { id: "p1", tags: null, updatedAt: "pu" } as Record<string, unknown>,
   budgetOk: true,
@@ -71,8 +72,14 @@ vi.mock("@/lib/domain/plan", async (orig) => {
   return { ...m, Plan: { safeParse: (v: unknown) => ({ success: true, data: v }) } };
 });
 
+// trip_items read (loadTripItems): from().select().eq().returns()
+h.session.supabase = {
+  from: () => ({ select: () => ({ eq: () => ({ returns: async () => ({ data: h.itemRows, error: null }) }) }) }),
+};
+
 import { resetRateLimits } from "./rate-limit";
 import { generatePlan, iteratePlan } from "./plan-pipeline";
+import { applyPatch } from "@/lib/plan/patch";
 
 const TRIP = "11111111-1111-4111-8111-111111111111";
 
@@ -89,6 +96,7 @@ beforeEach(() => {
   h.needsTags.mockReturnValue(false);
   h.facts = { places: { status: "unavailable", reason: "no_location" } };
   h.picks = [];
+  h.itemRows = [];
   h.trip.destination = { kind: "city", lat: 36.5, lon: -4.9 };
   h.compose.mockResolvedValue({ ok: true, data: {}, usage: {} });
   h.assemble.mockReturnValue({ ok: true, plan: Plan, issues: {} });
@@ -218,6 +226,18 @@ describe("generatePlan", () => {
     await generatePlan(TRIP, "en");
     expect(h.saveTags).toHaveBeenCalledWith("u1", "p1", { v: 1 }, "th");
   });
+  it("trip items go into the input builder", async () => {
+    h.itemRows = [ROW];
+    await generatePlan(TRIP, "en");
+    expect(h.build.mock.calls[0][0]).toMatchObject({ items: [{ id: "i1", day: 1, startTime: "07:50", endTime: "10:40", status: "booked" }] });
+  });
+  it("fresh (regenerate) skips the hash dedupe and calls the model", async () => {
+    h.latest = stored("hash-new", 1);
+    const res = await generatePlan(TRIP, "en", { fresh: true });
+    expect(res.ok).toBe(true);
+    expect(h.compose).toHaveBeenCalledTimes(1);
+    expect(h.insert).toHaveBeenCalledWith(expect.anything(), "plan1", expect.objectContaining({ kind: "generate" }));
+  });
   it("rate limits at 6 per minute", async () => {
     h.budgetOk = false;
     for (let i = 0; i < 6; i++) await generatePlan(TRIP, "en");
@@ -225,7 +245,18 @@ describe("generatePlan", () => {
   });
 });
 
+const ROW = { id: "i1", trip_id: TRIP, category: "flight", title: "LH 1150 FRA → AGP", status: "booked", price_cents: null, price_basis: "total", persons: null, currency: "EUR", day: 1, ref: null, url: null, notes: null, start_time: "07:50", end_time: "10:40", created_at: "c", updated_at: "u" };
+
 describe("iteratePlan", () => {
+  it("sends the current fixed items to the patch and to applyPatch", async () => {
+    h.itemRows = [ROW];
+    h.patch.mockResolvedValue({ ok: true, data: { reply: "r", days: [] }, usage: {} });
+    vi.mocked(applyPatch).mockReturnValue({ ok: true, plan: Plan, changedDays: [], issues: {} } as never);
+    await iteratePlan(TRIP, 1, { chips: ["more_rest"], days: [1] }, "en");
+    const fixed = [{ day: 1, from: "07:50", to: "10:40", cat: "flight" }];
+    expect(h.patch.mock.calls[0][0]).toMatchObject({ fixed });
+    expect(vi.mocked(applyPatch).mock.calls[0][0]).toMatchObject({ fixed });
+  });
   it("conflict on a stale base version", async () => {
     h.planRow = { id: "plan1", latestVersion: 4, busyUntil: null };
     expect(await iteratePlan(TRIP, 3, { chips: ["more_rest"] }, "en")).toMatchObject({ ok: false, error: "conflict" });

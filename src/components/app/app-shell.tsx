@@ -27,7 +27,7 @@ export async function AppShell({
         </div>
       )}
       <header className="border-b border-neutral-300 dark:border-neutral-700">
-        <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 sm:px-6 lg:px-8">
           <Link href="/app" className={`rounded-md py-2 text-lg font-bold ${focusCls}`}>
             {t("appName")}
           </Link>
@@ -41,7 +41,10 @@ export async function AppShell({
           </div>
         </div>
       </header>
-      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-6">{children}</div>
+      {/* Wide container (spec timed-items [D16]); pages stay at reading width unless their <main> sets data-wide. */}
+      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 [&>main:not([data-wide])]:mx-auto [&>main:not([data-wide])]:max-w-3xl">
+        {children}
+      </div>
     </div>
   );
 }

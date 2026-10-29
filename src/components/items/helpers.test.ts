@@ -58,12 +58,16 @@ describe("priceLine", () => {
 
 describe("prefills", () => {
   it("flight legs land on day 1 or the last day", () => {
-    expect(flightPrefill({ dir: "out", number: "LH 1148", from: "FRA", to: "AGP" }, 5)).toMatchObject({
+    const leg = { dir: "out" as const, number: "LH 1148", from: "FRA", to: "AGP", dep: "07:50", arr: "10:40", date: "2038-03-13" };
+    expect(flightPrefill(leg, 5, null)).toEqual({
       title: "LH 1148 FRA → AGP",
       category: "flight",
       day: 1,
+      ref: null,
+      startTime: "07:50",
+      endTime: "10:40",
     });
-    expect(flightPrefill({ dir: "back", number: "LH 1149", from: "AGP", to: "FRA" }, 5).day).toBe(5);
+    expect(flightPrefill({ ...leg, dir: "back", number: "LH 1149", from: "AGP", to: "FRA" }, 5, null).day).toBe(5);
   });
   it("places become activity options on their day", () => {
     expect(placePrefill({ name: "Real Club Valderrama" }, "way/1", 3)).toEqual({

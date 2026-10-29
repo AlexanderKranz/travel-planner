@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { PlaceCandidate, PlaceGroup, TripFacts } from "@/lib/domain/facts";
+import type { Fact, PlaceCandidate, PlaceGroup, TripFacts } from "@/lib/domain/facts";
+import type { FlightsFacts } from "@/lib/domain/flights";
+import proxyFlights from "@/lib/flights/__fixtures__/flights-fact-proxy.json";
 import type { TravelGroup } from "@/lib/domain/group";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
@@ -187,5 +189,51 @@ describe("localHhmm", () => {
   it("formats an instant in the destination zone", () => {
     expect(localHhmm("2037-12-19T15:49:00.000Z", "Europe/Berlin")).toBe("16:49");
     expect(localHhmm(null, "Europe/Berlin")).toBeUndefined();
+  });
+});
+
+describe("fixed items in the input (plan-4)", () => {
+  const item = (o: Record<string, unknown>) => ({
+    id: "i", category: "activity" as const, title: "Tee time", status: "booked" as const, day: 2, startTime: "09:30", endTime: null, ...o,
+  });
+  const withFlights = (t: Trip, items: Parameters<typeof buildPlanInput>[0]["items"]) =>
+    buildPlanInput({
+      trip: t, group, purpose: purpose(), profileBirthdate: null,
+      facts: { ...facts(t, [okGroup("golf", 5)]), flights: proxyFlights as Fact<FlightsFacts> },
+      locale: "de", today: "2026-10-28", items,
+    });
+
+  it("sends booked/planned items with day + start as compact fixed slots; options stay out", () => {
+    const r = withFlights(trip(), [
+      item({ id: "a", category: "flight", title: "LH 1150 FRA → AGP", day: 1, startTime: "07:50", endTime: "10:40" }),
+      item({ id: "b", status: "planned" }),
+      item({ id: "c", status: "option", startTime: "12:00" }),
+      item({ id: "d", day: null }),
+    ]);
+    expect(r.stored.llm.fixed).toEqual([
+      { day: 1, from: "07:50", to: "10:40", cat: "flight" },
+      { day: 2, from: "09:30", cat: "activity", title: "Tee time" },
+    ]);
+    expect(canonicalJson(r.stored.llm)).not.toMatch(/LH 1150/);
+  });
+  it("no fixed key without fixed items; fixed items change the input hash", () => {
+    const none = withFlights(trip(), []);
+    expect("fixed" in none.stored.llm).toBe(false);
+    const some = withFlights(trip(), [item({})]);
+    expect(planInputHash(some.stored.llm)).not.toBe(planInputHash(none.stored.llm));
+  });
+  it("a fixed flight on day 1 / the last day replaces the verified-schedule times of that direction", () => {
+    const base = withFlights(trip(), []);
+    expect(base.stored.llm.flights?.out.length).toBeGreaterThan(0);
+    expect(base.stored.llm.flights?.back.length).toBeGreaterThan(0);
+    const arr = withFlights(trip(), [item({ category: "flight", day: 1, startTime: "07:50", endTime: "10:40" })]);
+    expect(arr.stored.llm.flights?.out).toEqual([]);
+    expect(arr.stored.llm.flights?.back).toEqual(base.stored.llm.flights?.back);
+    expect(arr.flights).toEqual(base.flights); // the stored snapshot (UI) is unchanged
+    const both = withFlights(trip(), [
+      item({ id: "a", category: "flight", day: 1, startTime: "07:50" }),
+      item({ id: "b", category: "flight", day: 3, startTime: "18:00" }),
+    ]);
+    expect(both.stored.llm.flights).toBeUndefined();
   });
 });

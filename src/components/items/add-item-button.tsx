@@ -3,32 +3,45 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { btnPrimary, focusCls, linkCls } from "@/components/ui/styles";
-import type { Prefill } from "./helpers";
+import type { ItemFormCtx, Prefill } from "./helpers";
 import { ItemForm } from "./item-form";
 
-type Ctx = { tripId: string; lengthDays: number; partySize: number | null };
-
-/** "Add item" button (primary) or a compact "+ item" link (quick add from a place or flight). */
+/** "Add cost item" button (primary), a compact "+ Add cost item" link (flights) or an icon-only "+" (day rows). */
 export function AddItemButton({
   ctx,
   prefill,
   quickLabel,
+  icon = false,
+  className = "",
 }: {
-  ctx: Ctx;
+  ctx: ItemFormCtx;
   prefill?: Prefill;
   /** Set for quick add: accessible name context, e.g. the place name. */
   quickLabel?: string;
+  /** Quick add as an icon-only "+" (tight spots); the full text is its aria-label and tooltip. */
+  icon?: boolean;
+  className?: string;
 }) {
   const t = useTranslations("items");
   const [open, setOpen] = useState(false);
   return (
     <>
-      {quickLabel ? (
+      {quickLabel && icon ? (
         <button
           type="button"
           onClick={() => setOpen(true)}
           aria-label={t("quickAddFor", { title: quickLabel })}
-          className={`${linkCls} ${focusCls} inline-flex min-h-11 items-center px-1 text-sm`}
+          title={t("quickAdd")}
+          className={`${focusCls} inline-flex size-11 items-center justify-center rounded-md text-lg leading-none text-blue-800 hover:bg-neutral-100 dark:text-blue-300 dark:hover:bg-neutral-800 ${className}`}
+        >
+          <span aria-hidden="true">+</span>
+        </button>
+      ) : quickLabel ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={t("quickAddFor", { title: quickLabel })}
+          className={`${linkCls} ${focusCls} inline-flex min-h-11 items-center whitespace-nowrap px-1 text-sm ${className}`}
         >
           + {t("quickAdd")}
         </button>

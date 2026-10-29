@@ -12,6 +12,7 @@ import fraDeparturesPast from "@/lib/integrations/__fixtures__/aerodatabox/fids-
 import agpDeparturesPast from "@/lib/integrations/__fixtures__/aerodatabox/fids-departures-AGP-2026-03-18-past.json";
 import malagaArchive from "@/lib/integrations/__fixtures__/open-meteo/archive-malaga-2016-2025.json";
 import type { FlightsFacts } from "@/lib/domain/flights";
+import type { ItemCategory, ItemStatus, SharedItem } from "@/lib/domain/items";
 import type { CountryFacts, Fact, InterestOrGeneral, PlaceGroup, TripFacts, WeatherFacts } from "@/lib/domain/facts";
 import type { StoredEntry, TravelGroup } from "@/lib/domain/group";
 import type { PlanFeedback, PurposeTags } from "@/lib/domain/plan";
@@ -58,6 +59,8 @@ export type EvalFixture = {
   group?: { composition: Composition[]; notes?: string };
   purpose?: { name: string; text?: string; constraints?: string[] };
   fixedSchedule?: ScheduleEntry[];
+  /** Trip items (timed-items spec); booked/planned ones with day + start reach the model as `fixed`. */
+  items?: { category: ItemCategory; title: string; status: ItemStatus; day: number | null; startTime?: string; endTime?: string }[];
   checks: {
     sportEveryDay?: boolean;
     /** A day other than the first and last has >= 2 rounds (the input does not say which day). */
@@ -67,6 +70,8 @@ export type EvalFixture = {
     restWindow?: [string, string];
     restExceptDays?: number[];
     portWindows?: "fixedSchedule";
+    /** Day 1 starts >= 90 min after a fixed arrival flight; no activity overlaps a fixed item. */
+    fixedItems?: boolean;
   };
 };
 
@@ -275,6 +280,26 @@ function evalDrive(id: FixtureId): DriveInput | null {
   return { byKey: rec.byKey, fetchedAt: EVAL_FETCHED_AT };
 }
 
+/** Fixture items as trip items (stable ids, no prices). */
+export function evalItems(id: FixtureId): SharedItem[] {
+  return (FIXTURES[id].items ?? []).map((i, n) => ({
+    id: `eval-${id}-item-${n + 1}`,
+    category: i.category,
+    title: i.title,
+    status: i.status,
+    priceCents: null,
+    priceBasis: "total",
+    persons: null,
+    currency: "EUR",
+    day: i.day,
+    ref: null,
+    url: null,
+    notes: null,
+    startTime: i.startTime ?? null,
+    endTime: i.endTime ?? null,
+  }));
+}
+
 /** Everything the pipeline would build for this fixture, given (recorded or live) purpose tags. */
 export function buildEvalInput(id: FixtureId, tags: PurposeTags | null) {
   const trip = evalTrip(id);
@@ -283,6 +308,7 @@ export function buildEvalInput(id: FixtureId, tags: PurposeTags | null) {
   const facts = evalFacts(id, trip, purpose);
   const built = buildPlanInput({
     drive: evalDrive(id),
+    items: evalItems(id),
     trip,
     group,
     purpose,

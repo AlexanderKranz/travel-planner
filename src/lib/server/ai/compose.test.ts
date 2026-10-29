@@ -90,3 +90,24 @@ describe("purpose tags", () => {
     expect(t).toEqual({ v: 1, interests: ["golf"], custom: ["a"], hard: ["x".repeat(200)], soft: [], summary: "s".repeat(300) });
   });
 });
+
+describe("patch with fixed items", () => {
+  const slot = { day: 1, from: "07:50", to: "10:40", cat: "flight" as const };
+  it("sends no fixed key when the items match INPUT.fixed (INPUT block stays the cached prefix)", () => {
+    const r = patchRequest({ llm: { ...llm, fixed: [slot] }, plan, index, feedback: fb({ chips: ["more_rest"] }), fixed: [slot] });
+    expect(r.blocks[0]).toMatchObject({ cache: true });
+    expect(r.blocks[1].text).not.toContain('"fixed"');
+  });
+  it("sends the current fixed slots in CURRENT_PLAN when items changed, [] when all were removed", () => {
+    const changed = patchRequest({ llm, plan, index, feedback: fb({ chips: ["more_rest"] }), fixed: [slot] });
+    expect(changed.blocks[0].text).not.toContain('"fixed"');
+    expect(changed.blocks[1].text).toContain('"fixed":[{"cat":"flight","day":1,"from":"07:50","to":"10:40"}]');
+    const removed = patchRequest({ llm: { ...llm, fixed: [slot] }, plan, index, feedback: fb({ chips: ["more_rest"] }), fixed: undefined });
+    expect(removed.blocks[1].text).toContain('"fixed":[]');
+  });
+  it("the system prompt states the fixed-item rule (plan-4)", () => {
+    expect(SYSTEM_RULES).toMatch(/fixed items are shown by the app/);
+    expect(SYSTEM_RULES).toMatch(/at least 90 min after its to/);
+    expect(SYSTEM_RULES).toMatch(/at least 150 min before its from/);
+  });
+});

@@ -6,7 +6,7 @@ export const MODEL_TAGS = "claude-haiku-5-5";
 export type AiModel = typeof MODEL_PLAN | typeof MODEL_TAGS;
 
 /** Bump when the system rules or the input/output shape change (part of the input hashes). */
-export const PLAN_PROMPT_VERSION = "plan-3";
+export const PLAN_PROMPT_VERSION = "plan-4";
 export const TAGS_PROMPT_VERSION = "tags-1";
 
 /**
