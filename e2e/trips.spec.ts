@@ -7,8 +7,9 @@ test.describe("trip creation", () => {
     await submitTrip(page);
     await expect(page.getByRole("heading", { name: "Auf einen Blick" })).toBeVisible();
     // Facts come from the stubbed providers (recorded fixtures), each with source and check date.
-    await expect(page.getByText(/Open-Meteo/).first()).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText(/geprüft/).first()).toBeVisible();
+    // visible: the destination summary is rendered twice (collapsed box on phones, side column on desktop).
+    await expect(page.getByText(/Open-Meteo/).filter({ visible: true }).first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/geprüft/).filter({ visible: true }).first()).toBeVisible();
     await expect(page.getByRole("region", { name: "Reisekontext" })).toBeVisible();
   });
 
@@ -16,7 +17,8 @@ test.describe("trip creation", () => {
     await startTripForm(page, "freetext");
     await submitTrip(page);
     await expect(
-      page.getByText("Für dieses Ziel gibt es keine Wetter-, Tageslicht- oder Ortsdaten.").first(),
+      // visible: on phones the summary's copy of the message sits in the collapsed "Über das Reiseziel" box.
+      page.getByText("Für dieses Ziel gibt es keine Wetter-, Tageslicht- oder Ortsdaten.").filter({ visible: true }).first(),
     ).toBeVisible({ timeout: 30_000 });
   });
 

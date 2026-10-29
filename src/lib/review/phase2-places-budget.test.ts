@@ -80,6 +80,16 @@ describe("places: Overpass time budget vs maxDuration = 300 s", () => {
     expect(fact.data.groups.filter((g) => g.status === "error")).toHaveLength(4 - starts.length);
   });
 
+  it("budget 0 is cache only: no network query, cached interests still served (plan after the places step)", async () => {
+    timeline.hits = new Set([1]);
+    const p = getPlacesFacts(trip as never, purpose(FOUR) as never, ctx, { budgetMs: 0 });
+    await vi.advanceTimersByTimeAsync(1_000);
+    const fact = await p;
+    expect(timeline.starts).toHaveLength(0);
+    if (fact.status !== "ok") throw new Error("not ok");
+    expect(fact.data.groups.map((g) => g.status)).toEqual(["error", "empty", "error", "error"]);
+  });
+
   it("fast (cached) queries all run in one request", async () => {
     const { starts } = await run([0, 0, 0, 0], FOUR);
     expect(starts).toHaveLength(4);

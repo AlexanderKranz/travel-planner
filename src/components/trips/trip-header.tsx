@@ -14,11 +14,14 @@ export function TripHeader({
   trip,
   purposeName,
   pills,
+  aside,
 }: {
   trip: Trip;
   purposeName: string | null;
   /** Server-rendered pills (length, group, radius). */
   pills: React.ReactNode;
+  /** Right column on desktop, below the buttons on phones ("About the destination"). */
+  aside?: React.ReactNode;
 }) {
   const t = useTranslations("trips");
   const locale = useLocale();
@@ -45,26 +48,32 @@ export function TripHeader({
 
   const eyebrow = [purposeName, timingLabel(trip.timing, locale, t)].filter(Boolean).join(" · ");
   return (
-    <header className="flex flex-col gap-3 border-b border-line pb-8" data-print-block>
-      <Link href="/app/trips" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
-        {t("back")}
-      </Link>
-      <p className={eyebrowCls}>{eyebrow}</p>
-      <h1 className="break-words font-serif text-4xl font-bold leading-[1.05] sm:text-5xl lg:text-6xl">{title}</h1>
-      <p className="max-w-3xl font-serif text-lg leading-relaxed text-muted sm:text-xl">
-        {d.name}
-        {place && place !== d.name ? ` (${place})` : ""}
-      </p>
-      {pills}
-      <ErrorBanner error={error} />
-      <div className="mt-1 flex flex-col gap-2 sm:flex-row" data-no-print>
-        <Link href={`/app/trips/${trip.id}/edit`} className={btnPrimary}>
-          {t("edit")}
+    <header
+      className="flex flex-col gap-6 border-b border-line pb-8 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(20rem,28rem)] lg:items-start lg:gap-x-10"
+      data-print-block
+    >
+      <div className="flex min-w-0 flex-col gap-3">
+        <Link href="/app/trips" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
+          {t("back")}
         </Link>
-        <button type="button" className={btnDanger} onClick={() => setConfirm(true)}>
-          {t("delete")}
-        </button>
+        <p className={eyebrowCls}>{eyebrow}</p>
+        <h1 className="break-words font-serif text-4xl font-bold leading-[1.05] sm:text-5xl lg:text-6xl">{title}</h1>
+        <p className="max-w-3xl font-serif text-lg leading-relaxed text-muted sm:text-xl">
+          {d.name}
+          {place && place !== d.name ? ` (${place})` : ""}
+        </p>
+        {pills}
+        <ErrorBanner error={error} />
+        <div className="mt-1 flex flex-col gap-2 sm:flex-row" data-no-print>
+          <Link href={`/app/trips/${trip.id}/edit`} className={btnPrimary}>
+            {t("edit")}
+          </Link>
+          <button type="button" className={btnDanger} onClick={() => setConfirm(true)}>
+            {t("delete")}
+          </button>
+        </div>
       </div>
+      {aside && <div className="min-w-0 lg:pt-11">{aside}</div>}
       <ConfirmDialog
         open={confirm}
         title={t("deleteTitle")}

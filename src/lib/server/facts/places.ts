@@ -42,6 +42,8 @@ export const VIEW_BUDGET_MS = 280_000;
 /** Overpass answered in 25-60 s when measured (2026-10-28); less time than this is not worth a query. */
 export const MIN_QUERY_WINDOW_MS = 45_000;
 export const PLACES_REQUEST_BUDGET_MS = VIEW_BUDGET_MS;
+/** Budget meaning "cache only, no network query" (plan generation right after the client's places request). */
+export const PLACES_CACHE_ONLY = 0;
 
 const inFlight = new Map<string, Promise<CachedResult<PlaceCandidate[]>>>();
 
@@ -102,6 +104,7 @@ export async function getPlacesFacts(
       // Budget gate only for real network queries: cached interests are always served (they cost no time).
       const fetchAllowed = () => {
         const left = budgetMs - (Date.now() - started);
+        if (budgetMs === PLACES_CACHE_ONLY) return false;
         if (queried > 0 && left < Math.min(MIN_QUERY_WINDOW_MS, OVERPASS_CLIENT_TIMEOUT_MS)) return false;
         queried += 1;
         return true;

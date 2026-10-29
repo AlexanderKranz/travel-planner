@@ -6,14 +6,16 @@ import { ErrorBanner } from "@/components/ui/error-banner";
 import { btnPrimary, btnSecondary, mutedCls } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
 import type { ActionError } from "@/lib/domain";
-import { asPlanError, POLL_INTERVAL_MS, progressStage, shouldKeepPolling } from "./helpers";
+import { asPlanError, formatElapsed, POLL_INTERVAL_MS, progressStage, shouldKeepPolling } from "./helpers";
 
-type Phase = "idle" | "running" | "polling";
+type Phase = "idle" | "places" | "running" | "polling";
 
 /**
- * Starts plan generation and shows staged progress. Generation takes 30-90 s; if the request dies
- * (network, proxy timeout) or the server says "busy", it polls GET /plan until the lock is released.
- * With `watchOnly` it only polls (plan generated elsewhere, e.g. another tab).
+ * Starts plan generation in two visible steps with a running timer:
+ * 1. GET /places (Overpass; instant when cached, minutes for a new destination),
+ * 2. POST /plan with `placesLoaded`, so the server reads places from the cache instead of waiting again.
+ * If the plan request dies (network, proxy timeout) or the server says "busy", it polls GET /plan until the lock
+ * is released. With `watchOnly` it only polls (plan generated elsewhere, e.g. another tab).
  */
 export function PlanRunner({
   tripId,
@@ -47,7 +49,9 @@ export function PlanRunner({
   const [asking, setAsking] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const startedAt = useRef(Date.now());
+  const planStartedAt = useRef(Date.now());
   const url = `/api/trips/${encodeURIComponent(tripId)}/plan`;
+  const placesUrl = `/api/trips/${encodeURIComponent(tripId)}/places?locale=${encodeURIComponent(locale)}`;
 
   const done = useCallback(() => {
     startRefresh(() => router.refresh());
@@ -67,7 +71,7 @@ export function PlanRunner({
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
-      if (!shouldKeepPolling(Date.now() - startedAt.current)) {
+      if (!shouldKeepPolling(Date.now() - planStartedAt.current)) {
         setTimedOut(true);
         setPhase("idle");
         return;
@@ -91,17 +95,34 @@ export function PlanRunner({
     };
   }, [phase, url, done, watchOnly]);
 
+  /** Step 1: let the server fetch places (cached interests answer instantly). False when the request failed. */
+  async function loadPlaces(): Promise<boolean> {
+    try {
+      const res = await fetch(placesUrl, { cache: "no-store" });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   async function run(force = false) {
     setError(null);
     setTimedOut(false);
     startedAt.current = Date.now();
     setElapsed(0);
+    // "Generate anyway" skips the places step: the user chose not to wait.
+    let placesLoaded = force;
+    if (!force) {
+      setPhase("places");
+      placesLoaded = await loadPlaces();
+    }
+    planStartedAt.current = Date.now();
     setPhase("running");
     try {
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(fresh ? { locale, force: true, fresh: true } : force ? { locale, force: true } : { locale }),
+        body: JSON.stringify({ locale, ...(fresh || force ? { force: true } : {}), ...(fresh ? { fresh: true } : {}), placesLoaded }),
       });
       if (res.ok) return done();
       const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -116,7 +137,8 @@ export function PlanRunner({
   }
 
   const working = phase !== "idle" || refreshing;
-  const stage = progressStage(elapsed);
+  const planElapsed = Math.max(0, elapsed - Math.floor((planStartedAt.current - startedAt.current) / 1000));
+  const stage = progressStage(phase === "places" ? "places" : "plan", planElapsed);
 
   return (
     <div className="flex flex-col gap-3">
@@ -161,7 +183,10 @@ export function PlanRunner({
               aria-hidden="true"
               className="inline-block size-4 shrink-0 animate-spin rounded-full border-2 border-line-strong border-t-transparent motion-reduce:animate-none"
             />
-            <span>{watchOnly || initialBusy ? t("busyElsewhere") : t(stage)}</span>
+            <span>
+              {watchOnly || initialBusy ? t("busyElsewhere") : t(stage)}{" "}
+              <span className="tabular-nums">{formatElapsed(elapsed)}</span>
+            </span>
           </p>
         )}
         {timedOut && (

@@ -1,5 +1,4 @@
 import { getTranslations } from "next-intl/server";
-import { DaylightTable } from "@/components/facts/daylight-table";
 import { FactDetails } from "@/components/facts/fact-details";
 import { GlanceCard } from "@/components/facts/glance-card";
 import { WeatherTable } from "@/components/facts/weather-table";
@@ -9,8 +8,8 @@ import type { PanelProps } from "./types";
 export const glanceAsideCls = "min-w-0";
 
 /**
- * Awaits weather, daylight and country together (cached, fast) and renders the "At a glance"
- * side column plus the collapsed full tables. Children are grid items of the page layout.
+ * Awaits weather, daylight and country together (cached, fast) and renders the "At a glance" tiles plus the
+ * collapsed weather table. Daylight has no table: the tile shows everything needed (Alex, 2026-10-29).
  */
 export async function GlancePanel({ trip, ctx }: PanelProps) {
   const t = await getTranslations("facts");
@@ -32,16 +31,9 @@ export async function GlancePanel({ trip, ctx }: PanelProps) {
           locale={ctx.locale}
         />
       </section>
-      {(weather.status === "ok" || daylight.status === "ok") && (
-        <div className="flex min-w-0 flex-col gap-2">
-          <FactDetails title={t("weather.detailsTitle")} fact={weather}>
-            {(data) => <WeatherTable data={data} locale={ctx.locale} />}
-          </FactDetails>
-          <FactDetails title={t("daylight.detailsTitle")} fact={daylight}>
-            {(data) => <DaylightTable data={data} />}
-          </FactDetails>
-        </div>
-      )}
+      <FactDetails title={t("weather.detailsTitle")} fact={weather}>
+        {(data) => <WeatherTable data={data} locale={ctx.locale} />}
+      </FactDetails>
     </div>
   );
 }
