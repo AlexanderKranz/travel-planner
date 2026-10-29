@@ -60,13 +60,8 @@ export async function withPageDump<T>(page: import("@playwright/test").Page, fn:
   }
 }
 
-/**
- * The not-found page must be shown. The HTTP status should be 404, but since the segment-wide `loading.tsx`
- * (phase-6 hardening) the shell is streamed first and Next answers 200; that is recorded as an annotation, not a failure.
- */
+/** The localized not-found page is shown AND the HTTP status is 404 (a route-level loading.tsx would turn it into 200). */
 export async function expectNotFoundPage(page: import("@playwright/test").Page, status: number | undefined) {
+  expect(status).toBe(404);
   await expect(page.getByRole("heading", { level: 1, name: "Seite nicht gefunden" })).toBeVisible();
-  if (status !== 404) {
-    test.info().annotations.push({ type: "known-defect", description: `not-found page answered HTTP ${status}, expected 404 (streaming under app/loading.tsx)` });
-  }
 }
