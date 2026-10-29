@@ -42,7 +42,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.1.2",
     "eslint": "^9",
-    "eslint-config-next": "15.5.28",
+    "eslint-config-next": "16.4.3",
     "pdfjs-dist": "^6.4.299",
     "tailwindcss": "^4",
     "typescript": "^5",
