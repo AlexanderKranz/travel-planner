@@ -16,7 +16,8 @@ test.describe("trip creation", () => {
     await startTripForm(page, "freetext");
     await submitTrip(page);
     await expect(
-      page.getByText("Für dieses Ziel gibt es keine Wetter-, Tageslicht- oder Ortsdaten.").first(),
+      // visible: on phones the summary's copy of the message sits in the collapsed "Über das Reiseziel" box.
+      page.getByText("Für dieses Ziel gibt es keine Wetter-, Tageslicht- oder Ortsdaten.").filter({ visible: true }).first(),
     ).toBeVisible({ timeout: 30_000 });
   });
 
