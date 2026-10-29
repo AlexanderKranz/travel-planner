@@ -13,6 +13,8 @@ function FeedbackText({ meta }: { meta: PlanVersionMeta }) {
       return <>{t("versions.swap", { a: s.a, b: s.b })}</>;
     case "set_best":
       return <>{s.n ? t("versions.best", { n: s.n }) : t("versions.bestNone")}</>;
+    case "act_edit":
+      return <>{t(`versions.${s.edit}`)}</>;
     case "chips":
       return (
         <>

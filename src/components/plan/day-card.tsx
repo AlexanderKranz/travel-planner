@@ -5,6 +5,7 @@ import { placeHref } from "@/lib/facts/sources";
 import { StatusBadge } from "@/components/items/status-badge";
 import { mergeDayRows, timeRange, type FixedItem } from "@/lib/plan/fixed-items";
 import { DRIVE_ONLY, windowKind } from "./helpers";
+import { AltEditButtons, EditableActRow, type ActEditCtx } from "./act-edit";
 
 /** Owner-only slot: "+ item" next to a referenced place (bound to its day by DayCard). */
 type QuickAdd = (place: Plan["places"][string], ref: string) => React.ReactNode;
@@ -78,22 +79,23 @@ function Activity({
   act,
   places,
   quickAdd,
+  edit,
 }: {
   act: PlanActivity;
   places: Plan["places"];
   quickAdd?: QuickAdd;
+  /** Owner's latest version: remove/promote controls (patch-safety [D7]). */
+  edit?: { ctx: ActEditCtx; at: { n: number; s: number; a: number } };
 }) {
   const t = useTranslations("plan");
   const f = useFormatter();
   const place = act.ref ? places[act.ref] : undefined;
-  const alts = place ? (act.alts ?? []).flatMap((k) => (places[k] ? [places[k]] : [])) : [];
+  const alts = place ? (act.alts ?? []).flatMap((k) => (places[k] ? [{ key: k, place: places[k] }] : [])) : [];
   const time = act.at ? (act.until ? `${act.at}–${act.until}` : act.at) : null;
   const add = quickAdd && place && act.ref ? quickAdd(place, act.ref) : null;
-  // The quick add sits in a reserved right column, so the text never wraps around it (spec timed-items [D14]).
-  return (
-    <li className={add ? "group/act grid min-w-0 grid-cols-[minmax(0,1fr)_2.75rem] items-start gap-x-1" : "min-w-0"}>
+  const body = (
       <div className="min-w-0 break-words">
-        {time && <span className="mr-2 font-semibold tabular-nums text-heading">{time}</span>}
+        {time && <span className="mr-2 whitespace-nowrap font-semibold tabular-nums text-heading">{time}</span>}
         <span className={kindCls(act.kind)}>{t(`kinds.${act.kind}`)}</span>
         {place && (
           <>
@@ -114,8 +116,8 @@ function Activity({
         {alts.length > 0 && (
           <span className={`block text-xs ${mutedCls}`}>
             {t("alternatives")}{" "}
-            {alts.map((p, i) => (
-              <span key={i}>
+            {alts.map(({ key, place: p }, i) => (
+              <span key={key}>
                 {i > 0 && " · "}
                 <PlaceLink place={p} />
                 {p.drive && (
@@ -124,11 +126,24 @@ function Activity({
                     <DriveBadge place={p} />
                   </>
                 )}
+                {edit && <AltEditButtons ctx={edit.ctx} at={edit.at} alt={key} name={p.name} />}
               </span>
             ))}
           </span>
         )}
       </div>
+  );
+  if (edit) {
+    return (
+      <EditableActRow ctx={edit.ctx} at={edit.at} name={place?.name ?? act.text} add={add}>
+        {body}
+      </EditableActRow>
+    );
+  }
+  // The quick add sits in a reserved right column, so the text never wraps around it (spec timed-items [D14]).
+  return (
+    <li className={add ? "group/act grid min-w-0 grid-cols-[minmax(0,1fr)_2.75rem] items-start gap-x-1" : "min-w-0"}>
+      {body}
       {add && <div className="-my-2.5 flex justify-end">{add}</div>}
     </li>
   );
@@ -173,6 +188,7 @@ export function DayCard({
   changed,
   fixed = [],
   renderQuickAdd,
+  edit,
 }: {
   day: PlanDay;
   places: Plan["places"];
@@ -180,6 +196,8 @@ export function DayCard({
   /** Booked/planned trip items with day + start time; merged into this day's rows in time order. */
   fixed?: FixedItem[];
   renderQuickAdd?: (place: Plan["places"][string], ref: string, day: number) => React.ReactNode;
+  /** Owner's latest, idle version: activity edits without AI. */
+  edit?: ActEditCtx;
 }) {
   const t = useTranslations("plan");
   const f = useFormatter();
@@ -238,6 +256,7 @@ export function DayCard({
                           act={r.act}
                           places={places}
                           quickAdd={renderQuickAdd && ((p, ref) => renderQuickAdd(p, ref, day.n))}
+                          edit={edit && { ctx: edit, at: { n: day.n, s: i, a: stop.acts.indexOf(r.act) } }}
                         />
                       ),
                     )}

@@ -210,10 +210,16 @@ export const PlanFeedback = z
 export type PlanFeedback = z.infer<typeof PlanFeedback>;
 export type PlanFeedbackInput = z.input<typeof PlanFeedback>;
 
+const ActIndex = z.number().int().min(0).max(11);
+
 /** Code-only edits, no LLM [D8]. */
 export const PlanEdit = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("swap_days"), a: DayNo, b: DayNo }), // swaps title/stops/note/warn/best, keeps n/date
   z.object({ kind: z.literal("set_best"), n: DayNo.nullable() }),
+  // Activity edits (patch-safety [D7]): address = day n, stop index s, activity index a in the base version.
+  z.object({ kind: z.literal("remove_alt"), n: DayNo, s: ActIndex, a: ActIndex, alt: OsmKey }),
+  z.object({ kind: z.literal("promote_alt"), n: DayNo, s: ActIndex, a: ActIndex, alt: OsmKey }),
+  z.object({ kind: z.literal("remove_act"), n: DayNo, s: ActIndex, a: ActIndex }),
 ]);
 export type PlanEdit = z.infer<typeof PlanEdit>;
 

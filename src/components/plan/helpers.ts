@@ -82,7 +82,11 @@ export type FeedbackSummary =
   | { type: "chips"; chips: PlanChip[]; days: number[]; text?: string }
   | { type: "swap_days"; a: number; b: number }
   | { type: "set_best"; n: number | null }
+  | { type: "act_edit"; edit: ActEditKind; n: number }
   | { type: "none" };
+
+export const ACT_EDIT_KINDS = ["remove_alt", "promote_alt", "remove_act"] as const;
+export type ActEditKind = (typeof ACT_EDIT_KINDS)[number];
 
 /** Normalises the stored feedback of a version (PlanFeedback or PlanEdit) for display. */
 export function summarizeFeedback(meta: Pick<PlanVersionMeta, "feedback">): FeedbackSummary {
@@ -90,6 +94,8 @@ export function summarizeFeedback(meta: Pick<PlanVersionMeta, "feedback">): Feed
   if (!f) return { type: "none" };
   if (f.kind === "swap_days") return { type: "swap_days", a: Number(f.a), b: Number(f.b) };
   if (f.kind === "set_best") return { type: "set_best", n: f.n == null ? null : Number(f.n) };
+  const k = ACT_EDIT_KINDS.find((x) => x === f.kind);
+  if (k) return { type: "act_edit", edit: k, n: Number(f.n) };
   const chips = Array.isArray(f.chips) ? (f.chips as PlanChip[]) : [];
   const days = Array.isArray(f.days) ? (f.days as number[]) : [];
   const text = typeof f.text === "string" && f.text ? f.text : undefined;
