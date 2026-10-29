@@ -260,3 +260,24 @@ A Vercel Cron job calls `GET /api/cron/budget-check` once a day (`vercel.json`, 
 - `aerodatabox_monthly`: no new flight lookups are made below the margin (the guard refuses). Wait for the monthly reset or raise the plan.
 - `ors_daily`: plans simply generate without drive times until the next Berlin day.
 - `errors_24h`: admin page -> Recent warnings and errors, then Vercel logs for the route.
+
+## 11. E2E tests (Playwright)
+
+Browser tests for the main flows on a 360 px phone (`mobile`) and a 1280 px desktop (`desktop`). They run in CI (job `e2e` in `.github/workflows/ci.yml`) against a throwaway local Supabase and the production build. No secrets, no external API calls, no AI calls. Design and decisions: `docs/specs/phase-6-e2e.md`.
+
+**Run locally (needs Docker; Alex's Mac has none, so CI is the normal place):**
+
+```bash
+supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor
+set -a; eval "$(scripts/e2e/env.sh)"; set +a      # local URL + demo keys only
+npx playwright install chromium                    # once
+npm run build                                      # NEXT_PUBLIC_* values are baked in at build time
+npm run e2e                                        # starts `next start` with the provider stub itself
+supabase stop --no-backup
+```
+
+Handy: `npx playwright test e2e/share.spec.ts --project=mobile`, `--ui`, `PW_CHANNEL=chrome` (use an installed Chrome). The setup refuses to run unless `NEXT_PUBLIC_SUPABASE_URL` is `127.0.0.1` or `localhost`, so it can never touch the hosted project. Do not export values from `.env.local` into the shell before running it.
+
+**When a CI run fails:** open the run in GitHub -> **e2e** job. Failures show as annotations and in the log. Download the artifact `playwright-report` (HTML report, screenshots and traces) and open a trace with `npx playwright show-trace trace.zip`. A failure of `a11y.spec.ts` lists the axe rule and the element.
+
+**Adding a flow:** add `e2e/<name>.spec.ts`, import `test`/`expect` from `./lib/fixtures` (gives `seed`, `anonContext`, `contextAs`). Anything that needs an external fact must be in the stub (`e2e/stub-fetch.cjs`) or must be shown as "unavailable" in the test.
