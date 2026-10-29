@@ -52,6 +52,7 @@ jobs:
           "/usr/lib/postgresql/${PG_MAJOR}/bin/pg_dump" --version
 
       - name: Dump, compress, encrypt
+        id: dump
         run: |
           set -eu
           set +x
@@ -62,6 +63,8 @@ jobs:
           BACKUP_PASSPHRASE="$(printf '%s' "$BACKUP_PASSPHRASE" | tr -d '\r\n')"
           STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
           echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+          # Step output for the artifact name (linters cannot see variables written to GITHUB_ENV).
+          echo "stamp=$STAMP" >> "$GITHUB_OUTPUT"
           mkdir -p work out
 
           # Server version must not be newer than the pg_dump we installed.
@@ -126,8 +129,8 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: db-backup-${{ env.STAMP }}
-          path: out/db-backup-${{ env.STAMP }}.tar.gz.gpg
+          name: db-backup-${{ steps.dump.outputs.stamp }}
+          path: out/db-backup-${{ steps.dump.outputs.stamp }}.tar.gz.gpg
           retention-days: 30
           compression-level: 0
           if-no-files-found: error
