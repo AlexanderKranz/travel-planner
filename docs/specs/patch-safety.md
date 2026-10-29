@@ -85,6 +85,9 @@ were in the index), the fixed-item overlap guard (no fixed items; it never remov
   ideally ≤ 50 characters ("Mittagsschlaf an Bord", "Trage statt Buggy (Kopfsteinpflaster)"), group hints in a
   short parenthesis or in note/warn, titles ≤ 40 characters. Code clamps (counted as `truncated`, never rejected):
   `LIMITS.text` 200 → 90, `LIMITS.title` 80 → 60. The stored schema keeps 200/80 so older plans stay valid.
+  Measured on the recorded fixtures (plan-4 → plan-5, output tokens): cruise generate 3774 → 2349, golf generate
+  2778 → 2482, cruise patch 619 → 545, golf patch 480 → 467; average activity text 38 → 29 characters. The cached
+  system prefix grew by about 105 tokens (generation) and 270 tokens (patch, with the addendum of [D1]).
 
 ## Known limits
 
