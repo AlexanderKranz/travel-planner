@@ -15,7 +15,7 @@ export function isAiEnabled(env: Env = process.env): boolean {
   return env.AI_ENABLED === "true" && Boolean(env.ANTHROPIC_API_KEY?.trim());
 }
 
-function usdToMicro(raw: string | undefined, fallbackUsd: number): number {
+export function usdToMicro(raw: string | undefined, fallbackUsd: number): number {
   const n = raw === undefined || raw.trim() === "" ? NaN : Number(raw);
   return Math.round((Number.isFinite(n) && n >= 0 ? n : fallbackUsd) * 1_000_000);
 }

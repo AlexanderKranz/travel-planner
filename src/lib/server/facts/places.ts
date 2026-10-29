@@ -68,7 +68,7 @@ function fetchCandidates(
     fetchAllowed,
     fetcher: async () => {
       const r = await runQuery(buildQuery(src.filters, anchor, radiusKm * 1000), { deadline });
-      return { data: rankCandidates(r.elements, src.filters, anchor, src.exclude, radiusKm), status: r.status, latencyMs: r.latencyMs };
+      return { data: rankCandidates(r.elements, src.filters, anchor, src.exclude, radiusKm), status: r.status, latencyMs: r.latencyMs, variant: r.mirror };
     },
   }).finally(() => inFlight.delete(key));
   inFlight.set(key, p);

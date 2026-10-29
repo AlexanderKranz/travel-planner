@@ -13,6 +13,8 @@ export type ApiCallRow = {
   quotaRemaining?: number | null;
   /** Short class only (`timeout`, `http_429`, `zod`, `network`). */
   errorCode?: string | null;
+  /** Optional sub-source, e.g. the Overpass mirror host name. Host names only: `^[a-z0-9.-]+$`. */
+  variant?: string | null;
   userId?: string | null;
 };
 
@@ -36,6 +38,8 @@ export async function logApiCalls(rows: ApiCallRow[]): Promise<void> {
         units: r.units ?? null,
         quota_remaining: r.quotaRemaining ?? null,
         error_code: r.errorCode ? r.errorCode.slice(0, 60) : null,
+        // Only sent when set, so rows without a variant keep working before migration ...125 is applied.
+        ...(r.variant ? { variant: r.variant.slice(0, 60) } : {}),
         user_id: r.userId ?? null,
       })),
     );

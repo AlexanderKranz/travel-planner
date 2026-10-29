@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261101120024. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261102120025. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -649,6 +649,45 @@ select ok(has_column_privilege('authenticated', 'public.trips', 'group_text', 'i
 select ok(not has_column_privilege('authenticated', 'public.trips', 'group_parsed', 'update'), 'authenticated: cannot update trips.group_parsed');
 select lives_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'group_parse', 'claude-haiku-5-5', 'ok')$$, 'ai_usage accepts the group_parse task');
 select throws_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'bogus', 'claude-haiku-5-5', 'ok')$$, '23514', null, 'ai_usage still rejects unknown tasks');
+
+-- ---------- phase 6: admin aggregate functions (migration 20261102120025) ----------
+reset role;
+select ok(not has_function_privilege('anon', 'public.admin_user_stats(timestamptz,timestamptz)', 'execute'), 'anon cannot execute admin_user_stats');
+select ok(not has_function_privilege('authenticated', 'public.admin_user_stats(timestamptz,timestamptz)', 'execute'), 'authenticated cannot execute admin_user_stats');
+select ok(not has_function_privilege('authenticated', 'public.admin_usage_stats(timestamptz,integer)', 'execute'), 'authenticated cannot execute admin_usage_stats');
+select ok(not has_function_privilege('authenticated', 'public.admin_ai_stats(timestamptz,timestamptz)', 'execute'), 'authenticated cannot execute admin_ai_stats');
+select ok(not has_function_privilege('authenticated', 'public.admin_api_stats(timestamptz,timestamptz)', 'execute'), 'authenticated cannot execute admin_api_stats');
+select ok(not has_function_privilege('authenticated', 'public.admin_recent_events(integer)', 'execute'), 'authenticated cannot execute admin_recent_events');
+select ok(not has_function_privilege('anon', 'public.admin_recent_events(integer)', 'execute'), 'anon cannot execute admin_recent_events');
+select ok(has_function_privilege('service_role', 'public.admin_user_stats(timestamptz,timestamptz)', 'execute'), 'service_role can execute admin_user_stats');
+select ok(has_function_privilege('service_role', 'public.admin_usage_stats(timestamptz,integer)', 'execute'), 'service_role can execute admin_usage_stats');
+select ok(has_function_privilege('service_role', 'public.admin_ai_stats(timestamptz,timestamptz)', 'execute'), 'service_role can execute admin_ai_stats');
+select ok(has_function_privilege('service_role', 'public.admin_api_stats(timestamptz,timestamptz)', 'execute'), 'service_role can execute admin_api_stats');
+select ok(has_function_privilege('service_role', 'public.admin_recent_events(integer)', 'execute'), 'service_role can execute admin_recent_events');
+
+set local request.jwt.claims = '{"sub":"cccccccc-0000-4000-8000-000000000003","role":"authenticated"}';
+set local role authenticated;
+select throws_ok($$select public.admin_ai_stats(now(), now())$$, '42501', null, 'even an admin user cannot call the aggregates through the user session');
+select throws_ok($$select public.admin_user_stats(now(), now())$$, '42501', null, 'admin user session cannot call admin_user_stats');
+reset role;
+
+-- shape of the results (as postgres, which is what service_role effectively is for these queries)
+insert into public.app_events (created_at, level, event, route, props, user_id) values
+  (now() + interval '1 hour', 'error', 'test.boom', '/api/x', '{"reason":"timeout","tripId":"t1"}', 'aaaaaaaa-0000-4000-8000-000000000001');
+select is(public.admin_recent_events(5) -> 0 ->> 'event', 'test.boom', 'recent events: newest first');
+select is(public.admin_recent_events(5) -> 0 ->> 'code', 'timeout', 'recent events: code comes from props.reason');
+select ok(not (public.admin_recent_events(5) -> 0) ?| array['user_id', 'props', 'request_id'], 'recent events carry no user id, props or request id');
+select ok((public.admin_user_stats(now(), date_trunc('month', now())) ->> 'total')::int >= 3, 'user stats: total counts the fixture users');
+select ok((public.admin_user_stats(now(), date_trunc('month', now())) ->> 'active7')::int >= 1, 'user stats: an event of their own makes a user active');
+select ok(jsonb_array_length(public.admin_usage_stats(date_trunc('month', now()), 14) -> 'perDay') = 14, 'usage stats: 14 day buckets');
+insert into public.api_calls (provider, endpoint, cache, ok, status, latency_ms, variant) values
+  ('overpass', 'interpreter', 'miss', true, 200, 1200, 'overpass-api.de'),
+  ('overpass', 'interpreter', 'miss', false, 429, null, 'overpass-api.de'),
+  ('overpass', 'interpreter', 'hit', true, null, null, null);
+select is((select (v ->> 'calls')::int from jsonb_array_elements(public.admin_api_stats(date_trunc('day', now()), date_trunc('month', now())) -> 'overpassVariants') v where v ->> 'variant' = 'overpass-api.de'), 2, 'api stats: overpass variant counts network calls only (hit excluded)');
+select is((select (v ->> 'errors')::int from jsonb_array_elements(public.admin_api_stats(date_trunc('day', now()), date_trunc('month', now())) -> 'overpassVariants') v where v ->> 'variant' = 'overpass-api.de'), 1, 'api stats: overpass variant counts errors');
+select ok(public.admin_ai_stats(date_trunc('day', now()), date_trunc('month', now())) ? 'byTask', 'ai stats: has byTask');
+select throws_ok($$insert into public.api_calls (provider, endpoint, cache, ok, variant) values ('overpass', 'x', 'miss', true, 'Bad Host!')$$, '23514', null, 'api_calls.variant is constrained');
 
 select * from finish();
 rollback;
