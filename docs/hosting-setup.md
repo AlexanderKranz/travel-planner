@@ -22,7 +22,8 @@ Vercel (fra1) ── runs the Next.js app, deploys on every push to main, daily 
    └──► Sentry (EU) ───────────── error reports and budget alerts
 
 GitHub ── code, CI, DB migrations deploy, nightly encrypted backup, restore test ──► DiskStation (optional copy)
-   └── reviews on every PR: CodeRabbit (AI, independent vendor), CodeQL (security rules), Dependabot (updates)
+   ├── on every PR to main: CodeRabbit (AI review, independent vendor), CodeQL (security rules)
+   └── weekly: Dependabot opens its own update PRs (which then get the same checks)
 UptimeRobot ── pings /api/health every 5 minutes
 Strato ── DNS for alexanderkranz.de (email sender records)
 ```
@@ -43,7 +44,7 @@ Strato ── DNS for alexanderkranz.de (email sender records)
 | **Overpass (OpenStreetMap)** | Places and golf courses | No account | optional `OVERPASS_URL`; contact in `INTEGRATIONS_CONTACT` | Slow (25–60 s per query); mirrors maps.mail.ru and overpass.private.coffee; cached 30 days |
 | **Wikipedia / Wikivoyage** | "Über das Reiseziel" text | No account | `INTEGRATIONS_CONTACT` (User-Agent) | Cached |
 | **CodeRabbit** | Independent AI review comments on every pull request | Free for public repos (check pricing) | GitHub App, access to `travel-planner` only | none |
-| **GitHub security** (CodeQL, Dependabot, secret scanning) | Security scan and dependency updates on every PR | Free for public repos | `.github/workflows/codeql.yml`, `.github/dependabot.yml` | none |
+| **GitHub security** (CodeQL, Dependabot, secret scanning) | CodeQL scan on every PR to `main`; weekly Dependabot update PRs; secret scanning on pushes | Free for public repos | `.github/workflows/codeql.yml`, `.github/dependabot.yml` | none |
 | **Sentry** | Error tracking, budget alert emails | Developer (free), region EU | DSN, org/project slugs, auth token | Monthly error quota |
 | **UptimeRobot** | Uptime monitor, keeps Supabase awake | Free | none | 5-minute interval |
 | **Synology DiskStation** | Optional off-site copy of backups | Your NAS | Read-only GitHub token on the NAS | Not set up yet (backlog) |
@@ -57,12 +58,14 @@ The repo `AlexanderKranz/travel-planner` exists.
 3. Optional, on the Mac: GitHub CLI (`brew install gh`, then `gh auth login` → GitHub.com → HTTPS → web browser). Lets Claude read PR and CI status.
 
 ## 1a. Pull request reviews and security checks
-Every PR gets checks from outside the developer (Claude) before Alex merges:
+Checks from outside the developer (Claude) before Alex merges. CodeRabbit and CodeQL look at every PR to `main`; Dependabot does not review anything, it opens its own update PRs.
 
 1. **CodeRabbit** (independent AI review): sign in at https://coderabbit.ai with GitHub → on GitHub's install page choose **Repository access → Only select repositories → `travel-planner`** → **Install**. Change or remove later under GitHub → Settings → Applications → Installed GitHub Apps → CodeRabbit → **Configure**. It comments on the next PR automatically.
 2. **CodeQL** (rule-based security scan, no AI): runs from `.github/workflows/codeql.yml` on every PR, on `main` and weekly. Results: repo → **Security → Code scanning**. Leave GitHub's "default setup" for CodeQL **off**; the workflow is the "advanced setup" and the two cannot run together.
 3. **Dependabot**: `.github/dependabot.yml` opens grouped update PRs on Mondays (npm minor/patch in one PR, major updates separately, GitHub Actions in one PR). They go through CI like any other PR. Turn on **Settings → Code security → Dependabot alerts** and **Dependabot security updates** for immediate PRs when a package has a known vulnerability.
-4. **Secret scanning**: **Settings → Code security → Secret Protection / Secret scanning** and **Push protection** on. A push that contains an API key is then blocked.
+4. **Secret scanning**: **Settings → Code security → Secret Protection / Secret scanning** and **Push protection** on. Push protection blocks pushes containing secrets in formats GitHub recognises (e.g. Anthropic, Supabase, GitHub tokens); it does not catch every key format, and a block can be bypassed. It is a safety net, not a guarantee: if a key ever reaches the repo, **revoke it at the provider first** (`docs/runbook.md` section 6), because removing the commit does not make it secret again.
+
+All workflow actions are pinned to full commit SHAs (with the version as a comment); Dependabot updates the pins weekly.
 
 ## 2. Supabase: database and login
 1. Sign up at https://supabase.com (GitHub login works).
