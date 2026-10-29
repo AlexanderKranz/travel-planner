@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { evaluateBudget, type BudgetMetrics } from "./budget";
 import type { BudgetConfig } from "./config";
 
-const cfg: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsDailyCap: 400, errors24hThreshold: 20 };
+const cfg: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsDailyCap: 400, geoapifyDailyCap: 400, errors24hThreshold: 20 };
 const calm: BudgetMetrics = { aiTodayMicroUsd: 0, aiMonthMicroUsd: 0, adbRemaining: 300, orsRequestsToday: 0, errors24h: 0 };
 const kinds = (m: Partial<BudgetMetrics>, c = cfg) => evaluateBudget({ ...calm, ...m }, c).map((a) => `${a.kind}:${a.level}`);
 

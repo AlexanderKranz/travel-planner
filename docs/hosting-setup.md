@@ -17,7 +17,8 @@ Vercel (fra1) ── runs the Next.js app, deploys on every push to main, daily 
    ├──► AeroDataBox (RapidAPI) ── verified flight schedules
    ├──► OpenRouteService ──────── driving times
    ├──► Open-Meteo ────────────── geocoding, climate (no key)
-   ├──► Overpass / OpenStreetMap ─ places, golf courses (no key, 3 mirrors)
+   ├──► Geoapify ──────────────── places, golf courses (OpenStreetMap data, fast; primary)
+   ├──► Overpass / OpenStreetMap ─ places (no key, 3 mirrors; slow fallback)
    ├──► Wikipedia / Wikivoyage ── destination summary (no key)
    └──► Sentry (EU) ───────────── error reports and budget alerts
 
@@ -41,7 +42,8 @@ Strato ── DNS for alexanderkranz.de (email sender records)
 | **AeroDataBox** (via RapidAPI) | Direct flights per airport and day | Free/basic plan | `AERODATABOX_API_KEY` | Monthly unit quota; app guard `AERODATABOX_DAILY_UNITS` |
 | **OpenRouteService** (HeiGIT) | Driving times (matrix) | Free Standard key | `OPENROUTESERVICE_API_KEY` | ~500 matrix requests/day; app guard `ORS_DAILY_REQUESTS` |
 | **Open-Meteo** | Geocoding, climate history | No account | none | Fair use; cached |
-| **Overpass (OpenStreetMap)** | Places and golf courses | No account | optional `OVERPASS_URL`; contact in `INTEGRATIONS_CONTACT` | Slow (25–60 s per query); mirrors maps.mail.ru and overpass.private.coffee; cached 30 days |
+| **Geoapify** | Places and golf courses (OpenStreetMap data), primary source | Free (3,000 credits/day) | `GEOAPIFY_API_KEY` | 1 credit per 20 places; app guard `GEOAPIFY_DAILY_CREDITS` (default 2,000); cached 30 days |
+| **Overpass (OpenStreetMap)** | Places: fallback when Geoapify fails, has no key, or for interests without a Geoapify category | No account | optional `OVERPASS_URL`; contact in `INTEGRATIONS_CONTACT` | Slow (25–60 s per query, often 5xx); mirrors maps.mail.ru and overpass.private.coffee; cached 30 days |
 | **Wikipedia / Wikivoyage** | "Über das Reiseziel" text | No account | `INTEGRATIONS_CONTACT` (User-Agent) | Cached |
 | **CodeRabbit** | Independent AI review comments on every pull request | Free for public repos (check pricing) | GitHub App, access to `travel-planner` only | none |
 | **GitHub security** (CodeQL, Dependabot, secret scanning) | CodeQL scan on every PR to `main`; weekly Dependabot update PRs; secret scanning on pushes | Free for public repos | `.github/workflows/codeql.yml`, `.github/dependabot.yml` | none |
@@ -104,7 +106,12 @@ Every push to `main` deploys to production; every pull request gets a preview UR
 2. Create a free **Standard** key → `OPENROUTESERVICE_API_KEY`.
 3. Without a key, plans are created without driving times. Quota: `docs/runbook.md` section "OpenRouteService quota".
 
-## 5b. Keyless data sources
+## 5b. Geoapify: places
+1. Sign up at https://www.geoapify.com with **email and password** (the "Login with GitHub" button was misconfigured on 2026-10-30: GitHub showed "redirect_uri is not associated with this application"; do not click through such a warning).
+2. **Create a project** (e.g. `travel-planner`) and copy its API key → `GEOAPIFY_API_KEY` in `.env.local` and Vercel (Production and Preview, Sensitive).
+3. Without a key, places come from Overpass only (minutes instead of seconds for a new destination). Usage: Geoapify dashboard, and the admin page (Credits heute). Quota: `docs/runbook.md` section "Geoapify quota".
+
+## 5c. Keyless data sources
 Open-Meteo, Overpass and Wikipedia/Wikivoyage need no account. Set `INTEGRATIONS_CONTACT` to a contact email: it goes into the User-Agent, which Wikimedia and Overpass ask for. `OVERPASS_URL` is optional (a preferred mirror); the two fallback mirrors are always tried.
 
 ## 6. Login emails: Brevo + Strato (done 2026-10-29)
@@ -163,11 +170,11 @@ Settings marked "admin page" can be changed under Admin → Einstellungen withou
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Vercel, `.env.local` | no (protected by RLS) |
 | `SUPABASE_SECRET_KEY` | Vercel, `.env.local` | **yes** |
 | `ANTHROPIC_API_KEY` | Vercel, `.env.local` | **yes** |
-| `AERODATABOX_API_KEY`, `OPENROUTESERVICE_API_KEY` | Vercel, `.env.local` | **yes** |
+| `AERODATABOX_API_KEY`, `OPENROUTESERVICE_API_KEY`, `GEOAPIFY_API_KEY` | Vercel, `.env.local` | **yes** |
 | `CRON_SECRET` | Vercel | **yes** |
 | `DEMO_EMAIL`, `DEMO_PASSWORD` | Vercel, `.env.local` | password **yes** |
 | `AI_ENABLED`, `DEMO_ENABLED` | Vercel (defaults; admin page) | no. `false` in Vercel is a hard off |
-| `AI_*_USD`, `AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`, `ORS_DAILY_REQUESTS`, `ALERT_ERRORS_24H` | Vercel (defaults; admin page) | no |
+| `AI_*_USD`, `AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`, `ORS_DAILY_REQUESTS`, `GEOAPIFY_DAILY_CREDITS`, `ALERT_ERRORS_24H` | Vercel (defaults; admin page) | no |
 | `APP_URL` | Vercel, only for a custom domain | no |
 | `INTEGRATIONS_CONTACT`, `OVERPASS_URL` | Vercel, `.env.local` | no |
 | `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Vercel | no |

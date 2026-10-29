@@ -7,7 +7,7 @@ vi.mock("../supabase/admin", () => ({ createSupabaseAdminClient: () => ({}) }));
 import type { BudgetConfig } from "./config";
 import { runBudgetCheck, type BudgetDeps } from "./budget-run";
 
-const config: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsDailyCap: 400, errors24hThreshold: 20 };
+const config: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsDailyCap: 400, geoapifyDailyCap: 400, errors24hThreshold: 20 };
 const metrics = { aiTodayMicroUsd: 4_500_000, aiMonthMicroUsd: 1, adbRemaining: 50, orsRequestsToday: 0, errors24h: 30 };
 
 function deps(over: Partial<BudgetDeps> = {}): BudgetDeps & { deliver: ReturnType<typeof vi.fn>; logRun: ReturnType<typeof vi.fn> } {

@@ -56,6 +56,7 @@ export function shapeDashboard(raw: Raw, cfg: BudgetConfig) {
   const byProvider = (name: string) => raw.api.providers.find((p) => p.provider === name);
   const adb = byProvider("aerodatabox");
   const ors = byProvider("openrouteservice");
+  const geoapify = byProvider("geoapify");
 
   return {
     users: raw.users,
@@ -81,6 +82,7 @@ export function shapeDashboard(raw: Raw, cfg: BudgetConfig) {
         : raw.api.aerodataboxQuotaRemaining < 2 * cfg.adbMinRemaining ? "warn" : "ok") as Level,
     },
     ors: { requestsToday: meter(ors?.networkToday ?? 0, cfg.orsDailyCap) },
+    geoapify: { creditsToday: meter(geoapify?.unitsToday ?? 0, cfg.geoapifyDailyCap) },
     overpass: raw.api.overpassVariants,
     events: raw.events,
   };

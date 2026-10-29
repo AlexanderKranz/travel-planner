@@ -11,7 +11,7 @@ import { Section } from "./parts";
 const GROUPS: { id: "switches" | "ai" | "quotas"; keys: SettingKey[] }[] = [
   { id: "switches", keys: ["ai_enabled", "demo_enabled"] },
   { id: "ai", keys: ["ai_user_daily_usd", "ai_admin_daily_usd", "ai_demo_daily_usd", "ai_global_daily_usd", "ai_monthly_alert_usd"] },
-  { id: "quotas", keys: ["aerodatabox_daily_units", "aerodatabox_min_remaining", "ors_daily_requests", "alert_errors_24h"] },
+  { id: "quotas", keys: ["aerodatabox_daily_units", "aerodatabox_min_remaining", "ors_daily_requests", "geoapify_daily_credits", "alert_errors_24h"] },
 ];
 const KNOWN_ERRORS = ["forbidden", "invalid", "rate_limited"];
 

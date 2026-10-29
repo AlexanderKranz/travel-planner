@@ -662,7 +662,7 @@
       },
       "osm": {
         "label": "© OpenStreetMap contributors",
-        "provides": "Kandidaten-Orte wie Sehenswürdigkeiten und Golfplätze.",
+        "provides": "Kandidaten-Orte wie Sehenswürdigkeiten und Golfplätze. Abgefragt über Geoapify (Powered by Geoapify) und als Ersatz über die Overpass API.",
         "license": "ODbL 1.0. Die Copyright-Seite muss verlinkt werden."
       },
       "wikivoyage": {
@@ -1221,6 +1221,8 @@
       "adbUnknown": "unbekannt",
       "orsTitle": "OpenRouteService",
       "orsToday": "Anfragen heute (Tageslimit ORS_DAILY_REQUESTS)",
+      "geoapifyTitle": "Geoapify (Orte)",
+      "geoapifyToday": "Credits heute (Tageslimit GEOAPIFY_DAILY_CREDITS)",
       "overpassTitle": "Overpass-Server, dieser Monat",
       "overpassCalls": "{calls} Anfragen, {errors} fehlgeschlagen",
       "overpassUnknown": "unbekannt (vor der Protokollierung)"
@@ -1323,6 +1325,7 @@
         "aerodatabox_daily_units": "AeroDataBox: Einheiten pro Tag",
         "aerodatabox_min_remaining": "AeroDataBox: Sicherheitsreserve im Monat",
         "ors_daily_requests": "OpenRouteService: Anfragen pro Tag",
+        "geoapify_daily_credits": "Geoapify: Credits pro Tag",
         "alert_errors_24h": "Fehlerwarnung: Fehler in 24 Stunden"
       },
       "errors": {

@@ -126,13 +126,13 @@ describe("resetSetting", () => {
 });
 
 describe("listSettings", () => {
-  it("returns all 11 settings and the recent changes without user ids", async () => {
+  it("returns all 12 settings and the recent changes without user ids", async () => {
     h.events = [
       { created_at: "2026-11-01T10:00:00Z", props: { key: "ai_enabled", old: false, new: true, oldSource: "default" }, user_id: "admin-1" },
       { created_at: "2026-11-01T09:00:00Z", props: { weird: 1 } },
     ];
     const r = await listSettings();
-    expect(r.ok && r.data.settings).toHaveLength(11);
+    expect(r.ok && r.data.settings).toHaveLength(12);
     expect(r.ok && r.data.changes).toEqual([{ at: "2026-11-01T10:00:00Z", key: "ai_enabled", old: false, new: true }]);
   });
 });
