@@ -1,0 +1,241 @@
+# Restore test: proves that a nightly backup can be decrypted and restored into a fresh Postgres, and that
+# the restored data is complete. Two jobs:
+#
+#   dry-run       A synthetic backup (tiny fake fixture, throwaway key) goes through the same script
+#                 (scripts/backup/restore-test.sh). Needs no secrets, runs on pushes/PRs that touch the backup
+#                 scripts. Proves the pipeline works. Also proves that wrong passphrases and broken foreign
+#                 keys are detected.
+#   restore-test  The real thing: downloads the newest production backup artifact, decrypts it with the secret
+#                 BACKUP_PASSPHRASE and restores it into a throwaway Supabase started on the runner. Only runs
+#                 when started by hand (Actions -> Restore test -> Run workflow) or by the optional schedule.
+#
+# Safety: the production database is never contacted (no SUPABASE_DB_URL here); restore-test.sh refuses any
+# non-local target. The backup contains personal data, so logs show counts and names only, the decrypted
+# files exist only on the ephemeral runner, nothing is uploaded, and Docker/database logs are not printed.
+#
+# Docs checked 2026-10-29:
+#   https://docs.github.com/en/rest/actions/artifacts (list + download artifacts; needs "actions: read")
+#   https://github.com/supabase/setup-cli and https://supabase.com/docs/reference/cli/supabase-start (as in ci.yml)
+name: Restore test
+
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_name:
+        description: "Backup artifact to test, e.g. db-backup-20261027T010009Z. Empty = the newest one."
+        required: false
+        default: ""
+  # DECISION (docs/specs/phase-6-restore-test.md, D3): the monthly schedule is OFF by default, because it
+  # decrypts production backups on a GitHub runner without you watching. To switch it on, remove the "#".
+  # The cron runs the restore-test job only; GitHub emails you if it fails.
+  # schedule:
+  #   - cron: "0 5 1 * *"   # 05:00 UTC on the 1st of each month
+  push:
+    branches: ["phase-*/**"]
+    paths:
+      - "scripts/backup/**"
+      - ".github/workflows/restore-test.yml"
+      - "supabase/migrations/**"
+  pull_request:
+    paths:
+      - "scripts/backup/**"
+      - ".github/workflows/restore-test.yml"
+      - "supabase/migrations/**"
+
+concurrency:
+  group: restore-test-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PG_MAJOR: "17"
+  SUPABASE_CLI_VERSION: "2.122.0" # same as ci.yml; bump deliberately
+  LOCAL_DB_URL: "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+  SUPABASE_EXCLUDE: "studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor"
+
+jobs:
+  # ------------------------------------------------------------------------------------------------
+  dry-run:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client ${{ env.PG_MAJOR }}
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y --no-install-recommends "postgresql-client-${PG_MAJOR}" >/dev/null
+          echo "/usr/lib/postgresql/${PG_MAJOR}/bin" >> "$GITHUB_PATH"
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Start local Supabase (applies the migrations)
+        run: supabase start -x "$SUPABASE_EXCLUDE"
+
+      - name: Syntax check of the scripts
+        run: |
+          set -eu
+          for f in scripts/backup/*.sh; do sh -n "$f"; echo "ok $f"; done
+          sh scripts/backup/restore-test.sh --help > /dev/null
+          sh scripts/backup/synthetic-backup.sh --help > /dev/null
+
+      - name: Negative tests (wrong passphrase, broken foreign key must FAIL)
+        run: |
+          set -eu
+          W="$RUNNER_TEMP/rt"; mkdir -p "$W"; chmod 700 "$W"
+          openssl rand -base64 33 | tr -d '\n' > "$W/pp"          # throwaway key, exists only on this runner
+          printf 'definitely-not-the-key' > "$W/wrong"
+
+          # A backup that contains an orphan row (trip with a non-existing owner); also empties the source DB.
+          sh scripts/backup/synthetic-backup.sh --source "$LOCAL_DB_URL" --out "$W/broken.gpg" --passphrase-file "$W/pp" --break-fk
+
+          if sh scripts/backup/restore-test.sh --file "$W/broken.gpg" --target "$LOCAL_DB_URL" \
+               --passphrase-file "$W/wrong" > "$W/neg1.log" 2>&1; then
+            echo "::error::restore-test accepted a WRONG passphrase"; exit 1
+          fi
+          grep -q 'decryption failed' "$W/neg1.log" || { echo "::error::wrong passphrase did not report 'decryption failed'"; cat "$W/neg1.log"; exit 1; }
+          echo "ok: wrong passphrase is rejected"
+
+          if sh scripts/backup/restore-test.sh --file "$W/broken.gpg" --target "$LOCAL_DB_URL" \
+               --passphrase-file "$W/pp" > "$W/neg2.log" 2>&1; then
+            echo "::error::restore-test did not detect the orphan row"; cat "$W/neg2.log"; exit 1
+          fi
+          grep -q 'FK violation' "$W/neg2.log" || { echo "::error::failure was not the expected FK violation"; cat "$W/neg2.log"; exit 1; }
+          echo "ok: orphan row is detected"
+          sh scripts/backup/synthetic-backup.sh --source "$LOCAL_DB_URL" --wipe-only
+
+      - name: Synthetic backup -> restore test (must PASS)
+        run: |
+          set -eu
+          W="$RUNNER_TEMP/rt"
+          sh scripts/backup/synthetic-backup.sh --source "$LOCAL_DB_URL" --out "$W/good.gpg" --passphrase-file "$W/pp"
+          {
+            echo "## Restore test: dry run (synthetic backup, no production data)"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+          sh scripts/backup/restore-test.sh --file "$W/good.gpg" --target "$LOCAL_DB_URL" \
+            --passphrase-file "$W/pp" --summary-file "$GITHUB_STEP_SUMMARY"
+
+      - name: Show status on failure (synthetic data only)
+        if: failure()
+        run: |
+          supabase status || true
+          docker ps -a || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/rt"
+          supabase stop --no-backup || true
+
+  # ------------------------------------------------------------------------------------------------
+  restore-test:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read # list and download the backup artifact of this repository
+    env:
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      GH_TOKEN: ${{ github.token }}
+      WANT_ARTIFACT: ${{ github.event.inputs.artifact_name }}
+    steps:
+      - name: Check secret exists
+        run: |
+          if [ -z "${BACKUP_PASSPHRASE:-}" ]; then
+            echo "::error::GitHub secret BACKUP_PASSPHRASE is missing. See docs/runbook.md, section 'GitHub secrets'."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the backup's git commit must be reachable to get its migrations
+
+      - name: Install PostgreSQL client ${{ env.PG_MAJOR }}
+        run: |
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y >/dev/null
+          sudo apt-get install -y --no-install-recommends "postgresql-client-${PG_MAJOR}" >/dev/null
+          echo "/usr/lib/postgresql/${PG_MAJOR}/bin" >> "$GITHUB_PATH"
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: ${{ env.SUPABASE_CLI_VERSION }}
+
+      - name: Download the newest backup artifact
+        run: |
+          set -eu
+          set +x
+          mkdir -p "$RUNNER_TEMP/rt"; chmod 700 "$RUNNER_TEMP/rt"
+          printf '%s' "$BACKUP_PASSPHRASE" | tr -d '\r\n' > "$RUNNER_TEMP/rt/pp"
+          # Newest non-expired artifact named db-backup-* (or the one named in the input).
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" > "$RUNNER_TEMP/rt/list.json"
+          if [ -n "$WANT_ARTIFACT" ]; then
+            id="$(jq -r --arg w "$WANT_ARTIFACT" '[.artifacts[] | select(.expired == false and .name == $w)] | sort_by(.created_at) | last | .id // empty' "$RUNNER_TEMP/rt/list.json")"
+          else
+            id="$(jq -r '[.artifacts[] | select(.expired == false and (.name | startswith("db-backup-")))] | sort_by(.created_at) | last | .id // empty' "$RUNNER_TEMP/rt/list.json")"
+          fi
+          if [ -z "$id" ]; then
+            echo "::error::No non-expired db-backup-* artifact found. Has 'Nightly database backup' run successfully in the last 30 days? (Actions tab)"
+            exit 1
+          fi
+          name="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/$id" --jq '.name')"
+          created="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/$id" --jq '.created_at')"
+          echo "Artifact $id ($name, created $created)"
+          echo "ARTIFACT_NAME=$name" >> "$GITHUB_ENV"
+          echo "ARTIFACT_CREATED=$created" >> "$GITHUB_ENV"
+          curl -sSL --fail -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            -o "$RUNNER_TEMP/rt/backup.zip" "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/$id/zip"
+          echo "Downloaded $(wc -c < "$RUNNER_TEMP/rt/backup.zip" | tr -d ' ') bytes"
+
+      - name: Read the backup's MANIFEST and check out its migrations
+        run: |
+          set -eu
+          RT="$RUNNER_TEMP/rt"
+          sh scripts/backup/restore-test.sh --file "$RT/backup.zip" --manifest-only --passphrase-file "$RT/pp" > "$RT/manifest.txt"
+          sed 's/^/  /' "$RT/manifest.txt"
+          sha="$(sed -n 's/^git_commit=//p' "$RT/manifest.txt" | head -n 1)"
+          ver="$(sed -n 's/^migration_version=//p' "$RT/manifest.txt" | head -n 1)"
+          case "$sha" in
+            [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*) ;;
+            *) echo "::error::MANIFEST has no usable git_commit"; exit 1 ;;
+          esac
+          if ! git cat-file -e "$sha^{commit}" 2>/dev/null; then
+            echo "::error::Backup commit $sha is not in the repository history, cannot get the matching migrations."
+            exit 1
+          fi
+          # The schema of the test database must be the schema the backup was made with (same as a real restore).
+          git worktree add --detach "$RUNNER_TEMP/backup-src" "$sha" > /dev/null
+          echo "BACKUP_SHA=$sha" >> "$GITHUB_ENV"
+          latest="$(ls supabase/migrations | sed -n 's/^\([0-9][0-9]*\)_.*\.sql$/\1/p' | sort | tail -n 1)"
+          newer="$(ls supabase/migrations | sed -n 's/^\([0-9][0-9]*\)_.*\.sql$/\1/p' | awk -v v="$ver" '$1 > v' | wc -l | tr -d ' ')"
+          {
+            echo "## Restore test: production backup"
+            echo
+            echo "- Artifact: \`$ARTIFACT_NAME\` (created $ARTIFACT_CREATED)"
+            echo "- Backup was made at commit \`$sha\`, migration \`$ver\`; the repo's latest migration is \`$latest\` ($newer newer migration(s) not in this backup)"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Start throwaway Supabase at the backup's commit
+        working-directory: ${{ runner.temp }}/backup-src
+        run: supabase start -x "$SUPABASE_EXCLUDE"
+
+      - name: Decrypt, restore and check (counts only)
+        run: |
+          set -eu
+          RT="$RUNNER_TEMP/rt"
+          sh scripts/backup/restore-test.sh --file "$RT/backup.zip" --target "$LOCAL_DB_URL" \
+            --passphrase-file "$RT/pp" --migrations-dir "$RUNNER_TEMP/backup-src/supabase/migrations" \
+            --summary-file "$GITHUB_STEP_SUMMARY"
+
+      - name: Cleanup (decrypted data lives only in the script's temp dir, removed on exit)
+        if: always()
+        run: |
+          rm -rf "$RUNNER_TEMP/rt"
+          (cd "$RUNNER_TEMP/backup-src" && supabase stop --no-backup) || true
