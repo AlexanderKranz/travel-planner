@@ -19,7 +19,7 @@ export async function startTripForm(page: Page, destination: "geo" | "freetext")
   const search = page.getByRole("combobox", { name: "Ziel suchen" });
   if (destination === "geo") {
     await search.fill("Passau");
-    const option = page.getByRole("option", { name: /Passau/ }).first();
+    const option = page.getByRole("option", { name: /Passau, Bayern/ });
     await expect(option, `geocode answers: ${log.join(" || ") || "none"}; status: ${await page.locator('[role="status"]').allInnerTexts()}`).toBeVisible();
     await option.click();
     try {
