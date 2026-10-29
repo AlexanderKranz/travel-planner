@@ -170,17 +170,19 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
    Usage logging (`ai_usage`, `api_calls`, `app_events`) is built from phase 2/3 onwards, so the admin page has data when it arrives.
 
 ### Open items / backlog
-- **Travel group editor still feels clunky** (Alex, 2026-10-28). Already improved: details chosen per group, clearer row types, no order arrows. There's no concrete idea yet, so revisit with fresh eyes (e.g. after phase 2, once groups are used in real trips). Trip purposes are fine as they are (free text + optional chips).
-- **Custom SMTP sender**, required before inviting anyone with their own account. It enables the custom email template (link works on any device) and the 6-digit code. Needs Alex (provider account); steps and candidates in `docs/runbook.md` section 11. The admin invite flow already works without it (phase 6 hardening).
-- **Backup restore test** (proves backups decrypt and restore); planned for phase 6, earlier if real data accumulates.
-- **DiskStation backup pull** (optional): `scripts/backup/pull-to-nas.sh`, see `docs/runbook.md`.
-- ~~**Sentry alert emails land in spam**~~ **Resolved 2026-10-29** (Alex): spam filter adjusted, alert emails now arrive. The budget alert rule (`budget_alert` tag, production, notify Alex) is set up.
-- **Overall look of the site** (Alex, 2026-10-28): currently very lean and clean; it needs more colour and a stronger visual identity. Do it as one pass over the whole app (palette, header, cards, buttons). The trip page's magazine layout (2026-10-28) is a clear improvement but needs more layout work too (Alex); revisit it in the same pass.
-- **"Getting started" guide on first login** (Alex, 2026-10-28): new users need a short introduction the first time they log in (what groups, purposes and home airports are for, how to create a first trip). It should be skippable and reachable again later; all text in de + en.
-- **Find destinations by trip purpose** (Alex, 2026-10-28): instead of starting from a destination, a user picks a purpose (e.g. "golf, flat courses, max 3 h flight from FRA, March") and gets suggested destinations. Deterministic first: filter candidates by verified facts (direct flights from home airports, flight time, climate in the chosen months, matching OSM places such as golf courses); the LLM may only rank or explain the shortlist, never invent places or routes. Likely after phase 4 (flights), since flight data is a key filter.
+- **Find destinations by trip purpose** (Alex, 2026-10-28): instead of starting from a destination, a user picks a purpose (e.g. "golf, flat courses, max 3 h flight from FRA, March") and gets suggested destinations. Deterministic first: filter candidates by verified facts (direct flights from home airports, flight time, climate in the chosen months, matching OSM places such as golf courses); the LLM may only rank or explain the shortlist, never invent places or routes. Open design question before a spec: flight data cost (scanning a month of departures per airport is about 120 AeroDataBox units), so it needs a rarely refreshed route list per airport or another source.
 - **Optional email + password login** (Alex, 2026-10-29): today login is the email link / 6-digit code only; each device stays logged in for months. Add an optional password (set under Einstellungen), "Mit Passwort anmelden" on the login page next to the link, "Passwort vergessen?" via the Reset Password template (Atlas style, like the other templates), minimum length and Supabase leaked-password protection, existing auth rate limits. The email link stays the default; invite-only unchanged. Google login and passkeys were considered and deferred.
-- **Not yet tested on a phone** (Alex, 2026-10-28): nothing has been tried on a mobile device so far; Alex will do that later. Until then, mobile layouts are only checked at 360 px in code review.
-- **Old macOS / browser:** the Mac runs macOS 12. Chrome will stop getting updates, and Safari is too old for some sites (the Sentry UI only worked in Chrome). This isn't an app issue, but browser security updates will end.
+- **DiskStation backup pull** (optional, needs Alex): `scripts/backup/pull-to-nas.sh`, see `docs/runbook.md` section 4.
+- **Not yet tested on a phone** (Alex, 2026-10-28): Alex is testing on a phone now; until that is done, mobile layouts are only checked at 360 px in code review and E2E.
+
+Done or closed:
+- ~~Travel group editor feels clunky~~ closed 2026-10-29: free-text group descriptions (`docs/specs/group-text.md`) solved it for Alex.
+- ~~Custom SMTP sender~~ done 2026-10-29: Brevo, sender `travel-planner@alexanderkranz.de`, Magic Link, Confirm signup and Invite templates in Atlas style.
+- ~~Backup restore test~~ done 2026-10-29: workflow "Restore test", first run PASS (`db-backup-20261029T063555Z`).
+- ~~Overall look of the site~~ done 2026-10-29: design direction Atlas for site and PDF.
+- ~~"Getting started" guide~~ done 2026-10-29: `docs/specs/getting-started.md`.
+- ~~Sentry alert emails land in spam~~ resolved 2026-10-29; budget alert rule set up.
+- ~~Old macOS / browser~~ closed 2026-10-29: not an app issue.
 
 ## Proposed agent team (`.claude/agents/`)
 I act as the orchestrator: I split the work, delegate it, and integrate and verify the results.
