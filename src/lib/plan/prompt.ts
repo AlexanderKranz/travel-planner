@@ -27,12 +27,14 @@ Rules:
 
 /** Appended to SYSTEM_RULES for day patches (spec 4.3). */
 export const PATCH_ADDENDUM = `Patch mode: CURRENT_PLAN holds the plan (days in scope in full, other days as title and refs). FEEDBACK holds the requested change (instructions, days = scope, text = the user's own words).
-- Return in days only the days that change, each complete with all its stops and activities. Days not returned stay as they are.
+- Return in days only the days that change. Days not returned stay as they are.
+- A returned day replaces the stored day completely. Copy every stop and activity that stays, with all its fields (at, until, kind, text, ref, alts) unchanged, and keep note and warn unless the change makes them wrong. There is no shorthand for "unchanged": an omitted activity or field is deleted. Never leave text empty.
+- Change only what FEEDBACK asks for. To drop an alternative, return the same activity with that id removed from alts. Remove whole activities only when asked.
 - When FEEDBACK.days is given, change only those days. Otherwise change as few days as needed.
 - CURRENT_PLAN.fixed, when present, replaces INPUT.fixed (the items changed since INPUT was built).
 - Keep fixed windows, fixed items (rule 13), hard constraints and the ref/alts rules. Avoid repeating places used on other days unless asked.
 - reply = one short sentence in lang that tells the user what changed.
-- Return summary, notes or open only if they must change; then return the complete list.`;
+- Return summary, notes or open only if they must change; then return the complete list. Never return them empty to mean "unchanged"; omit them.`;
 
 /** Haiku: free-text purpose → structured tags (spec 2.2). */
 export const TAGS_RULES = `You turn a trip purpose into structured tags. Reply only with JSON matching the schema.

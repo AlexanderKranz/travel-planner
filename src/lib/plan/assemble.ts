@@ -126,6 +126,8 @@ export type DayCtx = {
   issues: AssembleIssues;
   /** Times from the user's trip notes; a stop stays `fixed` only if all its window times are in here. */
   noteTimes: Set<string>;
+  /** Patch only: text of the base day's activity at the same place, used when the model left text empty. */
+  baseText?: Map<OsmKey, string>;
 };
 
 /** One model day → stored day (spec 4.5). `best` is resolved by the caller. */
@@ -148,8 +150,12 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
         } else issues.invalid_ref += 1;
       }
       const alts = ref ? resolveAlts(a.alts, ref, ctx.index, issues) : undefined;
-      // An empty text with a valid ref falls back to the place name (seen live in a patch); else the act is dropped.
-      const text = clampText(a.text, LIMITS.text, issues) ?? clampText(refName, LIMITS.text, issues);
+      // An empty text with a valid ref falls back to the base day's text for that place, then to the place name
+      // (both seen live in patches, spec patch-safety [D6]); else the act is dropped.
+      const text =
+        clampText(a.text, LIMITS.text, issues) ??
+        clampText(ref ? ctx.baseText?.get(ref) : undefined, LIMITS.text, issues) ??
+        clampText(refName, LIMITS.text, issues);
       if (!text) continue;
       const at = time(a.at, issues);
       const until = time(a.until, issues);

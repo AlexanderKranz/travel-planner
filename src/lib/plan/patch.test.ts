@@ -65,12 +65,34 @@ describe("applyPatch", () => {
 
   it("replaces summary, notes and open items only when present", () => {
     const base = basePlan();
-    const r = applyPatch({ base, patch: patch({ summary: "Neu.", notes: [], open: [{ text: "Buchen", day: 2 }] }), stored, scope: [] });
+    const r = applyPatch({
+      base,
+      patch: patch({ summary: "Neu.", notes: [{ kind: "warning", text: "Wind" }], open: [{ text: "Buchen", day: 2 }] }),
+      stored,
+      scope: [],
+    });
     if (!r.ok) throw new Error(r.reason);
     expect(r.plan.summary).toBe("Neu.");
-    expect(r.plan.notes).toEqual([]);
+    expect(r.plan.notes).toEqual([{ kind: "warning", text: "Wind" }]);
     expect(r.plan.openItems).toEqual([{ text: "Buchen", day: 2 }]);
     expect(canonicalJson(r.plan.days[0])).toBe(canonicalJson(base.days[0]));
+  });
+
+  it("treats an empty summary, notes or open list as unchanged (seen live, patch-safety [D5])", () => {
+    const base = basePlan();
+    const r = applyPatch({ base, patch: patch({ summary: "", notes: [], open: [] }), stored, scope: [] });
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.plan.summary).toBe(base.summary);
+    expect(r.plan.notes).toEqual(base.notes);
+    expect(r.plan.openItems).toEqual(base.openItems);
+  });
+
+  it("an empty text with a ref takes the base day's text for that place, not the place name", () => {
+    const base = basePlan();
+    const p = patch({ days: [{ n: 2, title: "Tag 2", stops: [{ place: "Marbella", acts: [{ at: "10:00", kind: "sport", text: "", ref: "p2" }] }] }] });
+    const r = applyPatch({ base, patch: p, stored, scope: [2] });
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.plan.days[1].stops[0].acts[0].text).toBe(base.days[1].stops[0].acts[0].text);
   });
 });
 
