@@ -130,7 +130,7 @@ export type DayCtx = {
   baseText?: Map<OsmKey, string>;
 };
 
-/** One model day → stored day (spec 4.5). `best` is resolved by the caller. */
+/** One model day → stored day (spec 4.5). The best-day highlight is never model output (patch-safety [D8]). */
 export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
   const { issues } = ctx;
   if (d.stops.length > LIMITS.stops) issues.truncated += 1;
@@ -183,7 +183,6 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
     stops: stops.length ? stops : [{ place: title.slice(0, LIMITS.place), acts: [] }],
     note: clampText(d.note, LIMITS.dayNote, issues),
     warn: clampText(d.warn, LIMITS.dayNote, issues),
-    best: d.best === true ? true : undefined,
   });
 }
 
@@ -271,15 +270,12 @@ export function assemblePlan(a: {
   const fallbackPlace = stored.llm.trip.dest.slice(0, LIMITS.place);
   const sorted = [...llm.days].sort((x, y) => x.n - y.n);
   const times = noteTimes(stored.llm.trip.notes);
-  const days = keepOneBest(
-    sorted.map((d) =>
-      guardFixed(
-        assembleDay(d, { date: dayList[d.n - 1]?.date ?? null, index: stored.index, fallbackPlace, issues, noteTimes: times }),
-        stored.llm.fixed,
-        issues,
-      ),
+  const days = sorted.map((d) =>
+    guardFixed(
+      assembleDay(d, { date: dayList[d.n - 1]?.date ?? null, index: stored.index, fallbackPlace, issues, noteTimes: times }),
+      stored.llm.fixed,
+      issues,
     ),
-    issues,
   );
   const candidate = {
     v: 1 as const,

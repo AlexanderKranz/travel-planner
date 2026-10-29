@@ -2,7 +2,7 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { windowKind } from "@/components/plan/helpers";
 import type { SharedItem } from "@/lib/domain/items";
-import type { PlanDay, PlanFlights } from "@/lib/domain/plan";
+import { isUserBest, type PlanDay, type PlanFlights } from "@/lib/domain/plan";
 import type { PlanDocument } from "@/lib/domain/share";
 import { flightGroups } from "@/lib/flights/groups";
 import { fittingLegs } from "@/lib/flights/ui";
@@ -84,7 +84,7 @@ function Heading({ children }: { children: string }) {
 function DayCard({ day, doc, fixed, t, fmt }: { day: PlanDay; doc: PlanDocument; fixed: FixedItem[]; t: PdfT; fmt: Fmt }) {
   const { plan } = doc;
   const merged = mergeDayRows(day, fixed);
-  const best = !!day.best;
+  const best = isUserBest(day);
   const ink = best ? C.cream : C.ink;
   const muted = best ? C.navyMuted : C.subtle;
   const rowCount = merged.reduce((n, st) => n + st.rows.length + 1, 0);

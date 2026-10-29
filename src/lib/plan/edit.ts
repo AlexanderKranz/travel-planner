@@ -1,4 +1,4 @@
-import type { Plan, PlanActivity, PlanDay, PlanEdit } from "@/lib/domain/plan";
+import { isUserBest, type Plan, type PlanActivity, type PlanDay, type PlanEdit } from "@/lib/domain/plan";
 import { diffDays } from "./patch";
 
 /** Day content that moves with a swap; `n` and `date` stay in place. */
@@ -9,11 +9,17 @@ function content(d: PlanDay): Omit<PlanDay, "n" | "date"> {
   return rest;
 }
 
+/** Sets or clears the user's best-day marker; also clears an older AI-set `best` (patch-safety [D8]). */
 function withBest(d: PlanDay, best: boolean): PlanDay {
-  if (!!d.best === best) return d;
+  if (best ? isUserBest(d) : !d.best && !d.bestBy) return d;
   const copy = { ...d };
-  if (best) copy.best = true;
-  else delete copy.best;
+  if (best) {
+    copy.best = true;
+    copy.bestBy = "user";
+  } else {
+    delete copy.best;
+    delete copy.bestBy;
+  }
   return copy;
 }
 

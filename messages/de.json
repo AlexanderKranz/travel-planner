@@ -859,12 +859,6 @@
         "b": "mit Tag",
         "apply": "Tauschen"
       },
-      "best": {
-        "title": "Bester Tag",
-        "label": "Tag",
-        "none": "Keiner",
-        "apply": "Setzen"
-      },
       "shrinkRejected": "{count, plural, one {Tag {days} wurde} other {Die Tage {days} wurden}} nicht geändert, weil die Antwort unvollständig war. Bitte erneut versuchen."
     },
     "versions": {
@@ -923,7 +917,9 @@
       "confirm": "Diese Aktivität entfernen? Es entsteht eine neue Version, ohne KI.",
       "confirmYes": "Entfernen",
       "cancel": "Abbrechen",
-      "working": "Wird gespeichert…"
+      "working": "Wird gespeichert…",
+      "markBest": "Tag {n} als besten Tag markieren",
+      "unmarkBest": "Markierung „Bester Tag“ von Tag {n} entfernen"
     }
   },
   "items": {

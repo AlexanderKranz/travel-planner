@@ -859,12 +859,6 @@
         "b": "with day",
         "apply": "Swap"
       },
-      "best": {
-        "title": "Best day",
-        "label": "Day",
-        "none": "None",
-        "apply": "Set"
-      },
       "shrinkRejected": "{count, plural, one {Day {days} was} other {Days {days} were}} not changed because the answer was incomplete. Please try again."
     },
     "versions": {
@@ -923,7 +917,9 @@
       "confirm": "Remove this activity? This creates a new version, without AI.",
       "confirmYes": "Remove",
       "cancel": "Cancel",
-      "working": "Saving…"
+      "working": "Saving…",
+      "markBest": "Mark day {n} as best day",
+      "unmarkBest": "Remove the best-day mark from day {n}"
     }
   },
   "items": {

@@ -8,7 +8,7 @@ import type { ActionError } from "@/lib/domain";
 import type { PlanEdit } from "@/lib/domain/plan";
 import type { ActAddress } from "@/lib/plan/edit";
 import { editPlan } from "@/lib/server/plans";
-import { asPlanError, QUICK_ADD_HOVER } from "./helpers";
+import { asPlanError, DAY_ACTION_HOVER, QUICK_ADD_HOVER } from "./helpers";
 
 /** Owner's latest version, not busy: activity edits without AI (spec patch-safety [D7]). */
 export type ActEditCtx = { tripId: string; baseVersion: number };
@@ -130,5 +130,29 @@ export function EditableActRow({
         </div>
       )}
     </li>
+  );
+}
+
+/** Toggles the user's best-day marker (patch-safety [D8]); at most one best day, set only by the user. */
+export function BestDayButton({ ctx, n, isBest }: { ctx: ActEditCtx; n: number; isBest: boolean }) {
+  const t = useTranslations("plan.actEdit");
+  const { pending, error, run } = useEdit(ctx);
+  const label = isBest ? t("unmarkBest", { n }) : t("markBest", { n });
+  return (
+    <span className="-my-1.5 flex shrink-0 flex-col items-end">
+      <button
+        type="button"
+        onClick={() => run({ kind: "set_best", n: isBest ? null : n })}
+        aria-label={label}
+        title={label}
+        disabled={pending}
+        className={`${focusCls} inline-flex size-11 items-center justify-center rounded-md text-xl leading-none hover:bg-hover disabled:opacity-50 ${
+          isBest ? "text-accent-text" : `text-subtle hover:text-accent-text ${DAY_ACTION_HOVER}`
+        }`}
+      >
+        <span aria-hidden="true">{isBest ? "★" : "☆"}</span>
+      </button>
+      <EditError error={error} />
+    </span>
   );
 }

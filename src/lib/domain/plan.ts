@@ -40,9 +40,13 @@ export const PlanDay = z.object({
   stops: z.array(PlanStop).min(1).max(4),
   note: z.string().max(240).optional(),
   warn: z.string().max(240).optional(),
-  best: z.boolean().optional(), // "best day" highlight; code keeps at most one
+  best: z.boolean().optional(), // "best day" highlight; shown only with bestBy "user" (patch-safety [D8])
+  bestBy: z.literal("user").optional(), // set only by the manual "best day" action; older AI-set `best` stays hidden
 });
 export type PlanDay = z.infer<typeof PlanDay>;
+
+/** The best-day highlight is user-set only; plans from before plan-5 may carry an AI `best` without `bestBy`. */
+export const isUserBest = (d: Pick<PlanDay, "best" | "bestBy">): boolean => d.best === true && d.bestBy === "user";
 
 export const PlanNote = z.object({ kind: z.enum(["tip", "warning"]), text: z.string().min(1).max(240) });
 export type PlanNote = z.infer<typeof PlanNote>;
@@ -214,7 +218,7 @@ const ActIndex = z.number().int().min(0).max(11);
 
 /** Code-only edits, no LLM [D8]. */
 export const PlanEdit = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("swap_days"), a: DayNo, b: DayNo }), // swaps title/stops/note/warn/best, keeps n/date
+  z.object({ kind: z.literal("swap_days"), a: DayNo, b: DayNo }), // swaps title/stops/note/warn/best/bestBy, keeps n/date
   z.object({ kind: z.literal("set_best"), n: DayNo.nullable() }),
   // Activity edits (patch-safety [D7]): address = day n, stop index s, activity index a in the base version.
   z.object({ kind: z.literal("remove_alt"), n: DayNo, s: ActIndex, a: ActIndex, alt: OsmKey }),
@@ -282,7 +286,6 @@ export const LlmDay = z.object({
   stops: z.array(LlmStop),
   note: z.string().optional(),
   warn: z.string().optional(),
-  best: z.boolean().optional(),
 });
 export type LlmDay = z.infer<typeof LlmDay>;
 export const LlmPlan = z.object({

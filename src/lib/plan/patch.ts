@@ -91,19 +91,10 @@ export function applyPatch(a: {
     replaced.set(d.n, guardFixed(keepFixedStops(base.days[d.n - 1], day), "fixed" in a ? a.fixed : stored.llm.fixed, issues));
   }
 
-  // At most one best: an untouched base day keeps its badge; otherwise the first patched day that claims it.
-  const baseBest = base.days.find((d) => d.best && !replaced.has(d.n))?.n;
-  let winner = baseBest;
-  for (const n of [...replaced.keys()].sort((x, y) => x - y)) {
-    const d = replaced.get(n)!;
-    if (!d.best) continue;
-    if (winner === undefined) winner = n;
-    else if (winner !== n) {
-      issues.extra_best += 1;
-      const copy = { ...d };
-      delete copy.best;
-      replaced.set(n, copy);
-    }
+  // The best-day highlight is the user's (patch-safety [D8]): a patched day keeps the base day's marker.
+  for (const [n, d] of replaced) {
+    const b = base.days[n - 1];
+    if (b?.best) replaced.set(n, { ...d, best: b.best, ...(b.bestBy ? { bestBy: b.bestBy } : {}) });
   }
 
   const days = base.days.map((d) => replaced.get(d.n) ?? d);

@@ -9,10 +9,10 @@ import { header, llmDay, llmPlan, storedFor } from "./test-helpers";
 const stored = storedFor(4);
 const basePlan = (): Plan => {
   const llm = llmPlan(4);
-  llm.days[2].best = true;
   const r = assemblePlan({ llm, stored, header: header(4), digest: {}, locale: "de" });
   if (!r.ok) throw new Error(r.reason);
-  return { ...r.plan, items: { reserved: true }, futureKey: 1 } as Plan;
+  const days = r.plan.days.map((d) => (d.n === 3 ? { ...d, best: true, bestBy: "user" as const } : d));
+  return { ...r.plan, days, items: { reserved: true }, futureKey: 1 } as Plan;
 };
 const patch = (over: Partial<LlmPatch> = {}): LlmPatch => ({
   reply: "ok",
@@ -54,13 +54,13 @@ describe("applyPatch", () => {
     expect(r.ok && r.changedDays).toEqual([]);
   });
 
-  it("keeps the untouched best day and removes a second best", () => {
+  it("ignores a model best day; a patched day keeps the user's marker (patch-safety [D8])", () => {
     const base = basePlan();
-    const p = patch({ days: [llmDay(2, { best: true, title: "Neu" })] });
+    const p = patch({ days: [llmDay(2, { ...({ best: true } as object), title: "Neu" }), llmDay(3, { title: "Auch neu" })] });
     const r = applyPatch({ base, patch: p, stored, scope: [] });
     if (!r.ok) throw new Error(r.reason);
     expect(r.plan.days.filter((d) => d.best).map((d) => d.n)).toEqual([3]);
-    expect(r.issues.extra_best).toBe(1);
+    expect(r.plan.days[2]).toMatchObject({ title: "Auch neu", best: true, bestBy: "user" });
   });
 
   it("replaces summary, notes and open items only when present", () => {

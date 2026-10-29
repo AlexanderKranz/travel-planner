@@ -115,3 +115,7 @@ export const DRIVE_ONLY = "hidden group-data-[drive=on]/plan:inline";
 /** Icon-only quick add in day rows: hidden until row hover/focus on hover-capable pointers, always shown on touch. */
 export const QUICK_ADD_HOVER =
   "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/act:opacity-100 [@media(hover:hover)]:group-focus-within/act:opacity-100 focus-visible:opacity-100";
+
+/** Day-level action (best-day star): hidden until card hover/focus on hover-capable pointers, always shown on touch. */
+export const DAY_ACTION_HOVER =
+  "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/day:opacity-100 [@media(hover:hover)]:group-focus-within/day:opacity-100 focus-visible:opacity-100";

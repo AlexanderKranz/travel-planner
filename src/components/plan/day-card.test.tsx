@@ -129,3 +129,25 @@ describe("DayCard activity edits (patch-safety [D7])", () => {
     expect(out).not.toContain("Hauptort");
   });
 });
+
+describe("DayCard best day (patch-safety [D8])", () => {
+  it("shows the badge and the dark card only when the user set it", () => {
+    const ai = render("de", de, { ...day, best: true });
+    expect(ai).not.toContain("Bester Tag");
+    expect(ai).not.toContain("bg-feature");
+    const user = render("de", de, { ...day, best: true, bestBy: "user" });
+    expect(user).toContain("Bester Tag");
+    expect(user).toContain("bg-feature");
+  });
+
+  it("offers the toggle on the owner's latest version", () => {
+    const html = (d: typeof day) =>
+      renderToStaticMarkup(
+        <NextIntlClientProvider locale="de" messages={de} timeZone="Europe/Berlin">
+          <DayCard day={d} places={places} edit={{ tripId: "t1", baseVersion: 4 }} />
+        </NextIntlClientProvider>,
+      );
+    expect(html(day)).toContain('aria-label="Tag 1 als besten Tag markieren"');
+    expect(html({ ...day, best: true, bestBy: "user" })).toContain("Markierung „Bester Tag“ von Tag 1 entfernen");
+  });
+});

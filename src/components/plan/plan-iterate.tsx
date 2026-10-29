@@ -47,7 +47,6 @@ export function PlanIterate({
   locale,
   baseVersion,
   dayCount,
-  bestDay,
   aiBlock,
   editBlock,
 }: {
@@ -55,7 +54,6 @@ export function PlanIterate({
   locale: string;
   baseVersion: number;
   dayCount: number;
-  bestDay: number | null;
   /** Why chips + free text are disabled (null = usable). */
   aiBlock: IterateBlock;
   /** Why code-only edits are disabled (null = usable). */
@@ -72,7 +70,6 @@ export function PlanIterate({
   const [reply, setReply] = useState<string | null>(null);
   const [swapA, setSwapA] = useState(1);
   const [swapB, setSwapB] = useState(Math.min(2, dayCount));
-  const [bestSel, setBestSel] = useState<string>(bestDay ? String(bestDay) : "");
   const [pending, start] = useTransition();
 
   const needsDay = chips.includes("redo_day") && days.length === 0;
@@ -252,30 +249,6 @@ export function PlanIterate({
             onClick={() => edit({ kind: "swap_days", a: swapA, b: swapB })}
           >
             {t("swap.apply")}
-          </button>
-        </fieldset>
-        <fieldset className="flex flex-wrap items-end gap-2" disabled={editBlock !== null || pending}>
-          <legend className="mb-1.5 text-sm font-medium">{t("best.title")}</legend>
-          <div>
-            <label htmlFor={`${uid}-best`} className="mb-1 block text-xs">
-              {t("best.label")}
-            </label>
-            <select id={`${uid}-best`} className={`${inputCls} w-36`} value={bestSel} onChange={(e) => setBestSel(e.target.value)}>
-              <option value="">{t("best.none")}</option>
-              {dayList.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button
-            type="button"
-            className={btnSecondary}
-            disabled={bestSel === (bestDay ? String(bestDay) : "")}
-            onClick={() => edit({ kind: "set_best", n: bestSel ? Number(bestSel) : null })}
-          >
-            {t("best.apply")}
           </button>
         </fieldset>
       </div>

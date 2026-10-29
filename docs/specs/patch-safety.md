@@ -63,6 +63,16 @@ were in the index), the fixed-item overlap guard (no fixed items; it never remov
   rate limit 20/min per user, busy check, `plan.edited` event, unreferenced places pruned. The versions list shows
   "Ohne KI: Alternative entfernt" (`versionKinds.edit` is now "Ohne KI" / "Without AI").
 
+- **[D8] The best day is set by the user only.** Alex does not want the AI to pick a highlight. Rule 10 no longer
+  asks for `best`, `best` is gone from the wire schema, `LlmDay` and CURRENT_PLAN (fewer tokens; part of `plan-5`),
+  and `assembleDay` never sets it. A day carries `best: true` plus `bestBy: "user"`, written only by the `set_best`
+  edit; `isUserBest()` decides the badge and the dark card in the day card (app and share view) and in the PDF, so an
+  AI `best` in plans stored before plan-5 stays hidden without a migration. `set_best` clears every other marker (also
+  an old AI one), so there is at most one. A patched day keeps the base day's marker. The control is a star in the day
+  card header (reserved column, hidden until hover/focus on hover devices, always visible on touch and when set):
+  "Tag n als besten Tag markieren" / "Markierung „Bester Tag“ von Tag n entfernen". The "Bester Tag → Setzen"
+  control in the "Ohne KI" panel is removed. The eval check is now "no best day from the model".
+
 ## Known limits
 
 - The guard counts activities only. A patch that keeps the count but rewrites the wrong things (variant d with plan-4)

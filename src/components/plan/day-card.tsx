@@ -1,11 +1,11 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { linkCls, mutedCls } from "@/components/ui/styles";
-import type { Plan, PlanActivity, PlanDay, PlanStop } from "@/lib/domain/plan";
+import { isUserBest, type Plan, type PlanActivity, type PlanDay, type PlanStop } from "@/lib/domain/plan";
 import { placeHref } from "@/lib/facts/sources";
 import { StatusBadge } from "@/components/items/status-badge";
 import { mergeDayRows, timeRange, type FixedItem } from "@/lib/plan/fixed-items";
 import { DRIVE_ONLY, windowKind } from "./helpers";
-import { AltEditButtons, EditableActRow, type ActEditCtx } from "./act-edit";
+import { AltEditButtons, BestDayButton, EditableActRow, type ActEditCtx } from "./act-edit";
 
 /** Owner-only slot: "+ item" next to a referenced place (bound to its day by DayCard). */
 type QuickAdd = (place: Plan["places"][string], ref: string) => React.ReactNode;
@@ -207,20 +207,23 @@ export function DayCard({
     .flatMap((k) => (places[k] ? [places[k]] : []));
   const fetchedAt = used.map((p) => p.fetchedAt).sort()[0];
   const hasDrive = used.some((p) => p.drive);
-  const border = day.best ? "border-feature" : changed ? "border-info-line" : "border-line";
+  // Only a user-set best day is highlighted; an AI `best` in plans before plan-5 is ignored (patch-safety [D8]).
+  const best = isUserBest(day);
+  const border = best ? "border-feature" : changed ? "border-info-line" : "border-line";
   return (
     <li id={`day-${day.n}`} className="scroll-mt-4">
       <article
         aria-labelledby={`day-${day.n}-title`}
         data-print-block
-        className={`flex min-w-0 gap-3 rounded-[14px] border p-4 sm:gap-6 sm:p-6 ${day.best ? "on-feature bg-feature text-ink" : "bg-card"} ${border}`}
+        className={`group/day flex min-w-0 gap-3 rounded-[14px] border p-4 sm:gap-6 sm:p-6 ${best ? "on-feature bg-feature text-ink" : "bg-card"} ${border}`}
       >
         <DateColumn day={day} />
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <h3 id={`day-${day.n}-title`} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xl font-bold leading-snug sm:text-2xl">
+          <div className="flex min-w-0 items-start gap-1">
+          <h3 id={`day-${day.n}-title`} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-xl font-bold leading-snug sm:text-2xl">
             <span className="sr-only">{t("day", { n: day.n })}: </span>
             <span className="min-w-0 break-words">{day.title}</span>
-            {day.best && (
+            {best && (
               <span
                 className="inline-flex items-center rounded-full bg-feature-accent px-3 py-1 font-sans text-xs font-bold uppercase tracking-[0.08em] text-[#1c2430]"
               >
@@ -235,6 +238,8 @@ export function DayCard({
               </span>
             )}
           </h3>
+          {edit && <BestDayButton ctx={edit} n={day.n} isBest={best} />}
+          </div>
           {mergeDayRows(day, fixed).map(({ stop, rows }, i) => {
             const showHead = day.stops.length > 1 || stop.place !== day.title || windowKind(stop.from, stop.to) || stop.fixed;
             return (

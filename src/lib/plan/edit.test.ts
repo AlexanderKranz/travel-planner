@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import golf from "@/lib/plan/__fixtures__/plan-golf.json";
 import copenhagen from "@/lib/plan/__fixtures__/copenhagen.json";
-import { Plan, type PlanDay } from "@/lib/domain/plan";
+import { Plan, isUserBest, type PlanDay } from "@/lib/domain/plan";
 import { applyEdit, promoteAlt, removeActivity, removeAlt } from "./edit";
 
 const base = () => Plan.parse(golf);
@@ -23,18 +23,23 @@ describe("applyEdit", () => {
     expect(applyEdit(b, { kind: "swap_days", a: 2, b: 9 }).changedDays).toEqual([]);
   });
 
-  it("set_best moves the badge; null clears it", () => {
-    const b = base();
+  it("set_best marks a user best day and clears every other (also an older AI best); null clears it", () => {
+    const b = base(); // stored before plan-5: one AI-set best without bestBy, not shown
     const old = b.days.find((d) => d.best)!.n;
+    expect(isUserBest(b.days[old - 1])).toBe(false);
     const target = old === 1 ? 2 : 1;
     const r = applyEdit(b, { kind: "set_best", n: target });
     expect(r.plan.days.filter((d) => d.best).map((d) => d.n)).toEqual([target]);
+    expect(isUserBest(r.plan.days[target - 1])).toBe(true);
     expect(r.changedDays.sort()).toEqual([old, target].sort());
     expect("best" in r.plan.days[old - 1]).toBe(false);
-    const cleared = applyEdit(b, { kind: "set_best", n: null });
-    expect(cleared.plan.days.some((d) => d.best)).toBe(false);
+    // Marking the AI best day makes it the user's.
+    const same = applyEdit(b, { kind: "set_best", n: old });
+    expect(same.changedDays).toEqual([old]);
+    expect(applyEdit(same.plan, { kind: "set_best", n: old }).changedDays).toEqual([]);
+    const cleared = applyEdit(same.plan, { kind: "set_best", n: null });
+    expect(cleared.plan.days.some((d) => d.best || d.bestBy)).toBe(false);
     expect(cleared.changedDays).toEqual([old]);
-    expect(applyEdit(b, { kind: "set_best", n: old }).changedDays).toEqual([]);
   });
 });
 
