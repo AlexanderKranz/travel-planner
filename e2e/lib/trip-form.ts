@@ -25,7 +25,7 @@ export async function startTripForm(page: Page, destination: "geo" | "freetext")
     try {
       await expect(page.getByRole("button", { name: "Ändern" })).toBeVisible();
     } catch (e) {
-      const body = (await page.locator("form").first().innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 700);
+      const body = (await page.locator("#field-destination").innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 700);
       throw new Error(`destination not picked; page errors: ${errors.join(" | ") || "none"}; form text: ${body}`, { cause: e });
     }
   } else {
