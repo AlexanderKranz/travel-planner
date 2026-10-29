@@ -472,16 +472,7 @@
     },
     "daylight": {
       "title": "Daylight",
-      "detailsTitle": "Daylight by day",
-      "intro": "Times in local time ({timezone}). “Dark from” is the end of civil twilight.",
-      "date": "Date",
-      "sunrise": "Sunrise",
-      "sunset": "Sunset",
       "dusk": "Dark from",
-      "hours": "Daylight",
-      "duration": "{h} h {m} min",
-      "captionTrip": "Daylight on the travel days",
-      "captionMid": "Daylight in the middle of the month",
       "polarDay": "Sun does not set",
       "polarNight": "Sun does not rise"
     },
@@ -798,7 +789,7 @@
     "runner": {
       "start": "Create plan",
       "working": "Working…",
-      "facts": "Collecting facts…",
+      "places": "Finding places (up to 4 minutes for a new destination)…",
       "writing": "Writing your itinerary, usually under a minute…",
       "long": "Still writing, this can take a little longer…",
       "busyElsewhere": "A plan is being generated. This page updates when it is done.",
@@ -822,7 +813,7 @@
       "invalid": "Please check your input.",
       "not_found": "The trip was not found.",
       "failed": "Something went wrong. Please try again later.",
-      "places_pending": "Places are still loading – try again in a minute. Without them the plan names no concrete courses, sights or parks."
+      "places_pending": "Places for some interests could not be loaded yet (OpenStreetMap is slow right now). Try again, or create the plan without these places."
     },
     "iterate": {
       "title": "Adjust the plan",

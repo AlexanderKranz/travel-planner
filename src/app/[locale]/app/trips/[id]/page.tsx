@@ -24,7 +24,7 @@ import { adultsFromEntries } from "@/lib/flights/ui";
 import { FlightsPanelSection } from "./_panels/flights-panel";
 import { GlancePanel, glanceAsideCls } from "./_panels/glance-panel";
 import { PlacesPanel } from "./_panels/places-panel";
-import { SummaryPanel } from "./_panels/summary-panel";
+import { SummaryFallback, SummaryPanel } from "./_panels/summary-panel";
 
 // Vercel Hobby with Fluid compute allows 300 s; the after() warm-up can take minutes on Overpass.
 export const maxDuration = 300;
@@ -94,7 +94,22 @@ export default async function TripDetailPage({
 
   return (
     <main data-wide className="flex flex-col gap-8">
-      <TripHeader trip={trip} purposeName={purpose?.name ?? null} pills={<TripHeroPills trip={trip} group={group} />} />
+      <TripHeader
+        trip={trip}
+        purposeName={purpose?.name ?? null}
+        pills={<TripHeroPills trip={trip} group={group} />}
+        aside={
+          <Suspense
+            fallback={
+              <SummaryFallback title={t("summary.title")}>
+                <FactSkeleton />
+              </SummaryFallback>
+            }
+          >
+            <SummaryPanel {...panel} />
+          </Suspense>
+        }
+      />
       {/* Fact tiles right under the hero: climate, daylight, country (cached facts, fast). */}
       <Suspense fallback={<PanelFallback title={t("glance.title")} className={glanceAsideCls} />}>
         <GlancePanel {...panel} />
@@ -119,9 +134,6 @@ export default async function TripDetailPage({
         </Link>
       </p>
       <div className="flex min-w-0 flex-col gap-8">
-        <Suspense fallback={<PanelFallback title={t("summary.title")} />}>
-          <SummaryPanel {...panel} />
-        </Suspense>
         {trip.wantsFlights && (
           <div className="min-w-0">
             <FlightsPanelSection {...panel} adults={adultsFromEntries(group?.resolved.rows)} />

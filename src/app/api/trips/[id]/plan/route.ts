@@ -7,7 +7,12 @@ import { badRequest, NO_STORE, respond } from "./respond";
 // Vercel Hobby with Fluid compute: default and maximum are 300 s. Sonnet may need 30-90 s.
 export const maxDuration = 300;
 
-const Body = z.object({ locale: Locale, force: z.boolean().optional(), fresh: z.boolean().optional() });
+const Body = z.object({
+  locale: Locale,
+  force: z.boolean().optional(),
+  fresh: z.boolean().optional(),
+  placesLoaded: z.boolean().optional(),
+});
 
 /** GET /api/trips/[id]/plan[?v=n] -> { state: PlanState } (login required, RLS). Polled by the runner while busy. */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -22,8 +27,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 }
 
 /**
- * POST /api/trips/[id]/plan {locale, force?, fresh?} -> generate (`force`: even when places are still loading;
- * `fresh`: a new AI version even when the input is unchanged). The client abort signal is deliberately NOT forwarded:
+ * POST /api/trips/[id]/plan {locale, force?, fresh?, placesLoaded?} -> generate (`force`: even when places are still
+ * loading; `fresh`: a new AI version even when the input is unchanged; `placesLoaded`: places from the cache only). The client abort signal is deliberately NOT forwarded:
  * the server finishes and saves the plan even if the browser leaves (the runner then polls GET).
  */
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +39,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const loaded = await loadPlanContext(id);
     return loaded.ok ? badRequest() : respond(loaded);
   }
-  return respond(await generatePlan(id, body.data.locale, { force: body.data.force === true, fresh: body.data.fresh === true }));
+  const { locale, force, fresh, placesLoaded } = body.data;
+  return respond(await generatePlan(id, locale, { force: force === true, fresh: fresh === true, placesLoaded: placesLoaded === true }));
 }
 

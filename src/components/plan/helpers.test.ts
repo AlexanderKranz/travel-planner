@@ -5,6 +5,7 @@ import {
   budgetPercent,
   daylightRange,
   highlightedDays,
+  formatElapsed,
   progressStage,
   range,
   shouldKeepPolling,
@@ -22,10 +23,18 @@ describe("plan helpers", () => {
     expect(asPlanError(undefined)).toBe("failed");
   });
   it("stages progress by elapsed time", () => {
-    expect(progressStage(0)).toBe("facts");
-    expect(progressStage(10)).toBe("writing");
-    expect(progressStage(99)).toBe("writing");
-    expect(progressStage(100)).toBe("long");
+    expect(progressStage("places", 0)).toBe("places");
+    expect(progressStage("places", 500)).toBe("places");
+    expect(progressStage("plan", 0)).toBe("writing");
+    expect(progressStage("plan", 99)).toBe("writing");
+    expect(progressStage("plan", 100)).toBe("long");
+  });
+
+  it("formatElapsed shows m:ss", () => {
+    expect(formatElapsed(0)).toBe("0:00");
+    expect(formatElapsed(9)).toBe("0:09");
+    expect(formatElapsed(100)).toBe("1:40");
+    expect(formatElapsed(-3)).toBe("0:00");
   });
   it("stops polling after 4 minutes", () => {
     expect(shouldKeepPolling(239_999)).toBe(true);

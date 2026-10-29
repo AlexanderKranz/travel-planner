@@ -21,6 +21,7 @@ import { tripGroupSource } from "@/lib/group-text";
 import { buildPlanInput, selectPlaces, type GroupContext } from "@/lib/plan/input";
 import { interestsForTrip } from "@/lib/facts/interest-sources";
 import { placesPending } from "@/lib/plan/places-pending";
+import { PLACES_CACHE_ONLY } from "./facts/places";
 import { applyPatch } from "@/lib/plan/patch";
 import { guardPatch } from "@/lib/plan/patch-guard";
 import { assemblePlan } from "@/lib/plan/assemble";
@@ -263,11 +264,12 @@ export async function loadTripItems(sb: SupabaseClient, tripId: string): Promise
 /**
  * `force`: generate even when places are still loading (the user chose "generate anyway").
  * `fresh`: always call the model, even when the input equals an earlier version (the user's "Regenerate plan").
+ * `placesLoaded`: the client just ran GET /places, so read places from the cache only instead of waiting again.
  */
 export async function generatePlan(
   tripId: string,
   locale: Locale,
-  opts: { force?: boolean; fresh?: boolean } = {},
+  opts: { force?: boolean; fresh?: boolean; placesLoaded?: boolean } = {},
 ): Promise<PipelineResult> {
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
@@ -297,7 +299,7 @@ export async function generatePlan(
       purpose,
       { userId: c.session.userId, locale, today: berlinToday() },
       {
-        placesBudgetMs: PLACES_BUDGET_MS,
+        placesBudgetMs: opts.placesLoaded ? PLACES_CACHE_ONLY : PLACES_BUDGET_MS,
         withFlights: c.trip.wantsFlights ? { homeAirports: c.homeAirports } : undefined,
       },
     );

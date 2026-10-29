@@ -24,13 +24,21 @@ export function asPlanError(code: unknown): ActionError {
   return PLAN_ERRORS.find((e) => e === code) ?? "failed";
 }
 
-export type ProgressStage = "facts" | "writing" | "long";
+export type ProgressStage = "places" | "writing" | "long";
 
-/** Staged status text by elapsed time (generation takes 30-90 s; the server gives no progress). */
-export function progressStage(elapsedSec: number): ProgressStage {
-  if (elapsedSec < 10) return "facts";
-  if (elapsedSec < 100) return "writing";
-  return "long";
+/**
+ * Status text: "places" while the client's places request runs (Overpass, up to ~4.5 min for new destinations),
+ * then by time since the plan request started (Sonnet takes 30-90 s; the server gives no progress).
+ */
+export function progressStage(step: "places" | "plan", planElapsedSec: number): ProgressStage {
+  if (step === "places") return "places";
+  return planElapsedSec < 100 ? "writing" : "long";
+}
+
+/** "m:ss" for the running timer next to the status text. */
+export function formatElapsed(sec: number): string {
+  const s = Math.max(0, Math.floor(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 }
 
 export const POLL_INTERVAL_MS = 5_000;

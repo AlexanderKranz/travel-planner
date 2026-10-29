@@ -472,16 +472,7 @@
     },
     "daylight": {
       "title": "Tageslicht",
-      "detailsTitle": "Tageslicht je Tag",
-      "intro": "Zeiten in Ortszeit ({timezone}). „Dunkel ab“ ist das Ende der bürgerlichen Dämmerung.",
-      "date": "Datum",
-      "sunrise": "Sonnenaufgang",
-      "sunset": "Sonnenuntergang",
       "dusk": "Dunkel ab",
-      "hours": "Tageslicht",
-      "duration": "{h} Std. {m} Min.",
-      "captionTrip": "Tageslicht an den Reisetagen",
-      "captionMid": "Tageslicht in der Monatsmitte",
       "polarDay": "Sonne geht nicht unter",
       "polarNight": "Sonne geht nicht auf"
     },
@@ -798,7 +789,7 @@
     "runner": {
       "start": "Plan erstellen",
       "working": "Läuft…",
-      "facts": "Fakten werden gesammelt…",
+      "places": "Orte werden gesucht (bei neuen Zielen bis zu 4 Minuten)…",
       "writing": "Dein Reiseplan wird geschrieben, meist unter einer Minute…",
       "long": "Schreibt noch, das kann etwas länger dauern…",
       "busyElsewhere": "Ein Plan wird erstellt. Diese Seite aktualisiert sich, sobald er fertig ist.",
@@ -822,7 +813,7 @@
       "invalid": "Bitte prüfe deine Eingaben.",
       "not_found": "Die Reise wurde nicht gefunden.",
       "failed": "Etwas ist schiefgelaufen. Bitte versuche es später erneut.",
-      "places_pending": "Orte werden noch geladen – bitte in einer Minute erneut versuchen. Ohne sie nennt der Plan keine konkreten Plätze, Sehenswürdigkeiten oder Parks."
+      "places_pending": "Für einige Interessen konnten noch keine Orte geladen werden (OpenStreetMap antwortet gerade langsam). Erneut versuchen, oder den Plan ohne diese Orte erstellen."
     },
     "iterate": {
       "title": "Plan anpassen",
