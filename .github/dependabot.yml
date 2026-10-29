@@ -1,0 +1,28 @@
+# Dependabot: weekly update PRs for npm packages and GitHub Actions, grouped to keep the PR count low.
+# Security fixes for known vulnerabilities come as separate PRs as soon as an advisory exists
+# (needs "Dependabot security updates" on under Settings -> Code security).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    groups:
+      # Patch and minor updates in one PR; major updates stay separate (they can break things).
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Berlin
+    groups:
+      actions:
+        patterns: ["*"]

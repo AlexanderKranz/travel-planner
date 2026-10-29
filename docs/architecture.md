@@ -173,7 +173,6 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
 - **Find destinations by trip purpose** (Alex, 2026-10-28): instead of starting from a destination, a user picks a purpose (e.g. "golf, flat courses, max 3 h flight from FRA, March") and gets suggested destinations. Deterministic first: filter candidates by verified facts (direct flights from home airports, flight time, climate in the chosen months, matching OSM places such as golf courses); the LLM may only rank or explain the shortlist, never invent places or routes. Open design question before a spec: flight data cost (scanning a month of departures per airport is about 120 AeroDataBox units), so it needs a rarely refreshed route list per airport or another source.
 - **Optional email + password login** (Alex, 2026-10-29): today login is the email link / 6-digit code only; each device stays logged in for months. Add an optional password (set under Einstellungen), "Mit Passwort anmelden" on the login page next to the link, "Passwort vergessen?" via the Reset Password template (Atlas style, like the other templates), minimum length and Supabase leaked-password protection, existing auth rate limits. The email link stays the default; invite-only unchanged. Google login and passkeys were considered and deferred.
 - **DiskStation backup pull** (optional, needs Alex): `scripts/backup/pull-to-nas.sh`, see `docs/runbook.md` section 4.
-- **Not yet tested on a phone** (Alex, 2026-10-28): Alex is testing on a phone now; until that is done, mobile layouts are only checked at 360 px in code review and E2E.
 
 Done or closed:
 - ~~Travel group editor feels clunky~~ closed 2026-10-29: free-text group descriptions (`docs/specs/group-text.md`) solved it for Alex.
@@ -182,6 +181,7 @@ Done or closed:
 - ~~Overall look of the site~~ done 2026-10-29: design direction Atlas for site and PDF.
 - ~~"Getting started" guide~~ done 2026-10-29: `docs/specs/getting-started.md`.
 - ~~Sentry alert emails land in spam~~ resolved 2026-10-29; budget alert rule set up.
+- ~~Not yet tested on a phone~~ done 2026-10-30: Alex tested the app on a phone; findings went into PR #31.
 - ~~Old macOS / browser~~ closed 2026-10-29: not an app issue.
 
 ## Proposed agent team (`.claude/agents/`)
