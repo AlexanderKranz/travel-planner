@@ -12,7 +12,8 @@ export default defineConfig({
   // One worker: the flows of a project build on seeded state (items -> plan -> share) in file order.
   workers: 1,
   fullyParallel: false,
-  retries: CI ? 1 : 0,
+  // No retries: several flows change data (swap days, items, share links), so a retry would not start from the seed.
+  retries: 0,
   timeout: 60_000,
   expect: { timeout: 15_000 },
   // "github" turns failures into annotations on the CI run (readable without a log download).

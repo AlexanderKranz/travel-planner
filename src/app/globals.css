@@ -30,7 +30,7 @@
 
   --accent: #b4532a; /* terracotta: buttons, day numbers */
   --accent-hover: #9a4421;
-  --accent-text: #b4532a; /* terracotta as text on page/card */
+  --accent-text: #a14a22; /* terracotta as text on page/card; darker than --accent for 4.5:1 on the cream page (axe, e2e/a11y.spec.ts) */
   --accent-soft: #f3dccd;
   --accent-soft-fg: #8a3a17;
   --nav-underline: #e08a5c;

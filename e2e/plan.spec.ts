@@ -5,7 +5,7 @@ test.describe("plan (no AI)", () => {
   test("renders the seeded plan and blocks AI changes", async ({ page, seed }) => {
     await page.goto(`/de/app/trips/${seed.tripId}`);
     await expect(page.getByRole("heading", { name: "Reiseplan" })).toBeVisible();
-    await expect(page.getByText("Advent auf der Donau").first()).toBeVisible();
+    await expect(page.getByRole("list", { name: "Tage" })).toContainText("Wien");
     await expect(page.getByText("KI-Änderungen sind derzeit abgeschaltet.")).toBeVisible();
   });
 
@@ -25,6 +25,6 @@ test.describe("plan (no AI)", () => {
     // Older version is read-only and reachable by link.
     await page.getByRole("link", { name: "Ansehen" }).last().click();
     await expect(page).toHaveURL(/[?&]v=1$/);
-    await expect(page.getByText("Du siehst eine ältere Version.")).toBeVisible();
+    await expect(page.getByText("Du siehst Version 1 (nur lesen).")).toBeVisible();
   });
 });

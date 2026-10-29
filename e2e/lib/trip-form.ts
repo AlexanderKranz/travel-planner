@@ -2,13 +2,23 @@ import { expect, type Page } from "@playwright/test";
 
 export const TRIP_URL = /\/app\/trips\/[0-9a-f-]{36}$/;
 
+/** Collects what the geocode proxy answered, so a failure message says why no suggestion appeared. */
+const geocodeLog = new WeakMap<Page, string[]>();
+
 /** Opens the new-trip form and picks Passau from the (stubbed) geocoder. */
 export async function startTripForm(page: Page, destination: "geo" | "freetext") {
+  const log: string[] = [];
+  geocodeLog.set(page, log);
+  page.on("response", async (r) => {
+    if (r.url().includes("/api/geocode")) log.push(`${r.status()} ${(await r.text().catch(() => "")).slice(0, 200)}`);
+  });
   await page.goto("/de/app/trips/new");
   const search = page.getByRole("combobox", { name: "Ziel suchen" });
   if (destination === "geo") {
     await search.fill("Passau");
-    await page.getByRole("option", { name: /Passau/ }).first().click();
+    const option = page.getByRole("option", { name: /Passau/ }).first();
+    await expect(option, `geocode answers: ${log.join(" || ") || "none"}; status: ${await page.locator('[role="status"]').allInnerTexts()}`).toBeVisible();
+    await option.click();
     await expect(page.getByRole("button", { name: "Ändern" })).toBeVisible();
   } else {
     await search.fill("Nirgendwo");
@@ -19,5 +29,10 @@ export async function startTripForm(page: Page, destination: "geo" | "freetext")
 
 export async function submitTrip(page: Page) {
   await page.getByRole("button", { name: "Reise anlegen" }).click();
-  await expect(page).toHaveURL(TRIP_URL, { timeout: 30_000 });
+  try {
+    await expect(page).toHaveURL(TRIP_URL, { timeout: 30_000 });
+  } catch (e) {
+    const alerts = await page.locator('[role="alert"]').allInnerTexts();
+    throw new Error(`trip was not created (url ${page.url()}; alerts: ${alerts.join(" | ") || "none"}; geocode: ${(geocodeLog.get(page) ?? []).join(" || ")})`, { cause: e });
+  }
 }

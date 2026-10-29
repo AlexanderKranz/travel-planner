@@ -25,7 +25,7 @@ test.describe("user isolation", () => {
       ["group_entries", "group_id", seed.groupId],
       ["share_links", "trip_id", seed.a11yTripId],
     ] as const) {
-      const r = await sb.from(table).select("*").eq(col, val);
+      const r = await sb.from(table).select("id").eq(col, val);
       expect(r.error, table).toBeNull();
       expect(r.data, `${table} must be invisible`).toEqual([]);
     }
