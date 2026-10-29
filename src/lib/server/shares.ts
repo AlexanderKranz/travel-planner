@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
 import {
@@ -138,5 +139,7 @@ export async function revokeShareLink(id: string): Promise<ActionResult> {
   if (error) return fail("failed");
   if (!data || data.length === 0) return fail("not_found");
   await logEvent({ event: "share.revoked", userId: session.userId, props: { linkId: id } });
+  // Fresh RSC payload in the action response; router.refresh() alone was occasionally stale (E2E flake).
+  revalidatePath("/[locale]/app/trips/[id]", "page");
   return { ok: true };
 }
