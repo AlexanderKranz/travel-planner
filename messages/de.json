@@ -859,12 +859,7 @@
         "b": "mit Tag",
         "apply": "Tauschen"
       },
-      "best": {
-        "title": "Bester Tag",
-        "label": "Tag",
-        "none": "Keiner",
-        "apply": "Setzen"
-      }
+      "shrinkRejected": "{count, plural, one {Tag {days} wurde} other {Die Tage {days} wurden}} nicht geändert, weil die Antwort unvollständig war. Bitte erneut versuchen."
     },
     "versions": {
       "aria": "Versionsverlauf",
@@ -880,12 +875,15 @@
       "restoredFrom": "aus v{n}",
       "swap": "Tage {a} und {b} getauscht",
       "best": "Tag {n} als bester Tag markiert",
-      "bestNone": "bester Tag entfernt"
+      "bestNone": "bester Tag entfernt",
+      "remove_alt": "Alternative entfernt",
+      "promote_alt": "Alternative als Hauptort gesetzt",
+      "remove_act": "Aktivität entfernt"
     },
     "versionKinds": {
       "generate": "Erstellt",
       "patch": "Angepasst",
-      "edit": "Bearbeitet",
+      "edit": "Ohne KI",
       "restore": "Wiederhergestellt"
     },
     "flights": {
@@ -911,7 +909,18 @@
       "cancel": "Abbrechen",
       "disabled": "KI ist derzeit abgeschaltet."
     },
-    "showDrive": "Fahrzeiten anzeigen"
+    "showDrive": "Fahrzeiten anzeigen",
+    "actEdit": {
+      "removeAlt": "Alternative {name} entfernen",
+      "promoteAlt": "{name} als Hauptort setzen",
+      "removeAct": "Aktivität entfernen: {name}",
+      "confirm": "Diese Aktivität entfernen? Es entsteht eine neue Version, ohne KI.",
+      "confirmYes": "Entfernen",
+      "cancel": "Abbrechen",
+      "working": "Wird gespeichert…",
+      "markBest": "Tag {n} als besten Tag markieren",
+      "unmarkBest": "Markierung „Bester Tag“ von Tag {n} entfernen"
+    }
   },
   "items": {
     "title": "Buchungen und Kosten",
@@ -1137,7 +1146,9 @@
       "km": "{km} km Luftlinie"
     },
     "dayShort": "TAG",
-    "daysUnit": "Tage"
+    "daysUnit": "Tage",
+    "windowFrom": "ab {time}",
+    "windowUntil": "bis {time}"
   },
   "admin": {
     "title": "Admin",

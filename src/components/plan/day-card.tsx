@@ -1,10 +1,11 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { linkCls, mutedCls } from "@/components/ui/styles";
-import type { Plan, PlanActivity, PlanDay, PlanStop } from "@/lib/domain/plan";
+import { isUserBest, type Plan, type PlanActivity, type PlanDay, type PlanStop } from "@/lib/domain/plan";
 import { placeHref } from "@/lib/facts/sources";
 import { StatusBadge } from "@/components/items/status-badge";
 import { mergeDayRows, timeRange, type FixedItem } from "@/lib/plan/fixed-items";
 import { DRIVE_ONLY, windowKind } from "./helpers";
+import { AltEditButtons, BestDayButton, EditableActRow, type ActEditCtx } from "./act-edit";
 
 /** Owner-only slot: "+ item" next to a referenced place (bound to its day by DayCard). */
 type QuickAdd = (place: Plan["places"][string], ref: string) => React.ReactNode;
@@ -14,7 +15,26 @@ const pill =
 
 /** Small uppercase category label ("GOLF", "ANREISE"); sport is the green accent of the mockup. */
 const kindCls = (kind: string) =>
-  `mr-2 align-baseline text-[0.6875rem] font-semibold uppercase tracking-[0.12em] ${kind === "sport" ? "text-sport" : "text-subtle"}`;
+  `text-[0.6875rem] font-semibold uppercase tracking-[0.12em] ${kind === "sport" ? "text-sport" : "text-subtle"}`;
+
+/** Navy-tinted time badge (stop windows and activity times), spec patch-safety [D9]. */
+const timePill = "inline-flex items-center whitespace-nowrap rounded-full bg-time-bg font-semibold tabular-nums text-time-fg";
+
+/**
+ * Time + category head and body of one row (activities and fixed items). Phones: line 1 = time pill + label,
+ * line 2 = body at full width. From `sm`: one grid row with fixed time and label columns, so pills align.
+ */
+function RowLayout({ time, label, children }: { time: string | null; label: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0 sm:grid sm:grid-cols-[6.5rem_6.5rem_minmax(0,1fr)] sm:items-baseline sm:gap-x-2">
+      <div className="flex items-center gap-2 sm:contents">
+        <span className={time ? "sm:pt-px" : "hidden sm:block"}>{time && <span className={`${timePill} px-2 py-px text-[0.8125rem]`}>{time}</span>}</span>
+        {label}
+      </div>
+      <div className="mt-0.5 min-w-0 break-words sm:mt-0">{children}</div>
+    </div>
+  );
+}
 
 function WindowBadge({ stop }: { stop: PlanStop }) {
   const t = useTranslations("plan");
@@ -30,9 +50,7 @@ function WindowBadge({ stop }: { stop: PlanStop }) {
           : null;
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      {label && (
-        <span className={`${pill} border-line-strong tabular-nums`}>{label}</span>
-      )}
+      {label && <span className={`${timePill} px-2.5 py-0.5 text-xs`}>{label}</span>}
       {stop.fixed && (
         <span
           className={`${pill} border-info-line bg-info-bg text-info-fg`}
@@ -78,23 +96,25 @@ function Activity({
   act,
   places,
   quickAdd,
+  edit,
 }: {
   act: PlanActivity;
   places: Plan["places"];
   quickAdd?: QuickAdd;
+  /** Owner's latest version: remove/promote controls (patch-safety [D7]). */
+  edit?: { ctx: ActEditCtx; at: { n: number; s: number; a: number } };
 }) {
   const t = useTranslations("plan");
   const f = useFormatter();
   const place = act.ref ? places[act.ref] : undefined;
-  const alts = place ? (act.alts ?? []).flatMap((k) => (places[k] ? [places[k]] : [])) : [];
+  const alts = place ? (act.alts ?? []).flatMap((k) => (places[k] ? [{ key: k, place: places[k] }] : [])) : [];
   const time = act.at ? (act.until ? `${act.at}–${act.until}` : act.at) : null;
   const add = quickAdd && place && act.ref ? quickAdd(place, act.ref) : null;
-  // The quick add sits in a reserved right column, so the text never wraps around it (spec timed-items [D14]).
-  return (
-    <li className={add ? "group/act grid min-w-0 grid-cols-[minmax(0,1fr)_2.75rem] items-start gap-x-1" : "min-w-0"}>
-      <div className="min-w-0 break-words">
-        {time && <span className="mr-2 font-semibold tabular-nums text-heading">{time}</span>}
-        <span className={kindCls(act.kind)}>{t(`kinds.${act.kind}`)}</span>
+  const body = RowLayout({
+    time,
+    label: <span className={kindCls(act.kind)}>{t(`kinds.${act.kind}`)}</span>,
+    children: (
+      <>
         {place && (
           <>
             <PlaceLink place={place} strong />
@@ -114,8 +134,8 @@ function Activity({
         {alts.length > 0 && (
           <span className={`block text-xs ${mutedCls}`}>
             {t("alternatives")}{" "}
-            {alts.map((p, i) => (
-              <span key={i}>
+            {alts.map(({ key, place: p }, i) => (
+              <span key={key}>
                 {i > 0 && " · "}
                 <PlaceLink place={p} />
                 {p.drive && (
@@ -124,11 +144,25 @@ function Activity({
                     <DriveBadge place={p} />
                   </>
                 )}
+                {edit && <AltEditButtons ctx={edit.ctx} at={edit.at} alt={key} name={p.name} />}
               </span>
             ))}
           </span>
         )}
-      </div>
+      </>
+    ),
+  });
+  if (edit) {
+    return (
+      <EditableActRow ctx={edit.ctx} at={edit.at} name={place?.name ?? act.text} add={add}>
+        {body}
+      </EditableActRow>
+    );
+  }
+  // The quick add sits in a reserved right column, so the text never wraps around it (spec timed-items [D14]).
+  return (
+    <li className={add ? "group/act grid min-w-0 grid-cols-[minmax(0,1fr)_2.75rem] items-start gap-x-1" : "min-w-0"}>
+      {body}
       {add && <div className="-my-2.5 flex justify-end">{add}</div>}
     </li>
   );
@@ -139,12 +173,12 @@ function FixedRow({ item }: { item: FixedItem }) {
   const t = useTranslations("plan");
   const ti = useTranslations("items");
   return (
-    <li className="min-w-0 break-words rounded-lg border border-l-4 border-ok-line bg-ok-bg/60 py-1.5 pl-3 pr-2" data-fixed-item={item.id}>
-      <span className="mr-2 font-semibold tabular-nums text-heading">{timeRange(item.from, item.to)}</span>
-      <span className={kindCls("fixed")}>{ti(`categories.${item.category}`)}</span>
-      <span className="mr-1.5 font-medium">{item.title}</span>
-      <span className="sr-only">({t("fixedItem")})</span>
-      <StatusBadge status={item.status} />
+    <li className="min-w-0 rounded-lg border border-l-4 border-ok-line bg-ok-bg/60 py-1.5 pl-3 pr-2" data-fixed-item={item.id}>
+      <RowLayout time={timeRange(item.from, item.to)} label={<span className={kindCls("fixed")}>{ti(`categories.${item.category}`)}</span>}>
+        <span className="mr-1.5 font-medium">{item.title}</span>
+        <span className="sr-only">({t("fixedItem")})</span>
+        <StatusBadge status={item.status} />
+      </RowLayout>
     </li>
   );
 }
@@ -173,6 +207,7 @@ export function DayCard({
   changed,
   fixed = [],
   renderQuickAdd,
+  edit,
 }: {
   day: PlanDay;
   places: Plan["places"];
@@ -180,6 +215,8 @@ export function DayCard({
   /** Booked/planned trip items with day + start time; merged into this day's rows in time order. */
   fixed?: FixedItem[];
   renderQuickAdd?: (place: Plan["places"][string], ref: string, day: number) => React.ReactNode;
+  /** Owner's latest, idle version: activity edits without AI. */
+  edit?: ActEditCtx;
 }) {
   const t = useTranslations("plan");
   const f = useFormatter();
@@ -189,20 +226,23 @@ export function DayCard({
     .flatMap((k) => (places[k] ? [places[k]] : []));
   const fetchedAt = used.map((p) => p.fetchedAt).sort()[0];
   const hasDrive = used.some((p) => p.drive);
-  const border = day.best ? "border-feature" : changed ? "border-info-line" : "border-line";
+  // Only a user-set best day is highlighted; an AI `best` in plans before plan-5 is ignored (patch-safety [D8]).
+  const best = isUserBest(day);
+  const border = best ? "border-feature" : changed ? "border-info-line" : "border-line";
   return (
     <li id={`day-${day.n}`} className="scroll-mt-4">
       <article
         aria-labelledby={`day-${day.n}-title`}
         data-print-block
-        className={`flex min-w-0 gap-3 rounded-[14px] border p-4 sm:gap-6 sm:p-6 ${day.best ? "on-feature bg-feature text-ink" : "bg-card"} ${border}`}
+        className={`group/day flex min-w-0 gap-3 rounded-[14px] border p-4 sm:gap-6 sm:p-6 ${best ? "on-feature bg-feature text-ink" : "bg-card"} ${border}`}
       >
         <DateColumn day={day} />
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <h3 id={`day-${day.n}-title`} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xl font-bold leading-snug sm:text-2xl">
+          <div className="flex min-w-0 items-start gap-1">
+          <h3 id={`day-${day.n}-title`} className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-xl font-bold leading-snug sm:text-2xl">
             <span className="sr-only">{t("day", { n: day.n })}: </span>
             <span className="min-w-0 break-words">{day.title}</span>
-            {day.best && (
+            {best && (
               <span
                 className="inline-flex items-center rounded-full bg-feature-accent px-3 py-1 font-sans text-xs font-bold uppercase tracking-[0.08em] text-[#1c2430]"
               >
@@ -217,6 +257,8 @@ export function DayCard({
               </span>
             )}
           </h3>
+          {edit && <BestDayButton ctx={edit} n={day.n} isBest={best} />}
+          </div>
           {mergeDayRows(day, fixed).map(({ stop, rows }, i) => {
             const showHead = day.stops.length > 1 || stop.place !== day.title || windowKind(stop.from, stop.to) || stop.fixed;
             return (
@@ -224,6 +266,7 @@ export function DayCard({
                 {showHead && (
                   <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-heading">
                     <span className="min-w-0 break-words">{stop.place}</span>
+                    {windowKind(stop.from, stop.to) && <span aria-hidden="true" className="text-subtle">·</span>}
                     <WindowBadge stop={stop} />
                   </p>
                 )}
@@ -238,6 +281,7 @@ export function DayCard({
                           act={r.act}
                           places={places}
                           quickAdd={renderQuickAdd && ((p, ref) => renderQuickAdd(p, ref, day.n))}
+                          edit={edit && { ctx: edit, at: { n: day.n, s: i, a: stop.acts.indexOf(r.act) } }}
                         />
                       ),
                     )}

@@ -46,6 +46,8 @@ export function PlanView({
   const ctx = { tripId: state.tripId, lengthDays: items.lengthDays, partySize: items.partySize, startDate: items.startDate, flights: legs };
   const quick = state.isLatest;
   const fixed = fixedItemsOf(items.list, plan.days.length);
+  // Activity edits without AI: owner's latest version only, not while a generation or patch runs.
+  const editCtx = state.isLatest && !state.busy ? { tripId: state.tripId, baseVersion: meta.versionNo } : undefined;
   const flightAction = (leg: (typeof legs)[number]) => {
     const held = itemForLeg(leg, items.list, items.lengthDays, items.startDate);
     if (held) {
@@ -94,6 +96,7 @@ export function PlanView({
             places={plan.places}
             changed={changed.has(d.n)}
             fixed={fixed}
+            edit={editCtx}
             renderQuickAdd={
               quick
                 ? (place, ref, n) => <AddItemButton ctx={ctx} prefill={placePrefill(place, ref, n)} quickLabel={place.name} icon className={QUICK_ADD_HOVER} />

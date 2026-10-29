@@ -859,12 +859,7 @@
         "b": "with day",
         "apply": "Swap"
       },
-      "best": {
-        "title": "Best day",
-        "label": "Day",
-        "none": "None",
-        "apply": "Set"
-      }
+      "shrinkRejected": "{count, plural, one {Day {days} was} other {Days {days} were}} not changed because the answer was incomplete. Please try again."
     },
     "versions": {
       "aria": "Version history",
@@ -880,12 +875,15 @@
       "restoredFrom": "from v{n}",
       "swap": "days {a} and {b} swapped",
       "best": "day {n} marked as best",
-      "bestNone": "best day removed"
+      "bestNone": "best day removed",
+      "remove_alt": "alternative removed",
+      "promote_alt": "alternative made the main place",
+      "remove_act": "activity removed"
     },
     "versionKinds": {
       "generate": "Generated",
       "patch": "Adjusted",
-      "edit": "Edited",
+      "edit": "Without AI",
       "restore": "Restored"
     },
     "flights": {
@@ -911,7 +909,18 @@
       "cancel": "Cancel",
       "disabled": "AI is currently switched off."
     },
-    "showDrive": "Show drive times"
+    "showDrive": "Show drive times",
+    "actEdit": {
+      "removeAlt": "Remove alternative {name}",
+      "promoteAlt": "Make {name} the main place",
+      "removeAct": "Remove activity: {name}",
+      "confirm": "Remove this activity? This creates a new version, without AI.",
+      "confirmYes": "Remove",
+      "cancel": "Cancel",
+      "working": "Saving…",
+      "markBest": "Mark day {n} as best day",
+      "unmarkBest": "Remove the best-day mark from day {n}"
+    }
   },
   "items": {
     "title": "Bookings and costs",
@@ -1137,7 +1146,9 @@
       "km": "{km} km straight-line"
     },
     "dayShort": "DAY",
-    "daysUnit": "days"
+    "daysUnit": "days",
+    "windowFrom": "from {time}",
+    "windowUntil": "until {time}"
   },
   "admin": {
     "title": "Admin",

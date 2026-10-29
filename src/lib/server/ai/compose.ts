@@ -35,7 +35,6 @@ const WireDay = z.object({
   stops: z.array(WireStop),
   note: z.string().optional(),
   warn: z.string().optional(),
-  best: z.boolean().optional(),
 });
 const WireNote = z.object({ kind: z.string().describe("tip|warning"), text: z.string() });
 const WireOpen = z.object({ text: z.string(), day: z.number().int().optional() });
@@ -113,7 +112,6 @@ function dayForModel(d: PlanDay, pid: Map<string, string>) {
     })),
     note: d.note,
     warn: d.warn,
-    best: d.best,
   };
 }
 

@@ -1,38 +1,40 @@
 {
-  "promptVersion": "plan-4",
+  "promptVersion": "plan-5",
   "model": "claude-sonnet-5-5",
-  "inputHash": "b7faead7dfb13e643f54946cc395f7f662e60419d6ff1ef99ba504e546ccc283",
+  "inputHash": "07a29ccb06967d56ed861cf11e0e6955f726246accd5ee7227f4bf97538de7e8",
   "output": {
-    "reply": "Tag 2 ist entspannter: weniger Programm, mehr Pausen und der Mittagsschlaf an Bord bleibt bestehen.",
+    "reply": "Tag 2 entspannter gemacht: Spaziergang gekürzt, Abendessen an Bord, mehr Ruhe und freie Zeit.",
     "days": [
       {
         "n": 2,
-        "title": "Wien: Christkindlmarkt am Abend",
+        "title": "Wien: Christkindlmarkt",
         "stops": [
           {
             "place": "An Bord",
             "acts": [
               {
-                "at": "09:00",
+                "at": "08:00",
+                "until": "09:00",
                 "kind": "food",
-                "text": "Gemütliches Frühstück an Bord"
+                "text": "Frühstück an Bord"
               },
               {
-                "at": "10:30",
+                "at": "09:30",
+                "until": "11:00",
                 "kind": "free",
-                "text": "Freie Zeit an Bord: Deck, Salon oder Spielen mit dem Kleinkind"
+                "text": "Freie Zeit an Bord, ruhiges Spielen"
               },
               {
-                "at": "12:00",
+                "at": "11:30",
+                "until": "12:15",
                 "kind": "food",
-                "text": "Leichtes Mittagessen an Bord"
+                "text": "Mittagessen an Bord"
               },
               {
-                "at": "12:45",
+                "at": "12:30",
+                "until": "13:45",
                 "kind": "rest",
-                "text": "Mittagsschlaf an Bord während der Fahrt",
-                "ref": "",
-                "alts": []
+                "text": "Mittagsschlaf an Bord vor Ankunft"
               }
             ]
           },
@@ -44,34 +46,32 @@
             "acts": [
               {
                 "at": "14:30",
-                "kind": "free",
-                "text": "Ankommen, kurzer ruhiger Spaziergang auf glatten Wegen oder Pause im Café",
-                "ref": "",
-                "alts": []
+                "until": "15:30",
+                "kind": "see",
+                "text": "Kurzer Bummel Innenstadt (Trage statt Buggy)"
+              },
+              {
+                "at": "15:30",
+                "until": "16:15",
+                "kind": "rest",
+                "text": "Pause im Café, Kind ausruhen"
               },
               {
                 "at": "16:30",
+                "until": "17:45",
                 "kind": "do",
-                "text": "Weihnachtsmarkt mit Lichterglanz, Kinderpunsch und Spielecke",
-                "ref": "",
-                "alts": []
+                "text": "Weihnachtsmarkt bei Lichterglanz, Punsch"
               },
               {
-                "at": "18:15",
+                "at": "18:00",
+                "until": "19:00",
                 "kind": "food",
-                "text": "Abendessen in einem Wiener Gasthaus"
-              },
-              {
-                "at": "19:30",
-                "kind": "travel",
-                "text": "Entspannter Rückweg zum Schiff"
+                "text": "Abendessen an Bord, früh zur Ruhe"
               }
             ]
           }
         ],
-        "note": "Buggy meiden, Trage nutzen: Märkte haben oft Kopfsteinpflaster.",
-        "warn": "Es ist ab etwa 16:50 dunkel, Wege zum Markt vorher einplanen.",
-        "best": true
+        "warn": "Kopfsteinpflaster in der Innenstadt, Kind früh müde."
       }
     ]
   },
@@ -79,12 +79,12 @@
     "task": "plan_patch",
     "model": "claude-sonnet-5-5",
     "status": "ok",
-    "inputTokens": 941,
-    "outputTokens": 619,
+    "inputTokens": 831,
+    "outputTokens": 545,
     "cacheCreationInputTokens": 2618,
-    "cacheReadInputTokens": 3320,
-    "costMicroUsd": 15281,
-    "latencyMs": 5570
+    "cacheReadInputTokens": 3592,
+    "costMicroUsd": 14375,
+    "latencyMs": 4333
   },
-  "recordedAt": "2026-10-28T22:45:33.561Z"
+  "recordedAt": "2026-10-29T06:24:52.868Z"
 }
