@@ -1,6 +1,7 @@
 export * from "./common";
 export * from "./profile";
 export * from "./group";
+export * from "./group-text";
 export * from "./purpose";
 export * from "./interests";
 export * from "./result";

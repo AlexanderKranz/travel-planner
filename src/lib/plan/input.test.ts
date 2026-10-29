@@ -7,7 +7,8 @@ import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
 import { daylightFor } from "@/lib/facts/daylight";
 import { canonicalJson, planInputHash } from "./hash";
-import { GENERAL_CAP, MAX_PLACES, buildPlanInput, localHhmm, selectPlaces } from "./input";
+import { GENERAL_CAP, MAX_PLACES, buildPlanInput, localHhmm, selectPlaces, type GroupContext } from "./input";
+import { groupPartySize, resolveGroup, tripGroupSource } from "@/lib/group-text";
 
 const T = "2026-10-01T00:00:00.000Z";
 const trip = (over: Partial<Trip> = {}): Trip => ({
@@ -235,5 +236,63 @@ describe("fixed items in the input (plan-4)", () => {
       item({ id: "b", category: "flight", day: 3, startTime: "18:00" }),
     ]);
     expect(both.stored.llm.flights).toBeUndefined();
+  });
+});
+
+describe("group from text [group-text D5]", () => {
+  const parse = { v: 1 as const, travellers: [{ count: 5, ageMode: "relativeToMe" as const, ageOffset: 0, role: "adult" as const, label: "Freunde" }], notes: ["vegan"] };
+  const oneOff = (over: Partial<GroupContext> = {}): GroupContext => ({
+    entries: [], traitKeys: [], description: "Wir sind 5 Freunde, alle in meinem Alter", updatedAt: T, parse, ...over,
+  });
+  const run = (g: GroupContext | null, birth: string | null = "1980-05-01") => {
+    const t = trip({ groupId: null });
+    return buildPlanInput({ trip: t, group: g, purpose: null, profileBirthdate: birth, facts: facts(t, []), locale: "de", today: "2026-10-28" });
+  };
+
+  it("parse: relative ages computed on the travel date, summary and header badges agree", () => {
+    const { stored, header } = run(oneOff());
+    expect(stored.llm.group).toEqual({ size: 5, notes: "vegan", entries: [{ n: 5, age: 57, approx: true, label: "Freunde" }] });
+    expect(header.group).toEqual({ total: 5, adults: 5, children: 0, toddlers: 0, unknown: 0 });
+    expect(canonicalJson(stored)).not.toMatch(/1980|alle in meinem/);
+  });
+
+  it("parse without a profile birthdate: no age is passed", () => {
+    const { stored } = run(oneOff(), null);
+    expect(stored.llm.group!.entries).toEqual([{ n: 5, label: "Freunde" }]);
+    expect(stored.llm.group!.size).toBe(5);
+  });
+
+  it("no parse (AI off or failed): raw text, cut, as notes; no people", () => {
+    const { stored, header } = run(oneOff({ parse: undefined, description: "x".repeat(900) }));
+    expect(stored.llm.group).toEqual({ size: 0, notes: "x".repeat(600), entries: [] });
+    expect(header.group).toEqual({ total: 0, adults: 0, children: 0, toddlers: 0, unknown: 0 });
+  });
+
+  it("saved entries beat the parse of the same group", () => {
+    const { stored } = run(oneOff({ entries: [{ kind: "composition", count: 2, age: { ageMode: "exact", age: 30 } }] }));
+    expect(stored.llm.group!.size).toBe(2);
+    expect(stored.llm.group!.entries).toEqual([{ n: 2, age: 30 }]);
+    expect(stored.llm.group!.notes).toBe("vegan");
+  });
+
+  it("a role without an age travels as label and counts in the header", () => {
+    const g = oneOff({ parse: { v: 1, travellers: [{ count: 2, role: "child" }, { count: 1, role: "infant" }, { count: 1 }], notes: [] } });
+    const { stored, header } = run(g);
+    expect(stored.llm.group!.entries).toEqual([{ n: 2, label: "child" }, { n: 1, label: "infant" }, { n: 1 }]);
+    expect(header.group).toEqual({ total: 4, adults: 0, children: 2, toddlers: 1, unknown: 1 });
+  });
+
+  it("the trip's one-off group: party size equals the plan's group size (same resolution)", () => {
+    const src = tripGroupSource({ groupText: "Ich und Ben", groupStructure: [], groupParse: { v: 1, travellers: [{ count: 2 }], notes: [] } })!;
+    const ctx: GroupContext = { ...src, updatedAt: T };
+    const { stored } = run(ctx);
+    expect(groupPartySize(resolveGroup(ctx, "2027-03-13", null))).toBe(stored.llm.group!.size);
+    expect(stored.llm.group!.size).toBe(2);
+  });
+
+  it("unchanged groups without text keep their exact input (no new keys)", () => {
+    const { stored } = build();
+    expect(Object.keys(stored.llm.group!)).toEqual(["size", "notes", "entries"]);
+    expect(stored.llm.group!.notes).toBe("Buggy");
   });
 });

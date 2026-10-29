@@ -75,7 +75,7 @@
   },
   "groups": {
     "title": "Travel groups",
-    "intro": "Who is travelling? Everything is optional. \"Several people\" summarises an unnamed group, \"One person\" describes someone by name.",
+    "intro": "Who is travelling? Just describe the group in a sentence. Everything is optional; for groups you reuse often (such as family) you can also enter the people exactly.",
     "new": "New group",
     "newTitle": "New travel group",
     "editTitle": "Edit travel group",
@@ -153,6 +153,38 @@
         "golfHandicap": "Golf handicap",
         "needsNap": "Nap"
       }
+    },
+    "text": {
+      "label": "Who is travelling?",
+      "hint": "Free text, for example “We are 5 friends, all my age” or “Ben and I, similar age”.",
+      "pending": "Will be recognised when you save.",
+      "recognised": "Recognised: {summary}",
+      "nothingRecognised": "No people recognised. The text goes into the plan as a note.",
+      "notes": "Other notes: {notes}",
+      "notParsed": "Not recognised automatically. The text goes into the plan as a note.",
+      "structureWins": "Your exact details under “Enter people exactly” take precedence.",
+      "accept": "Use recognised result",
+      "adjust": "Adjust",
+      "roles": {
+        "adult": "Adults",
+        "child": "Children",
+        "infant": "Toddlers"
+      }
+    },
+    "exact": {
+      "title": "Enter people exactly",
+      "hint": "Optional. Several people with an age, people with a name and birthdate, notes and details. These take precedence over the text."
+    },
+    "summary": {
+      "adults": "{count, plural, one {# adult} other {# adults}}",
+      "children": "{count, plural, one {# child} other {# children}}",
+      "toddlers": "{count, plural, one {# toddler} other {# toddlers}}",
+      "unknown": "{count, plural, one {# person of unknown age} other {# people of unknown age}}",
+      "ageApprox": "about {age}",
+      "ageApproxRange": "about {min}–{max}",
+      "ageExact": "{age} years",
+      "ageExactRange": "{min}–{max} years",
+      "ageAboutMe": "similar age to you"
     }
   },
   "purposes": {
@@ -307,7 +339,8 @@
       "originAirports": "Departure airports for this trip",
       "homeAirports": "Your home airports",
       "noAirports": "No airports set. Add home airports in the settings.",
-      "notes": "Notes"
+      "notes": "Notes",
+      "groupOneOff": "This trip only"
     },
     "form": {
       "invalid": "Please check this field.",
@@ -378,7 +411,13 @@
       "cancel": "Cancel",
       "save": "Save",
       "create": "Create trip",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "groupOneOff": "Describe for this trip only …",
+      "groupText": {
+        "label": "Who is travelling (this trip only)?",
+        "hint": "Free text, for example “Ben and I, similar age”. Not saved as a travel group."
+      },
+      "groupStructureHelp": "Optional: enter people and ages exactly. This takes precedence over the recognised text."
     }
   },
   "facts": {

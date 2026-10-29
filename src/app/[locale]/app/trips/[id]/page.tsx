@@ -11,12 +11,11 @@ import { Link } from "@/i18n/navigation";
 import { berlinToday } from "@/lib/date";
 import { Locale, type FactsCtx } from "@/lib/domain";
 import { ageReferenceDate } from "@/lib/facts/trip-timing";
-import { resolveGroupAges } from "@/lib/group";
+import { groupPartySize, resolveGroup, tripGroupSource } from "@/lib/group-text";
 import { getGroup } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
 import { getPurpose } from "@/lib/server/purposes";
 import { getPlanState } from "@/lib/server/plans";
-import { partySize as sumParty } from "@/lib/items/costs";
 import { getUserSession } from "@/lib/server/session";
 import { getTrip } from "@/lib/server/trips";
 import { unwrap } from "@/lib/unwrap";
@@ -62,18 +61,25 @@ export default async function TripDetailPage({
   const profile = unwrap(profileRes, locale);
   const today = berlinToday();
   const ageDate = ageReferenceDate(trip, today) ?? today;
-  // A group or purpose that vanished (race) simply shows as "none".
-  const group: ContextGroup | null =
-    groupRes?.ok
-      ? {
-          id: groupRes.data.id,
-          name: groupRes.data.name,
-          ages: resolveGroupAges(groupRes.data.entries, ageDate, profile.birthdate),
-        }
-      : null;
+  // A group or purpose that vanished (race) simply shows as "none". One resolution (saved entries > Haiku parse >
+  // text only) feeds the strip, the party size and the flight passengers.
+  const source = groupRes?.ok
+    ? { ...groupRes.data, parse: groupRes.data.parse ?? null }
+    : trip.groupId
+      ? null
+      : tripGroupSource(trip);
+  const resolved = source ? resolveGroup(source, ageDate, profile.birthdate) : null;
+  const group: ContextGroup | null = resolved
+    ? {
+        id: groupRes?.ok ? groupRes.data.id : undefined,
+        name: groupRes?.ok ? groupRes.data.name : undefined,
+        text: source?.description,
+        resolved,
+      }
+    : null;
   const purpose = purposeRes?.ok ? purposeRes.data : null;
 
-  const partySize = group ? sumParty(group.ages.map((e) => e.count)) : null;
+  const partySize = groupPartySize(resolved);
   const startDate = trip.timing.kind === "date" ? trip.timing.startDate : null;
   const planRes = await getPlanState(trip.id);
   const hasPlan = planRes.ok && planRes.data.versions.length > 0;
@@ -123,7 +129,7 @@ export default async function TripDetailPage({
         </Suspense>
         {trip.wantsFlights && (
           <div className="order-3 min-w-0 lg:col-span-2">
-            <FlightsPanelSection {...panel} adults={adultsFromEntries(group?.ages)} />
+            <FlightsPanelSection {...panel} adults={adultsFromEntries(group?.resolved.rows)} />
           </div>
         )}
         <div className="order-4 min-w-0 lg:col-span-2">

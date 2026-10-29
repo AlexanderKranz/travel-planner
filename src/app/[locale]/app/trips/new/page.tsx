@@ -22,6 +22,7 @@ export default async function NewTripPage({ params }: { params: Promise<{ locale
         purposes={unwrap(purposes, locale).map(({ id, name }) => ({ id, name }))}
         countryCodes={listCountries().map((c) => c.code)}
         hasHomeAirports={unwrap(profile, locale).homeAirports.length > 0}
+        profileBirthdate={unwrap(profile, locale).birthdate}
       />
     </main>
   );

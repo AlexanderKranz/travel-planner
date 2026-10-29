@@ -1,0 +1,331 @@
+{
+  "promptVersion": "group-1",
+  "model": "claude-haiku-5-5",
+  "recordedAt": "2026-10-28T23:01:23.689Z",
+  "samples": [
+    {
+      "text": "Wir sind 5 Freunde, alle in meinem Alter",
+      "hash": "726d85c37cb05247492616f1e3fcca0e812d9effe6d6b8485c5acda79d9f9e0e",
+      "wire": {
+        "v": 1,
+        "travellers": [
+          {
+            "count": 5,
+            "ageMode": "relativeToMe",
+            "age": null,
+            "ageOffset": 0,
+            "label": "Freunde",
+            "role": "adult"
+          }
+        ],
+        "notes": []
+      },
+      "usage": {
+        "task": "group_parse",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 40,
+        "outputTokens": 71,
+        "cacheCreationInputTokens": 1237,
+        "cacheReadInputTokens": 0,
+        "costMicroUsd": 194,
+        "latencyMs": 1320
+      }
+    },
+    {
+      "text": "Ich und Ben, ähnliches Alter",
+      "hash": "a9fc46d70d6a4c8152f889d71246675ee088558cd346436968bf0c349cdedcd2",
+      "wire": {
+        "v": 1,
+        "travellers": [
+          {
+            "count": 2,
+            "ageMode": "relativeToMe",
+            "age": null,
+            "ageOffset": 0,
+            "label": "Ich und Ben",
+            "role": null
+          }
+        ],
+        "notes": []
+      },
+      "usage": {
+        "task": "group_parse",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 34,
+        "outputTokens": 415,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 1237,
+        "costMicroUsd": 223,
+        "latencyMs": 4035
+      }
+    },
+    {
+      "text": "2 Erwachsene (45 und 43) und ein Kleinkind, 2 Jahre",
+      "hash": "78df5c4f55eb7524aad1d15e11108f5ac3f2ab4dc5ad821ac7c574792ed32758",
+      "wire": {
+        "v": 1,
+        "travellers": [
+          {
+            "count": 1,
+            "ageMode": "exact",
+            "age": 45,
+            "ageOffset": null,
+            "label": null,
+            "role": "adult"
+          },
+          {
+            "count": 1,
+            "ageMode": "exact",
+            "age": 43,
+            "ageOffset": null,
+            "label": null,
+            "role": "adult"
+          },
+          {
+            "count": 1,
+            "ageMode": "exact",
+            "age": 2,
+            "ageOffset": null,
+            "label": "Kleinkind",
+            "role": "infant"
+          }
+        ],
+        "notes": []
+      },
+      "usage": {
+        "task": "group_parse",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 50,
+        "outputTokens": 153,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 1237,
+        "costMicroUsd": 94,
+        "latencyMs": 4403
+      }
+    },
+    {
+      "text": "Meine Frau und ich, beide Mitte 60, einer von uns sitzt im Rollstuhl",
+      "hash": "945e0c22b6934039c084251709a651bab6d1eb7fee73042c62428405b793a79f",
+      "wire": {
+        "v": 1,
+        "travellers": [
+          {
+            "count": 2,
+            "ageMode": "approx",
+            "age": 65,
+            "ageOffset": null,
+            "label": "Meine Frau",
+            "role": "adult"
+          }
+        ],
+        "notes": [
+          "One of the two travellers uses a wheelchair."
+        ]
+      },
+      "usage": {
+        "task": "group_parse",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 54,
+        "outputTokens": 285,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 1237,
+        "costMicroUsd": 160,
+        "latencyMs": 2381
+      }
+    },
+    {
+      "text": "Family: 2 parents around 40 and 3 kids aged 4, 7 and 10",
+      "hash": "1e0bbe59a818c474eccaf2510cc9963345cb1f4bbd02cc04ca03738ca38e30e1",
+      "wire": {
+        "v": 1,
+        "travellers": [
+          {
+            "count": 2,
+            "ageMode": "approx",
+            "age": 40,
+            "ageOffset": null,
+            "label": "parents",
+            "role": "adult"
+          },
+          {
+            "count": 1,
+            "ageMode": "exact",
+            "age": 4,
+            "ageOffset": null,
+            "label": "kid",
+            "role": "child"
+          },
+          {
+            "count": 1,
+            "ageMode": "exact",
+            "age": 7,
+            "ageOffset": null,
+            "label": "kid",
+            "role": "child"
+          },
+          {
+            "count": 1,
+            "ageMode": "exact",
+            "age": 10,
+            "ageOffset": null,
+            "label": "kid",
+            "role": "child"
+          }
+        ],
+        "notes": []
+      },
+      "usage": {
+        "task": "group_parse",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 47,
+        "outputTokens": 493,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 1237,
+        "costMicroUsd": 264,
+        "latencyMs": 2898
+      }
+    },
+    {
+      "text": "Ich fahre allein",
+      "hash": "4e794d5da9eb9114d0dc01c816c40b05e79f9bc24726fea2d1e7056624d9a62c",
+      "wire": {
+        "v": 1,
+        "travellers": [
+          {
+            "count": 1,
+            "ageMode": "relativeToMe",
+            "age": null,
+            "ageOffset": 0,
+            "label": null,
+            "role": null
+          }
+        ],
+        "notes": []
+      },
+      "usage": {
+        "task": "group_parse",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 26,
+        "outputTokens": 65,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 1237,
+        "costMicroUsd": 47,
+        "latencyMs": 940
+      }
+    },
+    {
+      "text": "Ben ist 5 Jahre jünger als ich, dazu zwei Kollegen in meinem Alter",
+      "hash": "a332a96c56ecfd34db35c79c9a39ae87068a56f8c0ab455b525909a0f3c42a09",
+      "wire": {
+        "v": 1,
+        "travellers": [
+          {
+            "count": 1,
+            "ageMode": "relativeToMe",
+            "age": null,
+            "ageOffset": 0,
+            "label": null,
+            "role": null
+          },
+          {
+            "count": 1,
+            "ageMode": "relativeToMe",
+            "age": null,
+            "ageOffset": -5,
+            "label": "Ben",
+            "role": null
+          },
+          {
+            "count": 2,
+            "ageMode": "relativeToMe",
+            "age": null,
+            "ageOffset": 0,
+            "label": "Kollegen",
+            "role": "adult"
+          }
+        ],
+        "notes": []
+      },
+      "usage": {
+        "task": "group_parse",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 55,
+        "outputTokens": 454,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 1237,
+        "costMicroUsd": 245,
+        "latencyMs": 3024
+      }
+    },
+    {
+      "text": "Wir spielen alle gern Golf und essen vegetarisch",
+      "hash": "37dff015126b2d5f5921cc29fa28a4d9dc1bd3263d35113a970e0df1e818ccb3",
+      "wire": {
+        "v": 1,
+        "travellers": [
+          {
+            "count": 1,
+            "ageMode": "relativeToMe",
+            "age": null,
+            "ageOffset": 0,
+            "label": null,
+            "role": null
+          }
+        ],
+        "notes": [
+          "Group enjoys playing golf",
+          "Group eats vegetarian food"
+        ]
+      },
+      "usage": {
+        "task": "group_parse",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 40,
+        "outputTokens": 455,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 1237,
+        "costMicroUsd": 244,
+        "latencyMs": 3643
+      }
+    },
+    {
+      "text": "Seniorengruppe, 12 Personen, ca. 70, zwei mit Rollator",
+      "hash": "cf787dbc2b6703d84c14cd539ce7f65060f93e2bcadf2836435cad1ecb09e38a",
+      "wire": {
+        "v": 1,
+        "travellers": [
+          {
+            "count": 12,
+            "ageMode": "approx",
+            "age": 70,
+            "ageOffset": null,
+            "label": "Seniorengruppe",
+            "role": "adult"
+          }
+        ],
+        "notes": [
+          "Some travellers use mobility walkers (Rollator), so plan step-free access and accessible transport and rest stops."
+        ]
+      },
+      "usage": {
+        "task": "group_parse",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 49,
+        "outputTokens": 430,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 1237,
+        "costMicroUsd": 232,
+        "latencyMs": 3461
+      }
+    }
+  ]
+}

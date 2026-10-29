@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { draftToAgeSource, draftToInput, emptyDraft, hasTraitValue } from "./draft";
+import { GroupParse, TravelGroupInput } from "@/lib/domain";
+import { draftToAgeSource, draftToCompositionInput, draftToInput, emptyDraft, hasTraitValue, parseToDrafts, tripEntryToDraft } from "./draft";
 
 describe("draftToInput", () => {
   it("builds a composition with approximate age", () => {
@@ -70,5 +71,50 @@ describe("draftToInput", () => {
     const d = { ...emptyDraft("member"), golfHandicap: "12" };
     expect(hasTraitValue(d, "golfHandicap")).toBe(true);
     expect(hasTraitValue(d, "diet")).toBe(false);
+  });
+});
+
+describe("parseToDrafts (Adjust)", () => {
+  const opts = (profileBirthdate: string | null) => ({ today: "2027-03-13", profileBirthdate, roleLabel: (r: string) => `role:${r}` });
+  const parse = GroupParse.parse({
+    v: 1,
+    notes: [],
+    travellers: [
+      { count: 5, ageMode: "relativeToMe", ageOffset: 0, label: "Freunde", role: "adult" },
+      { count: 1, ageMode: "relativeToMe", ageOffset: -5, label: "Ben" },
+      { count: 2, ageMode: "exact", age: 7, role: "child" },
+      { count: 1, role: "infant" },
+    ],
+  });
+
+  it("keeps relative-to-me as relative; an offset becomes an approximate age when the profile age is known", () => {
+    const d = parseToDrafts(parse, opts("1981-03-13"));
+    expect(d.map((x) => [x.count, x.label, x.ageMode, x.age])).toEqual([
+      ["5", "Freunde", "relativeToMe", ""],
+      ["1", "Ben", "approx", "41"],
+      ["2", "", "exact", "7"],
+      ["1", "role:infant", "", ""],
+    ]);
+  });
+
+  it("without a profile birthdate the offset is dropped (stays about my age)", () => {
+    const d = parseToDrafts(parse, opts(null));
+    expect(d[1].ageMode).toBe("relativeToMe");
+    expect(d[1].age).toBe("");
+  });
+
+  it("the drafts build valid composition inputs", () => {
+    for (const d of parseToDrafts(parse, opts("1981-03-13"))) {
+      expect(draftToCompositionInput(d)).toMatchObject({ kind: "composition" });
+    }
+    expect(TravelGroupInput.safeParse({ name: "g", entries: parseToDrafts(parse, opts(null)).map((d) => draftToInput(d)) }).success).toBe(true);
+  });
+});
+
+describe("tripEntryToDraft", () => {
+  it("round-trips a stored one-off entry", () => {
+    const d = tripEntryToDraft({ count: 2, label: "x", age: { ageMode: "approx", age: 40 }, ageAsOf: "2026-10-29" });
+    expect(draftToCompositionInput(d)).toMatchObject({ count: 2, label: "x", age: { ageMode: "approx", age: 40 } });
+    expect(d.ageAsOf).toBe("2026-10-29");
   });
 });

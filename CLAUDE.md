@@ -21,6 +21,7 @@ Full plan: `docs/architecture.md`. Hosting walkthrough: `docs/hosting-setup.md`.
 1. **Facts come from APIs, never from the LLM.** Flights (AeroDataBox), weather (Open-Meteo), daylight (`suncalc`), distances (OpenRouteService), country facts and POIs (REST Countries, OSM/Wikivoyage) are fetched by code. The LLM only receives them as input. It must never invent flights, routes, opening hours or prices. The UI shows each verified fact with its source and check date.
 2. **Deterministic first, minimal tokens.** If code, an API or a static form can do it, do not call an LLM. Allowed LLM uses:
    - Haiku turns free-text purposes into structured tags (once per purpose, cached)
+   - Haiku turns a free-text travel group ("5 Freunde, alle in meinem Alter") into structured travellers (once per text change, cached by text hash; saved entries the user typed always win). Spec: `docs/specs/group-text.md`
    - Sonnet composes the itinerary (one call, compact JSON in and out)
    - Iteration patches only the affected days
 

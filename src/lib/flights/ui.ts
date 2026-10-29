@@ -33,7 +33,9 @@ export function legsOfPair(pair: FlightPair, legs: FlightLeg[], dir: "out" | "ba
 /** Passengers aged 12+ or of unknown age count as adults for the booking links; at least 1. */
 export function adultsFromEntries(entries: ResolvedEntry[] | undefined | null): number {
   if (!entries || entries.length === 0) return 1;
-  const n = entries.reduce((sum, e) => (e.age.status === "known" && e.age.age < 12 ? sum : sum + e.count), 0);
+  const under12 = (e: ResolvedEntry) =>
+    e.age.status === "known" ? e.age.age < 12 : e.role === "child" || e.role === "infant";
+  const n = entries.reduce((sum, e) => (under12(e) ? sum : sum + e.count), 0);
   return Math.max(1, n);
 }
 

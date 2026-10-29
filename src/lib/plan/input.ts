@@ -1,4 +1,4 @@
-import type { EntryTraits, TravelGroup } from "@/lib/domain/group";
+import type { EntryTraits } from "@/lib/domain/group";
 import type { InterestOrGeneral, PlaceCandidate, PlaceGroup, TripFacts } from "@/lib/domain/facts";
 import type { GroupSummary, OsmKey, PlanFlights, PlanFactsDigest, PlanHeader, PlanPlace } from "@/lib/domain/plan";
 import type { Locale } from "@/lib/domain/profile";
@@ -6,7 +6,7 @@ import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
 import { tripRadiusKm, interestsForTrip, isInterestKey } from "@/lib/facts/interest-sources";
 import { addDays, ageReferenceDate, selectedMonths } from "@/lib/facts/trip-timing";
-import { resolveGroupAges, stripTraits } from "@/lib/group";
+import { resolveGroup, type GroupSource } from "@/lib/group-text";
 import { gatewayAirports, nearestGatewayKm } from "./airports";
 import { fixedItemsOf, fixedSlots, type FixedSlot } from "./fixed-items";
 import type { SharedItem } from "@/lib/domain/items";
@@ -70,9 +70,15 @@ type Dow = "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su";
 /** Stored per version: exact LLM input + place index (`p1` → OSM key and place). */
 export type PlanInputStored = { llm: PlanInput; index: Record<string /* p1 */, { key: OsmKey; place: PlanPlace }> };
 
+/**
+ * What the plan needs to know about the travellers: a saved group (TravelGroup fits), or the one-off group of a trip
+ * (no saved entries of its own, only text, the user's corrected structure as `entries`, and the Haiku parse).
+ */
+export type GroupContext = GroupSource & { updatedAt: string };
+
 export type BuildPlanInputArgs = {
   trip: Trip;
-  group: TravelGroup | null;
+  group: GroupContext | null;
   purpose: TripPurpose | null;
   profileBirthdate: string | null;
   facts: TripFacts;
@@ -164,34 +170,22 @@ function safeUrl(u: string | undefined): string | undefined {
 }
 
 function groupInput(
-  group: TravelGroup,
+  group: GroupContext,
   refDate: string,
   profileBirthdate: string | null,
 ): { input: NonNullable<PlanInput["group"]>; summary: GroupSummary } {
-  const resolved = resolveGroupAges(group.entries, refDate, profileBirthdate);
-  const summary: GroupSummary = { total: 0, adults: 0, children: 0, toddlers: 0, unknown: 0 };
-  const entries: NonNullable<PlanInput["group"]>["entries"] = resolved.map((r, i) => {
-    const stored = group.entries[i];
-    summary.total += r.count;
-    if (r.age.status === "known") {
-      const a = r.age.age;
-      if (a <= 2) summary.toddlers += r.count;
-      else if (a <= 17) summary.children += r.count;
-      else summary.adults += r.count;
-    } else if (r.age.status === "aboutMyAge") summary.adults += r.count;
-    else summary.unknown += r.count;
-    const traits = stripTraits(stored.traits, group.traitKeys);
-    return {
-      n: r.count,
-      age: r.age.status === "known" ? r.age.age : undefined,
-      approx: r.age.status === "known" && r.age.approximate ? (true as const) : undefined,
-      // No names, no birthdates [D6].
-      label: stored.label ?? (r.isSelf ? "self" : undefined),
-      traits: Object.keys(traits).length ? traits : undefined,
-      notes: stored.notes || undefined,
-    };
-  });
-  return { input: { size: summary.total, notes: group.notes || undefined, entries }, summary };
+  // Resolution order (spec group-text [D5]): saved entries > Haiku parse > raw text as notes.
+  const r = resolveGroup(group, refDate, profileBirthdate);
+  const entries: NonNullable<PlanInput["group"]>["entries"] = r.rows.map((row) => ({
+    n: row.count,
+    age: row.age.status === "known" ? row.age.age : undefined,
+    approx: row.age.status === "known" && row.age.approximate ? (true as const) : undefined,
+    // No names, no birthdates [D6]. Parsed rows without an age carry their role as label.
+    label: row.label ?? (row.isSelf ? "self" : row.age.status === "unknown" ? row.role : undefined),
+    traits: row.traits,
+    notes: row.notes,
+  }));
+  return { input: { size: r.size, notes: r.notes, entries }, summary: r.summary };
 }
 
 function purposeInput(p: TripPurpose): NonNullable<PlanInput["purpose"]> {

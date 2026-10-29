@@ -75,7 +75,7 @@
   },
   "groups": {
     "title": "Reisegruppen",
-    "intro": "Wer reist mit? Alle Angaben sind freiwillig. „Mehrere Personen“ fasst eine anonyme Gruppe zusammen, „Einzelne Person“ beschreibt jemanden mit Namen.",
+    "intro": "Wer reist mit? Beschreibe die Gruppe einfach in einem Satz. Alle Angaben sind freiwillig; bei oft genutzten Gruppen (z. B. Familie) kannst du die Personen auch genau angeben.",
     "new": "Neue Gruppe",
     "newTitle": "Neue Reisegruppe",
     "editTitle": "Reisegruppe bearbeiten",
@@ -153,6 +153,38 @@
         "golfHandicap": "Golf-Handicap",
         "needsNap": "Mittagsschlaf"
       }
+    },
+    "text": {
+      "label": "Wer reist mit?",
+      "hint": "Frei formuliert, zum Beispiel „Wir sind 5 Freunde, alle in meinem Alter“ oder „Ich und Ben, ähnliches Alter“.",
+      "pending": "Wird beim Speichern erkannt.",
+      "recognised": "Erkannt: {summary}",
+      "nothingRecognised": "Keine Personen erkannt. Der Text geht als Hinweis in den Plan.",
+      "notes": "Weitere Hinweise: {notes}",
+      "notParsed": "Nicht automatisch erkannt. Der Text geht als Hinweis in den Plan.",
+      "structureWins": "Deine genauen Angaben unter „Personen genau angeben“ haben Vorrang.",
+      "accept": "Erkennung übernehmen",
+      "adjust": "Anpassen",
+      "roles": {
+        "adult": "Erwachsene",
+        "child": "Kinder",
+        "infant": "Kleinkinder"
+      }
+    },
+    "exact": {
+      "title": "Personen genau angeben",
+      "hint": "Optional. Mehrere Personen mit Alter, Personen mit Namen und Geburtsdatum, Notizen und Details. Diese Angaben haben Vorrang vor dem Text."
+    },
+    "summary": {
+      "adults": "{count, plural, one {# Erwachsener} other {# Erwachsene}}",
+      "children": "{count, plural, one {# Kind} other {# Kinder}}",
+      "toddlers": "{count, plural, one {# Kleinkind} other {# Kleinkinder}}",
+      "unknown": "{count, plural, one {# Person ohne Altersangabe} other {# Personen ohne Altersangabe}}",
+      "ageApprox": "ca. {age}",
+      "ageApproxRange": "ca. {min}–{max}",
+      "ageExact": "{age} Jahre",
+      "ageExactRange": "{min}–{max} Jahre",
+      "ageAboutMe": "ähnliches Alter wie du"
     }
   },
   "purposes": {
@@ -307,7 +339,8 @@
       "originAirports": "Abflughäfen für diese Reise",
       "homeAirports": "Deine Heimatflughäfen",
       "noAirports": "Keine Flughäfen hinterlegt. Trage Heimatflughäfen in den Einstellungen ein.",
-      "notes": "Notizen"
+      "notes": "Notizen",
+      "groupOneOff": "Nur für diese Reise"
     },
     "form": {
       "invalid": "Bitte dieses Feld prüfen.",
@@ -378,7 +411,13 @@
       "cancel": "Abbrechen",
       "save": "Speichern",
       "create": "Reise anlegen",
-      "saving": "Speichern…"
+      "saving": "Speichern…",
+      "groupOneOff": "Nur für diese Reise beschreiben …",
+      "groupText": {
+        "label": "Wer reist mit (nur diese Reise)?",
+        "hint": "Frei formuliert, zum Beispiel „Ich und Ben, ähnliches Alter“. Wird nicht als Reisegruppe gespeichert."
+      },
+      "groupStructureHelp": "Optional: Personen und Alter genau angeben. Das hat Vorrang vor dem erkannten Text."
     }
   },
   "facts": {

@@ -14,6 +14,7 @@ import {
 import { isKnownIata } from "@/lib/integrations/airports";
 import { getPlaceById } from "@/lib/integrations/open-meteo-geocoding";
 import { logEvent } from "./events";
+import { ensureGroupParse } from "./group-text";
 import { getUserSession } from "./session";
 import { scheduleTripWarm } from "./warm";
 import {
@@ -80,8 +81,18 @@ function eventProps(trip: Trip) {
     timingKind: trip.timing.kind,
     lengthDays: trip.lengthDays,
     hasGroup: trip.groupId !== null,
+    hasGroupText: trip.groupText !== undefined,
     hasPurpose: trip.purposeId !== null,
   };
+}
+
+/** One-off group text without a parse for the current text: ask Haiku once (best effort), then reload the row. */
+async function withGroupParse(session: Session, trip: Trip): Promise<Trip> {
+  if (!trip.groupText || trip.groupParse) return trip;
+  const saved = await ensureGroupParse(session, { table: "trips", id: trip.id }, trip.groupText, false);
+  if (!saved) return trip;
+  const { data } = await session.supabase.from("trips").select(TRIP_COLUMNS).eq("id", trip.id).maybeSingle<TripRow>();
+  return data ? rowToTrip(data) : trip;
 }
 
 export async function listTrips(): Promise<ActionResult<TripSummary[]>> {
@@ -144,7 +155,7 @@ export async function createTrip(input: TripInput): Promise<ActionResult<Trip>> 
     .single<TripRow>();
   if (error) return fail(error.code === FK_VIOLATION ? "not_found" : "failed");
 
-  const trip = rowToTrip(data);
+  const trip = await withGroupParse(session, rowToTrip(data));
   await logEvent({ event: "trip.created", userId: session.userId, props: eventProps(trip) });
   await scheduleTripWarm(session, trip, locale);
   return { ok: true, data: trip };
@@ -169,7 +180,7 @@ export async function updateTrip(id: string, input: TripInput): Promise<ActionRe
   const place = await resolvePlace(v.data, locale, before);
   if (!place.ok) return fail(place.error);
 
-  const write: TripWrite = buildTripWrite(v.data, place.place);
+  const write: TripWrite = buildTripWrite(v.data, place.place, { existing: before });
   const { data, error } = await session.supabase
     .from("trips")
     .update(write)
@@ -179,7 +190,7 @@ export async function updateTrip(id: string, input: TripInput): Promise<ActionRe
   if (error) return fail(error.code === FK_VIOLATION ? "not_found" : "failed");
   if (!data) return fail("not_found");
 
-  const trip = rowToTrip(data);
+  const trip = await withGroupParse(session, rowToTrip(data));
   await logEvent({ event: "trip.updated", userId: session.userId, props: eventProps(trip) });
   if (factsInputsChanged(before, write)) await scheduleTripWarm(session, trip, locale);
   return { ok: true, data: trip };

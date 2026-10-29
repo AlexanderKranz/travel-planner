@@ -1,4 +1,5 @@
-import type { AgeMode, StatedAge, StoredEntry, TraitKey, TravelGroupInput } from "@/lib/domain";
+import type { AgeMode, GroupParse, TripGroupEntry, StatedAge, StoredEntry, TraitKey, TravelGroupInput, TravellerRole } from "@/lib/domain";
+import { resolveTravellerAge } from "@/lib/group-text";
 import type { AgeSource } from "@/lib/group";
 
 export const MOBILITY = ["none", "limited", "wheelchair", "stroller"] as const;
@@ -145,4 +146,50 @@ export function draftToAgeSource(d: EntryDraft): AgeSource {
     age: valid ? age : undefined,
     ageAsOf: d.ageAsOf,
   };
+}
+
+/**
+ * Haiku parse -> composition drafts for the structured editor ("Adjust"). Ages are stated ages as of today:
+ * "relative to me" with an offset becomes an approximate age when the profile has a birthdate (else it stays
+ * relative and loses the offset); a role without an age becomes the label.
+ */
+export function parseToDrafts(
+  parse: GroupParse,
+  opts: { today: string; profileBirthdate: string | null; roleLabel: (role: TravellerRole) => string },
+): EntryDraft[] {
+  return parse.travellers.map((t) => {
+    const d = emptyDraft("composition");
+    d.count = String(t.count);
+    d.label = t.label ?? (t.role && t.ageMode === undefined ? opts.roleLabel(t.role) : "");
+    if (t.ageMode === "relativeToMe") {
+      const age = resolveTravellerAge(t, opts.today, opts.profileBirthdate);
+      if (age.status === "known" && (t.ageOffset ?? 0) !== 0) {
+        d.ageMode = "approx";
+        d.age = String(age.age);
+      } else {
+        d.ageMode = "relativeToMe";
+      }
+    } else if ((t.ageMode === "exact" || t.ageMode === "approx") && t.age !== undefined) {
+      d.ageMode = t.ageMode;
+      d.age = String(t.age);
+    }
+    return d;
+  });
+}
+
+/** Stored entry of a trip's one-off group -> composition draft. */
+export function tripEntryToDraft(e: TripGroupEntry): EntryDraft {
+  const d = emptyDraft("composition");
+  d.count = String(e.count);
+  d.label = e.label ?? "";
+  d.notes = e.notes ?? "";
+  d.ageMode = e.age?.ageMode ?? "";
+  d.age = e.age && e.age.ageMode !== "relativeToMe" ? String(e.age.age) : "";
+  d.ageAsOf = e.ageAsOf;
+  return d;
+}
+
+/** Composition draft -> input entry without traits (the one-off group of a trip has no trait selection). */
+export function draftToCompositionInput(d: EntryDraft): Extract<InputEntry, { kind: "composition" }> {
+  return draftToInput({ ...d, kind: "composition" }) as Extract<InputEntry, { kind: "composition" }>;
 }

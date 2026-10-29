@@ -3,7 +3,9 @@ import { cardCls, linkCls, mutedCls } from "@/components/ui/styles";
 import { Link } from "@/i18n/navigation";
 import type { InterestKey, Trip, TripPurpose } from "@/lib/domain";
 import { INTEREST_KEYS } from "@/lib/domain";
-import type { ResolvedAge, ResolvedEntry } from "@/lib/group";
+import { useGroupSummaryText } from "@/components/groups/summary-text";
+import type { ResolvedAge } from "@/lib/group";
+import type { ResolvedGroup } from "@/lib/group-text";
 
 const chip =
   "inline-flex items-center rounded-full border border-neutral-400 px-2 py-0.5 text-xs dark:border-neutral-500";
@@ -14,7 +16,8 @@ function AgeText({ age }: { age: ResolvedAge }) {
   return <>{age.status === "aboutMyAge" ? t("aboutMe") : t("unknown")}</>;
 }
 
-export type ContextGroup = { id: string; name: string; ages: ResolvedEntry[] };
+/** `id`/`name` only for a saved group; a one-off group of the trip has neither. `text` is its free text. */
+export type ContextGroup = { id?: string; name?: string; text?: string; resolved: ResolvedGroup };
 
 export function TripContext({
   trip,
@@ -31,6 +34,7 @@ export function TripContext({
 }) {
   const t = useTranslations("trips.detail");
   const tp = useTranslations("groups.preview");
+  const summary = useGroupSummaryText();
   const ti = useTranslations("interests");
   const interests = purpose?.guided.interests ?? [];
   const known = interests.filter((i): i is InterestKey => (INTEREST_KEYS as readonly string[]).includes(i));
@@ -48,22 +52,35 @@ export function TripContext({
         {group ? (
           <>
             <p className="text-sm">
-              <Link href={`/app/groups/${group.id}`} className={linkCls}>
-                {group.name}
-              </Link>
+              {group.id ? (
+                <Link href={`/app/groups/${group.id}`} className={linkCls}>
+                  {group.name}
+                </Link>
+              ) : (
+                <Link href={`/app/trips/${trip.id}/edit`} className={linkCls}>
+                  {t("groupOneOff")}
+                </Link>
+              )}
+              {summary(group.resolved) ? ` · ${summary(group.resolved)}` : ""}
             </p>
-            <p className={`text-sm ${mutedCls}`}>{tp("title", { date: ageDate })}</p>
-            <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
-              {group.ages.map((row, i) => {
-                const who = row.kind === "composition" ? (row.label ?? tp("person")) : row.isSelf ? tp("me") : (row.name ?? row.label ?? tp("person"));
-                return (
-                  <li key={row.id ?? i}>
-                    {row.kind === "composition" ? `${row.count} × ` : ""}
-                    {who}: <span className="font-medium"><AgeText age={row.age} /></span>
-                  </li>
-                );
-              })}
-            </ul>
+            {group.resolved.source === "text" ? (
+              group.text && <p className={`line-clamp-3 break-words text-sm ${mutedCls}`}>{group.text}</p>
+            ) : (
+              <>
+                <p className={`text-sm ${mutedCls}`}>{tp("title", { date: ageDate })}</p>
+                <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm">
+                  {group.resolved.rows.map((row, i) => {
+                    const who = row.kind === "composition" ? (row.label ?? tp("person")) : row.isSelf ? tp("me") : (row.name ?? row.label ?? tp("person"));
+                    return (
+                      <li key={row.id ?? i}>
+                        {row.kind === "composition" ? `${row.count} × ` : ""}
+                        {who}: <span className="font-medium"><AgeText age={row.age} /></span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
           </>
         ) : (
           <p className={`text-sm ${mutedCls}`}>{t("noGroup")}</p>

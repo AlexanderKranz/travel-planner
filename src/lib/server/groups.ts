@@ -12,11 +12,12 @@ import {
 import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
 import { stripTraits } from "@/lib/group";
 import { logEvent } from "./events";
-import { entryToRow, rowToEntry, type GroupEntryRow } from "./group-mapping";
+import { ensureGroupParse } from "./group-text";
+import { cachedParse, entryToRow, rowToEntry, type GroupEntryRow } from "./group-mapping";
 import { getUserSession, todayIso } from "./session";
 
 const Id = z.string().uuid();
-const GROUP_COLUMNS = "id, name, notes, trait_keys, created_at, updated_at";
+const GROUP_COLUMNS = "id, name, notes, description, parsed_structure, parsed_hash, trait_keys, created_at, updated_at";
 const ENTRY_COLUMNS =
   "id, group_id, kind, position, count, label, name, is_self, birthdate, age_mode, age, age_as_of, notes, traits";
 
@@ -24,6 +25,9 @@ type GroupRow = {
   id: string;
   name: string;
   notes: string | null;
+  description: string | null;
+  parsed_structure: unknown;
+  parsed_hash: string | null;
   trait_keys: string[];
   created_at: string;
   updated_at: string;
@@ -38,6 +42,8 @@ function toGroup(row: GroupRow, entries: GroupEntryRow[]): TravelGroup {
     id: row.id,
     name: row.name,
     notes: row.notes ?? undefined,
+    description: row.description ?? undefined,
+    parse: cachedParse(row.description, row.parsed_structure, row.parsed_hash),
     traitKeys: row.trait_keys.filter((k): k is TraitKey => (TRAIT_KEYS as readonly string[]).includes(k)),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -50,7 +56,7 @@ export async function listGroups(): Promise<ActionResult<TravelGroupSummary[]>> 
   if (!session) return fail("unauthenticated");
   const { data, error } = await session.supabase
     .from("travel_groups")
-    .select(`${GROUP_COLUMNS}, group_entries(count)`)
+    .select(`id, name, notes, description, updated_at, group_entries(count)`)
     .order("updated_at", { ascending: false });
   if (error) return fail("failed");
   return {
@@ -59,6 +65,7 @@ export async function listGroups(): Promise<ActionResult<TravelGroupSummary[]>> 
       id: row.id,
       name: row.name,
       notes: row.notes ?? undefined,
+      description: row.description ?? undefined,
       entryCount: row.group_entries[0]?.count ?? 0,
       updatedAt: row.updated_at,
     })),
@@ -92,6 +99,17 @@ export async function getGroup(id: string): Promise<ActionResult<TravelGroup>> {
   return loadGroup(session.supabase, id);
 }
 
+/** Reloads the group; when its description has no parse yet, asks Haiku once (best effort) and reloads. */
+async function loadGroupParsed(
+  session: NonNullable<Awaited<ReturnType<typeof getUserSession>>>,
+  id: string,
+): Promise<ActionResult<TravelGroup>> {
+  const res = await loadGroup(session.supabase, id);
+  if (!res.ok || !res.data.description || res.data.parse) return res;
+  const saved = await ensureGroupParse(session, { table: "travel_groups", id }, res.data.description, false);
+  return saved ? loadGroup(session.supabase, id) : res;
+}
+
 /** Creates a group with its entries (array order = display order). */
 export async function createGroup(input: TravelGroupInput): Promise<ActionResult<TravelGroup>> {
   const session = await getUserSession();
@@ -104,6 +122,7 @@ export async function createGroup(input: TravelGroupInput): Promise<ActionResult
     .insert({
       name: parsed.data.name,
       notes: parsed.data.notes ?? null,
+      description: parsed.data.description ?? null,
       trait_keys: parsed.data.traitKeys,
     })
     .select("id")
@@ -130,7 +149,7 @@ export async function createGroup(input: TravelGroupInput): Promise<ActionResult
     userId: session.userId,
     props: { groupId: group.id, entries: parsed.data.entries.length },
   });
-  return loadGroup(session.supabase, group.id);
+  return loadGroupParsed(session, group.id);
 }
 
 /**
@@ -173,12 +192,13 @@ export async function updateGroup(
     p_group: {
       name: parsed.data.name,
       notes: parsed.data.notes ?? null,
+      description: parsed.data.description ?? null,
       trait_keys: parsed.data.traitKeys,
     },
     p_entries: entries,
   });
   if (error) return fail(error.code === "P0002" ? "not_found" : error.code === "22023" ? "invalid" : "failed");
-  return loadGroup(supabase, id);
+  return loadGroupParsed(session, id);
 }
 
 export async function deleteGroup(id: string): Promise<ActionResult> {
