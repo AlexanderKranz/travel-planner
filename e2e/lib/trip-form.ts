@@ -41,6 +41,7 @@ export async function submitTrip(page: Page) {
     await expect(page).toHaveURL(TRIP_URL, { timeout: 30_000 });
   } catch (e) {
     const alerts = await page.locator('[role="alert"]').allInnerTexts();
-    throw new Error(`trip was not created (url ${page.url()}; alerts: ${alerts.join(" | ") || "none"}; geocode: ${(geocodeLog.get(page) ?? []).join(" || ")})`, { cause: e });
+    const group = (await page.locator("#field-group").innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 400);
+    throw new Error(`trip was not created (group block: ${group}; url ${page.url()}; alerts: ${alerts.join(" | ") || "none"}; geocode: ${(geocodeLog.get(page) ?? []).join(" || ")})`, { cause: e });
   }
 }

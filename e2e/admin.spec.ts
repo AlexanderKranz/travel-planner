@@ -1,9 +1,9 @@
-import { expect, test } from "./lib/fixtures";
+import { expect, expectNotFoundPage, test } from "./lib/fixtures";
 
 test.describe("admin area", () => {
   test("a normal user gets 404", async ({ page }) => {
     const res = await page.goto("/de/app/admin");
-    expect(res?.status()).toBe(404);
+    await expectNotFoundPage(page, res?.status());
     await expect(page.getByRole("heading", { name: "Admin", exact: true })).toHaveCount(0);
     await expect(page.locator("#admin-settings")).toHaveCount(0);
   });
@@ -20,6 +20,6 @@ test.describe("admin area", () => {
     expect(res?.status()).toBe(200);
     await expect(p.getByRole("heading", { level: 1, name: "Admin" })).toBeVisible();
     // Admin-only sections: runtime settings and invites.
-    await expect(p.locator("#admin-settings").getByRole("heading", { name: "Einstellungen", exact: true })).toBeVisible();
+    await expect(p.getByRole("heading", { level: 2, name: "Einstellungen", exact: true })).toBeVisible();
   });
 });

@@ -1,4 +1,4 @@
-import { expect, test } from "./lib/fixtures";
+import { expect, test, withPageDump } from "./lib/fixtures";
 
 test("a booked cost item with times shows in the costs and as a fixed row in the day plan", async ({ page, seed }) => {
   await page.goto(`/de/app/trips/${seed.tripId}`);
@@ -14,7 +14,7 @@ test("a booked cost item with times shows in the costs and as a fixed row in the
   await expect(dialog).toBeHidden();
 
   const items = page.getByRole("region", { name: "Buchungen und Kosten" });
-  await expect(items.getByText("Stadtführung E2E").first()).toBeVisible();
+  await withPageDump(page, () => expect(items.getByText("Stadtführung E2E").first()).toBeVisible());
   await expect(items.getByRole("region", { name: "Kostenübersicht" })).toContainText(/250,00\s*€/);
   // Fixed row inside the day plan (booked + day + start time).
   const fixed = page.locator("[data-fixed-item]");

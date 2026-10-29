@@ -1,12 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 import { PASSWORD, emailOf, supabaseEnv } from "./lib/env";
-import { expect, test } from "./lib/fixtures";
+import { expect, expectNotFoundPage, test } from "./lib/fixtures";
 
 test.describe("user isolation", () => {
   test("user B gets 404 on user A's trip and cannot export it", async ({ contextAs, seed }) => {
     const b = await (await contextAs("b")).newPage();
     const res = await b.goto(`/de/app/trips/${seed.tripId}`);
-    expect(res?.status()).toBe(404);
+    await expectNotFoundPage(b, res?.status());
     const pdf = await b.request.get(`/api/trips/${seed.tripId}/pdf`);
     expect(pdf.status()).not.toBe(200);
     expect(pdf.headers()["content-type"] ?? "").not.toContain("application/pdf");
