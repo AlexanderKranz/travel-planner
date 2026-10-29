@@ -1,0 +1,499 @@
+{
+ "$comment": "Generated from evals/recorded/golf.generate.json by evals/demo-seed.test.ts. Do not edit by hand.",
+ "fixture": "golf",
+ "model": "claude-sonnet-5-5",
+ "inputHash": "f6b828929853c9edd73c3c4c504faf55ab835b412513edbe26c60b322dc6c1d1",
+ "plan": {
+  "v": 1,
+  "locale": "de",
+  "header": {
+   "title": "Costa del Sol",
+   "destination": "Costa del Sol",
+   "timing": {
+    "kind": "date",
+    "startDate": "2038-03-13",
+    "endDate": "2038-03-17"
+   },
+   "lengthDays": 5,
+   "group": {
+    "total": 2,
+    "adults": 2,
+    "children": 0,
+    "toddlers": 0,
+    "unknown": 0
+   },
+   "purposeName": "Golftrip",
+   "generatedAt": "2026-10-28T00:00:00.000Z",
+   "model": "claude-sonnet-5-5",
+   "basis": {
+    "tripUpdatedAt": "2026-10-28T08:00:00.000Z",
+    "groupUpdatedAt": "2026-10-28T08:00:00.000Z",
+    "purposeUpdatedAt": "2026-10-28T08:00:00.000Z"
+   }
+  },
+  "summary": "Fünf Golftage an der Costa del Sol mit Marbella als zentraler Basis, Einzelzimmern und Mietwagen. Jeden Tag wird gespielt, an einem Tag 36 Löcher, und An- und Abreisetag enthalten Golf in Flughafennähe.",
+  "days": [
+   {
+    "n": 1,
+    "date": "2038-03-13",
+    "title": "Ankunft & Abendrunde am Flughafen",
+    "stops": [
+     {
+      "place": "Flughafen Málaga",
+      "acts": [
+       {
+        "at": "17:30",
+        "kind": "travel",
+        "text": "Ankunft, Mietwagen übernehmen und zum Platz in Flughafennähe fahren"
+       }
+      ]
+     },
+     {
+      "place": "Flughafennähe",
+      "acts": [
+       {
+        "at": "18:15",
+        "until": "19:45",
+        "kind": "sport",
+        "text": "Kurze Runde, 9 Löcher vor Einbruch der Dunkelheit"
+       }
+      ]
+     },
+     {
+      "place": "Marbella",
+      "acts": [
+       {
+        "at": "20:15",
+        "kind": "travel",
+        "text": "Fahrt nach Marbella und Check-in in den Einzelzimmern"
+       },
+       {
+        "at": "21:00",
+        "kind": "food",
+        "text": "Abendessen im Ort"
+       }
+      ]
+     }
+    ],
+    "warn": "Die Sonne geht früh unter, die Runde nur 9 Löcher planen und schnell spielen."
+   },
+   {
+    "n": 2,
+    "date": "2038-03-14",
+    "title": "Runde in Marbella",
+    "stops": [
+     {
+      "place": "Marbella",
+      "acts": [
+       {
+        "at": "09:00",
+        "until": "14:00",
+        "kind": "sport",
+        "text": "Volle Runde, 18 Löcher auf flachem bis mäßigem Gelände"
+       },
+       {
+        "at": "14:30",
+        "kind": "food",
+        "text": "Spätes Mittagessen im Clubhaus oder in der Nähe"
+       },
+       {
+        "at": "16:00",
+        "kind": "rest",
+        "text": "Pause im Hotel"
+       },
+       {
+        "at": "20:00",
+        "kind": "food",
+        "text": "Abendessen in der Altstadt von Marbella"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "n": 3,
+    "date": "2038-03-15",
+    "title": "Runde und Hafenabend",
+    "stops": [
+     {
+      "place": "Marbella",
+      "acts": [
+       {
+        "at": "09:00",
+        "until": "14:00",
+        "kind": "sport",
+        "text": "Volle Runde auf moderatem Parkland-Platz"
+       },
+       {
+        "at": "14:30",
+        "kind": "food",
+        "text": "Mittagessen"
+       },
+       {
+        "at": "16:00",
+        "kind": "rest",
+        "text": "Erholung, danach Spaziergang an der Promenade"
+       }
+      ]
+     }
+    ],
+    "note": "Das gebuchte Abendessen am Hafen ist fest eingeplant, rechtzeitig vom Platz zurück sein."
+   },
+   {
+    "n": 4,
+    "date": "2038-03-16",
+    "title": "36 Löcher Marbella",
+    "stops": [
+     {
+      "place": "Marbella",
+      "acts": [
+       {
+        "at": "08:00",
+        "until": "12:30",
+        "kind": "sport",
+        "text": "Erste Runde am Morgen, 18 Löcher"
+       },
+       {
+        "at": "12:45",
+        "until": "13:30",
+        "kind": "food",
+        "text": "Schneller Lunch im Clubhaus"
+       },
+       {
+        "at": "14:00",
+        "until": "18:30",
+        "kind": "sport",
+        "text": "Zweite Runde am Nachmittag, 18 Löcher"
+       },
+       {
+        "at": "20:00",
+        "kind": "food",
+        "text": "Abendessen nach dem langen Golftag"
+       }
+      ]
+     }
+    ],
+    "best": true
+   },
+   {
+    "n": 5,
+    "date": "2038-03-17",
+    "title": "Abschlussrunde und Abreise",
+    "stops": [
+     {
+      "place": "Flughafennähe",
+      "acts": [
+       {
+        "at": "07:30",
+        "kind": "travel",
+        "text": "Auschecken und Fahrt zum Platz in Flughafennähe"
+       },
+       {
+        "at": "08:30",
+        "until": "12:30",
+        "kind": "sport",
+        "text": "Abschlussrunde nahe dem Flughafen"
+       },
+       {
+        "at": "12:45",
+        "kind": "travel",
+        "text": "Mietwagen zurückgeben und zum Flughafen"
+       }
+      ]
+     }
+    ],
+    "warn": "Flugzeit der Rückreise prüfen, die Runde ist sonst eventuell zu lang."
+   }
+  ],
+  "notes": [
+   {
+    "kind": "tip",
+    "text": "Im März ist es mild bis frisch, früh morgens kann es kühl sein."
+   },
+   {
+    "kind": "tip",
+    "text": "Die Plätze liegen alle innerhalb einer Stunde Fahrt von Marbella."
+   },
+   {
+    "kind": "warning",
+    "text": "Am Anreisetag bleibt wenig Tageslicht, deshalb nur 9 Löcher."
+   }
+  ],
+  "openItems": [
+   {
+    "text": "Startzeiten für alle Runden buchen, besonders für den 36-Loch-Tag",
+    "day": 4
+   },
+   {
+    "text": "Startzeit für die späte Runde am Anreisetag reservieren",
+    "day": 1
+   },
+   {
+    "text": "Rückflugzeit prüfen und Abfahrt zum Flughafen daran anpassen",
+    "day": 5
+   },
+   {
+    "text": "Mietwagen und Einzelzimmer in Marbella buchen"
+   }
+  ],
+  "packing": [
+   "Golfschuhe",
+   "Golfhandschuhe",
+   "Regenjacke",
+   "Windjacke",
+   "Pullover für den Morgen",
+   "Sonnencreme",
+   "Kappe",
+   "Sonnenbrille",
+   "Regenschirm",
+   "Ersatzsocken",
+   "Führerschein",
+   "Bälle und Tees"
+  ],
+  "places": {},
+  "facts": {
+   "climate": {
+    "months": [
+     {
+      "month": 3,
+      "tMaxC": 19.1,
+      "tMinC": 11.2,
+      "wetDays": 10.7,
+      "sunshineHours": 9.7
+     }
+    ],
+    "period": {
+     "from": 2016,
+     "to": 2025
+    },
+    "fetchedAt": "2026-10-28T00:00:00.000Z"
+   },
+   "daylight": {
+    "timezone": "Europe/Madrid",
+    "days": [
+     {
+      "date": "2038-03-13",
+      "sunrise": "07:33",
+      "dusk": "19:50"
+     },
+     {
+      "date": "2038-03-14",
+      "sunrise": "07:31",
+      "dusk": "19:51"
+     },
+     {
+      "date": "2038-03-15",
+      "sunrise": "07:30",
+      "dusk": "19:52"
+     },
+     {
+      "date": "2038-03-16",
+      "sunrise": "07:29",
+      "dusk": "19:53"
+     },
+     {
+      "date": "2038-03-17",
+      "sunrise": "07:27",
+      "dusk": "19:54"
+     }
+    ]
+   },
+   "airports": [
+    {
+     "iata": "AGP",
+     "name": "Málaga-Costa del Sol Airport",
+     "km": 39
+    }
+   ],
+   "placesFetchedAt": "2026-10-28T00:00:00.000Z"
+  },
+  "flights": {
+   "basis": "trip_dates",
+   "outDate": "2038-03-13",
+   "backDate": "2038-03-17",
+   "mode": {
+    "out": "proxy",
+    "back": "proxy"
+   },
+   "pairs": [
+    {
+     "from": "FRA",
+     "to": "AGP",
+     "status": "found"
+    },
+    {
+     "from": "FRA",
+     "to": "GIB",
+     "status": "not_published"
+    }
+   ],
+   "legs": [
+    {
+     "dir": "out",
+     "from": "FRA",
+     "to": "AGP",
+     "number": "LH 1148",
+     "airline": "Lufthansa",
+     "dep": "08:35",
+     "arr": "11:35",
+     "arrDayOffset": 0,
+     "blockMin": 180,
+     "date": "2026-03-14"
+    },
+    {
+     "dir": "out",
+     "from": "FRA",
+     "to": "AGP",
+     "number": "LH 1150",
+     "airline": "Lufthansa",
+     "dep": "13:00",
+     "arr": "16:00",
+     "arrDayOffset": 0,
+     "blockMin": 180,
+     "date": "2026-03-14"
+    },
+    {
+     "dir": "back",
+     "from": "AGP",
+     "to": "FRA",
+     "number": "VL 1151",
+     "airline": "Lufthansa City Airlines",
+     "dep": "17:15",
+     "arr": "20:20",
+     "arrDayOffset": 0,
+     "blockMin": 185,
+     "date": "2026-03-18",
+     "tooLong": true
+    }
+   ],
+   "maxBlockMin": 180,
+   "source": "aerodatabox",
+   "fetchedAt": "2026-10-28T00:00:00.000Z"
+  }
+ },
+ "input": {
+  "llm": {
+   "v": 1,
+   "lang": "de",
+   "trip": {
+    "dest": "Costa del Sol",
+    "place": "Marbella",
+    "country": "Spain",
+    "kind": "region",
+    "radiusKm": 40,
+    "days": 5,
+    "start": "2038-03-13",
+    "end": "2038-03-17",
+    "flights": true
+   },
+   "dayList": [
+    {
+     "n": 1,
+     "date": "2038-03-13",
+     "dow": "Sa",
+     "sunrise": "07:33",
+     "dusk": "19:50"
+    },
+    {
+     "n": 2,
+     "date": "2038-03-14",
+     "dow": "Su",
+     "sunrise": "07:31",
+     "dusk": "19:51"
+    },
+    {
+     "n": 3,
+     "date": "2038-03-15",
+     "dow": "Mo",
+     "sunrise": "07:30",
+     "dusk": "19:52"
+    },
+    {
+     "n": 4,
+     "date": "2038-03-16",
+     "dow": "Tu",
+     "sunrise": "07:29",
+     "dusk": "19:53"
+    },
+    {
+     "n": 5,
+     "date": "2038-03-17",
+     "dow": "We",
+     "sunrise": "07:27",
+     "dusk": "19:54"
+    }
+   ],
+   "group": {
+    "size": 2,
+    "entries": [
+     {
+      "n": 2,
+      "age": 49,
+      "approx": true,
+      "label": "Golfer"
+     }
+    ]
+   },
+   "purpose": {
+    "name": "Golftrip",
+    "interests": [],
+    "hard": [
+     "golf every day, 36 holes on one day",
+     "flat or moderate courses",
+     "max 3 h flight from FRA",
+     "single rooms",
+     "central base, all courses within 1 h drive",
+     "rental car",
+     "arrival day: early flight, then golf near airport, then check-in",
+     "departure day: golf near airport, then flight"
+    ],
+    "soft": [],
+    "summary": "Golftrip mit einem Freund: jeden Tag eine Runde, an einem Tag 36 Loch. Plätze nicht zu bergig. An- und Abreisetag sind Golftage."
+   },
+   "climate": [
+    {
+     "m": 3,
+     "tmax": 19.1,
+     "tmin": 11.2,
+     "wet": 10.7,
+     "sun": 9.7
+    }
+   ],
+   "country": {
+    "name": "Spain",
+    "currency": [
+     "EUR"
+    ],
+    "drivingSide": "right",
+    "tz": "Europe/Madrid"
+   },
+   "airports": [
+    {
+     "iata": "AGP",
+     "name": "Málaga-Costa del Sol Airport",
+     "km": 39
+    }
+   ],
+   "places": [],
+   "noSource": [
+    "general"
+   ],
+   "fixed": [
+    {
+     "day": 1,
+     "from": "13:00",
+     "cat": "flight",
+     "to": "16:00"
+    },
+    {
+     "day": 3,
+     "from": "20:00",
+     "cat": "food",
+     "to": "22:00",
+     "title": "Tisch im Restaurant am Hafen"
+    }
+   ]
+  },
+  "index": {}
+ }
+}

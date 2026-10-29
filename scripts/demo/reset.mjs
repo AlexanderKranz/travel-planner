@@ -5,6 +5,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
+// Node strips the types of seed.ts (Node >= 22.18 / 24). Pure builders, unit-tested in seed.test.ts.
+import { buildExampleItems, buildExampleTrip, buildExampleVersion, EXAMPLE_GROUP } from "./seed.ts";
 
 function loadEnvFile(path) {
   if (!existsSync(path)) return;
@@ -134,7 +136,14 @@ await addGroup("Golf-Duo", "Zwei Golfer, gleiche Altersklasse.", ["golfHandicap"
   { ...self, traits: { golfHandicap: 18 } },
   { kind: "member", name: "Golffreund", age_mode: "relativeToMe", traits: { golfHandicap: 24 } },
 ]);
-log("2 example groups inserted");
+// Free-text group (name + description only; the structured editor stays empty, no LLM parse is seeded).
+const { data: freeTextGroup, error: freeTextErr } = await sb
+  .from("travel_groups")
+  .insert({ owner_id: userId, ...EXAMPLE_GROUP })
+  .select("id")
+  .single();
+check(freeTextErr, "inserting the free-text group");
+log("3 example groups inserted (one free text)");
 
 const purposes = [
   {
@@ -212,26 +221,42 @@ const MARBELLA = {
       wants_flights: false,
       notes: "Passau – Wien – Budapest – Passau",
     },
-    {
-      title: "Golf an der Costa del Sol",
-      dest_kind: "region",
-      dest_name: "Costa del Sol",
-      ...MARBELLA,
-      dest_radius_km: 40,
-      length_days: 5,
-      months: [3],
-      group_id: groupIds["Golf-Duo"],
-      purpose_id: purposeIds["Golftrip"],
-      wants_flights: true,
-      notes: null,
-    },
   ];
   const { error } = await sb.from("trips").insert(
     trips.map((t) => ({ ...t, owner_id: userId })),
     { defaultToNull: false },
   );
   check(error, "inserting trips");
-  log("2 example trips inserted");
+  log("1 example trip inserted");
+
+  // Finished example trip: free-text group, purpose, cost items with a booked flight, and one plan version
+  // seeded from the recorded eval plan (scripts/demo/example-plan.json). No LLM call, nothing in ai_usage.
+  // No share link is created: the demo account cannot share (demo_forbidden).
+  const example = JSON.parse(readFileSync(resolve(import.meta.dirname, "example-plan.json"), "utf8"));
+  const { data: trip, error: tripErr } = await sb
+    .from("trips")
+    .insert(buildExampleTrip({ ownerId: userId, groupId: freeTextGroup.id, purposeId: purposeIds["Golftrip"] }))
+    .select("id, updated_at")
+    .single();
+  check(tripErr, "inserting the example trip");
+  const { data: grp, error: grpErr } = await sb.from("travel_groups").select("updated_at").eq("id", freeTextGroup.id).single();
+  check(grpErr, "reading the example group");
+  const { data: purp, error: purpErr } = await sb.from("trip_purposes").select("updated_at").eq("id", purposeIds["Golftrip"]).single();
+  check(purpErr, "reading the example purpose");
+
+  const items = await sb.from("trip_items").insert(buildExampleItems({ ownerId: userId, tripId: trip.id }), { defaultToNull: false });
+  check(items.error, "inserting example items");
+  const { data: plan, error: planErr } = await sb.from("plans").insert({ owner_id: userId, trip_id: trip.id }).select("id").single();
+  check(planErr, "inserting the example plan");
+  const version = await sb.from("plan_versions").insert(
+    buildExampleVersion(example, { ownerId: userId, planId: plan.id }, {
+      tripUpdatedAt: trip.updated_at,
+      groupUpdatedAt: grp.updated_at,
+      purposeUpdatedAt: purp.updated_at,
+    }),
+  );
+  check(version.error, "inserting the example plan version");
+  log("example trip with plan version, items and free-text group inserted");
 }
 
 log("done. Remember: DEMO_ENABLED=true must be set where the app runs.");
