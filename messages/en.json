@@ -21,7 +21,8 @@
     "demoBanner": "Demo mode – data is visible to all demo visitors and is reset regularly.",
     "demoLabel": "Demo notice",
     "trips": "Trips",
-    "admin": "Admin"
+    "admin": "Admin",
+    "skip": "Skip to content"
   },
   "errors": {
     "unauthenticated": "You are not signed in.",
@@ -44,7 +45,10 @@
     "invalid_output": "The AI answer was unusable. Please try again.",
     "demo_forbidden": "The demo account cannot create links.",
     "no_plan": "Create a travel plan first.",
-    "places_pending": "Places are still loading. Please try again in a minute."
+    "places_pending": "Places are still loading. Please try again in a minute.",
+    "forbidden": "You do not have permission to do that.",
+    "already_member": "This address already has an account.",
+    "email_failed": "The address is on the invite list, but the email could not be sent."
   },
   "login": {
     "title": "Sign in",
@@ -65,7 +69,8 @@
       "button": "View demo",
       "hint": "Shared demo account – what you enter is visible to other demo visitors and is reset regularly.",
       "heading": "Or try it out"
-    }
+    },
+    "invited": "Invitation confirmed. Now enter your email address and we will send you the sign-in link."
   },
   "dashboard": {
     "welcome": "Welcome",
@@ -1264,6 +1269,93 @@
       "code": "Reason",
       "warn": "Warning",
       "error": "Error"
+    },
+    "invites": {
+      "title": "Invite",
+      "intro": "Only invited addresses can register. Inviting adds the address to the list and sends an email.",
+      "emailLabel": "Email address",
+      "submit": "Send invitation",
+      "sent": "Invitation sent.",
+      "mailNote": "Supabase's built-in mail sender allows only a few emails per hour and often lands in spam. If sending fails, the address is still on the list: the person can request a sign-in link on the login page themselves.",
+      "listTitle": "Invitations",
+      "empty": "No invitations yet.",
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "addedOn": "Added on",
+      "revoke": "Revoke",
+      "revokeTitle": "Revoke invitation?",
+      "revokeBody": "The address is removed from the list and an account that was never used is deleted.",
+      "cancel": "Cancel",
+      "errors": {
+        "forbidden": "Only admins can invite.",
+        "invalid": "Please enter a valid email address.",
+        "rate_limited": "Too many invitations in a short time. Please try again later.",
+        "already_member": "This address already has an account.",
+        "email_failed": "The address is on the list, but the email could not be sent (send limit?). The person can request a sign-in link on the login page themselves.",
+        "conflict": "This person has signed in in the meantime. The account stays.",
+        "not_found": "The invitation no longer exists.",
+        "failed": "That did not work. Please try again later."
+      }
+    },
+    "settings": {
+      "title": "Settings",
+      "intro": "Switches and limits you can change here without a restart. Order: admin value, then environment variable, then default. A change takes effect at once on this instance; other instances catch up within 30 seconds. Secrets (API keys) are never stored here.",
+      "effective": "Current",
+      "source": "Source",
+      "sources": {
+        "admin": "Admin",
+        "env": "Environment variable",
+        "default": "Default"
+      },
+      "locked": "Locked by environment variable",
+      "lockedHint": "The variable is set to false (emergency off). It can only be changed in the Vercel environment variables.",
+      "save": "Save",
+      "reset": "Reset",
+      "saved": "Saved.",
+      "resetDone": "Reset.",
+      "on": "On",
+      "off": "Off",
+      "range": "Allowed: {min} to {max}",
+      "groups": {
+        "switches": "Switches",
+        "ai": "AI budgets (USD per Berlin day, month for the alert)",
+        "quotas": "Quotas and alerts"
+      },
+      "labels": {
+        "ai_enabled": "AI plans",
+        "demo_enabled": "Demo access",
+        "ai_user_daily_usd": "AI budget per user per day (USD)",
+        "ai_admin_daily_usd": "AI budget per admin per day (USD)",
+        "ai_demo_daily_usd": "AI budget demo account per day (USD)",
+        "ai_global_daily_usd": "AI budget total per day (USD)",
+        "ai_monthly_alert_usd": "AI alert per month (USD)",
+        "aerodatabox_daily_units": "AeroDataBox: units per day",
+        "aerodatabox_min_remaining": "AeroDataBox: monthly safety margin",
+        "ors_daily_requests": "OpenRouteService: requests per day",
+        "alert_errors_24h": "Error alert: errors in 24 hours"
+      },
+      "errors": {
+        "forbidden": "Not allowed (admin required, or locked by an environment variable).",
+        "invalid": "The value is invalid or outside the allowed range.",
+        "rate_limited": "Too many changes in a short time. Please wait a minute.",
+        "failed": "That did not work. Please try again later."
+      },
+      "changesTitle": "Recent changes",
+      "changesEmpty": "No changes yet.",
+      "changeLine": "{key}: {old} → {new}",
+      "noValue": "-"
     }
+  },
+  "errorPage": {
+    "title": "Something went wrong here",
+    "text": "The page could not be loaded. Your data is safe. Please try again; if it keeps happening, try again later.",
+    "retry": "Try again",
+    "toApp": "Back to overview",
+    "toHome": "Back to start page",
+    "actions": "Actions",
+    "reference": "Reference",
+    "notFoundTitle": "Page not found",
+    "notFoundText": "This page does not exist or you do not have access to it.",
+    "loading": "Loading …"
   }
 }

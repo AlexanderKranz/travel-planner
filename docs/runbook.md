@@ -260,3 +260,55 @@ A Vercel Cron job calls `GET /api/cron/budget-check` once a day (`vercel.json`, 
 - `aerodatabox_monthly`: no new flight lookups are made below the margin (the guard refuses). Wait for the monthly reset or raise the plan.
 - `ors_daily`: plans simply generate without drive times until the next Berlin day.
 - `errors_24h`: admin page -> Recent warnings and errors, then Vercel logs for the route.
+
+## 11. Inviting people and the email sender
+
+Signup is invite-only (`signup_allowlist`). Admin page -> **Einladen / Invite**: enter an address and press the button. The server adds the address to the allowlist and sends Supabase's invite email (`auth.admin.inviteUserByEmail`) with a link into the app. The list below shows each address as **Offen / Pending** (never signed in) or **Angenommen / Accepted**, with **Widerrufen / Revoke** for pending ones (removes the allowlist row and the never-used account). Details: `docs/specs/phase-6-hardening.md` section 5.
+
+### It works with either sender, but the built-in one is weak
+
+- **Supabase's built-in sender** (default): only a few emails per hour for the whole project, often lands in spam, and the templates cannot be edited. Inviting still works: if the mail does not go out, the page says so and the address stays on the list, so the person can open the login page and request a normal sign-in link themselves. If the invite email does arrive, its link confirms the account and lands on the login page with a hint ("Einladung bestätigt ..."); the person then enters the address and gets a sign-in link. One extra step, nothing breaks.
+- **Your own SMTP sender** (recommended before inviting family): higher limits, better delivery, and you can edit the email templates, which makes the invite link sign the person in directly and work on any device.
+
+### Alex: set up a custom SMTP sender (one-off, ~20 minutes)
+
+Candidates (free tiers change; **verify the current limits on the provider's pricing page before choosing**):
+- **Resend** - about 3,000 emails/month and 100/day on the free plan (verify). Needs a domain you own (add the SPF/DKIM DNS records Resend shows).
+- **Brevo** - about 300 emails/day free (verify). Works with a verified single sender address; a domain is better for delivery.
+- **Postmark** - small free developer allowance (about 100/month, verify), very good delivery, needs a sender signature or domain.
+
+Steps (Supabase dashboard; menu names move occasionally, search for "SMTP" if they differ):
+1. At the provider: create an account, verify the sender domain or address, create SMTP credentials (host, port, username, password; for Resend the username is `resend` and the password an API key).
+2. Supabase -> your project -> **Authentication** -> **Emails** -> **SMTP Settings** -> turn on **Enable Custom SMTP**.
+3. Fill **Sender email** (an address on the verified domain, e.g. `noreply@yourdomain`), **Sender name** (`Travel Planner`), **Host**, **Port** (587 or 465 as the provider says), **Username**, **Password**. **Save**.
+4. **Authentication** -> **Rate Limits**: raise "Rate limit for sending emails" to something sensible for your volume (the default with custom SMTP is low; verify the value shown).
+5. **Authentication** -> **Emails** -> **Templates** (editable now):
+   - **Magic Link** and **Confirm signup**: as in `docs/specs/phase-1-dashboard-steps.md` section 4.
+   - **Invite user**: Subject `Einladung zu Travel Planner / Invitation to Travel Planner`, body:
+
+```html
+<h2>Travel Planner</h2>
+<p>Du wurdest eingeladen. / You have been invited.</p>
+<p><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=invite">Annehmen / Accept</a></p>
+<p>Der Link ist nur kurz gueltig. / The link is valid for a short time only.</p>
+```
+   `{{ .RedirectTo }}` is `https://<host>/auth/confirm?locale=de|en&invited=1`, the same shape as the magic-link template, so the link works on any device and signs the person straight in.
+6. Test: invite one of your own other addresses from the admin page, open the mail on your phone, check it is not in spam. If it is in spam: add SPF/DKIM/DMARC records at your DNS provider as the sender shows.
+7. Tick it off in `docs/architecture.md` (backlog "Custom SMTP sender") and `docs/specs/phase-1-dashboard-steps.md` step 7.
+
+### Common problems
+
+- "Added to the list, but the email could not be sent": the hourly mail limit (built-in sender) or an SMTP error. Wait, or tell the person to use the login page.
+- "This address already has an account": the person exists; nothing to do.
+- Revoked by mistake: invite again. A person who already signed in cannot be revoked here (their account stays); remove them by deleting the account (Settings -> delete account for themselves, or Dashboard -> Authentication -> Users).
+
+## 12. Runtime settings (admin page "Einstellungen")
+
+The switches and limits that used to need a Vercel env var change and a redeploy are editable on the admin page: AI plans on/off, demo access on/off, the five AI budgets (`AI_USER_DAILY_USD`, `AI_ADMIN_DAILY_USD`, `AI_DEMO_DAILY_USD`, `AI_GLOBAL_DAILY_USD`, `AI_MONTHLY_ALERT_USD`), `AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`, `ORS_DAILY_REQUESTS` and `ALERT_ERRORS_24H`. Secrets (API keys, `CRON_SECRET`, Supabase keys, `DEMO_PASSWORD`) are not settings and never appear there. Spec: `docs/specs/phase-6-hardening.md` section 6.
+
+- **Precedence:** admin value, else the environment variable, else the code default. The environment variables are therefore now the *defaults*; keep them as they are or remove them. Each row shows the effective value and its source (Admin / Umgebungsvariable / Standard).
+- **Zurücksetzen** deletes the admin value, so the environment variable or default applies again.
+- **Emergency off stays in Vercel:** `AI_ENABLED=false` or `DEMO_ENABLED=false` in the Vercel environment cannot be overridden from the admin page; the row then shows "Per Umgebungsvariable gesperrt" and the toggle is disabled. To switch AI or the demo off even if the admin page or database is unavailable, set the variable to `false` and redeploy. (Unset or any other value does not lock: then the admin value decides, default off.)
+- **Timing:** a save takes effect at once on the instance that handled it; other instances re-read within 30 seconds. After the first deploy of this feature the switches start from the env values.
+- **If the settings table cannot be read** the app uses the environment variables and defaults (finite budgets, never unlimited) and tries again after a few seconds. The migration `20261102120026_app_settings.sql` must be applied (merge to `main`, **Deploy database migrations** green) before values can be saved; until then the page shows the env values and saving fails with a friendly error.
+- **Audit:** every change writes an `app_events` row `settings.changed` (key, old value, new value, no user shown on the page). The last 20 are listed under the settings.

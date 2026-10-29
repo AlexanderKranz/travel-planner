@@ -58,7 +58,7 @@ function Direction({ title, legs, maxBlockMin }: { title: string; legs: FlightLe
   if (legs.length === 0) return null;
   return (
     <div>
-      <h5 className="text-sm font-semibold">{title}</h5>
+      <h4 className="text-sm font-semibold">{title}</h4>
       <FlightList withAction={false}>
         {legs.map((l) => (
           <LegRow key={`${l.number}-${l.date}-${l.dep}`} leg={l} maxBlockMin={maxBlockMin} />
@@ -90,14 +90,14 @@ function PairCard({ pair, data, adults, locale, tripId }: { pair: FlightPair; da
   return (
     <li className="min-w-0 rounded-md border border-line p-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <h4 className="text-base font-semibold">
+        <h3 className="text-base font-semibold">
           <span aria-label={`${pair.from} ${t("to")} ${pair.to}`}>
             {pair.from} → {pair.to}
           </span>
           <span className={`ml-2 text-sm font-normal ${mutedCls}`}>
             {pair.toName} · {t("gatewayKm", { km })}
           </span>
-        </h4>
+        </h3>
         <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${badgeCls[state]}`}>
           {t(`badge.${state}`)}
         </span>

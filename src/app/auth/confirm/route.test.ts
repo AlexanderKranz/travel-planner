@@ -127,3 +127,24 @@ describe("GET /auth/confirm", () => {
     expect(logged).not.toContain("@");
   });
 });
+
+describe("GET /auth/confirm for invites", () => {
+  it("verifies a token-hash invite link (custom template) and signs the user in", async () => {
+    const res = await call(`token_hash=${hash}&type=invite&locale=de&invited=1`);
+    expect(verifyOtp).toHaveBeenCalledWith({ type: "invite", token_hash: hash });
+    expect(loc(res).pathname).toBe("/de/app");
+  });
+
+  it("default-template invite (session in the URL fragment): friendly login page, no error", async () => {
+    const res = await call("locale=en&invited=1");
+    expect(verifyOtp).not.toHaveBeenCalled();
+    expect(loc(res).pathname).toBe("/en/login");
+    expect(loc(res).search).toBe("?invited=1");
+    expect(logEvent).not.toHaveBeenCalled();
+  });
+
+  it("a plain bad query without the invite flag is still an error", async () => {
+    const res = await call("locale=en");
+    expect(loc(res).search).toBe("?error=link_invalid");
+  });
+});

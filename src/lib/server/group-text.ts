@@ -7,6 +7,7 @@ import { logEvent } from "./events";
 import { rateLimit } from "./rate-limit";
 import type { getUserSession } from "./session";
 import { createSupabaseAdminClient } from "./supabase/admin";
+import { getEffectiveEnv } from "./settings";
 
 type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;
 
@@ -54,7 +55,7 @@ export async function ensureGroupParse(
   hasValidParse: boolean,
 ): Promise<boolean> {
   const clean = text?.trim();
-  if (!clean || hasValidParse || !isAiEnabled()) return false;
+  if (!clean || hasValidParse || !isAiEnabled(await getEffectiveEnv())) return false;
   try {
     if (!rateLimit(`group-parse:${session.userId}`, 20, 60_000).ok) return false;
     const { data } = await session.supabase.from("profiles").select("role, is_demo").eq("id", session.userId).maybeSingle();

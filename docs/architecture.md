@@ -171,7 +171,7 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
 
 ### Open items / backlog
 - **Travel group editor still feels clunky** (Alex, 2026-10-28). Already improved: details chosen per group, clearer row types, no order arrows. There's no concrete idea yet, so revisit with fresh eyes (e.g. after phase 2, once groups are used in real trips). Trip purposes are fine as they are (free text + optional chips).
-- **Custom SMTP sender**, required before inviting anyone with their own account. It enables the custom email template (link works on any device) and the 6-digit code.
+- **Custom SMTP sender**, required before inviting anyone with their own account. It enables the custom email template (link works on any device) and the 6-digit code. Needs Alex (provider account); steps and candidates in `docs/runbook.md` section 11. The admin invite flow already works without it (phase 6 hardening).
 - **Backup restore test** (proves backups decrypt and restore); planned for phase 6, earlier if real data accumulates.
 - **DiskStation backup pull** (optional): `scripts/backup/pull-to-nas.sh`, see `docs/runbook.md`.
 - ~~**Sentry alert emails land in spam**~~ **Resolved 2026-10-29** (Alex): spam filter adjusted, alert emails now arrive. The budget alert rule (`budget_alert` tag, production, notify Alex) is set up.

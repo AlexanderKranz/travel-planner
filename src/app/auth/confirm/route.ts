@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
  * Magic-link landing. Two link shapes:
  * - our template (token-hash flow, works on any device/browser):
  *   /auth/confirm?token_hash=...&type=email&locale=de[&next=/de/app]
+ * - invites use the same shape with `type=invite` (custom "Invite user" template, same token-hash link)
  * - Supabase's default template, used until custom SMTP allows editing templates (PKCE flow,
  *   same browser only): Supabase verifies and redirects to /auth/confirm?locale=de&code=...
  */
@@ -35,7 +36,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(url);
   };
 
-  if (!parsed.success && !codeParsed.success) return fail("bad_query");
+  if (!parsed.success && !codeParsed.success) {
+    // Invite mail sent with Supabase's default template: Supabase has already verified the invite and
+    // redirected here with the session in the URL fragment, which a server route cannot read. The account is
+    // confirmed now, so just ask for a normal sign-in link on the login page (friendly hint, no error).
+    if (params.invited === "1") {
+      const url = request.nextUrl.clone();
+      url.pathname = `/${locale}/login`;
+      url.search = "?invited=1";
+      return NextResponse.redirect(url);
+    }
+    return fail("bad_query");
+  }
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = parsed.success
