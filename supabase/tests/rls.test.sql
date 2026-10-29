@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261102120025. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261103120027. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -289,6 +289,21 @@ update public.profiles set is_demo = true where id = 'bbbbbbbb-0000-4000-8000-00
 select throws_ok($$update public.profiles set role = 'admin' where id = 'bbbbbbbb-0000-4000-8000-000000000002'$$,
   '23514', null, 'demo user can never be admin');
 update public.profiles set is_demo = false where id = 'bbbbbbbb-0000-4000-8000-000000000002';
+
+-- ---------- onboarding flag ----------
+reset role;
+select is((select onboarding_done_at from public.profiles where id = 'bbbbbbbb-0000-4000-8000-000000000002'), null, 'new profiles (signup trigger) start without onboarding_done_at');
+select ok(has_column_privilege('authenticated', 'public.profiles', 'onboarding_done_at', 'update'), 'authenticated: can update profiles.onboarding_done_at');
+select ok(not has_column_privilege('authenticated', 'public.profiles', 'role', 'update'), 'authenticated: still cannot update profiles.role');
+select ok(not has_column_privilege('authenticated', 'public.profiles', 'is_demo', 'update'), 'authenticated: still cannot update profiles.is_demo');
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
+update public.profiles set onboarding_done_at = now() where id = 'bbbbbbbb-0000-4000-8000-000000000002';
+select isnt((select onboarding_done_at from public.profiles where id = 'bbbbbbbb-0000-4000-8000-000000000002'), null, 'user can set own onboarding_done_at');
+with u as (update public.profiles set onboarding_done_at = now() where id = 'aaaaaaaa-0000-4000-8000-000000000001' returning 1)
+select is((select count(*)::int from u), 0, 'user cannot set onboarding_done_at of another user (RLS)');
+reset role;
+select is((select onboarding_done_at from public.profiles where id = 'aaaaaaaa-0000-4000-8000-000000000001'), null, 'other user flag unchanged');
 
 -- ---------- -- anon sees nothing ----------
 reset role;
