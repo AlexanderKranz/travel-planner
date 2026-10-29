@@ -1355,7 +1355,6 @@
     "actions": "Aktionen",
     "reference": "Referenz",
     "notFoundTitle": "Seite nicht gefunden",
-    "notFoundText": "Diese Seite gibt es nicht oder du hast keinen Zugriff darauf.",
-    "loading": "Wird geladen …"
+    "notFoundText": "Diese Seite gibt es nicht oder du hast keinen Zugriff darauf."
   }
 }

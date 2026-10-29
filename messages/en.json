@@ -1355,7 +1355,6 @@
     "actions": "Actions",
     "reference": "Reference",
     "notFoundTitle": "Page not found",
-    "notFoundText": "This page does not exist or you do not have access to it.",
-    "loading": "Loading …"
+    "notFoundText": "This page does not exist or you do not have access to it."
   }
 }
