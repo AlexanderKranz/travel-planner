@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Plan, type LlmDay } from "@/lib/domain/plan";
-import { assemblePlan, noteTimes } from "./assemble";
+import { LIMITS, assemblePlan, noteTimes } from "./assemble";
 import type { PlanInputStored } from "./input";
 import { header, llmDay, llmPlan, storedFor } from "./test-helpers";
 
@@ -62,9 +62,9 @@ describe("assemblePlan", () => {
     expect(d.stops[0].to).toBeUndefined();
     expect(d.stops[0].acts[0].at).toBeUndefined();
     expect(d.stops[0].acts[0].kind).toBe("do");
-    expect(d.stops[0].acts[0].text).toHaveLength(200);
+    expect(d.stops[0].acts[0].text).toHaveLength(LIMITS.text);
     expect(d.stops[0].acts[0].text.endsWith("…")).toBe(true);
-    expect(d.title).toHaveLength(80);
+    expect(d.title).toHaveLength(LIMITS.title);
     expect(r.issues).toMatchObject({ bad_time: 2, truncated: 2, extra_best: 0 });
     expect(r.plan.days.some((x) => x.best || x.bestBy)).toBe(false);
   });

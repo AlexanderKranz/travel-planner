@@ -21,7 +21,7 @@ vi.mock("server-only", () => ({}));
 const LIVE = process.env.EVAL_LIVE === "1";
 const ENV_FILE = process.env.EVAL_ENV_FILE || ".env.local";
 if (LIVE && !process.env.ANTHROPIC_API_KEY && existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
-const LEDGER = process.env.EVAL_LEDGER || LEDGER_PATH;
+const LEDGER = LEDGER_PATH;
 
 const TEXT = "für tag 1. wir machen Rathausplatz und rådhus, aber machen nicht Verdensur. auch Amagertorv streichen.";
 export const PATCH_VARIANTS: Record<string, PlanFeedback> = {

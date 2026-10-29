@@ -73,6 +73,19 @@ were in the index), the fixed-item overlap guard (no fixed items; it never remov
   "Tag n als besten Tag markieren" / "Markierung „Bester Tag“ von Tag n entfernen". The "Bester Tag → Setzen"
   control in the "Ohne KI" panel is removed. The eval check is now "no best day from the model".
 
+- **[D9] Time pills in the day card** (Alex's phone test; modelled on his hand-made Danube plan). A stop window is
+  a rounded navy-tint pill after the place ("Passau · bis 16:00"; "ab 14:00", "14:00–23:59"), the "aus deinen
+  Notizen" badge stays. Activity and fixed-item times are smaller pills of the same family (tokens `--time-bg` /
+  `--time-fg`: #e6edf5 / #1f3a5f light ≈ 10:1, #243b5c / #dbe4f0 dark, white 14 % / cream on the best-day card;
+  all ≥ 4.5:1). Phones: line 1 = time pill + category label, line 2 = text at full width. From `sm`: grid with a
+  fixed time column (6.5rem, pills align), label column, text. Untimed activities have no pill. Fixed items use the
+  same layout plus their status badge. Share view uses the same component; the PDF draws times and windows as
+  rounded pills in the same colours (`C.timeBg`).
+- **[D10] Short activity texts (plan-5).** Rule 1 asks for note phrases, not sentences: no articles or filler,
+  ideally ≤ 50 characters ("Mittagsschlaf an Bord", "Trage statt Buggy (Kopfsteinpflaster)"), group hints in a
+  short parenthesis or in note/warn, titles ≤ 40 characters. Code clamps (counted as `truncated`, never rejected):
+  `LIMITS.text` 200 → 90, `LIMITS.title` 80 → 60. The stored schema keeps 200/80 so older plans stay valid.
+
 ## Known limits
 
 - The guard counts activities only. A patch that keeps the count but rewrites the wrong things (variant d with plan-4)

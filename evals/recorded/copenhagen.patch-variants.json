@@ -9,7 +9,7 @@
         "text": "für tag 1. wir machen Rathausplatz und rådhus, aber machen nicht Verdensur. auch Amagertorv streichen."
       },
       "output": {
-        "reply": "Tag 1 angepasst: Jens Olsens Verdensur und Amagertorv sind aus den Alternativen entfernt, Rathausplatz und Rathaus bleiben.",
+        "reply": "Tag 1 angepasst: Jens Olsens Verdensur und Amagertorv sind aus den Alternativen gestrichen, Rathausplatz und Rathaus bleiben.",
         "days": [
           {
             "n": 1,
@@ -69,14 +69,14 @@
         "task": "plan_patch",
         "model": "claude-sonnet-5-5",
         "status": "ok",
-        "inputTokens": 1574,
-        "outputTokens": 550,
-        "cacheCreationInputTokens": 5091,
-        "cacheReadInputTokens": 0,
-        "costMicroUsd": 21376,
-        "latencyMs": 3814
+        "inputTokens": 1569,
+        "outputTokens": 551,
+        "cacheCreationInputTokens": 1604,
+        "cacheReadInputTokens": 3592,
+        "costMicroUsd": 13376,
+        "latencyMs": 4014
       },
-      "recordedAt": "2026-10-29T05:56:03.560Z"
+      "recordedAt": "2026-10-29T06:26:01.531Z"
     },
     "b": {
       "feedback": {
@@ -87,7 +87,7 @@
         "text": "für tag 1. wir machen Rathausplatz und rådhus, aber machen nicht Verdensur. auch Amagertorv streichen."
       },
       "output": {
-        "reply": "Tag 1: Jens Olsens Verdensur und Amagertorv sind aus den Alternativen entfernt, Rathausplatz und Rathaus bleiben.",
+        "reply": "Tag 1: Jens Olsens Verdensur und Amagertorv sind als Alternativen entfernt, Rathausplatz und Rathaus bleiben.",
         "days": [
           {
             "n": 1,
@@ -148,13 +148,13 @@
         "model": "claude-sonnet-5-5",
         "status": "ok",
         "inputTokens": 823,
-        "outputTokens": 545,
+        "outputTokens": 543,
         "cacheCreationInputTokens": 0,
-        "cacheReadInputTokens": 5091,
-        "costMicroUsd": 8114,
-        "latencyMs": 3431
+        "cacheReadInputTokens": 5196,
+        "costMicroUsd": 8115,
+        "latencyMs": 5772
       },
-      "recordedAt": "2026-10-29T05:56:17.682Z"
+      "recordedAt": "2026-10-29T06:26:07.305Z"
     },
     "c": {
       "feedback": {
@@ -223,14 +223,14 @@
         "task": "plan_patch",
         "model": "claude-sonnet-5-5",
         "status": "ok",
-        "inputTokens": 1581,
+        "inputTokens": 1576,
         "outputTokens": 550,
         "cacheCreationInputTokens": 0,
-        "cacheReadInputTokens": 5091,
-        "costMicroUsd": 9680,
-        "latencyMs": 4520
+        "cacheReadInputTokens": 5196,
+        "costMicroUsd": 9691,
+        "latencyMs": 3515
       },
-      "recordedAt": "2026-10-29T05:56:08.081Z"
+      "recordedAt": "2026-10-29T06:26:10.822Z"
     },
     "d": {
       "feedback": {
@@ -241,7 +241,7 @@
         "text": "für tag 1. wir machen Rathausplatz und rådhus, aber machen nicht Jens Olsens Verdensur. auch Amagertorv streichen."
       },
       "output": {
-        "reply": "Tag 1: Jens Olsens Verdensur und Amagertorv sind aus den Alternativen entfernt, Rathausplatz und Rathaus bleiben.",
+        "reply": "Tag 1: Jens Olsens Verdensur und Amagertorv sind aus den Alternativen gestrichen; Rathausplatz und Rathaus bleiben.",
         "days": [
           {
             "n": 1,
@@ -302,13 +302,13 @@
         "model": "claude-sonnet-5-5",
         "status": "ok",
         "inputTokens": 830,
-        "outputTokens": 545,
+        "outputTokens": 546,
         "cacheCreationInputTokens": 0,
-        "cacheReadInputTokens": 5091,
-        "costMicroUsd": 8128,
-        "latencyMs": 3411
+        "cacheReadInputTokens": 5196,
+        "costMicroUsd": 8159,
+        "latencyMs": 3812
       },
-      "recordedAt": "2026-10-29T05:56:21.094Z"
+      "recordedAt": "2026-10-29T06:26:14.637Z"
     }
   }
 }

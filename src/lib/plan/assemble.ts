@@ -22,9 +22,9 @@ export type AssembleIssue = "invalid_ref" | "bad_time" | "truncated" | "extra_be
 export type AssembleIssues = Record<AssembleIssue, number>;
 
 export const LIMITS = {
-  title: 80,
+  title: 60, // prompt asks for <= 40 (plan-5); clamped, never rejected
   place: 80,
-  text: 200,
+  text: 90, // activity text; prompt asks for short phrases <= 50 (plan-5). Stored plans may hold up to 200.
   dayNote: 240,
   stops: 4,
   acts: 12,
