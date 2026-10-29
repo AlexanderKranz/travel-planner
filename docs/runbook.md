@@ -131,11 +131,46 @@ Important: **all users have to log in again** (the new project has a different J
 
 Known caveats: custom roles' passwords are not in a backup; Storage files are not backed up (the app stores none); `auth.schema_migrations` and `supabase_migrations` are deliberately not restored (the new project writes its own). Later improvement (TODO in `backup.yml`): write the backup result to `public.app_events`; needs the Supabase secret key as a GitHub secret.
 
-### Quarterly restore test (put it in your calendar: Jan/Apr/Jul/Oct)
-1. Pull the newest backup from the NAS (or download the artifact from the Actions run page).
-2. Restore it into a scratch project as above (steps 3 to 5, 7).
-3. Compare row counts. In the SQL Editor of both projects run `select count(*) from auth.users;` and the same for the main tables (for example `select count(*) from public.trips;`). Production counts should be equal or slightly higher (new data since last night).
-4. Delete the scratch project. Note the date and result somewhere; a backup never restored is only a hope.
+### Restore test (automated; do this quarterly: Jan/Apr/Jul/Oct)
+
+A backup that was never restored is only a hope. The workflow **Restore test** (`.github/workflows/restore-test.yml`) restores the newest nightly backup into a throwaway database on a GitHub runner and checks it. It never connects to the production database (it has no database secret; the script refuses non-local targets). Spec: `docs/specs/phase-6-restore-test.md`.
+
+**Last tested: not yet (update this line after each run: date, backup artifact name, PASS/FAIL).**
+
+How to run it:
+1. GitHub -> **Actions** -> **Restore test** -> **Run workflow** (branch `main`; leave "Backup artifact" empty for the newest, or enter a name like `db-backup-20261027T010009Z`) -> **Run workflow**.
+2. Wait about 5 to 10 minutes and open the run. Only the job **restore-test** is the real test (the job **dry-run** is the pipeline self-test with fake data and also runs on pushes).
+3. Open the run's **Summary** tab. Success looks like: "Result: PASS", a table with every table's row count in the backup and after the restore (all `yes`), and PASS lines for: backup decrypted, restore loaded, migrations equal, row counts complete, `auth.users`/`public.profiles`/`public.trips` have rows, RLS enabled on all public tables, foreign keys without orphan rows.
+4. Write the date and result into the "Last tested" line above.
+
+The logs and summary contain counts and table names only, never row content. If you ever see personal data in a log, delete the run (run page -> "..." -> Delete workflow run) and tell the developer.
+
+If it fails (the failing line says which check):
+| Message | Meaning and what to do |
+|---|---|
+| `GitHub secret BACKUP_PASSPHRASE is missing` | Create the secret (section 3). |
+| `No non-expired db-backup-* artifact found` | No backup in the last 30 days. Run **Nightly database backup** by hand; look at why it fails. |
+| `decryption failed` | The secret `BACKUP_PASSPHRASE` is not the passphrase the backup was made with (for example it was changed after that backup). Try an older artifact via the input, compare with the password manager. **This is serious: until a backup decrypts, you have no usable backup.** |
+| `Backup commit ... is not in the repository history` | The commit in the MANIFEST was removed (force push). Restore manually (section 5) using the schema of a nearby commit. |
+| `migrations differ` / `migration mismatch` | The throwaway database did not get the migrations of the backup's commit. Look at the "Start throwaway Supabase" step. |
+| `row counts: N tables differ` | The restore lost or changed rows. Compare the table in the Summary to find the table. Do not trust the backup; run the nightly backup again and re-test. |
+| `RLS is NOT enabled on: <tables>` | Not a backup problem: a table in production has no Row-Level Security. Fix with a new migration (`alter table ... enable row level security` plus policies). |
+| `foreign keys: ... FK violation` | The data contains rows pointing at missing parents (names of the constraints are listed). Investigate in production (read-only) before relying on the backup. |
+| `restore.sh failed` | The load itself failed and was rolled back. Details are hidden on purpose (they can quote data). Re-run locally (below) to see the full error on your own machine. |
+
+Run it on your own machine (for debugging; you need Docker, `brew install supabase/tap/supabase gnupg libpq`):
+```
+supabase start                      # empty local database with all migrations (check out the backup's commit first if it is old)
+export BACKUP_PASSPHRASE='...'      # leading space keeps it out of shell history
+scripts/backup/restore-test.sh --file ~/Downloads/<backup>.zip \
+  --target 'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+supabase stop --no-backup
+```
+Without a backup file you can try the whole pipeline with fake data: create a throwaway passphrase file, `scripts/backup/synthetic-backup.sh --source <same local URL> --out /tmp/x.gpg --passphrase-file <file>`, then run `restore-test.sh` on `/tmp/x.gpg` (the source database must be empty; the script empties it again afterwards).
+
+Optional monthly schedule (off by default, decision D3 in the spec): in `restore-test.yml` remove the `#` in front of the `schedule:` block. It decrypts production backups on a GitHub runner without you watching, so it is your call.
+
+The older manual way (restore into a scratch Supabase project, steps 3 to 5 and 7 of the section above) still works and is the right drill for a real disaster; the automated test is the quick routine check.
 
 ## 6. Rotating a leaked or old key
 
