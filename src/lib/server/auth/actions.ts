@@ -9,6 +9,8 @@ import { getAppUrl } from "@/lib/server/app-url";
 import { getDemoCredentials } from "@/lib/server/demo";
 import { logEvent } from "@/lib/server/events";
 import { createSupabaseServerClient } from "@/lib/server/supabase/server";
+import { authAllowed } from "./limits";
+import { getEffectiveEnv } from "@/lib/server/settings";
 
 /**
  * Sends the magic link + 6-digit code. The result is deliberately the same for
@@ -22,6 +24,7 @@ export async function requestLogin(input: {
 }): Promise<ActionResult> {
   const parsed = LoginRequest.safeParse(input);
   if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
+  if (!(await authAllowed("login", parsed.data.email))) return fail("rate_limited");
 
   // Configured base URL, never request headers (Host / X-Forwarded-Host are attacker-controlled).
   const origin = getAppUrl();
@@ -68,6 +71,7 @@ export async function verifyLoginCode(input: {
 }): Promise<ActionResult> {
   const parsed = VerifyCodeInput.safeParse(input);
   if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
+  if (!(await authAllowed("code", parsed.data.email))) return fail("rate_limited");
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.verifyOtp({
@@ -106,9 +110,10 @@ export async function signOut(locale: string): Promise<void> {
  * signed in on the cookie-bound client, so it never reaches the browser.
  */
 export async function signInDemo(locale: string): Promise<ActionResult> {
-  const creds = getDemoCredentials();
+  const creds = getDemoCredentials(await getEffectiveEnv());
   if (!creds) return fail("failed");
   const safeLocale = Locale.catch("de").parse(locale);
+  if (!(await authAllowed("demo"))) return fail("rate_limited");
 
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signInWithPassword({

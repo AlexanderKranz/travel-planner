@@ -10,6 +10,7 @@ import { getPurpose } from "./purposes";
 import { tagAndSave, wantsTags } from "./purpose-tagging";
 import type { getUserSession } from "./session";
 import { rowToTrip, TRIP_COLUMNS, type TripRow } from "./trip-mapping";
+import { getEffectiveEnv } from "./settings";
 
 type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;
 
@@ -24,7 +25,7 @@ const RESERVE_TAGS = 2_000;
  * would make (cached by content hash), just earlier. Skipped when AI is off or the budget would not allow it.
  */
 async function withTags(session: Session, purpose: TripPurpose | null): Promise<TripPurpose | null> {
-  if (!wantsTags(purpose) || !isAiEnabled()) return purpose;
+  if (!wantsTags(purpose) || !isAiEnabled(await getEffectiveEnv())) return purpose;
   try {
     const { data } = await session.supabase.from("profiles").select("role, is_demo").eq("id", session.userId).maybeSingle();
     const role: Role = data?.role === "admin" ? "admin" : "user";

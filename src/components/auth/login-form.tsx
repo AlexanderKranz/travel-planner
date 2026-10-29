@@ -8,7 +8,7 @@ import { btnPrimary, btnSecondary, mutedCls } from "@/components/ui/styles";
 import { requestLogin, verifyLoginCode } from "@/lib/server/auth/actions";
 import type { ActionError } from "@/lib/domain";
 
-export function LoginForm({ linkInvalid }: { linkInvalid: boolean }) {
+export function LoginForm({ linkInvalid, invited = false }: { linkInvalid: boolean; invited?: boolean }) {
   const t = useTranslations("login");
   const locale = useLocale();
   const [step, setStep] = useState<"email" | "sent">("email");
@@ -78,6 +78,11 @@ export function LoginForm({ linkInvalid }: { linkInvalid: boolean }) {
 
   return (
     <form onSubmit={onRequest} className="flex flex-col gap-4">
+      {invited && !linkInvalid && (
+        <p role="status" className="rounded-lg border border-line bg-sunken p-3 text-sm text-ink">
+          {t("invited")}
+        </p>
+      )}
       {linkInvalid && (
         <p
           role="alert"

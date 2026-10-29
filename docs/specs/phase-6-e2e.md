@@ -1,6 +1,6 @@
 # Phase 6: E2E tests (mobile + desktop)
 
-Status: implemented on `phase-6/e2e`. Run instructions: `docs/runbook.md` section 11.
+Status: implemented on `phase-6/e2e`. Run instructions: `docs/runbook.md` section 13.
 
 ## Flows covered
 | # | Flow | Spec |

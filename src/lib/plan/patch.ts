@@ -45,6 +45,13 @@ export function keepFixedStops(baseDay: PlanDay | undefined, next: PlanDay): Pla
   return { ...next, stops };
 }
 
+/** Place → activity text of a base day (first wins). */
+function baseTexts(day: PlanDay | undefined): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const s of day?.stops ?? []) for (const a of s.acts) if (a.ref && !out.has(a.ref)) out.set(a.ref, a.text);
+  return out;
+}
+
 /**
  * Applies a day patch (spec 4.5). Pure. Unaffected days are the same objects as in `base`;
  * patched days are assembled like in `assemblePlan`. With a non-empty `scope`, patch days outside it are dropped,
@@ -79,29 +86,22 @@ export function applyPatch(a: {
       fallbackPlace,
       issues,
       noteTimes: times,
+      baseText: baseTexts(base.days[d.n - 1]),
     });
     replaced.set(d.n, guardFixed(keepFixedStops(base.days[d.n - 1], day), "fixed" in a ? a.fixed : stored.llm.fixed, issues));
   }
 
-  // At most one best: an untouched base day keeps its badge; otherwise the first patched day that claims it.
-  const baseBest = base.days.find((d) => d.best && !replaced.has(d.n))?.n;
-  let winner = baseBest;
-  for (const n of [...replaced.keys()].sort((x, y) => x - y)) {
-    const d = replaced.get(n)!;
-    if (!d.best) continue;
-    if (winner === undefined) winner = n;
-    else if (winner !== n) {
-      issues.extra_best += 1;
-      const copy = { ...d };
-      delete copy.best;
-      replaced.set(n, copy);
-    }
+  // The best-day highlight is the user's (patch-safety [D8]): a patched day keeps the base day's marker.
+  for (const [n, d] of replaced) {
+    const b = base.days[n - 1];
+    if (b?.best) replaced.set(n, { ...d, best: b.best, ...(b.bestBy ? { bestBy: b.bestBy } : {}) });
   }
 
   const days = base.days.map((d) => replaced.get(d.n) ?? d);
   const scoped = scope.length > 0;
   let openItems = base.openItems;
-  if (patch.open !== undefined) {
+  // An empty list never means "remove all" here: the model returned [] for "unchanged" live (plan-4, [D5]).
+  if (patch.open !== undefined && patch.open.length > 0) {
     const items = assembleOpen(patch.open, total, issues);
     // Day-scoped: replace open items of in-scope days only; trip-wide and other days' items stay untouched.
     openItems = scoped
@@ -119,7 +119,7 @@ export function applyPatch(a: {
       !scoped && patch.summary !== undefined
         ? (clampText(patch.summary, LIMITS.summary, issues) ?? base.summary)
         : base.summary,
-    notes: !scoped && patch.notes !== undefined ? assembleNotes(patch.notes, issues) : base.notes,
+    notes: !scoped && patch.notes !== undefined && patch.notes.length > 0 ? assembleNotes(patch.notes, issues) : base.notes,
     openItems,
   };
   if (!Plan.safeParse(next).success) return { ok: false, reason: "schema" };

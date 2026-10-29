@@ -11,6 +11,7 @@
     "test:watch": "vitest",
     "evals:live": "EVAL_LIVE=1 vitest run --config evals/vitest.config.ts evals/live.eval.ts",
     "evals:group-text": "EVAL_LIVE=1 vitest run --config evals/vitest.config.ts evals/group-text.eval.ts",
+    "evals:patch-shrink": "EVAL_LIVE=1 vitest run --config evals/vitest.config.ts evals/patch-shrink.eval.ts",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
     "airports:build": "node scripts/airports/build.mjs",

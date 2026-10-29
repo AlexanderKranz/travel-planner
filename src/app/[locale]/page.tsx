@@ -32,6 +32,7 @@ export default async function HomePage({
             key={l}
             href="/"
             locale={l}
+            lang={l}
             aria-current={l === locale ? "true" : undefined}
             className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-md ${focusCls} ${
               l === locale ? "font-semibold text-heading underline" : "text-muted"

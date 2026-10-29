@@ -22,9 +22,9 @@ export type AssembleIssue = "invalid_ref" | "bad_time" | "truncated" | "extra_be
 export type AssembleIssues = Record<AssembleIssue, number>;
 
 export const LIMITS = {
-  title: 80,
+  title: 60, // prompt asks for <= 40 (plan-5); clamped, never rejected
   place: 80,
-  text: 200,
+  text: 90, // activity text; prompt asks for short phrases <= 50 (plan-5). Stored plans may hold up to 200.
   dayNote: 240,
   stops: 4,
   acts: 12,
@@ -126,9 +126,11 @@ export type DayCtx = {
   issues: AssembleIssues;
   /** Times from the user's trip notes; a stop stays `fixed` only if all its window times are in here. */
   noteTimes: Set<string>;
+  /** Patch only: text of the base day's activity at the same place, used when the model left text empty. */
+  baseText?: Map<OsmKey, string>;
 };
 
-/** One model day → stored day (spec 4.5). `best` is resolved by the caller. */
+/** One model day → stored day (spec 4.5). The best-day highlight is never model output (patch-safety [D8]). */
 export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
   const { issues } = ctx;
   if (d.stops.length > LIMITS.stops) issues.truncated += 1;
@@ -148,8 +150,12 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
         } else issues.invalid_ref += 1;
       }
       const alts = ref ? resolveAlts(a.alts, ref, ctx.index, issues) : undefined;
-      // An empty text with a valid ref falls back to the place name (seen live in a patch); else the act is dropped.
-      const text = clampText(a.text, LIMITS.text, issues) ?? clampText(refName, LIMITS.text, issues);
+      // An empty text with a valid ref falls back to the base day's text for that place, then to the place name
+      // (both seen live in patches, spec patch-safety [D6]); else the act is dropped.
+      const text =
+        clampText(a.text, LIMITS.text, issues) ??
+        clampText(ref ? ctx.baseText?.get(ref) : undefined, LIMITS.text, issues) ??
+        clampText(refName, LIMITS.text, issues);
       if (!text) continue;
       const at = time(a.at, issues);
       const until = time(a.until, issues);
@@ -177,7 +183,6 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
     stops: stops.length ? stops : [{ place: title.slice(0, LIMITS.place), acts: [] }],
     note: clampText(d.note, LIMITS.dayNote, issues),
     warn: clampText(d.warn, LIMITS.dayNote, issues),
-    best: d.best === true ? true : undefined,
   });
 }
 
@@ -265,15 +270,12 @@ export function assemblePlan(a: {
   const fallbackPlace = stored.llm.trip.dest.slice(0, LIMITS.place);
   const sorted = [...llm.days].sort((x, y) => x.n - y.n);
   const times = noteTimes(stored.llm.trip.notes);
-  const days = keepOneBest(
-    sorted.map((d) =>
-      guardFixed(
-        assembleDay(d, { date: dayList[d.n - 1]?.date ?? null, index: stored.index, fallbackPlace, issues, noteTimes: times }),
-        stored.llm.fixed,
-        issues,
-      ),
+  const days = sorted.map((d) =>
+    guardFixed(
+      assembleDay(d, { date: dayList[d.n - 1]?.date ?? null, index: stored.index, fallbackPlace, issues, noteTimes: times }),
+      stored.llm.fixed,
+      issues,
     ),
-    issues,
   );
   const candidate = {
     v: 1 as const,

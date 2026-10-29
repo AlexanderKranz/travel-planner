@@ -21,7 +21,8 @@
     "demoBanner": "Demo-Modus – Daten sind für alle Demo-Besucher sichtbar und werden regelmäßig zurückgesetzt.",
     "demoLabel": "Demo-Hinweis",
     "trips": "Reisen",
-    "admin": "Admin"
+    "admin": "Admin",
+    "skip": "Zum Inhalt springen"
   },
   "errors": {
     "unauthenticated": "Du bist nicht angemeldet.",
@@ -44,7 +45,10 @@
     "invalid_output": "Die KI-Antwort war unbrauchbar. Bitte erneut versuchen.",
     "demo_forbidden": "Im Demo-Konto lassen sich keine Links erstellen.",
     "no_plan": "Erstelle zuerst einen Reiseplan.",
-    "places_pending": "Orte werden noch geladen. Bitte in einer Minute erneut versuchen."
+    "places_pending": "Orte werden noch geladen. Bitte in einer Minute erneut versuchen.",
+    "forbidden": "Dafür fehlt dir die Berechtigung.",
+    "already_member": "Diese Adresse hat bereits ein Konto.",
+    "email_failed": "Die Adresse steht auf der Einladungsliste, aber die E-Mail konnte nicht gesendet werden."
   },
   "login": {
     "title": "Anmelden",
@@ -65,7 +69,8 @@
       "button": "Demo ansehen",
       "hint": "Gemeinsames Demo-Konto – was du eingibst, ist für andere Demo-Besucher sichtbar und wird regelmäßig zurückgesetzt.",
       "heading": "Oder ausprobieren"
-    }
+    },
+    "invited": "Einladung bestätigt. Gib jetzt deine E-Mail-Adresse ein, dann schicken wir dir den Anmeldelink."
   },
   "dashboard": {
     "welcome": "Willkommen",
@@ -859,12 +864,7 @@
         "b": "mit Tag",
         "apply": "Tauschen"
       },
-      "best": {
-        "title": "Bester Tag",
-        "label": "Tag",
-        "none": "Keiner",
-        "apply": "Setzen"
-      }
+      "shrinkRejected": "{count, plural, one {Tag {days} wurde} other {Die Tage {days} wurden}} nicht geändert, weil die Antwort unvollständig war. Bitte erneut versuchen."
     },
     "versions": {
       "aria": "Versionsverlauf",
@@ -880,12 +880,15 @@
       "restoredFrom": "aus v{n}",
       "swap": "Tage {a} und {b} getauscht",
       "best": "Tag {n} als bester Tag markiert",
-      "bestNone": "bester Tag entfernt"
+      "bestNone": "bester Tag entfernt",
+      "remove_alt": "Alternative entfernt",
+      "promote_alt": "Alternative als Hauptort gesetzt",
+      "remove_act": "Aktivität entfernt"
     },
     "versionKinds": {
       "generate": "Erstellt",
       "patch": "Angepasst",
-      "edit": "Bearbeitet",
+      "edit": "Ohne KI",
       "restore": "Wiederhergestellt"
     },
     "flights": {
@@ -911,7 +914,18 @@
       "cancel": "Abbrechen",
       "disabled": "KI ist derzeit abgeschaltet."
     },
-    "showDrive": "Fahrzeiten anzeigen"
+    "showDrive": "Fahrzeiten anzeigen",
+    "actEdit": {
+      "removeAlt": "Alternative {name} entfernen",
+      "promoteAlt": "{name} als Hauptort setzen",
+      "removeAct": "Aktivität entfernen: {name}",
+      "confirm": "Diese Aktivität entfernen? Es entsteht eine neue Version, ohne KI.",
+      "confirmYes": "Entfernen",
+      "cancel": "Abbrechen",
+      "working": "Wird gespeichert…",
+      "markBest": "Tag {n} als besten Tag markieren",
+      "unmarkBest": "Markierung „Bester Tag“ von Tag {n} entfernen"
+    }
   },
   "items": {
     "title": "Buchungen und Kosten",
@@ -1137,7 +1151,9 @@
       "km": "{km} km Luftlinie"
     },
     "dayShort": "TAG",
-    "daysUnit": "Tage"
+    "daysUnit": "Tage",
+    "windowFrom": "ab {time}",
+    "windowUntil": "bis {time}"
   },
   "admin": {
     "title": "Admin",
@@ -1253,6 +1269,93 @@
       "code": "Grund",
       "warn": "Warnung",
       "error": "Fehler"
+    },
+    "invites": {
+      "title": "Einladen",
+      "intro": "Nur eingeladene Adressen können sich registrieren. Die Einladung trägt die Adresse in die Liste ein und verschickt eine E-Mail.",
+      "emailLabel": "E-Mail-Adresse",
+      "submit": "Einladung senden",
+      "sent": "Einladung gesendet.",
+      "mailNote": "Der eingebaute Mailversand von Supabase erlaubt nur wenige E-Mails pro Stunde und landet oft im Spam. Scheitert der Versand, steht die Adresse trotzdem auf der Liste: Die Person kann sich selbst auf der Anmeldeseite einen Link schicken lassen.",
+      "listTitle": "Einladungen",
+      "empty": "Noch keine Einladungen.",
+      "pending": "Offen",
+      "accepted": "Angenommen",
+      "addedOn": "Hinzugefügt am",
+      "revoke": "Widerrufen",
+      "revokeTitle": "Einladung widerrufen?",
+      "revokeBody": "Die Adresse wird von der Liste entfernt und ein noch nicht genutztes Konto gelöscht.",
+      "cancel": "Abbrechen",
+      "errors": {
+        "forbidden": "Nur Admins können einladen.",
+        "invalid": "Bitte gib eine gültige E-Mail-Adresse ein.",
+        "rate_limited": "Zu viele Einladungen in kurzer Zeit. Bitte versuche es später noch einmal.",
+        "already_member": "Diese Adresse hat bereits ein Konto.",
+        "email_failed": "Die Adresse steht auf der Liste, aber die E-Mail konnte nicht gesendet werden (Versandlimit?). Die Person kann sich auf der Anmeldeseite selbst einen Link schicken lassen.",
+        "conflict": "Diese Person hat sich inzwischen angemeldet. Das Konto bleibt bestehen.",
+        "not_found": "Die Einladung gibt es nicht mehr.",
+        "failed": "Das hat nicht geklappt. Bitte versuche es später noch einmal."
+      }
+    },
+    "settings": {
+      "title": "Einstellungen",
+      "intro": "Schalter und Grenzwerte, die du hier ohne Neustart ändern kannst. Reihenfolge: Admin-Wert, dann Umgebungsvariable, dann Standard. Änderungen wirken sofort auf dieser Instanz, andere Instanzen holen sie innerhalb von 30 Sekunden nach. Geheimnisse (API-Schlüssel) stehen hier nie.",
+      "effective": "Aktuell",
+      "source": "Quelle",
+      "sources": {
+        "admin": "Admin",
+        "env": "Umgebungsvariable",
+        "default": "Standard"
+      },
+      "locked": "Per Umgebungsvariable gesperrt",
+      "lockedHint": "Die Variable steht auf false (Notaus). Nur über die Vercel-Umgebungsvariablen änderbar.",
+      "save": "Speichern",
+      "reset": "Zurücksetzen",
+      "saved": "Gespeichert.",
+      "resetDone": "Zurückgesetzt.",
+      "on": "An",
+      "off": "Aus",
+      "range": "Erlaubt: {min} bis {max}",
+      "groups": {
+        "switches": "Schalter",
+        "ai": "KI-Budgets (USD pro Berliner Tag, Monat bei Warnung)",
+        "quotas": "Kontingente und Warnungen"
+      },
+      "labels": {
+        "ai_enabled": "KI-Pläne",
+        "demo_enabled": "Demo-Zugang",
+        "ai_user_daily_usd": "KI-Budget pro Nutzer und Tag (USD)",
+        "ai_admin_daily_usd": "KI-Budget pro Admin und Tag (USD)",
+        "ai_demo_daily_usd": "KI-Budget Demo-Konto und Tag (USD)",
+        "ai_global_daily_usd": "KI-Budget gesamt pro Tag (USD)",
+        "ai_monthly_alert_usd": "KI-Warnung pro Monat (USD)",
+        "aerodatabox_daily_units": "AeroDataBox: Einheiten pro Tag",
+        "aerodatabox_min_remaining": "AeroDataBox: Sicherheitsreserve im Monat",
+        "ors_daily_requests": "OpenRouteService: Anfragen pro Tag",
+        "alert_errors_24h": "Fehlerwarnung: Fehler in 24 Stunden"
+      },
+      "errors": {
+        "forbidden": "Das ist nicht erlaubt (Admin nötig oder per Umgebungsvariable gesperrt).",
+        "invalid": "Der Wert ist ungültig oder außerhalb des erlaubten Bereichs.",
+        "rate_limited": "Zu viele Änderungen in kurzer Zeit. Bitte warte eine Minute.",
+        "failed": "Das hat nicht geklappt. Bitte versuche es später noch einmal."
+      },
+      "changesTitle": "Letzte Änderungen",
+      "changesEmpty": "Noch keine Änderungen.",
+      "changeLine": "{key}: {old} → {new}",
+      "noValue": "-"
     }
+  },
+  "errorPage": {
+    "title": "Hier ist etwas schiefgelaufen",
+    "text": "Die Seite konnte nicht geladen werden. Deine Daten sind sicher. Bitte versuche es noch einmal; wenn es bleibt, versuche es später wieder.",
+    "retry": "Erneut versuchen",
+    "toApp": "Zur Übersicht",
+    "toHome": "Zur Startseite",
+    "actions": "Aktionen",
+    "reference": "Referenz",
+    "notFoundTitle": "Seite nicht gefunden",
+    "notFoundText": "Diese Seite gibt es nicht oder du hast keinen Zugriff darauf.",
+    "loading": "Wird geladen …"
   }
 }

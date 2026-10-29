@@ -2,7 +2,7 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import type { ReactElement } from "react";
 import { windowKind } from "@/components/plan/helpers";
 import type { SharedItem } from "@/lib/domain/items";
-import type { PlanDay, PlanFlights } from "@/lib/domain/plan";
+import { isUserBest, type PlanDay, type PlanFlights } from "@/lib/domain/plan";
 import type { PlanDocument } from "@/lib/domain/share";
 import { flightGroups } from "@/lib/flights/groups";
 import { fittingLegs } from "@/lib/flights/ui";
@@ -81,10 +81,39 @@ function Heading({ children }: { children: string }) {
   );
 }
 
+/** Stop window as pill text: "14:00–23:59", "ab 14:00", "bis 16:00" (same keys as the app). */
+function windowText(from: string | undefined, to: string | undefined, t: PdfT): string {
+  if (from && to) return `${from}–${to}`;
+  return from ? t("windowFrom", { time: from }) : t("windowUntil", { time: to ?? "" });
+}
+
+/** Activity / item time as a rounded pill in a fixed-width column (pills align); empty column when untimed. */
+function TimePill({ time, best }: { time: string; best: boolean }) {
+  return (
+    <View style={{ width: 64, flexDirection: "row" }}>
+      {time ? (
+        <Text
+          style={{
+            fontWeight: 600,
+            fontSize: 7.5,
+            color: best ? C.cream : C.navy,
+            backgroundColor: best ? C.timeBgBest : C.timeBg,
+            borderRadius: 6,
+            paddingVertical: 1,
+            paddingHorizontal: 4,
+          }}
+        >
+          {time}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
 function DayCard({ day, doc, fixed, t, fmt }: { day: PlanDay; doc: PlanDocument; fixed: FixedItem[]; t: PdfT; fmt: Fmt }) {
   const { plan } = doc;
   const merged = mergeDayRows(day, fixed);
-  const best = !!day.best;
+  const best = isUserBest(day);
   const ink = best ? C.cream : C.ink;
   const muted = best ? C.navyMuted : C.subtle;
   const rowCount = merged.reduce((n, st) => n + st.rows.length + 1, 0);
@@ -120,10 +149,14 @@ function DayCard({ day, doc, fixed, t, fmt }: { day: PlanDay; doc: PlanDocument;
           return (
             <View key={i} style={{ marginTop: i > 0 ? 5 : 0, marginBottom: 2 }}>
               {showHead && (
-                <Text style={{ fontWeight: 700, fontSize: 8.5, color: best ? C.cream : C.navy, marginBottom: 2 }}>
-                  {st.place}
-                  {wk ? ` (${st.from ?? ""}${st.to ? `–${st.to}` : ""})` : ""}
-                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 2 }}>
+                  <Text style={{ fontWeight: 700, fontSize: 8.5, color: best ? C.cream : C.navy, marginRight: 4 }}>{st.place}</Text>
+                  {wk && (
+                    <Pill bg={best ? C.timeBgBest : C.timeBg} fg={best ? C.cream : C.navy} bold size={7}>
+                      {windowText(st.from, st.to, t)}
+                    </Pill>
+                  )}
+                </View>
               )}
               {merged[i].rows.map((row, j) => {
                 if (row.kind === "fixed") {
@@ -143,7 +176,7 @@ function DayCard({ day, doc, fixed, t, fmt }: { day: PlanDay; doc: PlanDocument;
                         marginTop: 4.5,
                       }}
                     >
-                      <Text style={{ width: 64, fontWeight: 600, color: best ? C.cream : C.navy }}>{timeRange(it.from, it.to)}</Text>
+                      <TimePill best={best} time={timeRange(it.from, it.to)} />
                       <Text style={{ ...labelStyle, width: 60, color: best ? C.navyMuted : C.subtle }}>{t(`categories.${it.category}`)}</Text>
                       <Text style={{ ...s.grow, fontWeight: 600, color: ink }}>{it.title}</Text>
                       <StatusPill status={it.status} label={t(`statuses.${it.status}`)} />
@@ -156,7 +189,7 @@ function DayCard({ day, doc, fixed, t, fmt }: { day: PlanDay; doc: PlanDocument;
                 const time = a.at ? `${a.at}${a.until ? `–${a.until}` : ""}` : "";
                 return (
                   <View key={j} wrap={false} style={{ flexDirection: "row", marginTop: 4.5 }}>
-                    <Text style={{ width: 64, fontWeight: 600, color: best ? C.cream : C.navy }}>{time}</Text>
+                    <TimePill best={best} time={time} />
                     <Text style={{ ...labelStyle, width: 60, paddingTop: 1.5, color: a.kind === "sport" ? (best ? C.okLight : C.okLine) : muted }}>
                       {t(`kinds.${a.kind}`)}
                     </Text>

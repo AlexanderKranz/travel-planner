@@ -24,7 +24,8 @@ import { createHash } from "node:crypto";
 vi.mock("server-only", () => ({}));
 
 const LIVE = process.env.EVAL_LIVE === "1";
-if (LIVE && !process.env.ANTHROPIC_API_KEY && existsSync(".env.local")) process.loadEnvFile(".env.local");
+const ENV_FILE = process.env.EVAL_ENV_FILE || ".env.local";
+if (LIVE && !process.env.ANTHROPIC_API_KEY && existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
 
 const pick = <T extends string>(env: string | undefined, all: readonly T[]): T[] =>
   env ? (env.split(",").map((s) => s.trim()).filter((s) => (all as readonly string[]).includes(s)) as T[]) : [...all];

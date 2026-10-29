@@ -1,6 +1,7 @@
 import "server-only";
 import type { AiUsageRecord } from "@/lib/domain/ai";
 import type { BudgetStatus } from "@/lib/domain/plan";
+import { getEffectiveEnv } from "./settings";
 import { createSupabaseAdminClient } from "./supabase/admin";
 
 type Env = Record<string, string | undefined>;
@@ -104,8 +105,9 @@ export async function getBudgetStatus(
   role: Role,
   isDemo: boolean,
   now: Date = new Date(),
-  env: Env = process.env,
+  env?: Env,
 ): Promise<BudgetInfo> {
+  const caps = env ?? (await getEffectiveEnv()); // admin-page settings > env > defaults
   const since = berlinMidnight(now);
   const admin = createSupabaseAdminClient();
   // Sums are computed in SQL (a client-side sum would be cut off by PostgREST max_rows and fail open).
@@ -117,9 +119,9 @@ export async function getBudgetStatus(
   if (!Number.isFinite(spent) || !Number.isFinite(globalSpent)) throw new Error("ai_usage read failed");
   return {
     spentMicroUsd: spent,
-    capMicroUsd: userCapMicroUsd(role, isDemo, env),
+    capMicroUsd: userCapMicroUsd(role, isDemo, caps),
     resetsAt: berlinMidnight(now, 1).toISOString(),
     globalSpentMicroUsd: globalSpent,
-    globalCapMicroUsd: globalCapMicroUsd(env),
+    globalCapMicroUsd: globalCapMicroUsd(caps),
   };
 }

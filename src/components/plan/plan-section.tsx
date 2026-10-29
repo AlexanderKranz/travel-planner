@@ -59,7 +59,6 @@ export async function PlanSection({
             ? "outdated"
             : null;
   const editBlock: IterateBlock = !state.isLatest ? "notLatest" : state.busy ? "busy" : null;
-  const bestDay = shown.plan.days.find((d) => d.best)?.n ?? null;
 
   return (
     <section aria-labelledby="plan-title" className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:gap-x-8">
@@ -80,7 +79,6 @@ export async function PlanSection({
           locale={locale}
           baseVersion={shown.meta.versionNo}
           dayCount={shown.plan.days.length}
-          bestDay={bestDay}
           aiBlock={aiBlock}
           editBlock={editBlock}
         />

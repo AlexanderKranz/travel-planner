@@ -18,6 +18,7 @@ vi.mock("./ai-usage", () => ({
 }));
 vi.mock("./ai/group-parse", () => ({ parseGroupText: h.parse }));
 vi.mock("./events", () => ({ logEvent: h.event }));
+vi.mock("./settings", () => ({ getEffectiveEnv: async () => ({}) }));
 vi.mock("./supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
     from: (table: string) => {

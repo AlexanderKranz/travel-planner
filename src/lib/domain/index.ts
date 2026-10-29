@@ -6,6 +6,7 @@ export * from "./purpose";
 export * from "./interests";
 export * from "./result";
 export * from "./auth";
+export * from "./invite";
 export * from "./geo";
 export * from "./trip";
 export * from "./facts";

@@ -22,6 +22,7 @@ import { buildPlanInput, selectPlaces, type GroupContext } from "@/lib/plan/inpu
 import { interestsForTrip } from "@/lib/facts/interest-sources";
 import { placesPending } from "@/lib/plan/places-pending";
 import { applyPatch } from "@/lib/plan/patch";
+import { guardPatch } from "@/lib/plan/patch-guard";
 import { assemblePlan } from "@/lib/plan/assemble";
 import { fixedItemsOf, fixedSlots } from "@/lib/plan/fixed-items";
 import type { TripItem } from "@/lib/domain/items";
@@ -53,6 +54,7 @@ import { getPurpose } from "./purposes";
 import { rateLimit } from "./rate-limit";
 import { getUserSession } from "./session";
 import { getTrip } from "./trips";
+import { getEffectiveEnv } from "./settings";
 
 /**
  * Generation waits for places [D1]: up to 110 s Overpass + ~10 s drive times + 140 s Sonnet stays inside the
@@ -66,7 +68,8 @@ const RESERVE_GENERATE = 150_000;
 const RESERVE_PATCH = 50_000;
 const Id = z.string().uuid();
 
-export type PipelineData = { state: PlanState; unchanged?: true; reply?: string };
+/** `rejectedDays`: patched days the shrink guard reverted (patch-safety [D3]); the client explains them. */
+export type PipelineData = { state: PlanState; unchanged?: true; reply?: string; rejectedDays?: number[] };
 export type PipelineError = {
   ok: false;
   error: ActionError;
@@ -135,7 +138,7 @@ async function budgetInfo(c: PlanContext): Promise<BudgetInfo> {
   try {
     return await getBudgetStatus(c.session.userId, c.role, c.isDemo);
   } catch {
-    const cap = userCapMicroUsd(c.role, c.isDemo);
+    const cap = userCapMicroUsd(c.role, c.isDemo, await getEffectiveEnv());
     return {
       spentMicroUsd: cap,
       capMicroUsd: cap,
@@ -169,11 +172,12 @@ export async function loadPlanState(
   try {
     const row = await getPlanRow(c.sb, c.trip.id);
     const versions = row ? await listVersionMetas(c.sb, row.id) : [];
-    const aiEnabled = isAiEnabled();
+    const env = await getEffectiveEnv();
+    const aiEnabled = isAiEnabled(env);
     const busy = isBusy(row);
     // While busy the client only polls for completion: skip the two admin aggregate queries (budget is static then).
     const info = busy
-      ? { spentMicroUsd: 0, capMicroUsd: userCapMicroUsd(c.role, c.isDemo), resetsAt: berlinMidnight(new Date(), 1).toISOString(), globalSpentMicroUsd: 0, globalCapMicroUsd: 1 }
+      ? { spentMicroUsd: 0, capMicroUsd: userCapMicroUsd(c.role, c.isDemo, env), resetsAt: berlinMidnight(new Date(), 1).toISOString(), globalSpentMicroUsd: 0, globalCapMicroUsd: 1 }
       : await budgetInfo(c);
     const exhausted = info.globalSpentMicroUsd >= info.globalCapMicroUsd;
     const budget = {
@@ -242,10 +246,10 @@ function diffDays(a: Plan, b: Plan): number[] {
 }
 
 /** Common gate: rate limit + AI switch. */
-function gate(userId: string): PipelineError | null {
+async function gate(userId: string): Promise<PipelineError | null> {
   const rl = rateLimit(`plan:${userId}`, 2, 60_000);
   if (!rl.ok) return err("rate_limited", { retryAfter: rl.retryAfterSeconds });
-  if (!isAiEnabled()) return err("ai_disabled");
+  if (!isAiEnabled(await getEffectiveEnv())) return err("ai_disabled");
   return null;
 }
 
@@ -268,7 +272,7 @@ export async function generatePlan(
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
   const c = loaded.ctx;
-  const g = gate(c.session.userId);
+  const g = await gate(c.session.userId);
   if (g) return g;
   if (c.trip.lengthDays > MAX_PLAN_DAYS) return err("too_long");
 
@@ -418,7 +422,7 @@ export async function iteratePlan(
   if (!fb.success || !z.number().int().min(1).safeParse(baseVersion).success) {
     return err("invalid", fb.success ? undefined : { issues: fb.error.issues.map((i) => ({ path: i.path.map(String).join("."), message: i.message })) });
   }
-  const g = gate(c.session.userId);
+  const g = await gate(c.session.userId);
   if (g) return g;
   if (c.trip.lengthDays > MAX_PLAN_DAYS) return err("too_long");
 
@@ -451,12 +455,31 @@ export async function iteratePlan(
     if (!res.ok) return failed(c, res.error, res.error);
     const patched = applyPatch({ base: base.plan, patch: res.data, stored: base.input, scope: fb.data.days, fixed });
     if (!patched.ok) return failed(c, patched.reason, "invalid_output");
-    const parsed = Plan.safeParse(patched.plan);
+    // Shrink guard: a day that lost most of its activities is kept as it was, never silently accepted.
+    const guarded = guardPatch({ base: base.plan, next: patched.plan, feedback: fb.data, index: base.input.index });
+    const rejectedDays = guarded.rejected.map((r) => r.n);
+    if (rejectedDays.length) {
+      await logEvent({
+        event: "plan.patch_shrink_rejected",
+        level: "warn",
+        userId: c.session.userId,
+        props: {
+          tripId: c.trip.id,
+          days: rejectedDays.join(","),
+          actsBefore: guarded.rejected.reduce((n, r) => n + r.before, 0),
+          actsAfter: guarded.rejected.reduce((n, r) => n + r.after, 0),
+          costMicroUsd: ai.cost(),
+        },
+      });
+    }
+    const parsed = Plan.safeParse(guarded.plan);
     if (!parsed.success) return failed(c, "schema", "invalid_output");
+    const extra = rejectedDays.length ? { rejectedDays } : {};
 
-    if (patched.changedDays.length === 0) {
+    if (guarded.changedDays.length === 0) {
       await logEvent({ event: "plan.patched", userId: c.session.userId, props: { tripId: c.trip.id, changedDays: 0, costMicroUsd: ai.cost() } });
-      return await done(c, { unchanged: true, reply: res.data.reply });
+      // The model's reply describes the rejected change; only the rejection notice is true then.
+      return await done(c, rejectedDays.length ? { unchanged: true, ...extra } : { unchanged: true, reply: res.data.reply });
     }
     const no = await insertVersion(c.sb, plan.id, {
       kind: "patch",
@@ -464,7 +487,7 @@ export async function iteratePlan(
       input: base.input,
       inputHash: base.inputHash,
       feedback: fb.data,
-      changedDays: patched.changedDays,
+      changedDays: guarded.changedDays,
       model: MODEL_PLAN,
       costMicroUsd: ai.cost(),
     });
@@ -472,9 +495,16 @@ export async function iteratePlan(
     await logEvent({
       event: "plan.patched",
       userId: c.session.userId,
-      props: { tripId: c.trip.id, changedDays: patched.changedDays.length, durationMs: Date.now() - started, costMicroUsd: ai.cost(), ...patched.issues },
+      props: {
+        tripId: c.trip.id,
+        changedDays: guarded.changedDays.length,
+        durationMs: Date.now() - started,
+        costMicroUsd: ai.cost(),
+        keptNotes: guarded.keptNotes.length,
+        ...patched.issues,
+      },
     });
-    return await done(c, { reply: res.data.reply });
+    return await done(c, { reply: res.data.reply, ...extra });
   } catch {
     return failed(c, "exception", "failed");
   } finally {
@@ -492,19 +522,23 @@ async function latestForChange(c: PlanContext, baseVersion: number): Promise<{ p
   return base ? { plan, base } : err("failed");
 }
 
-/** Code-only edit (swap days, best day): no LLM, no budget. */
+/** Code-only edit (swap days, best day, activity edits): no LLM, no budget. */
 export async function editPlanVersion(tripId: string, baseVersion: number, edit: unknown): Promise<PipelineResult> {
   const parsed = PlanEdit.safeParse(edit);
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
   const c = loaded.ctx;
   if (!parsed.success || !z.number().int().min(1).safeParse(baseVersion).success) return err("invalid");
+  // Every edit writes a version: cap bursts (taps on × are cheap), separate from the AI gate.
+  const rl = rateLimit(`plan-edit:${c.session.userId}`, 20, 60_000);
+  if (!rl.ok) return err("rate_limited", { retryAfter: rl.retryAfterSeconds });
   try {
     const cur = await latestForChange(c, baseVersion);
     if ("ok" in cur) return cur;
     const n = cur.base.plan.days.length;
     const e = parsed.data;
-    const inRange = e.kind === "swap_days" ? e.a <= n && e.b <= n && e.a !== e.b : e.n === null || e.n <= n;
+    const inRange =
+      e.kind === "swap_days" ? e.a <= n && e.b <= n && e.a !== e.b : e.kind === "set_best" ? e.n === null || e.n <= n : e.n <= n;
     if (!inRange) return err("invalid");
     const out = applyEdit(cur.base.plan, e);
     const plan = Plan.safeParse(out.plan);
@@ -519,6 +553,7 @@ export async function editPlanVersion(tripId: string, baseVersion: number, edit:
       changedDays: out.changedDays,
     });
     await pruneVersions(c.sb, cur.plan.id, no);
+    await logEvent({ event: "plan.edited", userId: c.session.userId, props: { tripId: c.trip.id, kind: e.kind, changedDays: out.changedDays.length } });
     return await done(c);
   } catch {
     return err("failed");

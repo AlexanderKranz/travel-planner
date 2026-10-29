@@ -17,7 +17,7 @@ export type VerifyCodeInput = z.input<typeof VerifyCodeInput>;
 /** Query of /auth/confirm (magic link, token-hash flow). */
 export const ConfirmQuery = z.object({
   token_hash: z.string().min(10).max(200),
-  type: z.enum(["email", "magiclink", "signup"]),
+  type: z.enum(["email", "magiclink", "signup", "invite"]),
   locale: Locale.optional().catch(undefined),
   next: z.string().optional(),
 });

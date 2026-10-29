@@ -18,6 +18,12 @@ export async function AppShell({
   const isAdmin = profile.ok && profile.data.role === "admin";
   return (
     <div className="flex min-h-screen flex-col">
+      <a
+        href="#content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-card focus:px-4 focus:py-3 focus:text-sm focus:font-semibold focus:text-heading focus:outline-2 focus:outline-offset-2 focus:outline-focus"
+      >
+        {t("skip")}
+      </a>
       {isDemo && (
         <div
           role="status"
@@ -49,7 +55,7 @@ export async function AppShell({
         </div>
       </header>
       {/* Wide container (spec timed-items [D16]); pages stay at reading width unless their <main> sets data-wide. */}
-      <div className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 lg:px-8 [&>main:not([data-wide])]:mx-auto [&>main:not([data-wide])]:max-w-3xl">
+      <div id="content" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-8 [&>main:not([data-wide])]:mx-auto [&>main:not([data-wide])]:max-w-3xl">
         {children}
       </div>
     </div>

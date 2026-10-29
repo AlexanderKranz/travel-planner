@@ -6,6 +6,7 @@ import { PurposeGuided, TripPurposeInput, type TripPurpose } from "@/lib/domain/
 import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
 import { purposeTagsHash } from "@/lib/plan/hash";
 import { logEvent } from "./events";
+import { externalWriteAllowed } from "./rate-limit";
 import { getUserSession } from "./session";
 import { schedulePurposeWarm } from "./warm";
 
@@ -82,6 +83,7 @@ export async function createPurpose(input: TripPurposeInput): Promise<ActionResu
   if (!session) return fail("unauthenticated");
   const parsed = TripPurposeInput.safeParse(input);
   if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
+  if (!externalWriteAllowed(session.userId)) return fail("rate_limited");
 
   // owner_id is filled by its column default (auth.uid()); RLS checks it.
   const { data, error } = await session.supabase
@@ -112,6 +114,7 @@ export async function updatePurpose(
   if (!Id.safeParse(id).success) return fail("invalid");
   const parsed = TripPurposeInput.safeParse(input);
   if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
+  if (!externalWriteAllowed(session.userId)) return fail("rate_limited");
 
   const { data, error } = await session.supabase
     .from("trip_purposes")

@@ -15,7 +15,7 @@
   --hover: #f0e8d8;
   --ink: #1c2430;
   --muted: #4a5562;
-  --subtle: #5f6a76; /* #6b7480 from the mockup, darkened 1 step to reach 4.5:1 on cream */
+  --subtle: #5a6470; /* #6b7480 from the mockup, darkened to reach 4.5:1 on cream and on the sunken fill */
   --line: #ddd2bf;
   --line-strong: #8c8472; /* input borders: 3:1 against card and page */
 
@@ -30,7 +30,7 @@
 
   --accent: #b4532a; /* terracotta: buttons, day numbers */
   --accent-hover: #9a4421;
-  --accent-text: #a14a22; /* terracotta as text on page/card; darker than --accent for 4.5:1 on the cream page (axe, e2e/a11y.spec.ts) */
+  --accent-text: #a84c24; /* terracotta as text on page/card/sunken, 4.5:1 (the button fill --accent stays lighter) */
   --accent-soft: #f3dccd;
   --accent-soft-fg: #8a3a17;
   --nav-underline: #e08a5c;
@@ -54,6 +54,8 @@
   --ok: #2f6b4f;
   --ok-solid: #2f6b4f;
   --sport: #2f6b4f;
+  --time-bg: #e6edf5; /* time pills in day cards: 9.6:1 with --time-fg */
+  --time-fg: #1f3a5f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -74,7 +76,7 @@
     --feature-fg: #f6f1e7;
 
     --accent: #b4532a;
-    --accent-hover: #c8643a;
+    --accent-hover: #9a4421; /* darker on hover keeps white text at 4.5:1 */
     --accent-text: #f2a679;
     --accent-soft: #3a2517;
     --accent-soft-fg: #f2c3a3;
@@ -98,6 +100,8 @@
     --ok: #8fd0ad;
     --ok-solid: #2f6b4f;
     --sport: #a8d5bd;
+    --time-bg: #243b5c;
+    --time-fg: #dbe4f0;
   }
 }
 
@@ -146,6 +150,8 @@
   --color-ok: var(--ok);
   --color-ok-solid: var(--ok-solid);
   --color-sport: var(--sport);
+  --color-time-bg: var(--time-bg);
+  --color-time-fg: var(--time-fg);
 
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-serif: var(--font-fraunces), Georgia, serif;
@@ -158,6 +164,25 @@ body {
   background: var(--page);
   color: var(--ink);
   font-family: var(--font-inter), system-ui, sans-serif;
+  /* No horizontal scroll at 360 px: a long unbroken name, URL or email wraps instead of widening the page
+     ("anywhere" also lowers min-content, so flex/grid items can shrink). Tables keep their own scroll wrapper. */
+  overflow-wrap: anywhere;
+}
+
+table {
+  overflow-wrap: break-word;
+}
+
+/* Respect "reduce motion": no spinners, pulses or transitions (state stays visible through text). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 h1,
@@ -188,6 +213,8 @@ a {
   --info-bg: rgb(255 255 255 / 0.12);
   --info-fg: #f6f1e7;
   --info-line: rgb(255 255 255 / 0.4);
+  --time-bg: rgb(255 255 255 / 0.14);
+  --time-fg: #f6f1e7;
   --focus: var(--feature-accent);
 }
 
