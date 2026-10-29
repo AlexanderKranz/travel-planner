@@ -15,7 +15,26 @@ const pill =
 
 /** Small uppercase category label ("GOLF", "ANREISE"); sport is the green accent of the mockup. */
 const kindCls = (kind: string) =>
-  `mr-2 align-baseline text-[0.6875rem] font-semibold uppercase tracking-[0.12em] ${kind === "sport" ? "text-sport" : "text-subtle"}`;
+  `text-[0.6875rem] font-semibold uppercase tracking-[0.12em] ${kind === "sport" ? "text-sport" : "text-subtle"}`;
+
+/** Navy-tinted time badge (stop windows and activity times), spec patch-safety [D9]. */
+const timePill = "inline-flex items-center whitespace-nowrap rounded-full bg-time-bg font-semibold tabular-nums text-time-fg";
+
+/**
+ * Time + category head and body of one row (activities and fixed items). Phones: line 1 = time pill + label,
+ * line 2 = body at full width. From `sm`: one grid row with fixed time and label columns, so pills align.
+ */
+function RowLayout({ time, label, children }: { time: string | null; label: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0 sm:grid sm:grid-cols-[6.5rem_6.5rem_minmax(0,1fr)] sm:items-baseline sm:gap-x-2">
+      <div className="flex items-center gap-2 sm:contents">
+        <span className={time ? "sm:pt-px" : "hidden sm:block"}>{time && <span className={`${timePill} px-2 py-px text-[0.8125rem]`}>{time}</span>}</span>
+        {label}
+      </div>
+      <div className="mt-0.5 min-w-0 break-words sm:mt-0">{children}</div>
+    </div>
+  );
+}
 
 function WindowBadge({ stop }: { stop: PlanStop }) {
   const t = useTranslations("plan");
@@ -31,9 +50,7 @@ function WindowBadge({ stop }: { stop: PlanStop }) {
           : null;
   return (
     <span className="flex flex-wrap items-center gap-1.5">
-      {label && (
-        <span className={`${pill} border-line-strong tabular-nums`}>{label}</span>
-      )}
+      {label && <span className={`${timePill} px-2.5 py-0.5 text-xs`}>{label}</span>}
       {stop.fixed && (
         <span
           className={`${pill} border-info-line bg-info-bg text-info-fg`}
@@ -93,10 +110,11 @@ function Activity({
   const alts = place ? (act.alts ?? []).flatMap((k) => (places[k] ? [{ key: k, place: places[k] }] : [])) : [];
   const time = act.at ? (act.until ? `${act.at}–${act.until}` : act.at) : null;
   const add = quickAdd && place && act.ref ? quickAdd(place, act.ref) : null;
-  const body = (
-      <div className="min-w-0 break-words">
-        {time && <span className="mr-2 whitespace-nowrap font-semibold tabular-nums text-heading">{time}</span>}
-        <span className={kindCls(act.kind)}>{t(`kinds.${act.kind}`)}</span>
+  const body = RowLayout({
+    time,
+    label: <span className={kindCls(act.kind)}>{t(`kinds.${act.kind}`)}</span>,
+    children: (
+      <>
         {place && (
           <>
             <PlaceLink place={place} strong />
@@ -131,8 +149,9 @@ function Activity({
             ))}
           </span>
         )}
-      </div>
-  );
+      </>
+    ),
+  });
   if (edit) {
     return (
       <EditableActRow ctx={edit.ctx} at={edit.at} name={place?.name ?? act.text} add={add}>
@@ -154,12 +173,12 @@ function FixedRow({ item }: { item: FixedItem }) {
   const t = useTranslations("plan");
   const ti = useTranslations("items");
   return (
-    <li className="min-w-0 break-words rounded-lg border border-l-4 border-ok-line bg-ok-bg/60 py-1.5 pl-3 pr-2" data-fixed-item={item.id}>
-      <span className="mr-2 font-semibold tabular-nums text-heading">{timeRange(item.from, item.to)}</span>
-      <span className={kindCls("fixed")}>{ti(`categories.${item.category}`)}</span>
-      <span className="mr-1.5 font-medium">{item.title}</span>
-      <span className="sr-only">({t("fixedItem")})</span>
-      <StatusBadge status={item.status} />
+    <li className="min-w-0 rounded-lg border border-l-4 border-ok-line bg-ok-bg/60 py-1.5 pl-3 pr-2" data-fixed-item={item.id}>
+      <RowLayout time={timeRange(item.from, item.to)} label={<span className={kindCls("fixed")}>{ti(`categories.${item.category}`)}</span>}>
+        <span className="mr-1.5 font-medium">{item.title}</span>
+        <span className="sr-only">({t("fixedItem")})</span>
+        <StatusBadge status={item.status} />
+      </RowLayout>
     </li>
   );
 }
@@ -247,6 +266,7 @@ export function DayCard({
                 {showHead && (
                   <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-heading">
                     <span className="min-w-0 break-words">{stop.place}</span>
+                    {windowKind(stop.from, stop.to) && <span aria-hidden="true" className="text-subtle">·</span>}
                     <WindowBadge stop={stop} />
                   </p>
                 )}

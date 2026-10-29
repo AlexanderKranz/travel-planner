@@ -1146,7 +1146,9 @@
       "km": "{km} km straight-line"
     },
     "dayShort": "DAY",
-    "daysUnit": "days"
+    "daysUnit": "days",
+    "windowFrom": "from {time}",
+    "windowUntil": "until {time}"
   },
   "admin": {
     "title": "Admin",

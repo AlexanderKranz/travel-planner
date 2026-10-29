@@ -1146,7 +1146,9 @@
       "km": "{km} km Luftlinie"
     },
     "dayShort": "TAG",
-    "daysUnit": "Tage"
+    "daysUnit": "Tage",
+    "windowFrom": "ab {time}",
+    "windowUntil": "bis {time}"
   },
   "admin": {
     "title": "Admin",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { Fragment, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { btnDanger, btnSecondary, focusCls } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
@@ -98,7 +98,7 @@ export function EditableActRow({
     <li className="group/act grid min-w-0 grid-cols-[minmax(0,1fr)_2.75rem] items-start gap-x-1 sm:grid-cols-[minmax(0,1fr)_5.5rem]">
       {children}
       <div className="-my-2.5 flex flex-col items-end sm:flex-row sm:justify-end">
-        {add}
+        <Fragment key="add">{add}</Fragment>
         <button
           type="button"
           onClick={() => setConfirming(true)}
