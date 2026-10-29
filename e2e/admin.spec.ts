@@ -5,6 +5,7 @@ test.describe("admin area", () => {
     const res = await page.goto("/de/app/admin");
     expect(res?.status()).toBe(404);
     await expect(page.getByRole("heading", { name: "Admin", exact: true })).toHaveCount(0);
+    await expect(page.locator("#admin-settings")).toHaveCount(0);
   });
 
   test("a signed-out visitor is sent to the login", async ({ anonContext }) => {
@@ -18,5 +19,7 @@ test.describe("admin area", () => {
     const res = await p.goto("/de/app/admin");
     expect(res?.status()).toBe(200);
     await expect(p.getByRole("heading", { level: 1, name: "Admin" })).toBeVisible();
+    // Admin-only sections: runtime settings and invites.
+    await expect(p.locator("#admin-settings").getByRole("heading", { name: "Einstellungen", exact: true })).toBeVisible();
   });
 });

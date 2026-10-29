@@ -83,7 +83,12 @@ export default async function globalSetup() {
   // Recorded plan (generated from the cruise reference trip); the real LLM is never called in E2E.
   const fixture = JSON.parse(
     fs.readFileSync(path.join(__dirname, "..", "src", "lib", "server", "__fixtures__", "plan-document-cruise.json"), "utf8"),
-  ) as { plan: unknown };
+  ) as { plan: { days: { stops: { acts: { ref?: string; alts?: string[] }[] }[] }[]; places: Record<string, unknown> } };
+  // The recorded plan has no alternatives; give the first place activity one (a second place that is already in the plan)
+  // so the "remove alternative" edit has something to act on.
+  const refs = Object.keys(fixture.plan.places);
+  const firstAct = fixture.plan.days.flatMap((d) => d.stops.flatMap((st) => st.acts)).find((a) => a.ref && refs.some((r) => r !== a.ref));
+  if (firstAct?.ref) firstAct.alts = [refs.find((r) => r !== firstAct.ref)!];
 
   const seed = {} as SeedFile;
   for (const proj of PROJECTS) {
