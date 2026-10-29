@@ -95,12 +95,15 @@ export function PlanIterate({
           feedback: { chips, days, ...(text.trim() ? { text: text.trim() } : {}) },
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; reply?: string; unchanged?: boolean };
+      const json = (await res.json().catch(() => ({}))) as { error?: string; reply?: string; unchanged?: boolean; rejectedDays?: number[] };
       if (!res.ok) {
         setError(asPlanError(json.error));
         return;
       }
-      setReply(json.unchanged ? t("noChange") : (json.reply ?? t("done")));
+      const rejected = Array.isArray(json.rejectedDays) ? json.rejectedDays.filter((n) => Number.isInteger(n)) : [];
+      const rejectedText = rejected.length ? t("shrinkRejected", { count: rejected.length, days: rejected.join(", ") }) : null;
+      const main = rejected.length && json.unchanged ? null : json.unchanged ? t("noChange") : (json.reply ?? t("done"));
+      setReply([main, rejectedText].filter(Boolean).join(" "));
       setChips([]);
       setDays([]);
       setText("");

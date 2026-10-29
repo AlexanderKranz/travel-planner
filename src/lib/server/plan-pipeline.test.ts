@@ -64,8 +64,8 @@ vi.mock("./plan-store", () => ({
 }));
 vi.mock("@/lib/plan/hash", () => ({ canonicalJson: JSON.stringify, planInputHash: () => "hash-new", purposeTagsHash: () => "th" }));
 vi.mock("@/lib/plan/input", () => ({ buildPlanInput: h.build, selectPlaces: () => ({ picks: h.picks, noSource: [] }) }));
-vi.mock("@/lib/plan/assemble", () => ({ assemblePlan: h.assemble }));
-vi.mock("@/lib/plan/patch", () => ({ applyPatch: vi.fn() }));
+vi.mock("@/lib/plan/assemble", async (orig) => ({ ...(await orig<typeof import("@/lib/plan/assemble")>()), assemblePlan: h.assemble }));
+vi.mock("@/lib/plan/patch", async (orig) => ({ ...(await orig<typeof import("@/lib/plan/patch")>()), applyPatch: vi.fn() }));
 vi.mock("@/lib/plan/edit", () => ({ applyEdit: vi.fn() }));
 vi.mock("@/lib/domain/plan", async (orig) => {
   const m = await orig<typeof import("@/lib/domain/plan")>();
@@ -256,6 +256,22 @@ describe("iteratePlan", () => {
     const fixed = [{ day: 1, from: "07:50", to: "10:40", cat: "flight" }];
     expect(h.patch.mock.calls[0][0]).toMatchObject({ fixed });
     expect(vi.mocked(applyPatch).mock.calls[0][0]).toMatchObject({ fixed });
+  });
+  it("shrink guard: a stub day is not saved, the rejection is logged and returned (patch-safety [D3])", async () => {
+    const acts = (k: number) => Array.from({ length: k }, (_, i) => ({ kind: "do", text: `a${i}` }));
+    const day = (n: number, k: number) => ({ n, date: null, title: `T${n}`, stops: [{ place: "X", acts: acts(k) }], note: "Tipp" });
+    const basePlan = { ...Plan, days: [day(1, 6), day(2, 3), day(3, 3)], places: {} };
+    h.latest = { ...stored("hash-old", 1), plan: basePlan };
+    h.patch.mockResolvedValue({ ok: true, data: { reply: "Tag 1 angepasst", days: [] }, usage: {} });
+    const next = { ...basePlan, days: [{ ...day(1, 2), note: undefined }, basePlan.days[1], basePlan.days[2]] };
+    vi.mocked(applyPatch).mockReturnValue({ ok: true, plan: next, changedDays: [1], issues: {} } as never);
+    const r = await iteratePlan(TRIP, 1, { chips: [], days: [], text: "Amagertorv streichen" }, "de");
+    expect(r).toMatchObject({ ok: true, data: { unchanged: true, rejectedDays: [1] } });
+    expect(r.ok && r.data.reply).toBeFalsy();
+    expect(h.insert).not.toHaveBeenCalled();
+    expect(h.logEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "plan.patch_shrink_rejected", props: expect.objectContaining({ days: "1", actsBefore: 6, actsAfter: 2 }) }),
+    );
   });
   it("conflict on a stale base version", async () => {
     h.planRow = { id: "plan1", latestVersion: 4, busyUntil: null };
