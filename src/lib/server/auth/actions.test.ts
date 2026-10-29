@@ -7,8 +7,9 @@ const verifyOtp = vi.fn();
 const redirect = vi.fn((url: string) => {
   throw new Error(`REDIRECT:${url}`);
 });
+const hdr = vi.hoisted(() => ({ extra: {} as Record<string, string> }));
 vi.mock("next/headers", () => ({
-  headers: async () => new Headers({ host: "evil.example", "x-forwarded-host": "evil.example" }),
+  headers: async () => new Headers({ host: "evil.example", "x-forwarded-host": "evil.example", ...hdr.extra }),
 }));
 const signInWithPassword = vi.fn();
 vi.mock("next/navigation", () => ({ redirect: (u: string) => redirect(u) }));
@@ -17,9 +18,12 @@ vi.mock("@/lib/server/supabase/server", () => ({
   createSupabaseServerClient: async () => ({ auth: { signInWithOtp, verifyOtp, signInWithPassword, signOut: vi.fn() } }),
 }));
 
+import { resetRateLimits } from "@/lib/server/rate-limit";
 import { requestLogin, signInDemo, signOut, verifyLoginCode } from "./actions";
 
 beforeEach(() => {
+  resetRateLimits();
+  hdr.extra = {};
   vi.stubEnv("APP_URL", "https://travel.example");
   signInWithPassword.mockReset();
   logEvent.mockClear();
@@ -142,5 +146,43 @@ describe("signInDemo", () => {
     expect(await signInDemo("de")).toEqual({ ok: false, error: "failed" });
     expect(redirect).not.toHaveBeenCalled();
     expect(JSON.stringify(logEvent.mock.calls)).not.toContain("s3cret");
+  });
+});
+
+describe("rate limits on the unauthenticated actions", () => {
+  it("requestLogin: 3 mails per address per 10 minutes, then rate_limited without calling Supabase", async () => {
+    signInWithOtp.mockResolvedValue({ error: null });
+    for (let i = 0; i < 3; i++) expect(await requestLogin({ email: "a@b.de", locale: "de" })).toEqual({ ok: true });
+    expect(await requestLogin({ email: "A@b.de", locale: "de" })).toEqual({ ok: false, error: "rate_limited" });
+    expect(signInWithOtp).toHaveBeenCalledTimes(3);
+    expect(await requestLogin({ email: "other@b.de", locale: "de" })).toEqual({ ok: true });
+  });
+  it("requestLogin: 10 requests per IP per 10 minutes, whatever the address", async () => {
+    hdr.extra = { "x-forwarded-for": "203.0.113.9" };
+    signInWithOtp.mockResolvedValue({ error: null });
+    for (let i = 0; i < 10; i++) expect((await requestLogin({ email: `u${i}@b.de`, locale: "de" })).ok).toBe(true);
+    expect(await requestLogin({ email: "u11@b.de", locale: "de" })).toEqual({ ok: false, error: "rate_limited" });
+  });
+  it("the limit does not depend on whether the address is invited (neutral answer stays neutral)", async () => {
+    signInWithOtp.mockResolvedValue({ error: { status: 403, message: "signup_not_allowed" } });
+    const results = [];
+    for (let i = 0; i < 4; i++) results.push(await requestLogin({ email: "x@y.de", locale: "de" }));
+    expect(results.map((r) => r.ok)).toEqual([true, true, true, false]);
+  });
+  it("verifyLoginCode: 10 guesses per address per 10 minutes", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: null }, error: { status: 403 } });
+    for (let i = 0; i < 10; i++) expect(await verifyLoginCode({ email: "a@b.de", code: "123456", locale: "de" })).toEqual({ ok: false, error: "invalid" });
+    expect(await verifyLoginCode({ email: "a@b.de", code: "123456", locale: "de" })).toEqual({ ok: false, error: "rate_limited" });
+    expect(verifyOtp).toHaveBeenCalledTimes(10);
+  });
+  it("signInDemo: 20 per IP per 10 minutes", async () => {
+    vi.stubEnv("DEMO_ENABLED", "true");
+    vi.stubEnv("DEMO_EMAIL", "demo@example.com");
+    vi.stubEnv("DEMO_PASSWORD", "pw");
+    hdr.extra = { "x-forwarded-for": "203.0.113.10" };
+    signInWithPassword.mockResolvedValue({ data: { user: null }, error: { status: 400 } });
+    for (let i = 0; i < 20; i++) await signInDemo("de");
+    expect(await signInDemo("de")).toEqual({ ok: false, error: "rate_limited" });
+    expect(signInWithPassword).toHaveBeenCalledTimes(20);
   });
 });

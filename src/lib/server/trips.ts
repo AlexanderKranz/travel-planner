@@ -15,6 +15,7 @@ import { isKnownIata } from "@/lib/integrations/airports";
 import { getPlaceById } from "@/lib/integrations/open-meteo-geocoding";
 import { logEvent } from "./events";
 import { ensureGroupParse } from "./group-text";
+import { externalWriteAllowed } from "./rate-limit";
 import { getUserSession } from "./session";
 import { scheduleTripWarm } from "./warm";
 import {
@@ -135,6 +136,7 @@ export async function createTrip(input: TripInput): Promise<ActionResult<Trip>> 
   if (!session) return fail("unauthenticated");
   const v = await validate(input);
   if (!v.ok) return v.result;
+  if (!externalWriteAllowed(session.userId)) return fail("rate_limited");
 
   // Business rule (D8): at most MAX_TRIPS_PER_USER trips per user.
   const { count, error: countError } = await session.supabase
@@ -167,6 +169,7 @@ export async function updateTrip(id: string, input: TripInput): Promise<ActionRe
   if (!Id.safeParse(id).success) return fail("invalid");
   const v = await validate(input);
   if (!v.ok) return v.result;
+  if (!externalWriteAllowed(session.userId)) return fail("rate_limited");
 
   const { data: before, error: readError } = await session.supabase
     .from("trips")

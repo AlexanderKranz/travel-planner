@@ -43,6 +43,7 @@ vi.mock("./purposes", () => ({ getPurpose: async () => ({ ok: false, error: "not
 vi.mock("next/server", () => ({ after: (fn: () => Promise<void>) => h.afterFns.push(fn) }));
 vi.mock("@/lib/integrations/open-meteo-geocoding", () => ({ getPlaceById: h.getPlaceById }));
 
+import { resetRateLimits } from "./rate-limit";
 import { createTrip, deleteTrip, getTrip, listTrips, updateTrip } from "./trips";
 
 const place = {
@@ -60,6 +61,7 @@ const row = {
 const input = { destination: { kind: "city" as const, geoId: 2513918 }, lengthDays: 5 };
 
 beforeEach(() => {
+  resetRateLimits();
   h.results = { "profiles.select": { data: { locale: "en" } } };
   h.ops = [];
   h.session = true;
@@ -78,6 +80,15 @@ describe("createTrip", () => {
   it("rejects invalid input and unknown airports without touching the DB", async () => {
     expect(await createTrip({ ...input, lengthDays: 61 })).toMatchObject({ ok: false, error: "invalid" });
     expect(await createTrip({ ...input, originAirports: ["ZZZ"] })).toEqual({ ok: false, error: "unknown_airport" });
+    expect(h.ops).toHaveLength(0);
+  });
+
+  it("rate limits writes per user (30 per minute) before any DB access", async () => {
+    h.results["trips.select"] = { count: 30 };
+    for (let i = 0; i < 30; i++) await createTrip(input);
+    h.ops = [];
+    expect(await createTrip(input)).toEqual({ ok: false, error: "rate_limited" });
+    expect(await updateTrip(row.id, input)).toEqual({ ok: false, error: "rate_limited" });
     expect(h.ops).toHaveLength(0);
   });
 

@@ -34,3 +34,11 @@ export function rateLimit(
 export function resetRateLimits(): void {
   buckets.clear();
 }
+
+/**
+ * Shared per-user limit for writes that trigger background work against external APIs or the LLM
+ * (trip create/update warm facts, purpose create/update tag). 30 per minute is far above human use.
+ */
+export function externalWriteAllowed(userId: string): boolean {
+  return rateLimit(`ext-write:${userId}`, 30, 60_000).ok;
+}
