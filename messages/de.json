@@ -1355,8 +1355,7 @@
     "actions": "Aktionen",
     "reference": "Referenz",
     "notFoundTitle": "Seite nicht gefunden",
-    "notFoundText": "Diese Seite gibt es nicht oder du hast keinen Zugriff darauf.",
-    "loading": "Wird geladen …"
+    "notFoundText": "Diese Seite gibt es nicht oder du hast keinen Zugriff darauf."
   },
   "start": {
     "eyebrow": "Willkommen",
@@ -1383,7 +1382,7 @@
       "birthdateWhy": "Mit deinem Geburtsdatum rechnen wir „in meinem Alter“ aus und kennen dein Alter am Reisetag.",
       "done": "Gespeichert. Du kannst das jederzeit in den Einstellungen ändern.",
       "settings": "Alle Einstellungen öffnen",
-    "edit": "Angaben ändern",
+      "edit": "Angaben ändern",
       "save": "Speichern"
     },
     "group": {

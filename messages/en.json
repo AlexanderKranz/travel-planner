@@ -1355,8 +1355,7 @@
     "actions": "Actions",
     "reference": "Reference",
     "notFoundTitle": "Page not found",
-    "notFoundText": "This page does not exist or you do not have access to it.",
-    "loading": "Loading …"
+    "notFoundText": "This page does not exist or you do not have access to it."
   },
   "start": {
     "eyebrow": "Welcome",
@@ -1383,7 +1382,7 @@
       "birthdateWhy": "With your birthdate we work out “my age” and know your age on the travel date.",
       "done": "Saved. You can change this any time in Settings.",
       "settings": "Open all settings",
-    "edit": "Change details",
+      "edit": "Change details",
       "save": "Save"
     },
     "group": {

@@ -312,3 +312,24 @@ The switches and limits that used to need a Vercel env var change and a redeploy
 - **Timing:** a save takes effect at once on the instance that handled it; other instances re-read within 30 seconds. After the first deploy of this feature the switches start from the env values.
 - **If the settings table cannot be read** the app uses the environment variables and defaults (finite budgets, never unlimited) and tries again after a few seconds. The migration `20261102120026_app_settings.sql` must be applied (merge to `main`, **Deploy database migrations** green) before values can be saved; until then the page shows the env values and saving fails with a friendly error.
 - **Audit:** every change writes an `app_events` row `settings.changed` (key, old value, new value, no user shown on the page). The last 20 are listed under the settings.
+
+## 13. E2E tests (Playwright)
+
+Browser tests for the main flows on a 360 px phone (`mobile`) and a 1280 px desktop (`desktop`). They run in CI (job `e2e` in `.github/workflows/ci.yml`) against a throwaway local Supabase and the production build. No secrets, no external API calls, no AI calls. Design and decisions: `docs/specs/phase-6-e2e.md`.
+
+**Run locally (needs Docker; Alex's Mac has none, so CI is the normal place):**
+
+```bash
+supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor
+set -a; eval "$(scripts/e2e/env.sh)"; set +a      # local URL + demo keys only
+npx playwright install chromium                    # once
+npm run build                                      # NEXT_PUBLIC_* values are baked in at build time
+npm run e2e                                        # starts `next start` with the provider stub itself
+supabase stop --no-backup
+```
+
+Handy: `npx playwright test e2e/share.spec.ts --project=mobile`, `--ui`, `PW_CHANNEL=chrome` (use an installed Chrome). The setup refuses to run unless `NEXT_PUBLIC_SUPABASE_URL` is `127.0.0.1` or `localhost`, so it can never touch the hosted project. Do not export values from `.env.local` into the shell before running it.
+
+**When a CI run fails:** open the run in GitHub -> **e2e** job. Failures show as annotations and in the log. Download the artifact `playwright-report` (HTML report, screenshots and traces) and open a trace with `npx playwright show-trace trace.zip`. A failure of `a11y.spec.ts` lists the axe rule and the element.
+
+**Adding a flow:** add `e2e/<name>.spec.ts`, import `test`/`expect` from `./lib/fixtures` (gives `seed`, `anonContext`, `contextAs`). Anything that needs an external fact must be in the stub (`e2e/stub-fetch.cjs`) or must be shown as "unavailable" in the test.
