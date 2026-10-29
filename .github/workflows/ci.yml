@@ -47,3 +47,55 @@ jobs:
       - name: Stop
         if: always()
         run: supabase stop --no-backup || true
+
+  # Playwright E2E (mobile 360 px + desktop 1280 px) against a local Supabase and the production build.
+  # External providers are stubbed inside the server process (e2e/stub-fetch.cjs) and AI_ENABLED=false:
+  # no secrets and no external calls. See docs/runbook.md "E2E tests" and docs/specs/phase-6-e2e.md.
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v3
+        with:
+          version: 2.122.0
+      - name: Start local Supabase (db, auth, rest, kong only)
+        run: supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor
+      - name: Export local Supabase URL and demo keys
+        run: scripts/e2e/env.sh >> "$GITHUB_ENV"
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Chromium
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install system libraries only (browsers restored from cache)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - run: npm run build
+      - run: npm run e2e
+      - name: Upload Playwright report and traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      - name: Show Supabase status on failure
+        if: failure()
+        run: |
+          supabase status || true
+          docker logs supabase_auth_travel-planner 2>&1 | tail -n 50 || true
+      - name: Stop
+        if: always()
+        run: supabase stop --no-backup || true

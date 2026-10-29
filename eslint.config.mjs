@@ -20,6 +20,11 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    // Playwright fixtures take a callback named `use` (not a React hook); the stub preload is plain CommonJS.
+    files: ["e2e/**"],
+    rules: { "react-hooks/rules-of-hooks": "off", "@typescript-eslint/no-require-imports": "off" },
+  },
 ];
 
 export default eslintConfig;
