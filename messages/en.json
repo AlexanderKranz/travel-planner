@@ -21,7 +21,8 @@
     "demoBanner": "Demo mode – data is visible to all demo visitors and is reset regularly.",
     "demoLabel": "Demo notice",
     "trips": "Trips",
-    "admin": "Admin"
+    "admin": "Admin",
+    "skip": "Skip to content"
   },
   "errors": {
     "unauthenticated": "You are not signed in.",
@@ -1285,5 +1286,17 @@
         "failed": "That did not work. Please try again later."
       }
     }
+  },
+  "errorPage": {
+    "title": "Something went wrong here",
+    "text": "The page could not be loaded. Your data is safe. Please try again; if it keeps happening, try again later.",
+    "retry": "Try again",
+    "toApp": "Back to overview",
+    "toHome": "Back to start page",
+    "actions": "Actions",
+    "reference": "Reference",
+    "notFoundTitle": "Page not found",
+    "notFoundText": "This page does not exist or you do not have access to it.",
+    "loading": "Loading …"
   }
 }

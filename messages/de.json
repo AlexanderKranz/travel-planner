@@ -21,7 +21,8 @@
     "demoBanner": "Demo-Modus – Daten sind für alle Demo-Besucher sichtbar und werden regelmäßig zurückgesetzt.",
     "demoLabel": "Demo-Hinweis",
     "trips": "Reisen",
-    "admin": "Admin"
+    "admin": "Admin",
+    "skip": "Zum Inhalt springen"
   },
   "errors": {
     "unauthenticated": "Du bist nicht angemeldet.",
@@ -1285,5 +1286,17 @@
         "failed": "Das hat nicht geklappt. Bitte versuche es später noch einmal."
       }
     }
+  },
+  "errorPage": {
+    "title": "Hier ist etwas schiefgelaufen",
+    "text": "Die Seite konnte nicht geladen werden. Deine Daten sind sicher. Bitte versuche es noch einmal; wenn es bleibt, versuche es später wieder.",
+    "retry": "Erneut versuchen",
+    "toApp": "Zur Übersicht",
+    "toHome": "Zur Startseite",
+    "actions": "Aktionen",
+    "reference": "Referenz",
+    "notFoundTitle": "Seite nicht gefunden",
+    "notFoundText": "Diese Seite gibt es nicht oder du hast keinen Zugriff darauf.",
+    "loading": "Wird geladen …"
   }
 }

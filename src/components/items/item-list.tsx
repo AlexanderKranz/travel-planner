@@ -35,7 +35,7 @@ export function ItemList<T extends SharedItem>({
           : t("noDay");
         return (
           <section key={g.day ?? "none"} aria-label={heading} className="flex flex-col gap-2">
-            <h4 className={`text-sm font-semibold ${mutedCls}`}>{heading}</h4>
+            <h3 className={`text-sm font-semibold ${mutedCls}`}>{heading}</h3>
             <ul className="flex flex-col gap-2">{g.items.map(row)}</ul>
           </section>
         );

@@ -45,10 +45,10 @@ function DayBlock({
     : null;
   return (
     <div className="rounded-md border border-dashed border-line-strong p-2">
-      <h6 className="text-sm font-semibold">
+      <h4 className="text-sm font-semibold">
         {label}
         <span className={`ml-2 text-xs font-normal ${mutedCls}`}>{t(data.basis === "trip_dates" ? (day.offset === -1 ? "dayBefore" : "dayAfter") : day.offset === -1 ? "dayBeforeSample" : "dayAfterSample")}</span>
-      </h6>
+      </h4>
       {mode === "proxy" && hasLegs && <p className={`text-xs ${mutedCls}`}>{t("proxy")}</p>}
       {!day.checked ? (
         <p className="text-sm">{t("notChecked")}</p>
