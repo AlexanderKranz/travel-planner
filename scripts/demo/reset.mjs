@@ -180,7 +180,8 @@ const purposeIds = {};
   log("2 example purposes inserted");
 }
 
-// 5. Example trips. Months only (no real dates): they always point at the next December / March.
+// 5. Example trips. The cruise uses a month only (no real date: it always points at the next December); the finished
+// golf example uses the dates of the recorded plan (see ./seed.ts).
 // Destination values are hard-coded from Open-Meteo geocoding (GeoNames ids, language=de) so the
 // script needs no API call. Keep them in sync with docs/specs/phase-2-trips-facts.md section 8.
 const PASSAU = {
