@@ -1,10 +1,13 @@
 import { NextIntlClientProvider } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import de from "../../../messages/de.json";
 import en from "../../../messages/en.json";
 import type { Plan, PlanDay } from "@/lib/domain/plan";
 import { DayCard } from "./day-card";
+
+vi.mock("@/i18n/navigation", () => ({ useRouter: () => ({ refresh: () => {} }) }));
+vi.mock("@/lib/server/plans", () => ({ editPlan: vi.fn() }));
 
 const place = (name: string, extra: Partial<Plan["places"][string]> = {}): Plan["places"][string] => ({
   name, category: "leisure=golf_course", lat: 36.5, lon: -4.9, distanceKm: 8.2, osmUrl: "https://www.openstreetmap.org/way/1",
@@ -99,5 +102,52 @@ describe("DayCard drive times and quick add", () => {
   it("the quick add sits in its own grid column, not inside the text", () => {
     expect(html).toContain('class="group/act grid min-w-0 grid-cols-[minmax(0,1fr)_2.75rem]');
     expect(html).toMatch(/<\/div><div class="-my-2\.5 flex justify-end"><button type="button">add Real Club/);
+  });
+});
+
+describe("DayCard activity edits (patch-safety [D7])", () => {
+  const html = (locale: "de" | "en", messages: object) =>
+    renderToStaticMarkup(
+      <NextIntlClientProvider locale={locale} messages={messages} timeZone="Europe/Berlin">
+        <DayCard day={day} places={places} edit={{ tripId: "t1", baseVersion: 4 }} />
+      </NextIntlClientProvider>,
+    );
+
+  it("offers remove and promote for each alternative and remove for each activity", () => {
+    const out = html("de", de);
+    expect(out).toContain('aria-label="Alternative Los Naranjos Golf Club entfernen"');
+    expect(out).toContain('aria-label="Alternative Aloha entfernen"');
+    expect(out).toContain('aria-label="Los Naranjos Golf Club als Hauptort setzen"');
+    expect(out).toContain('aria-label="Aktivität entfernen: Real Club de Golf Las Brisas"');
+    expect(out).toContain('aria-label="Aktivität entfernen: Mittagessen"');
+    expect(html("en", en)).toContain('aria-label="Remove alternative Aloha"');
+  });
+
+  it("shows no edit controls without an edit context (old versions, shared plans)", () => {
+    const out = render("de", de);
+    expect(out).not.toContain("entfernen");
+    expect(out).not.toContain("Hauptort");
+  });
+});
+
+describe("DayCard best day (patch-safety [D8])", () => {
+  it("shows the badge and the dark card only when the user set it", () => {
+    const ai = render("de", de, { ...day, best: true });
+    expect(ai).not.toContain("Bester Tag");
+    expect(ai).not.toContain("bg-feature");
+    const user = render("de", de, { ...day, best: true, bestBy: "user" });
+    expect(user).toContain("Bester Tag");
+    expect(user).toContain("bg-feature");
+  });
+
+  it("offers the toggle on the owner's latest version", () => {
+    const html = (d: typeof day) =>
+      renderToStaticMarkup(
+        <NextIntlClientProvider locale="de" messages={de} timeZone="Europe/Berlin">
+          <DayCard day={d} places={places} edit={{ tripId: "t1", baseVersion: 4 }} />
+        </NextIntlClientProvider>,
+      );
+    expect(html(day)).toContain('aria-label="Tag 1 als besten Tag markieren"');
+    expect(html({ ...day, best: true, bestBy: "user" })).toContain("Markierung „Bester Tag“ von Tag 1 entfernen");
   });
 });

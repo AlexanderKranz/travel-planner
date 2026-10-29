@@ -9,6 +9,8 @@ export const C = {
   line: "#ddd2bf",
   navy: "#1f3a5f",
   navyMuted: "#cfd8e3",
+  timeBg: "#e6edf5", // time pills (app --time-bg)
+  timeBgBest: "#2c4d78",
   accent: "#a84c24",
   accentLight: "#f2a679",
   accentSoft: "#f3dccd",

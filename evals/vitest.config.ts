@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
-    include: ["evals/live.eval.ts", "evals/group-text.eval.ts"],
+    include: ["evals/live.eval.ts", "evals/group-text.eval.ts", "evals/patch-shrink.eval.ts"],
     testTimeout: 600_000,
     fileParallelism: false,
     silent: false,

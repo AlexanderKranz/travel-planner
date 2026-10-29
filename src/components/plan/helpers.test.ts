@@ -67,6 +67,8 @@ describe("plan helpers", () => {
   it("summarizes feedback of patches and edits", () => {
     expect(summarizeFeedback({ feedback: null })).toEqual({ type: "none" });
     expect(summarizeFeedback({ feedback: { kind: "swap_days", a: 1, b: 3 } })).toEqual({ type: "swap_days", a: 1, b: 3 });
+    expect(summarizeFeedback({ feedback: { kind: "remove_alt", n: 1, s: 0, a: 2, alt: "way/1" } })).toEqual({ type: "act_edit", edit: "remove_alt", n: 1 });
+    expect(summarizeFeedback({ feedback: { kind: "remove_act", n: 2, s: 0, a: 0 } })).toEqual({ type: "act_edit", edit: "remove_act", n: 2 });
     expect(summarizeFeedback({ feedback: { kind: "set_best", n: null } })).toEqual({ type: "set_best", n: null });
     expect(summarizeFeedback({ feedback: { chips: ["more_rest"], days: [2] } })).toEqual({
       type: "chips",

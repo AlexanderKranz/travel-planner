@@ -40,7 +40,7 @@ export function proseOf(plan: Plan): string[] {
 const golfRefs = (plan: Plan, d: PlanDay) =>
   d.stops.flatMap((s) => s.acts.filter((a) => a.kind === "sport" && a.ref && plan.places[a.ref]?.category === GOLF_CAT));
 
-/** Checks for every fixture: structure, refs, invented facts, best day. */
+/** Checks for every fixture: structure, refs, invented facts, no model best day. */
 export function genericChecks(a: {
   plan: Plan;
   stored: PlanInputStored;
@@ -77,7 +77,8 @@ export function genericChecks(a: {
   if (a.flightsRecorded !== undefined) {
     r.push(check("plan.flights iff flights wanted", (plan.flights !== undefined) === a.flightsRecorded, `flights ${plan.flights ? "present" : "absent"}`));
   }
-  r.push(check("at most one best day", plan.days.filter((d) => d.best).length <= 1));
+  // The best day is set by the user only (patch-safety [D8]); the model output never carries one.
+  r.push(check("no best day from the model", plan.days.every((d) => !d.best)));
   return r;
 }
 

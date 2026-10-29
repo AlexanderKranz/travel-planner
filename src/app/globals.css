@@ -54,6 +54,8 @@
   --ok: #2f6b4f;
   --ok-solid: #2f6b4f;
   --sport: #2f6b4f;
+  --time-bg: #e6edf5; /* time pills in day cards: 9.6:1 with --time-fg */
+  --time-fg: #1f3a5f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -98,6 +100,8 @@
     --ok: #8fd0ad;
     --ok-solid: #2f6b4f;
     --sport: #a8d5bd;
+    --time-bg: #243b5c;
+    --time-fg: #dbe4f0;
   }
 }
 
@@ -146,6 +150,8 @@
   --color-ok: var(--ok);
   --color-ok-solid: var(--ok-solid);
   --color-sport: var(--sport);
+  --color-time-bg: var(--time-bg);
+  --color-time-fg: var(--time-fg);
 
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-serif: var(--font-fraunces), Georgia, serif;
@@ -207,6 +213,8 @@ a {
   --info-bg: rgb(255 255 255 / 0.12);
   --info-fg: #f6f1e7;
   --info-line: rgb(255 255 255 / 0.4);
+  --time-bg: rgb(255 255 255 / 0.14);
+  --time-fg: #f6f1e7;
   --focus: var(--feature-accent);
 }
 

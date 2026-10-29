@@ -1,0 +1,314 @@
+{
+  "promptVersion": "plan-5",
+  "model": "claude-sonnet-5-5",
+  "variants": {
+    "a": {
+      "feedback": {
+        "chips": [],
+        "days": [],
+        "text": "für tag 1. wir machen Rathausplatz und rådhus, aber machen nicht Verdensur. auch Amagertorv streichen."
+      },
+      "output": {
+        "reply": "Tag 1 angepasst: Jens Olsens Verdensur und Amagertorv sind aus den Alternativen gestrichen, Rathausplatz und Rathaus bleiben.",
+        "days": [
+          {
+            "n": 1,
+            "title": "Ankunft & Altstadt-Spaziergang",
+            "stops": [
+              {
+                "place": "Kopenhagen",
+                "acts": [
+                  {
+                    "kind": "travel",
+                    "text": "Ankunft und Transfer ins Hotel, Gepäck abgeben"
+                  },
+                  {
+                    "at": "13:00",
+                    "until": "14:00",
+                    "kind": "food",
+                    "text": "Einfaches Mittagessen in der Markthalle mit lokalen Spezialitäten",
+                    "ref": "p1"
+                  },
+                  {
+                    "at": "14:15",
+                    "until": "15:30",
+                    "kind": "see",
+                    "text": "Rathausplatz und Rathaus ansehen, Taubenfüttern und Platz zum Laufen",
+                    "ref": "p2",
+                    "alts": [
+                      "p3"
+                    ]
+                  },
+                  {
+                    "at": "15:30",
+                    "until": "16:30",
+                    "kind": "rest",
+                    "text": "Mittagsschlaf bzw. Ruhepause für Conrad im Hotel"
+                  },
+                  {
+                    "at": "16:45",
+                    "until": "18:00",
+                    "kind": "see",
+                    "text": "Bummel über die Fußgängerzone, Eis und Straßenmusik",
+                    "ref": "p5"
+                  },
+                  {
+                    "at": "18:30",
+                    "until": "20:00",
+                    "kind": "food",
+                    "text": "Gutes, einfaches dänisches Abendessen, z. B. Smørrebrød, in der Nähe"
+                  }
+                ]
+              }
+            ],
+            "note": "Früher Flug empfiehlt sich nicht; mit Kleinkind lieber entspannt anreisen und den ersten Tag kurz halten."
+          }
+        ]
+      },
+      "usage": {
+        "task": "plan_patch",
+        "model": "claude-sonnet-5-5",
+        "status": "ok",
+        "inputTokens": 1569,
+        "outputTokens": 551,
+        "cacheCreationInputTokens": 1604,
+        "cacheReadInputTokens": 3592,
+        "costMicroUsd": 13376,
+        "latencyMs": 4014
+      },
+      "recordedAt": "2026-10-29T06:26:01.531Z"
+    },
+    "b": {
+      "feedback": {
+        "chips": [],
+        "days": [
+          1
+        ],
+        "text": "für tag 1. wir machen Rathausplatz und rådhus, aber machen nicht Verdensur. auch Amagertorv streichen."
+      },
+      "output": {
+        "reply": "Tag 1: Jens Olsens Verdensur und Amagertorv sind als Alternativen entfernt, Rathausplatz und Rathaus bleiben.",
+        "days": [
+          {
+            "n": 1,
+            "title": "Ankunft & Altstadt-Spaziergang",
+            "stops": [
+              {
+                "place": "Kopenhagen",
+                "acts": [
+                  {
+                    "kind": "travel",
+                    "text": "Ankunft und Transfer ins Hotel, Gepäck abgeben"
+                  },
+                  {
+                    "at": "13:00",
+                    "until": "14:00",
+                    "kind": "food",
+                    "text": "Einfaches Mittagessen in der Markthalle mit lokalen Spezialitäten",
+                    "ref": "p1"
+                  },
+                  {
+                    "at": "14:15",
+                    "until": "15:30",
+                    "kind": "see",
+                    "text": "Rathausplatz und Rathaus ansehen, Taubenfüttern und Platz zum Laufen",
+                    "ref": "p2",
+                    "alts": [
+                      "p3"
+                    ]
+                  },
+                  {
+                    "at": "15:30",
+                    "until": "16:30",
+                    "kind": "rest",
+                    "text": "Mittagsschlaf bzw. Ruhepause für Conrad im Hotel"
+                  },
+                  {
+                    "at": "16:45",
+                    "until": "18:00",
+                    "kind": "see",
+                    "text": "Bummel über die Fußgängerzone, Eis und Straßenmusik",
+                    "ref": "p5"
+                  },
+                  {
+                    "at": "18:30",
+                    "until": "20:00",
+                    "kind": "food",
+                    "text": "Gutes, einfaches dänisches Abendessen, z. B. Smørrebrød, in der Nähe"
+                  }
+                ]
+              }
+            ],
+            "note": "Früher Flug empfiehlt sich nicht; mit Kleinkind lieber entspannt anreisen und den ersten Tag kurz halten."
+          }
+        ]
+      },
+      "usage": {
+        "task": "plan_patch",
+        "model": "claude-sonnet-5-5",
+        "status": "ok",
+        "inputTokens": 823,
+        "outputTokens": 543,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 5196,
+        "costMicroUsd": 8115,
+        "latencyMs": 5772
+      },
+      "recordedAt": "2026-10-29T06:26:07.305Z"
+    },
+    "c": {
+      "feedback": {
+        "chips": [],
+        "days": [],
+        "text": "für tag 1. wir machen Rathausplatz und rådhus, aber machen nicht Jens Olsens Verdensur. auch Amagertorv streichen."
+      },
+      "output": {
+        "reply": "Tag 1 angepasst: Jens Olsens Verdensur und Amagertorv sind aus den Alternativen entfernt, Rathausplatz und Rathaus bleiben.",
+        "days": [
+          {
+            "n": 1,
+            "title": "Ankunft & Altstadt-Spaziergang",
+            "stops": [
+              {
+                "place": "Kopenhagen",
+                "acts": [
+                  {
+                    "kind": "travel",
+                    "text": "Ankunft und Transfer ins Hotel, Gepäck abgeben"
+                  },
+                  {
+                    "at": "13:00",
+                    "until": "14:00",
+                    "kind": "food",
+                    "text": "Einfaches Mittagessen in der Markthalle mit lokalen Spezialitäten",
+                    "ref": "p1"
+                  },
+                  {
+                    "at": "14:15",
+                    "until": "15:30",
+                    "kind": "see",
+                    "text": "Rathausplatz und Rathaus ansehen, Taubenfüttern und Platz zum Laufen",
+                    "ref": "p2",
+                    "alts": [
+                      "p3"
+                    ]
+                  },
+                  {
+                    "at": "15:30",
+                    "until": "16:30",
+                    "kind": "rest",
+                    "text": "Mittagsschlaf bzw. Ruhepause für Conrad im Hotel"
+                  },
+                  {
+                    "at": "16:45",
+                    "until": "18:00",
+                    "kind": "see",
+                    "text": "Bummel über die Fußgängerzone, Eis und Straßenmusik",
+                    "ref": "p5"
+                  },
+                  {
+                    "at": "18:30",
+                    "until": "20:00",
+                    "kind": "food",
+                    "text": "Gutes, einfaches dänisches Abendessen, z. B. Smørrebrød, in der Nähe"
+                  }
+                ]
+              }
+            ],
+            "note": "Früher Flug empfiehlt sich nicht; mit Kleinkind lieber entspannt anreisen und den ersten Tag kurz halten."
+          }
+        ]
+      },
+      "usage": {
+        "task": "plan_patch",
+        "model": "claude-sonnet-5-5",
+        "status": "ok",
+        "inputTokens": 1576,
+        "outputTokens": 550,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 5196,
+        "costMicroUsd": 9691,
+        "latencyMs": 3515
+      },
+      "recordedAt": "2026-10-29T06:26:10.822Z"
+    },
+    "d": {
+      "feedback": {
+        "chips": [],
+        "days": [
+          1
+        ],
+        "text": "für tag 1. wir machen Rathausplatz und rådhus, aber machen nicht Jens Olsens Verdensur. auch Amagertorv streichen."
+      },
+      "output": {
+        "reply": "Tag 1: Jens Olsens Verdensur und Amagertorv sind aus den Alternativen gestrichen; Rathausplatz und Rathaus bleiben.",
+        "days": [
+          {
+            "n": 1,
+            "title": "Ankunft & Altstadt-Spaziergang",
+            "stops": [
+              {
+                "place": "Kopenhagen",
+                "acts": [
+                  {
+                    "kind": "travel",
+                    "text": "Ankunft und Transfer ins Hotel, Gepäck abgeben"
+                  },
+                  {
+                    "at": "13:00",
+                    "until": "14:00",
+                    "kind": "food",
+                    "text": "Einfaches Mittagessen in der Markthalle mit lokalen Spezialitäten",
+                    "ref": "p1"
+                  },
+                  {
+                    "at": "14:15",
+                    "until": "15:30",
+                    "kind": "see",
+                    "text": "Rathausplatz und Rathaus ansehen, Taubenfüttern und Platz zum Laufen",
+                    "ref": "p2",
+                    "alts": [
+                      "p3"
+                    ]
+                  },
+                  {
+                    "at": "15:30",
+                    "until": "16:30",
+                    "kind": "rest",
+                    "text": "Mittagsschlaf bzw. Ruhepause für Conrad im Hotel"
+                  },
+                  {
+                    "at": "16:45",
+                    "until": "18:00",
+                    "kind": "see",
+                    "text": "Bummel über die Fußgängerzone, Eis und Straßenmusik",
+                    "ref": "p5"
+                  },
+                  {
+                    "at": "18:30",
+                    "until": "20:00",
+                    "kind": "food",
+                    "text": "Gutes, einfaches dänisches Abendessen, z. B. Smørrebrød, in der Nähe"
+                  }
+                ]
+              }
+            ],
+            "note": "Früher Flug empfiehlt sich nicht; mit Kleinkind lieber entspannt anreisen und den ersten Tag kurz halten."
+          }
+        ]
+      },
+      "usage": {
+        "task": "plan_patch",
+        "model": "claude-sonnet-5-5",
+        "status": "ok",
+        "inputTokens": 830,
+        "outputTokens": 546,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 5196,
+        "costMicroUsd": 8159,
+        "latencyMs": 3812
+      },
+      "recordedAt": "2026-10-29T06:26:14.637Z"
+    }
+  }
+}
