@@ -9,6 +9,9 @@ const geocodeLog = new WeakMap<Page, string[]>();
 export async function startTripForm(page: Page, destination: "geo" | "freetext") {
   const log: string[] = [];
   geocodeLog.set(page, log);
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message.slice(0, 200)));
+  page.on("console", (m) => m.type() === "error" && errors.push(m.text().slice(0, 200)));
   page.on("response", async (r) => {
     if (r.url().includes("/api/geocode")) log.push(`${r.status()} ${(await r.text().catch(() => "")).slice(0, 200)}`);
   });
@@ -19,7 +22,12 @@ export async function startTripForm(page: Page, destination: "geo" | "freetext")
     const option = page.getByRole("option", { name: /Passau/ }).first();
     await expect(option, `geocode answers: ${log.join(" || ") || "none"}; status: ${await page.locator('[role="status"]').allInnerTexts()}`).toBeVisible();
     await option.click();
-    await expect(page.getByRole("button", { name: "Ändern" })).toBeVisible();
+    try {
+      await expect(page.getByRole("button", { name: "Ändern" })).toBeVisible();
+    } catch (e) {
+      const body = (await page.locator("form").first().innerText().catch(() => "")).replace(/\s+/g, " ").slice(0, 700);
+      throw new Error(`destination not picked; page errors: ${errors.join(" | ") || "none"}; form text: ${body}`, { cause: e });
+    }
   } else {
     await search.fill("Nirgendwo");
     await page.getByRole("option", { name: /als Freitext verwenden/ }).click();
