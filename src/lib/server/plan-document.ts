@@ -170,13 +170,15 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
     if (link.expires_at !== null && Date.parse(link.expires_at) <= Date.now()) return null;
 
     // Links of a disabled owner answer like an unknown token; re-enabling the owner brings them back.
-    // Fails closed: if the flag cannot be read, the link is not served.
+    // Fails closed: if the flag cannot be read, the link is not served. Exception: 42703 (undefined column) in the
+    // minutes between the code deploy and migration 20261104120029, when nobody can be disabled yet.
     const { data: owner, error: ownerErr } = await admin
       .from("profiles")
       .select("disabled_at")
       .eq("id", link.owner_id)
       .maybeSingle<{ disabled_at: string | null }>();
-    if (ownerErr || !owner || owner.disabled_at) return null;
+    const flagMissing = ownerErr?.code === "42703";
+    if (!flagMissing && (ownerErr || !owner || owner.disabled_at)) return null;
 
     const { data: planRow, error: planErr } = await admin
       .from("plans")

@@ -9,10 +9,11 @@ const calls: Call[] = [];
 const rpcs: { fn: string; args: unknown }[] = [];
 const events: { event: string; props?: Record<string, unknown> }[] = [];
 let tables: Record<string, unknown> = {};
+let tableErrors: Record<string, { code: string }> = {};
 
 function builder(table: string) {
   const b: Record<string, unknown> = {};
-  const result = () => ({ data: tables[table] ?? null, error: null });
+  const result = () => ({ data: tables[table] ?? null, error: tableErrors[table] ?? null });
   for (const m of ["eq", "order", "returns", "limit"]) b[m] = () => b;
   b.select = (cols: string) => {
     calls.push({ table, select: cols });
@@ -50,6 +51,7 @@ const itemRows = (itemsGolf as unknown as Record<string, unknown>[]).map((i) => 
 beforeEach(() => {
   calls.length = 0;
   rpcs.length = 0;
+  tableErrors = {};
   events.length = 0;
   tables = {
     share_links: link(),
@@ -116,6 +118,11 @@ describe("getSharedPlanDocument", () => {
     expect(await getSharedPlanDocument("short", "page")).toBeNull();
     expect(calls).toHaveLength(0);
   });
+  it("serves the link while the disabled_at column does not exist yet (deploy gap)", async () => {
+    tables.profiles = null;
+    tableErrors.profiles = { code: "42703" };
+    expect(await getSharedPlanDocument(TOKEN, "page")).not.toBeNull();
+  });
   it.each([
     ["unknown token", () => (tables.share_links = null)],
     ["expired", () => (tables.share_links = link({ expires_at: "2000-01-01T00:00:00Z" }))],
@@ -124,6 +131,7 @@ describe("getSharedPlanDocument", () => {
     ["no plan", () => (tables.plans = null)],
     ["plan without version", () => (tables.plans = { id: "P1", latest_version: 0, open_done: [] })],
     ["missing version", () => (tables.plan_versions = null)],
+    ["owner flag read error (fails closed)", () => (tableErrors.profiles = { code: "08006" })],
   ])("%s gives null and no view", async (_n, arrange) => {
     arrange();
     expect(await getSharedPlanDocument(TOKEN, "page")).toBeNull();
