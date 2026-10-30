@@ -7,10 +7,12 @@ alter table public.profiles
 
 alter table public.profiles
   drop constraint if exists profiles_home_location_len,
-  drop constraint if exists profiles_home_timezone_len;
+  drop constraint if exists profiles_home_timezone_len,
+  drop constraint if exists profiles_home_pair;
 alter table public.profiles
   add constraint profiles_home_location_len check (home_location is null or char_length(home_location) between 1 and 120),
-  add constraint profiles_home_timezone_len check (home_timezone is null or char_length(home_timezone) between 1 and 64);
+  add constraint profiles_home_timezone_len check (home_timezone is null or char_length(home_timezone) between 1 and 64),
+  add constraint profiles_home_pair check ((home_location is null) = (home_timezone is null));
 
 -- Same pattern as the onboarding migration: revoke, then grant the user-updatable columns explicitly (idempotent).
 -- All existing columns stay, the two new ones are added. role and is_demo stay out of the grant.

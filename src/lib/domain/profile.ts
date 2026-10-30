@@ -28,7 +28,8 @@ export const Profile = z.object({
   birthdate: BirthDate.nullable(),
   /** Optional home place for the time difference (name + IANA zone, both null = default Europe/Berlin). */
   homeLocation: HomeLocationName.nullable(),
-  homeTimezone: IanaTimeZone.nullable(),
+  /** Lenient on read: a stored zone this runtime does not know must not fail every page; the tile just hides. */
+  homeTimezone: z.string().nullable(),
   /** Shared demo account: cannot delete the account or change the email. */
   isDemo: z.boolean(),
   /** When the getting-started guide was finished or skipped; null = not yet. */

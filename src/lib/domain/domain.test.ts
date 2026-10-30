@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GroupEntry, TravelGroupInput } from "./group";
 import { IsoDate } from "./common";
-import { ProfileUpdate } from "./profile";
+import { Profile, ProfileUpdate } from "./profile";
 import { TripPurposeInput } from "./purpose";
 
 describe("IsoDate", () => {
@@ -32,6 +32,24 @@ describe("ProfileUpdate", () => {
     expect(ProfileUpdate.safeParse({ locale: "fr" }).success).toBe(false);
     expect(ProfileUpdate.safeParse({ birthdate: "2999-01-01" }).success).toBe(false);
     expect(ProfileUpdate.safeParse({ birthdate: null }).success).toBe(true);
+  });
+});
+
+describe("Profile", () => {
+  it("reads a stored home zone it does not know, so one bad row cannot break every page", () => {
+    const row = {
+      id: "00000000-0000-4000-8000-000000000001",
+      role: "user",
+      displayName: null,
+      locale: "de",
+      homeAirports: [],
+      birthdate: null,
+      isDemo: false,
+      onboardingDoneAt: null,
+      homeLocation: "Mars",
+      homeTimezone: "Mars/Base",
+    };
+    expect(Profile.safeParse(row).success).toBe(true);
   });
 });
 
