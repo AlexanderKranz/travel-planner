@@ -13,7 +13,13 @@ import { fetchJson } from "./http";
 import type { RawOsmElement } from "./overpass";
 
 export const GEOAPIFY_PLACES_URL = "https://api.geoapify.com/v2/places";
-export const GEOAPIFY_TIMEOUT_MS = 15_000;
+/**
+ * Above Geoapify's own cap: sparse category groups (castles/forts/cathedrals, ruins, baths/saunas) answer 200 after
+ * ~20 s with `bias=proximity` (measured 2026-10-30 in 6 cities; dense groups take 0.2-2.5 s). With 15 s every such
+ * lookup timed out and fell back to Overpass. Dropping the bias was faster (4-12 s) but returns an arbitrary 100 of
+ * the circle in big cities (Rome, Paris), losing central sights.
+ */
+export const GEOAPIFY_TIMEOUT_MS = 25_000;
 /** Places per request: the categories are a superset of the OSM filters, so fetch more than we keep (5 credits). */
 export const GEOAPIFY_LIMIT = 100;
 /** Geoapify bills one credit per started block of 20 places. */
