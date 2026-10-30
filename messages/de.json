@@ -288,6 +288,19 @@
       "confirm": "Endgültig löschen",
       "cancel": "Abbrechen",
       "demoUnavailable": "Im Demo-Konto nicht verfügbar"
+    },
+    "home": {
+      "label": "Heimatort (für die Zeitverschiebung)",
+      "default": "Deutschland",
+      "defaultNote": "Standard, solange du keinen Ort wählst.",
+      "clear": "Zurücksetzen",
+      "search": "Heimatort suchen",
+      "placeholder": "z. B. Wien oder New York",
+      "hint": "Optional. Nur für die Zeitverschiebung auf der Reiseseite. Wird nicht geteilt.",
+      "results": "Orte",
+      "searching": "Suche läuft …",
+      "noResults": "Keine Treffer.",
+      "unavailable": "Die Ortssuche ist gerade nicht verfügbar."
     }
   },
   "interests": {
@@ -639,6 +652,16 @@
       },
       "groupOut": "Hinflug · {date} · {route}",
       "groupBack": "Rückflug · {date} · {route}"
+    },
+    "timeDifference": {
+      "title": "Zeitverschiebung",
+      "none": "Keine",
+      "hours": "{diff} Std.",
+      "range": "{from} bis {to} Std.",
+      "vs": "gegenüber {home}",
+      "changes": "Ändert sich während der Reise auf {diff} Std. (Zeitumstellung).",
+      "byMonth": "Je nach Reisemonat (Zeitumstellung).",
+      "defaultHome": "Deutschland"
     }
   },
   "sources": {

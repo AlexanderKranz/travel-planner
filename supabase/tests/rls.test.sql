@@ -305,6 +305,13 @@ select is((select count(*)::int from u), 0, 'user cannot set onboarding_done_at 
 reset role;
 select is((select onboarding_done_at from public.profiles where id = 'aaaaaaaa-0000-4000-8000-000000000001'), null, 'other user flag unchanged');
 
+-- ---------- home location ----------
+select ok(has_column_privilege('authenticated', 'public.profiles', 'home_location', 'update'), 'authenticated: can update profiles.home_location');
+select ok(has_column_privilege('authenticated', 'public.profiles', 'home_timezone', 'update'), 'authenticated: can update profiles.home_timezone');
+select ok(has_column_privilege('authenticated', 'public.profiles', 'onboarding_done_at', 'update'), 'authenticated: grant still includes onboarding_done_at');
+select ok(not has_column_privilege('authenticated', 'public.profiles', 'role', 'update'), 'authenticated: home grant did not open profiles.role');
+select ok(not has_column_privilege('authenticated', 'public.profiles', 'is_demo', 'update'), 'authenticated: home grant did not open profiles.is_demo');
+
 -- ---------- -- anon sees nothing ----------
 reset role;
 set local request.jwt.claims = '';

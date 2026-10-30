@@ -288,6 +288,19 @@
       "confirm": "Delete permanently",
       "cancel": "Cancel",
       "demoUnavailable": "Not available in the demo account"
+    },
+    "home": {
+      "label": "Home place (for the time difference)",
+      "default": "Germany",
+      "defaultNote": "Default until you pick a place.",
+      "clear": "Reset",
+      "search": "Search for your home place",
+      "placeholder": "e.g. Vienna or New York",
+      "hint": "Optional. Only used for the time difference on the trip page. Never shared.",
+      "results": "Places",
+      "searching": "Searching …",
+      "noResults": "No matches.",
+      "unavailable": "Place search is not available right now."
     }
   },
   "interests": {
@@ -639,6 +652,16 @@
       },
       "groupOut": "Outbound · {date} · {route}",
       "groupBack": "Return · {date} · {route}"
+    },
+    "timeDifference": {
+      "title": "Time difference",
+      "none": "None",
+      "hours": "{diff} h",
+      "range": "{from} to {to} h",
+      "vs": "vs. {home}",
+      "changes": "Changes to {diff} h during the trip (daylight saving).",
+      "byMonth": "Depends on the travel month (daylight saving).",
+      "defaultHome": "Germany"
     }
   },
   "sources": {

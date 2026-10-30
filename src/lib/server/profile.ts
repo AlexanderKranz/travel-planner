@@ -6,7 +6,7 @@ import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
 import { isKnownIata } from "@/lib/integrations/airports";
 import { getUserSession } from "./session";
 
-const COLUMNS = "id, role, display_name, locale, home_airports, birthdate, is_demo, onboarding_done_at";
+const COLUMNS = "id, role, display_name, locale, home_airports, birthdate, is_demo, onboarding_done_at, home_location, home_timezone";
 
 type ProfileRow = {
   id: string;
@@ -17,6 +17,8 @@ type ProfileRow = {
   birthdate: string | null;
   is_demo: boolean;
   onboarding_done_at: string | null;
+  home_location: string | null;
+  home_timezone: string | null;
 };
 
 function rowToProfile(row: ProfileRow) {
@@ -29,6 +31,8 @@ function rowToProfile(row: ProfileRow) {
     birthdate: row.birthdate,
     isDemo: row.is_demo,
     onboardingDoneAt: row.onboarding_done_at,
+    homeLocation: row.home_location,
+    homeTimezone: row.home_timezone,
   });
 }
 
@@ -46,7 +50,7 @@ export async function getProfile(): Promise<ActionResult<Profile>> {
   return profile.success ? { ok: true, data: profile.data } : fail("failed");
 }
 
-/** Partial update of display name, locale, home airports (max 5, ordered), birthdate (null clears). */
+/** Partial update of display name, locale, home airports (max 5, ordered), birthdate and home location + time zone (null clears). */
 export async function updateProfile(input: ProfileUpdate): Promise<ActionResult<Profile>> {
   const session = await getUserSession();
   if (!session) return fail("unauthenticated");
@@ -62,6 +66,8 @@ export async function updateProfile(input: ProfileUpdate): Promise<ActionResult<
   if (update.locale !== undefined) patch.locale = update.locale;
   if (update.homeAirports !== undefined) patch.home_airports = update.homeAirports;
   if (update.birthdate !== undefined) patch.birthdate = update.birthdate;
+  if (update.homeLocation !== undefined) patch.home_location = update.homeLocation;
+  if (update.homeTimezone !== undefined) patch.home_timezone = update.homeTimezone;
   if (Object.keys(patch).length === 0) return getProfile();
 
   const { data, error } = await session.supabase

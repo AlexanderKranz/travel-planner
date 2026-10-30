@@ -5,32 +5,12 @@ import { useEffect, useId, useState } from "react";
 import { TextField } from "@/components/ui/fields";
 import { btnSecondary, errorCls, inputCls, mutedCls } from "@/components/ui/styles";
 import { DEFAULT_RADIUS_KM, type GeoPlace } from "@/lib/domain";
+import { countryName, geocode, placeLabel } from "@/lib/geocode-client";
 import type { DestinationDraft } from "./trip-draft";
 
 const RADII = [10, 25, 40, 60, 100];
 const MIN_CHARS = 2;
 const DEBOUNCE_MS = 300;
-
-function countryName(code: string | null, locale: string): string | null {
-  if (!code) return null;
-  try {
-    return new Intl.DisplayNames([locale], { type: "region" }).of(code) ?? code;
-  } catch {
-    return code;
-  }
-}
-
-async function geocode(q: string, lang: string, signal: AbortSignal) {
-  const res = await fetch(`/api/geocode?q=${encodeURIComponent(q)}&lang=${lang}`, { signal });
-  if (res.status === 429) return { results: [], unavailable: false, rateLimited: true };
-  if (!res.ok) throw new Error(String(res.status));
-  const body = (await res.json()) as { results?: GeoPlace[]; error?: string };
-  return {
-    results: body.results ?? [],
-    unavailable: body.error === "unavailable",
-    rateLimited: body.error === "rate_limited",
-  };
-}
 
 export function DestinationPicker({
   value,
@@ -87,9 +67,7 @@ export function DestinationPicker({
     };
   }, [q, locale, value.mode]);
 
-  function label(p: GeoPlace) {
-    return [p.name, p.admin1, countryName(p.countryCode, locale)].filter(Boolean).join(", ");
-  }
+  const label = (p: GeoPlace) => placeLabel(p, locale);
 
   function pickPlace(p: GeoPlace) {
     onChange({

@@ -2,6 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { FactDetails } from "@/components/facts/fact-details";
 import { GlanceCard } from "@/components/facts/glance-card";
 import { WeatherTable } from "@/components/facts/weather-table";
+import { tripTimeDifference } from "@/lib/facts/time-difference";
 import { getCountryFacts, getDaylightFacts, getWeatherFacts } from "@/lib/server/facts";
 import type { PanelProps } from "./types";
 
@@ -11,13 +12,20 @@ export const glanceAsideCls = "min-w-0";
  * Awaits weather, daylight and country together (cached, fast) and renders the "At a glance" tiles plus the
  * collapsed weather table. Daylight has no table: the tile shows everything needed (Alex, 2026-10-29).
  */
-export async function GlancePanel({ trip, ctx }: PanelProps) {
+export async function GlancePanel({
+  trip,
+  ctx,
+  home,
+}: PanelProps & { home: { name: string | null; timezone: string | null } }) {
   const t = await getTranslations("facts");
   const [weather, daylight, country] = await Promise.all([
     getWeatherFacts(trip, ctx),
     getDaylightFacts(trip, ctx),
     getCountryFacts(trip, ctx),
   ]);
+  // Home is the owner's private setting: it only goes to this owner-only tile, never to share, PDF or the LLM.
+  const timeDifference = tripTimeDifference(trip, home.timezone, ctx.today);
+  const homeName = home.timezone && home.name ? home.name : t("timeDifference.defaultHome");
   const fallbackMonth = Number(ctx.today.slice(5, 7));
   return (
      <div className="flex min-w-0 flex-col gap-3">
@@ -27,6 +35,8 @@ export async function GlancePanel({ trip, ctx }: PanelProps) {
           weather={weather}
           daylight={daylight}
           country={country}
+          timeDifference={timeDifference}
+          homeName={homeName}
           fallbackMonth={fallbackMonth}
           locale={ctx.locale}
         />

@@ -112,7 +112,7 @@ export default async function TripDetailPage({
       />
       {/* Fact tiles right under the hero: climate, daylight, country (cached facts, fast). */}
       <Suspense fallback={<PanelFallback title={t("glance.title")} className={glanceAsideCls} />}>
-        <GlancePanel {...panel} />
+        <GlancePanel {...panel} home={{ name: profile.homeLocation, timezone: profile.homeTimezone }} />
       </Suspense>
       <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} partySize={partySize} startDate={startDate} />
       <TripContext

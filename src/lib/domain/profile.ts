@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { routing } from "@/i18n/routing";
+import { isValidTimeZone } from "@/lib/facts/time-difference";
 import { BirthDate } from "./common";
 
 export const MAX_HOME_AIRPORTS = 5;
@@ -12,6 +13,10 @@ export const HomeAirports = z
   .max(MAX_HOME_AIRPORTS)
   .refine((list) => new Set(list).size === list.length, "Duplicate airports");
 
+/** A real IANA zone ("Asia/Kolkata"), checked against the runtime's tz database. */
+export const IanaTimeZone = z.string().max(64).refine(isValidTimeZone, "Unknown time zone");
+export const HomeLocationName = z.string().trim().min(1).max(120);
+
 export const Locale = z.enum(routing.locales);
 
 export const Profile = z.object({
@@ -21,6 +26,9 @@ export const Profile = z.object({
   locale: Locale,
   homeAirports: HomeAirports,
   birthdate: BirthDate.nullable(),
+  /** Optional home place for the time difference (name + IANA zone, both null = default Europe/Berlin). */
+  homeLocation: HomeLocationName.nullable(),
+  homeTimezone: IanaTimeZone.nullable(),
   /** Shared demo account: cannot delete the account or change the email. */
   isDemo: z.boolean(),
   /** When the getting-started guide was finished or skipped; null = not yet. */
@@ -39,6 +47,17 @@ export const ProfileUpdate = z
     locale: Locale,
     homeAirports: HomeAirports,
     birthdate: BirthDate.nullable(),
+    homeLocation: HomeLocationName.nullable(),
+    homeTimezone: IanaTimeZone.nullable(),
   })
-  .partial();
+  .partial()
+  // Name and zone belong together: send both, and either set both or clear both (null).
+  .refine((v) => (v.homeLocation === undefined) === (v.homeTimezone === undefined), {
+    path: ["homeLocation"],
+    message: "Send home location and time zone together",
+  })
+  .refine((v) => (v.homeLocation == null) === (v.homeTimezone == null), {
+    path: ["homeLocation"],
+    message: "Home location and time zone go together",
+  });
 export type ProfileUpdate = z.infer<typeof ProfileUpdate>;

@@ -18,6 +18,12 @@ describe("ProfileUpdate", () => {
   });
   it("limits home airports to 5 unique IATA codes", () => {
     expect(ProfileUpdate.safeParse({ homeAirports: ["FRA", "MUC"] }).success).toBe(true);
+    const home = { homeLocation: "Wien, Österreich", homeTimezone: "Europe/Vienna" };
+    expect(ProfileUpdate.safeParse(home).success).toBe(true);
+    expect(ProfileUpdate.safeParse({ homeLocation: null, homeTimezone: null }).success).toBe(true);
+    expect(ProfileUpdate.safeParse({ ...home, homeTimezone: "Mars/Base" }).success).toBe(false);
+    expect(ProfileUpdate.safeParse({ ...home, homeTimezone: null }).success).toBe(false);
+    expect(ProfileUpdate.safeParse({ homeLocation: "Wien" }).success).toBe(false);
     expect(ProfileUpdate.safeParse({ homeAirports: ["fra"] }).success).toBe(false);
     expect(ProfileUpdate.safeParse({ homeAirports: ["FRA", "FRA"] }).success).toBe(false);
     expect(ProfileUpdate.safeParse({ homeAirports: ["AAA", "BBB", "CCC", "DDD", "EEE", "FFF"] }).success).toBe(false);
