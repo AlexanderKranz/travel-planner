@@ -4,15 +4,21 @@ import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { TextField } from "@/components/ui/fields";
 import { ErrorBanner } from "@/components/ui/error-banner";
-import { btnPrimary, btnSecondary, mutedCls } from "@/components/ui/styles";
-import { requestLogin, verifyLoginCode } from "@/lib/server/auth/actions";
+import { btnPrimary, btnSecondary, linkCls, mutedCls } from "@/components/ui/styles";
+import {
+  requestLogin,
+  requestPasswordReset,
+  signInWithPasswordAction,
+  verifyLoginCode,
+} from "@/lib/server/auth/actions";
 import type { ActionError } from "@/lib/domain";
 
 export function LoginForm({ linkInvalid, invited = false }: { linkInvalid: boolean; invited?: boolean }) {
   const t = useTranslations("login");
   const locale = useLocale();
-  const [step, setStep] = useState<"email" | "sent">("email");
+  const [step, setStep] = useState<"email" | "sent" | "password" | "forgot" | "reset_sent">("email");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<ActionError | null>(null);
   const [pending, start] = useTransition();
@@ -76,6 +82,87 @@ export function LoginForm({ linkInvalid, invited = false }: { linkInvalid: boole
     );
   }
 
+  function onPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    start(async () => {
+      const result = await signInWithPasswordAction({ email, password, locale });
+      if (result && !result.ok) setError(result.error);
+    });
+  }
+
+  function onForgot(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    start(async () => {
+      const result = await requestPasswordReset({ email, locale });
+      if (result.ok) setStep("reset_sent");
+      else setError(result.error);
+    });
+  }
+
+  function switchMode(next: "email" | "password" | "forgot") {
+    setStep(next);
+    setPassword("");
+    setError(null);
+  }
+
+  if (step === "reset_sent") {
+    return (
+      <div className="flex flex-col gap-5">
+        <div role="status" className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold">{t("sentTitle")}</h2>
+          <p className={mutedCls}>{t("password.resetSentBody")}</p>
+        </div>
+        <button type="button" className={btnSecondary} onClick={() => switchMode("password")}>
+          {t("password.backToPassword")}
+        </button>
+      </div>
+    );
+  }
+
+  if (step === "password" || step === "forgot") {
+    const forgot = step === "forgot";
+    return (
+      <form onSubmit={forgot ? onForgot : onPassword} className="flex flex-col gap-4">
+        {forgot && <p className={`text-sm ${mutedCls}`}>{t("password.forgotIntro")}</p>}
+        <TextField
+          label={t("emailLabel")}
+          type="email"
+          name="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          autoComplete="email"
+          required
+          error={forgot && error === "invalid" ? t("emailInvalid") : undefined}
+        />
+        {!forgot && (
+          <TextField
+            label={t("password.label")}
+            type="password"
+            name="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+          />
+        )}
+        {error && !(forgot && error === "invalid") && <ErrorBanner error={error} />}
+        <button type="submit" className={btnPrimary} disabled={pending}>
+          {forgot ? t("password.forgotSubmit") : t("password.submit")}
+        </button>
+        {!forgot && (
+          <button type="button" className={`${linkCls} min-h-11 self-start`} onClick={() => switchMode("forgot")}>
+            {t("password.forgot")}
+          </button>
+        )}
+        <button type="button" className={`${linkCls} min-h-11 self-start`} onClick={() => switchMode("email")}>
+          {t("password.useLink")}
+        </button>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={onRequest} className="flex flex-col gap-4">
       {invited && !linkInvalid && (
@@ -104,6 +191,9 @@ export function LoginForm({ linkInvalid, invited = false }: { linkInvalid: boole
       {error && error !== "invalid" && <ErrorBanner error={error} />}
       <button type="submit" className={btnPrimary} disabled={pending}>
         {t("submit")}
+      </button>
+      <button type="button" className={`${linkCls} min-h-11 self-start`} onClick={() => switchMode("password")}>
+        {t("password.usePassword")}
       </button>
       <p className={`text-sm ${mutedCls}`}>{t("inviteOnly")}</p>
     </form>

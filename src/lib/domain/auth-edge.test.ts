@@ -43,9 +43,10 @@ describe("ConfirmQuery edge cases", () => {
     }
   });
   it("only accepts the OTP types the route handles", () => {
-    for (const type of ["recovery", "email_change", "sms", ""]) {
+    for (const type of ["email_change", "sms", ""]) {
       expect(ConfirmQuery.safeParse({ ...base, type }).success).toBe(false);
     }
+    expect(ConfirmQuery.safeParse({ ...base, type: "recovery" }).success).toBe(true); // password reset link
     expect(ConfirmQuery.safeParse({ ...base, type: "invite" }).success).toBe(true); // admin invites (phase 6 hardening)
   });
   it("bounds token_hash length", () => {

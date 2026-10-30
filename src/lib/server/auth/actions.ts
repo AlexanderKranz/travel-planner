@@ -1,7 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { LoginRequest, VerifyCodeInput } from "@/lib/domain/auth";
+import { LoginRequest, PasswordLoginInput, SetPasswordInput, VerifyCodeInput } from "@/lib/domain/auth";
+import { getUserSession } from "@/lib/server/session";
 import { Locale } from "@/lib/domain/profile";
 import { fail, type ActionResult } from "@/lib/domain/result";
 import { zodIssues } from "@/lib/domain/result";
@@ -95,6 +96,129 @@ export async function verifyLoginCode(input: {
     props: { method: "code" },
   });
   redirect(`/${parsed.data.locale}/app`);
+}
+
+/**
+ * Optional password sign-in (the email link stays the default). It never creates users: invite-only is
+ * unchanged because signInWithPassword only works for existing accounts. Wrong email, wrong password, an
+ * account without a password and a banned account all return the same "invalid_credentials", so the
+ * answer cannot reveal who has an account. Redirects to /[locale]/app on success.
+ */
+export async function signInWithPasswordAction(input: {
+  email: string;
+  password: string;
+  locale: string;
+}): Promise<ActionResult> {
+  const parsed = PasswordLoginInput.safeParse(input);
+  if (!parsed.success) return fail("invalid_credentials"); // do not hint at what was wrong
+  if (!(await authAllowed("password", parsed.data.email))) return fail("rate_limited");
+
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: parsed.data.email,
+    password: parsed.data.password,
+  });
+  if (error || !data.user) {
+    // Status only: never the email, the password or the error message.
+    await logEvent({
+      event: "auth.login_failed",
+      level: "warn",
+      route: "action:signInWithPasswordAction",
+      props: { method: "password", status: error?.status ?? null },
+    });
+    return fail("invalid_credentials");
+  }
+  await logEvent({
+    event: "auth.login",
+    userId: data.user.id,
+    route: "action:signInWithPasswordAction",
+    props: { method: "password" },
+  });
+  redirect(`/${parsed.data.locale}/app`);
+}
+
+/**
+ * "Forgot password": sends the Reset Password email. Neutral answer whether or not the address has an
+ * account, shares the `login` mail rate limit. A no-op for the demo account's address, so nobody can take
+ * over the shared demo password (compared against DEMO_EMAIL even if the demo is switched off).
+ */
+export async function requestPasswordReset(input: { email: string; locale: string }): Promise<ActionResult> {
+  const parsed = LoginRequest.safeParse(input);
+  if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
+  if (!(await authAllowed("login", parsed.data.email))) return fail("rate_limited");
+
+  const env = await getEffectiveEnv();
+  const demoEmail = env.DEMO_EMAIL?.trim().toLowerCase();
+  if (demoEmail && parsed.data.email === demoEmail) {
+    await logEvent({ event: "auth.reset_blocked_demo", level: "warn", route: "action:requestPasswordReset" });
+    return { ok: true }; // neutral on purpose
+  }
+
+  const origin = getAppUrl();
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    // Same shape as the magic link (the template appends token_hash and type=recovery); `next` lands on Settings.
+    ...(origin
+      ? {
+          redirectTo: `${origin}/auth/confirm?locale=${parsed.data.locale}&next=${encodeURIComponent(
+            `/${parsed.data.locale}/settings?focus=password`,
+          )}`,
+        }
+      : {}),
+  });
+  if (!error) {
+    await logEvent({ event: "auth.reset_requested", route: "action:requestPasswordReset" });
+    return { ok: true };
+  }
+  await logEvent({
+    event: error.status === 429 ? "auth.rate_limited" : "error.auth",
+    level: error.status === 429 ? "warn" : "error",
+    route: "action:requestPasswordReset",
+    props: { status: error.status ?? null, code: error.code ?? null },
+  });
+  return fail("failed");
+}
+
+/**
+ * Sets or changes the signed-in user's password (Settings, or right after a reset link). Refused for the
+ * shared demo account; fail closed if the flag cannot be read.
+ */
+export async function setPassword(input: { password: string; confirm: string }): Promise<ActionResult> {
+  const parsed = SetPasswordInput.safeParse(input);
+  if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
+  const session = await getUserSession();
+  if (!session) return fail("unauthenticated");
+
+  const { data: flag, error: flagError } = await session.supabase
+    .from("profiles")
+    .select("is_demo")
+    .eq("id", session.userId)
+    .maybeSingle();
+  if (flagError || !flag || flag.is_demo) {
+    if (flag?.is_demo) {
+      await logEvent({ event: "auth.password_blocked_demo", level: "warn", userId: session.userId, route: "action:setPassword" });
+    }
+    return fail("failed");
+  }
+
+  const { error } = await session.supabase.auth.updateUser({ password: parsed.data.password });
+  if (error) {
+    // With Supabase's "Secure password change" on, a session older than 24 h must re-authenticate first.
+    const code = error.code ?? "";
+    await logEvent({
+      event: "auth.password_change_failed",
+      level: "warn",
+      userId: session.userId,
+      route: "action:setPassword",
+      props: { status: error.status ?? null, code: code || null },
+    });
+    if (code === "reauthentication_needed" || code === "reauthentication_not_valid") return fail("reauth_required");
+    if (code === "same_password") return fail("same_password");
+    if (code === "weak_password") return fail("weak_password");
+    return fail("failed");
+  }
+  await logEvent({ event: "auth.password_set", userId: session.userId, route: "action:setPassword" });
+  return { ok: true };
 }
 
 /** Signs out and redirects to /[locale]/login. */

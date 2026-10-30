@@ -129,8 +129,14 @@ Supabase's built-in mailer only delivers to members of your Supabase team, so in
 6. Supabase → **Authentication → Emails → Templates**: paste the Atlas-style templates from `docs/email-templates/`:
    - `magic-link.html` → **Magic Link** and **Confirm signup**
    - `invite.html` → **Invite user** (subject `Einladung zum Reiseplaner · Invitation`)
+   - `reset-password.html` → **Reset Password** (subject `Passwort zurücksetzen · Reset your password`). Needed for "Passwort vergessen?" (optional password login, 2026-10-31).
    The files use HTML entities for umlauts, so they paste correctly from any editor.
 7. Test: log in with your own address, and invite a second address from the admin page. Both done 2026-10-29.
+8. **Password login settings** (Supabase → **Authentication**; menu names move, search for them). Checked against https://supabase.com/docs/guides/auth/passwords on 2026-10-31:
+   - **Sign In / Providers → Email**: keep **Enable Email provider** and **Confirm email** as they are; set **Minimum password length** to **10** (the app enforces 10 to 72, the dashboard default is lower, and the 72 upper limit is bcrypt's).
+   - **Prevent use of leaked passwords** (HaveIBeenPwned check): the docs say it is available on the **Pro plan and above** only. On the free plan the switch is not available, so the app cannot rely on it; the 10 character minimum is the only strength rule there. If you upgrade later, turn it on; the app already shows a clear message when Supabase rejects a password as weak.
+   - **Secure password change** (same Email provider page): if on, Supabase requires a *recently signed-in* session to change the password (otherwise `updateUser` fails with `reauthentication_needed`). The app handles it: it shows "sign in again first, then change the password" (a fresh email-link login, or a password reset link, always counts as recent). Leaving it off is fine too. I did not find the exact "recent" window in the docs, so I do not state it here.
+   - **URL configuration → Redirect URLs**: the reset link redirects to `https://<host>/auth/confirm?locale=…&next=…`; it must match an entry the same way the magic link does (your existing `/auth/confirm**` entry covers it; check if the reset mail says "redirect not allowed").
 
 Inviting, revoking and common problems: `docs/runbook.md` section 11.
 

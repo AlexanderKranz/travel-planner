@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
  * Magic-link landing. Two link shapes:
  * - our template (token-hash flow, works on any device/browser):
  *   /auth/confirm?token_hash=...&type=email&locale=de[&next=/de/app]
+ * - password reset uses `type=recovery` and `next=/<locale>/settings?focus=password` (lands on the password section)
  * - invites use the same shape with `type=invite` (custom "Invite user" template, same token-hash link)
  * - Supabase's default template, used until custom SMTP allows editing templates (PKCE flow,
  *   same browser only): Supabase verifies and redirects to /auth/confirm?locale=de&code=...
@@ -62,7 +63,7 @@ export async function GET(request: NextRequest) {
     event: "auth.login",
     userId: data.user.id,
     route: "/auth/confirm",
-    props: { method: parsed.success ? "link" : "link_code" },
+    props: { method: parsed.success ? (parsed.data.type === "recovery" ? "recovery" : "link") : "link_code" },
   });
 
   const next = parsed.success ? parsed.data.next : codeParsed.data!.next;

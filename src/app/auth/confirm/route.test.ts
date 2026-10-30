@@ -56,6 +56,32 @@ describe("GET /auth/confirm with Supabase's default link (?code=)", () => {
   });
 });
 
+describe("GET /auth/confirm with a password reset link (type=recovery)", () => {
+  const next = encodeURIComponent("/en/settings?focus=password");
+
+  it("verifies the recovery token and lands on the settings password section", async () => {
+    const res = await call(`token_hash=${hash}&type=recovery&locale=en&next=${next}`);
+    expect(verifyOtp).toHaveBeenCalledWith({ type: "recovery", token_hash: hash });
+    expect(loc(res).origin).toBe(ORIGIN);
+    expect(loc(res).pathname).toBe("/en/settings");
+    expect(loc(res).searchParams.get("focus")).toBe("password");
+    expect(JSON.stringify(logEvent.mock.calls)).toContain('"method":"recovery"');
+  });
+
+  it("sends an expired recovery link to the login page", async () => {
+    verifyOtp.mockResolvedValue({ data: { user: null }, error: { code: "otp_expired" } });
+    const res = await call(`token_hash=${hash}&type=recovery&locale=de&next=${next}`);
+    expect(loc(res).pathname).toBe("/de/login");
+    expect(loc(res).searchParams.get("error")).toBe("link_invalid");
+  });
+
+  it("never leaves the origin via `next`", async () => {
+    const res = await call(`token_hash=${hash}&type=recovery&locale=de&next=${encodeURIComponent("//evil.com")}`);
+    expect(loc(res).origin).toBe(ORIGIN);
+    expect(loc(res).pathname).toBe("/de/app");
+  });
+});
+
 describe("GET /auth/confirm", () => {
   it("redirects to /<locale>/app on success", async () => {
     const res = await call(`token_hash=${hash}&type=email&locale=en`);
