@@ -364,9 +364,9 @@ Behaviour to know:
 - Changing the password signs out all other devices (`signOut` scope "others"); the current device stays signed in.
 - The nightly/manual `demo:reset` (`scripts/demo/reset.mjs`) re-sets the demo user's password from `DEMO_PASSWORD` every run, so a visitor who calls `updateUser` directly on the demo session only holds the change until the next reset.
 - Wrong email, wrong password, an account without a password and a disabled (banned) account all show the same message. Limits: 5 attempts per address and 20 per IP per 10 minutes (in memory per instance).
-- The shared demo account has no password section, the action refuses it, and "Passwort vergessen?" for the demo address does nothing (it still answers neutrally), so nobody can take over the shared demo password.
+- The shared demo account has no password section, the action refuses it, and "Passwort vergessen?" for the demo address does nothing (it still answers neutrally). A direct `updateUser` with the demo session is not blocked, so a visitor could lock the demo until the next `demo:reset`.
 - Events in the admin log: `auth.login` with method `password`, `auth.login_failed` (status only, never an address), `auth.reset_requested`, `auth.password_set`, `auth.password_change_failed`, `auth.reset_blocked_demo`, `auth.password_blocked_demo`.
-- A person who forgot the password and cannot get mail can still use the email link; there is no admin password reset.
+- A person who forgot the password can also sign in with the email link; both need access to the mailbox. Without mailbox access there is no way in: there is no admin password reset.
 
 ### Common problems
 
