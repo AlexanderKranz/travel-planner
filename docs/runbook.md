@@ -359,6 +359,10 @@ Alex, one-off in the Supabase dashboard (details and the leaked-password / secur
 2. Minimum password length 10. Leaked-password protection only exists on the Pro plan (per the Supabase docs, checked 2026-10-31).
 
 Behaviour to know:
+- **`APP_URL` must be set** (or a resolvable production URL): "Passwort vergessen?" refuses to send a mail without it, because the reset link needs the `?locale=..&next=..` query that the template appends `&token_hash=` to.
+- Length is 10 characters minimum and 72 **bytes** maximum (bcrypt's limit; umlauts and symbols use 2 or more bytes).
+- Changing the password signs out all other devices (`signOut` scope "others"); the current device stays signed in.
+- The nightly/manual `demo:reset` (`scripts/demo/reset.mjs`) re-sets the demo user's password from `DEMO_PASSWORD` every run, so a visitor who calls `updateUser` directly on the demo session only holds the change until the next reset.
 - Wrong email, wrong password, an account without a password and a disabled (banned) account all show the same message. Limits: 5 attempts per address and 20 per IP per 10 minutes (in memory per instance).
 - The shared demo account has no password section, the action refuses it, and "Passwort vergessen?" for the demo address does nothing (it still answers neutrally), so nobody can take over the shared demo password.
 - Events in the admin log: `auth.login` with method `password`, `auth.login_failed` (status only, never an address), `auth.reset_requested`, `auth.password_set`, `auth.password_change_failed`, `auth.reset_blocked_demo`, `auth.password_blocked_demo`.

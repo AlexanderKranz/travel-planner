@@ -16,7 +16,8 @@ export type VerifyCodeInput = z.input<typeof VerifyCodeInput>;
 
 /** Password bounds. 72 is bcrypt's limit (longer input is silently truncated). */
 export const PASSWORD_MIN = 10;
-export const PASSWORD_MAX = 72;
+export const PASSWORD_MAX = 72; // BYTES (UTF-8), not characters
+export const passwordBytes = (p: string) => new TextEncoder().encode(p).length;
 
 /** Login: only a sanity bound, so passwords set before a stricter rule still work. */
 export const PasswordLoginInput = z.object({
@@ -29,7 +30,10 @@ export type PasswordLoginInput = z.input<typeof PasswordLoginInput>;
 /** Setting / changing the password (Settings, and after a reset link). */
 export const SetPasswordInput = z
   .object({
-    password: z.string().min(PASSWORD_MIN).max(PASSWORD_MAX),
+    password: z
+      .string()
+      .min(PASSWORD_MIN)
+      .refine((p) => passwordBytes(p) <= PASSWORD_MAX, { message: "too_many_bytes" }),
     confirm: z.string(),
   })
   .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "mismatch" });

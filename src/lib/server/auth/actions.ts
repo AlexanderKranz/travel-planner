@@ -52,8 +52,9 @@ export async function requestLogin(input: {
     return { ok: true }; // neutral on purpose
   }
   if (error.status === 429) {
+    // Neutral on purpose: Supabase's per-address limit would otherwise reveal that mail was sent to this address.
     await logEvent({ event: "auth.rate_limited", level: "warn", route: "action:requestLogin" });
-    return fail("failed");
+    return { ok: true };
   }
   await logEvent({
     event: "error.auth",
@@ -154,25 +155,32 @@ export async function requestPasswordReset(input: { email: string; locale: strin
     return { ok: true }; // neutral on purpose
   }
 
+  // Fail closed without a base URL: the template appends `&token_hash=...` to RedirectTo, which needs the `?`
+  // and `next` of our link. Supabase's Site URL fallback would break the link.
   const origin = getAppUrl();
+  if (!origin) {
+    await logEvent({ event: "error.auth", level: "error", route: "action:requestPasswordReset", props: { reason: "no_app_url" } });
+    return fail("failed");
+  }
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
     // Same shape as the magic link (the template appends token_hash and type=recovery); `next` lands on Settings.
-    ...(origin
-      ? {
-          redirectTo: `${origin}/auth/confirm?locale=${parsed.data.locale}&next=${encodeURIComponent(
-            `/${parsed.data.locale}/settings?focus=password`,
-          )}`,
-        }
-      : {}),
+    redirectTo: `${origin}/auth/confirm?locale=${parsed.data.locale}&next=${encodeURIComponent(
+      `/${parsed.data.locale}/settings?focus=password`,
+    )}`,
   });
   if (!error) {
     await logEvent({ event: "auth.reset_requested", route: "action:requestPasswordReset" });
     return { ok: true };
   }
+  if (error.status === 429) {
+    // Neutral on purpose (see requestLogin).
+    await logEvent({ event: "auth.rate_limited", level: "warn", route: "action:requestPasswordReset" });
+    return { ok: true };
+  }
   await logEvent({
-    event: error.status === 429 ? "auth.rate_limited" : "error.auth",
-    level: error.status === 429 ? "warn" : "error",
+    event: "error.auth",
+    level: "error",
     route: "action:requestPasswordReset",
     props: { status: error.status ?? null, code: error.code ?? null },
   });
@@ -216,6 +224,17 @@ export async function setPassword(input: { password: string; confirm: string }):
     if (code === "same_password") return fail("same_password");
     if (code === "weak_password") return fail("weak_password");
     return fail("failed");
+  }
+  // End every other session (a stolen one included). A failure here must not report the change as failed.
+  const { error: signOutError } = await session.supabase.auth.signOut({ scope: "others" });
+  if (signOutError) {
+    await logEvent({
+      event: "auth.signout_others_failed",
+      level: "warn",
+      userId: session.userId,
+      route: "action:setPassword",
+      props: { status: signOutError.status ?? null, code: signOutError.code ?? null },
+    });
   }
   await logEvent({ event: "auth.password_set", userId: session.userId, route: "action:setPassword" });
   return { ok: true };

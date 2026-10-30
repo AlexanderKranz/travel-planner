@@ -16,11 +16,12 @@ const resetPasswordForEmail = vi.fn();
 const updateUser = vi.fn();
 const getClaims = vi.fn();
 const isDemoRow = vi.fn();
+const authSignOut = vi.fn();
 vi.mock("next/navigation", () => ({ redirect: (u: string) => redirect(u) }));
 vi.mock("@/lib/server/events", () => ({ logEvent: (e: unknown) => logEvent(e) }));
 vi.mock("@/lib/server/supabase/server", () => ({
   createSupabaseServerClient: async () => ({
-    auth: { signInWithOtp, verifyOtp, signInWithPassword, resetPasswordForEmail, updateUser, getClaims, signOut: vi.fn() },
+    auth: { signInWithOtp, verifyOtp, signInWithPassword, resetPasswordForEmail, updateUser, getClaims, signOut: authSignOut },
     from: () => ({ select: () => ({ eq: () => ({ maybeSingle: () => isDemoRow() }) }) }),
   }),
 }));
@@ -45,6 +46,8 @@ beforeEach(() => {
   updateUser.mockReset();
   getClaims.mockReset();
   isDemoRow.mockReset();
+  authSignOut.mockReset();
+  authSignOut.mockResolvedValue({ error: null });
   logEvent.mockClear();
   signInWithOtp.mockReset();
   verifyOtp.mockReset();
@@ -80,9 +83,12 @@ describe("requestLogin", () => {
     signInWithOtp.mockResolvedValue({ error: { status: 422, message: "Hook: signup_not_allowed" } });
     expect(await requestLogin({ email: "x@y.de", locale: "de" })).toEqual({ ok: true });
   });
-  it("reports real failures and rate limits as failed", async () => {
+  it("keeps a Supabase 429 neutral (it would reveal a mail was recently sent to this address)", async () => {
     signInWithOtp.mockResolvedValue({ error: { status: 429, message: "slow down" } });
-    expect(await requestLogin({ email: "a@b.de", locale: "de" })).toEqual({ ok: false, error: "failed" });
+    expect(await requestLogin({ email: "a@b.de", locale: "de" })).toEqual({ ok: true });
+    expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "auth.rate_limited" }));
+  });
+  it("reports real failures as failed", async () => {
     signInWithOtp.mockResolvedValue({ error: { status: 500, message: "db down", code: "unexpected_failure" } });
     expect(await requestLogin({ email: "a@b.de", locale: "de" })).toEqual({ ok: false, error: "failed" });
   });
@@ -302,6 +308,19 @@ describe("requestPasswordReset", () => {
     expect(await requestPasswordReset({ email: "a@b.de", locale: "de" })).toEqual({ ok: false, error: "rate_limited" });
     expect(resetPasswordForEmail).toHaveBeenCalledTimes(1);
   });
+  it("keeps a Supabase 429 neutral and logs it; other errors are failed", async () => {
+    resetPasswordForEmail.mockResolvedValueOnce({ error: { status: 429, message: "slow down" } });
+    expect(await requestPasswordReset({ email: "a@b.de", locale: "de" })).toEqual({ ok: true });
+    expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "auth.rate_limited" }));
+    resetPasswordForEmail.mockResolvedValueOnce({ error: { status: 500, message: "db", code: "x" } });
+    expect(await requestPasswordReset({ email: "b@b.de", locale: "de" })).toEqual({ ok: false, error: "failed" });
+  });
+  it("fails closed without a base URL (the link would lose `next`)", async () => {
+    vi.stubEnv("APP_URL", "");
+    vi.stubEnv("VERCEL_ENV", "");
+    expect(await requestPasswordReset({ email: "a@b.de", locale: "de" })).toEqual({ ok: false, error: "failed" });
+    expect(resetPasswordForEmail).not.toHaveBeenCalled();
+  });
   it("rejects an invalid address without calling Supabase", async () => {
     expect((await requestPasswordReset({ email: "nope", locale: "de" })).ok).toBe(false);
     expect(resetPasswordForEmail).not.toHaveBeenCalled();
@@ -331,6 +350,33 @@ describe("setPassword", () => {
     expect(updateUser).not.toHaveBeenCalled();
     expect((await setPassword({ password: "a".repeat(72), confirm: "a".repeat(72) })).ok).toBe(true);
     expect((await setPassword({ password: "a".repeat(10), confirm: "a".repeat(10) })).ok).toBe(true);
+  });
+  it("counts bcrypt's 72 limit in bytes, not characters", async () => {
+    signedIn();
+    updateUser.mockResolvedValue({ error: null });
+    const umlauts = "ä".repeat(37); // 37 chars, 74 bytes
+    expect(await setPassword({ password: umlauts, confirm: umlauts })).toMatchObject({ ok: false, error: "invalid" });
+    const ok = "ä".repeat(36); // 72 bytes
+    expect((await setPassword({ password: ok, confirm: ok })).ok).toBe(true);
+  });
+  it("signs out all other sessions after a successful change", async () => {
+    signedIn();
+    updateUser.mockResolvedValue({ error: null });
+    await setPassword(good);
+    expect(authSignOut).toHaveBeenCalledWith({ scope: "others" });
+  });
+  it("does not sign out others when the change failed", async () => {
+    signedIn();
+    updateUser.mockResolvedValue({ error: { status: 500, code: "x", message: "x" } });
+    await setPassword(good);
+    expect(authSignOut).not.toHaveBeenCalled();
+  });
+  it("still reports success if signing out others fails, and logs it", async () => {
+    signedIn();
+    updateUser.mockResolvedValue({ error: null });
+    authSignOut.mockResolvedValue({ error: { status: 500, code: "boom", message: "x" } });
+    expect(await setPassword(good)).toEqual({ ok: true });
+    expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "auth.signout_others_failed" }));
   });
   it("requires a session", async () => {
     getClaims.mockResolvedValue({ data: null });

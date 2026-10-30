@@ -5,7 +5,7 @@ import { useState, useTransition } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { TextField } from "@/components/ui/fields";
 import { btnPrimary, cardCls, mutedCls } from "@/components/ui/styles";
-import { PASSWORD_MAX, PASSWORD_MIN, SetPasswordInput } from "@/lib/domain/auth";
+import { PASSWORD_MAX, PASSWORD_MIN, SetPasswordInput, passwordBytes } from "@/lib/domain/auth";
 import type { ActionError } from "@/lib/domain";
 import { setPassword } from "@/lib/server/auth/actions";
 
@@ -15,7 +15,7 @@ export function PasswordForm({ autoFocus = false }: { autoFocus?: boolean }) {
   const [password, setPasswordValue] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<ActionError | null>(null);
-  const [fieldError, setFieldError] = useState<"short" | "mismatch" | null>(null);
+  const [fieldError, setFieldError] = useState<"short" | "bytes" | "mismatch" | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, start] = useTransition();
 
@@ -25,7 +25,9 @@ export function PasswordForm({ autoFocus = false }: { autoFocus?: boolean }) {
     setSaved(false);
     const parsed = SetPasswordInput.safeParse({ password, confirm });
     if (!parsed.success) {
-      setFieldError(password.length < PASSWORD_MIN || password.length > PASSWORD_MAX ? "short" : "mismatch");
+      setFieldError(
+        password.length < PASSWORD_MIN ? "short" : passwordBytes(password) > PASSWORD_MAX ? "bytes" : "mismatch",
+      );
       return;
     }
     setFieldError(null);
@@ -56,9 +58,14 @@ export function PasswordForm({ autoFocus = false }: { autoFocus?: boolean }) {
           autoComplete="new-password"
           autoFocus={autoFocus}
           minLength={PASSWORD_MIN}
-          maxLength={PASSWORD_MAX}
           required
-          error={fieldError === "short" ? t("tooShort", { min: PASSWORD_MIN, max: PASSWORD_MAX }) : undefined}
+          error={
+            fieldError === "short"
+              ? t("tooShort", { min: PASSWORD_MIN })
+              : fieldError === "bytes"
+                ? t("tooManyBytes", { max: PASSWORD_MAX })
+                : undefined
+          }
         />
         <TextField
           label={t("confirmLabel")}
@@ -67,7 +74,6 @@ export function PasswordForm({ autoFocus = false }: { autoFocus?: boolean }) {
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           autoComplete="new-password"
-          maxLength={PASSWORD_MAX}
           required
           error={fieldError === "mismatch" ? t("mismatch") : undefined}
         />
