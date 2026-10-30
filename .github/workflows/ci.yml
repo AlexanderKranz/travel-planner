@@ -11,7 +11,40 @@ permissions:
   contents: read
 
 jobs:
+  # Decides `docs_only`. A docs-only PR (every changed file is under docs/ or a root *.md) skips the heavy
+  # jobs; skipped jobs report as "skipped", which counts as passing for required checks (unlike a
+  # workflow-level paths-ignore, which would leave them pending). Fail safe: on any doubt docs_only=false.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.decide.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # full history, so base...head (merge-base) works for PRs with many commits
+          persist-credentials: false # no step pushes; keep the token out of .git/config
+      - name: Decide docs_only
+        id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          docs_only=false
+          if [ "$EVENT" = "pull_request" ] && [ -n "$BASE_SHA" ] && [ -n "$HEAD_SHA" ]; then
+            if files=$(git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA") \
+               && printf '%s\n' "$files" | sh scripts/ci/is-docs-only.sh; then
+              docs_only=true
+            fi
+          fi
+          echo "event=$EVENT docs_only=$docs_only"
+          echo "docs_only=$docs_only" >> "$GITHUB_OUTPUT"
+
   check:
+    needs: changes
+    # !cancelled(): still run if the `changes` job itself failed (fail safe: run everything)
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -26,12 +59,15 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+        if: ${{ needs.changes.outputs.docs_only != 'true' }}
 
   # Runs the SQL in supabase/migrations and the pgTAP tests in supabase/tests on a throwaway local
   # Supabase stack (Docker is available on ubuntu-latest). No secrets needed.
   # Docs checked 2026-10-27: https://supabase.com/docs/reference/cli/supabase-start (-x names),
   # https://github.com/supabase/setup-cli (action v3), https://supabase.com/docs/guides/local-development/testing/overview
   db-test:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -60,6 +96,8 @@ jobs:
   # External providers are stubbed inside the server process (e2e/stub-fetch.cjs) and AI_ENABLED=false:
   # no secrets and no external calls. See docs/runbook.md "E2E tests" and docs/specs/phase-6-e2e.md.
   e2e:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
