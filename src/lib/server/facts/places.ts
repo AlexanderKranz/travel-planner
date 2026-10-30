@@ -96,7 +96,7 @@ function fastCandidates(l: Lookup, networkAllowed: boolean): Promise<CachedResul
     return cached({
       provider: "geoapify",
       endpoint: "places",
-      key: cacheKey("places", 1, { interest: l.interest, lat: l.anchor.lat, lon: l.anchor.lon, r: l.radiusKm }),
+      key: cacheKey("places", 2, { interest: l.interest, lat: l.anchor.lat, lon: l.anchor.lon, r: l.radiusKm }),
       ttlSeconds: PLACES_TTL_SECONDS,
       schema: candidatesSchema,
       ctx: l.ctx,

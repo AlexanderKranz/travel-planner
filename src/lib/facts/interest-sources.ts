@@ -68,7 +68,8 @@ export const INTEREST_SOURCES: Record<InterestKey, InterestSource> = {
   hiking: {
     source: "osm",
     filters: [`["tourism"="viewpoint"]`, `["natural"="peak"]["wikidata"]`],
-    geoapify: [["tourism.attraction.viewpoint", "natural.mountain.peak"]],
+    // Separate requests: nearby viewpoints must not crowd peaks out of the 100-place page.
+    geoapify: [["tourism.attraction.viewpoint"], ["natural.mountain.peak"]],
     minRadiusKm: 25,
   },
   city_sightseeing: { source: "osm", filters: city, geoapify: cityGeoapify },

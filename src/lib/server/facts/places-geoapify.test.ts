@@ -40,7 +40,7 @@ describe("places: Geoapify first, Overpass as fallback", () => {
     state.impl = (o) => (o.provider === "overpass" ? { ok: false, error: "timeout" } : ok("miss"));
     await run(["wellness"]);
     expect(state.calls.map((c) => c.provider)).toEqual(["overpass", "geoapify"]);
-    expect(state.calls[1].key).toContain("places:v1");
+    expect(state.calls[1].key).toContain("places:v2");
   });
 
   it("Geoapify fails (quota, 5xx, timeout): Overpass over the network", async () => {
