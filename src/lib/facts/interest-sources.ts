@@ -37,8 +37,10 @@ const city = [
   `["historic"~"^(castle|monument|city_gate|fort)$"]["wikidata"]`,
   `["building"="cathedral"]["wikidata"]`,
 ] as const;
-// tourism.attraction (viewpoints, but mostly artworks, which the city filters drop) gets its own request.
+// tourism.attraction (mostly artworks, which the city filters drop) gets its own request, and viewpoints get
+// one more, so neither can crowd the others out of the 100-place page.
 const cityGeoapify = [
+  ["tourism.attraction.viewpoint"],
   ["tourism.attraction"],
   [
     "tourism.sights.castle",

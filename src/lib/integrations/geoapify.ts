@@ -70,7 +70,8 @@ export function toOsmElements(body: unknown): RawOsmElement[] {
 
 /**
  * One Places request per category group, sequential; elements merged and de-duplicated by OSM identity.
- * Throws on missing key, non-2xx, timeout or an unexpected body (classified by cached()).
+ * Throws on missing key, non-2xx, timeout or an unexpected body (classified by cached()); a failure after an
+ * earlier group succeeded carries that group's credits as `units`, so the quota guard still counts them.
  */
 export async function fetchPlaces(
   groups: readonly (readonly string[])[],
@@ -84,11 +85,17 @@ export async function fetchPlaces(
   let credits = 0;
   let status = 200;
   for (const categories of groups) {
-    const r = await fetchJson(placesUrl(categories, center, radiusM, key), { timeoutMs: GEOAPIFY_TIMEOUT_MS });
-    for (const e of toOsmElements(r.body)) byId.set(`${e.type}/${e.id}`, e);
-    latencyMs += r.latencyMs;
-    credits += geoapifyCredits(Response.parse(r.body).features.length);
-    status = r.status;
+    try {
+      const r = await fetchJson(placesUrl(categories, center, radiusM, key), { timeoutMs: GEOAPIFY_TIMEOUT_MS });
+      const features = Response.parse(r.body).features.length;
+      credits += geoapifyCredits(features);
+      for (const e of toOsmElements(r.body)) byId.set(`${e.type}/${e.id}`, e);
+      latencyMs += r.latencyMs;
+      status = r.status;
+    } catch (err) {
+      if (credits > 0 && err !== null && typeof err === "object") Object.assign(err, { units: credits });
+      throw err;
+    }
   }
   return { elements: [...byId.values()], status, latencyMs, credits };
 }

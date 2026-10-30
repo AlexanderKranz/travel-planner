@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-import { geoapifyCredits, placesUrl, toOsmElements } from "./geoapify";
+const http = vi.hoisted(() => ({ fetchJson: vi.fn() }));
+vi.mock("./http", () => http);
+import { fetchPlaces, geoapifyCredits, placesUrl, toOsmElements } from "./geoapify";
 import { matchesFilter } from "@/lib/facts/places";
 
 // Shape recorded from a live call (2026-10-30, Passau castles), trimmed.
@@ -27,6 +29,21 @@ describe("Geoapify client", () => {
     expect(u.searchParams.get("filter")).toBe("circle:-4.88250,36.51000,40000");
     expect(u.searchParams.get("categories")).toBe("sport.golf_course");
     expect([geoapifyCredits(0), geoapifyCredits(20), geoapifyCredits(21), geoapifyCredits(100)]).toEqual([1, 1, 2, 5]);
+  });
+});
+
+describe("fetchPlaces", () => {
+  it("merges groups; a failure after a successful group carries that group's credits", async () => {
+    vi.stubEnv("GEOAPIFY_API_KEY", "k");
+    http.fetchJson.mockResolvedValueOnce({ status: 200, latencyMs: 5, body });
+    http.fetchJson.mockRejectedValueOnce(Object.assign(new Error("HTTP 502"), { name: "HttpError", status: 502 }));
+    const err = await fetchPlaces([["a"], ["b"]], { lat: 1, lon: 2 }, 1000).catch((e: unknown) => e);
+    expect(err).toMatchObject({ status: 502, units: 1 });
+    http.fetchJson.mockResolvedValue({ status: 200, latencyMs: 5, body });
+    const ok = await fetchPlaces([["a"], ["b"]], { lat: 1, lon: 2 }, 1000);
+    expect(ok.elements).toHaveLength(2); // de-duplicated across groups
+    expect(ok.credits).toBe(2);
+    vi.unstubAllEnvs();
   });
 });
 

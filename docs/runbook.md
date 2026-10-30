@@ -240,7 +240,7 @@ Free Standard key: about 500 matrix requests per day. One plan generation makes 
 
 ### Geoapify quota
 
-Free plan: 3,000 credits per day, one credit per started block of 20 places. One interest lookup costs 1-5 credits (city sights: up to 10, two requests), cached 30 days per interest and destination point (`src/lib/server/facts/places.ts`). Every lookup is logged in `api_calls` (provider `geoapify`, credits in `units`). The guard sums today's credits (Europe/Berlin day) and refuses when one more lookup could pass `GEOAPIFY_DAILY_CREDITS` (default 2,000, admin page); it fails closed. When it refuses, the key is missing or Geoapify is down, places come from Overpass (slow, but the plan still gets concrete places). Usage today: admin page, API section, or `select coalesce(sum(units),0) from api_calls where provider='geoapify' and created_at >= date_trunc('day', now())`.
+Free plan: 3,000 credits per day, one credit per started block of 20 places. One interest lookup costs 1-5 credits (city sights: up to 15, three requests), cached 30 days per interest and destination point (`src/lib/server/facts/places.ts`). Every lookup is logged in `api_calls` (provider `geoapify`, credits in `units`). The guard sums today's credits (Europe/Berlin day) and refuses when they plus a headroom of 60 credits (one plan's parallel lookups at their maximum) would pass `GEOAPIFY_DAILY_CREDITS` (default 2,000, admin page); it fails closed. When it refuses, the key is missing or Geoapify is down, places come from Overpass (slow, but the plan still gets concrete places). Usage today: admin page, API section, or `select coalesce(sum(units),0) from api_calls where provider='geoapify' and created_at >= date_trunc('day', now())`.
 
 ## 9. Admin page
 
