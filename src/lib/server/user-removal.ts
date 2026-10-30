@@ -3,7 +3,7 @@ import "server-only";
 // user owns cascades via the owner_id foreign keys (app_events.user_id is set to null).
 import { createSupabaseAdminClient } from "./supabase/admin";
 
-export type RemoveUserResult = { ok: true } | { ok: false; step: "allowlist" | "delete"; status: number | null };
+export type RemoveUserResult = { ok: true } | { ok: false; step: "lookup" | "allowlist" | "delete"; status: number | null };
 
 /**
  * Shared by self-service account deletion and admin deletion. The caller has already decided that this user may be
@@ -11,11 +11,12 @@ export type RemoveUserResult = { ok: true } | { ok: false; step: "allowlist" | "
  * admin input, never from raw client data.
  *
  * Order: the invite goes first (a deleted user needs a NEW invite to come back), then the auth user. The email is
- * read from the auth user and never logged. If the allowlist step fails, the user is NOT deleted.
+ * read from the auth user and never logged. If the lookup or the allowlist step fails, the user is NOT deleted.
  */
 export async function removeUserAccount(userId: string): Promise<RemoveUserResult> {
   const admin = createSupabaseAdminClient();
-  const { data: authUser } = await admin.auth.admin.getUserById(userId);
+  const { data: authUser, error: lookupError } = await admin.auth.admin.getUserById(userId);
+  if (lookupError) return { ok: false, step: "lookup", status: lookupError.status ?? null };
   const email = authUser?.user?.email;
   if (email) {
     const { error } = await admin.from("signup_allowlist").delete().eq("email", email.trim().toLowerCase());

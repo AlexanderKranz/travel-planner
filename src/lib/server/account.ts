@@ -37,7 +37,7 @@ export async function deleteAccount(locale: string): Promise<ActionResult> {
       event: "error.account_delete",
       level: "error",
       userId: session.userId,
-      props: removed.step === "allowlist" ? { step: "allowlist" } : { status: removed.status },
+      props: removed.step === "delete" ? { status: removed.status } : { step: removed.step },
     });
     return fail("failed");
   }

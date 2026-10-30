@@ -172,7 +172,7 @@ export async function deleteUserAsAdmin(input: { userId: string }): Promise<Acti
       level: "error",
       userId: g.adminId,
       route: "action:deleteUserAsAdmin",
-      props: removed.step === "allowlist" ? { step: "allowlist" } : { step: "delete", status: removed.status },
+      props: { step: removed.step, status: removed.status },
     });
     return fail("failed");
   }

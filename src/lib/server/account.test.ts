@@ -94,6 +94,12 @@ describe("deleteAccount", () => {
     signOut.mockRejectedValue(new Error("user not found"));
     await expect(deleteAccount("de")).rejects.toThrow("REDIRECT:/de");
   });
+  it("does not delete the user when the email lookup fails (the invite would stay)", async () => {
+    getUserById.mockResolvedValue({ data: { user: null }, error: { status: 500 } });
+    expect(await deleteAccount("de")).toEqual({ ok: false, error: "failed" });
+    expect(allowlistEq).not.toHaveBeenCalled();
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
   it("logs account.deleted without a user id", async () => {
     await expect(deleteAccount("de")).rejects.toThrow();
     expect(logEvent).toHaveBeenCalledWith({ event: "account.deleted" });
