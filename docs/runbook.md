@@ -304,6 +304,21 @@ A Vercel Cron job calls `GET /api/cron/budget-check` once a day (`vercel.json`, 
 
 Signup is invite-only (`signup_allowlist`). Admin page -> **Einladen / Invite**: enter an address and press the button. The server adds the address to the allowlist and sends Supabase's invite email (`auth.admin.inviteUserByEmail`) with a link into the app. The list below shows each address as **Offen / Pending** (never signed in) or **Angenommen / Accepted**, with **Widerrufen / Revoke** for pending ones (removes the allowlist row and the never-used account). Details: `docs/specs/phase-6-hardening.md` section 5.
 
+### Disable, enable or delete a user (admin page -> Nutzer / Users)
+
+The list shows each account's email, status (Active / Disabled) and last sign-in, never trips, groups or plans. Actions:
+
+- **Disable / Sperren** (confirmation): the server sets `profiles.disabled_at` (users cannot write it) and then bans the account in Supabase Auth (`ban_duration` 876000 h). Data stays. The person cannot sign in, and their share links answer with the normal 404 until they are enabled again.
+- **Enable / Freigeben**: lifts the ban, then clears `disabled_at`. Share links work again (nothing was deleted).
+- **Delete / Löschen** (confirmation that all data is gone permanently): same code as "delete my account" (removes the allowlist row, then the auth user; everything the user owns cascades; `app_events.user_id` becomes null). Not undoable except from a backup (section 5); the person needs a new invite.
+
+Rules the server enforces (not just the buttons): never yourself, never another admin, never the demo account; if the role cannot be read, the action is refused. Events: `admin.user_disabled`, `admin.user_enabled`, `admin.user_deleted` (actor = the admin, no email, no target). Failures write `error.user_disable`, `error.user_enable`, `error.user_delete`.
+
+**How a disabled user is cut off.** The app verifies the access token locally (`getClaims()`), so a ban alone would leave an already issued token working for up to about 1 hour. Therefore `getUserSession()` also reads `disabled_at` (one query per request) and treats the user as signed out immediately. If that query errors, the user is let through (fail open; the ban still blocks the next token refresh, and a database outage breaks everything else anyway).
+**Limit:** someone who calls the Supabase REST API directly with a still valid token (not through the app) is not stopped by `disabled_at` until the token expires, at most about 1 hour. RLS policies were deliberately not changed for this. If that matters in an emergency: Supabase -> Authentication -> Users -> the user -> Sign out / Ban, and wait out the hour.
+
+**Undo / repair.** Wrong person disabled: press Enable. An action that reports an error may have left a half state, which is always on the safe side (flag set = still disabled): press Disable again or Enable to bring flag and ban back in line. By hand in the SQL editor: `update public.profiles set disabled_at = null where id = '<user id>';` and in Authentication -> Users remove the ban.
+
 ### It works with either sender, but the built-in one is weak
 
 - **Supabase's built-in sender** (default): only a few emails per hour for the whole project, often lands in spam, and the templates cannot be edited. Inviting still works: if the mail does not go out, the page says so and the address stays on the list, so the person can open the login page and request a normal sign-in link themselves. If the invite email does arrive, its link confirms the account and lands on the login page with a hint ("Einladung bestätigt ..."); the person then enters the address and gets a sign-in link. One extra step, nothing breaks.

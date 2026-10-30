@@ -736,6 +736,24 @@ select throws_ok($$select * from public.app_settings$$, '42501', null, 'admin se
 select throws_ok($$update public.app_settings set value = 'false'::jsonb$$, '42501', null, 'admin session cannot update app_settings');
 reset role;
 
+-- ---------- admin: disable users (migration 20261104120029) ----------
+reset role;
+select is((select disabled_at from public.profiles where id = 'bbbbbbbb-0000-4000-8000-000000000002'), null, 'new profiles start active (disabled_at null)');
+select ok(not has_column_privilege('authenticated', 'public.profiles', 'disabled_at', 'update'), 'authenticated: cannot update profiles.disabled_at');
+select ok(has_column_privilege('authenticated', 'public.profiles', 'disabled_at', 'select'), 'authenticated: can read own disabled_at');
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
+select throws_ok($$update public.profiles set disabled_at = now() where id = 'bbbbbbbb-0000-4000-8000-000000000002'$$,
+  '42501', null, 'user cannot disable themselves (set disabled_at)');
+reset role;
+update public.profiles set disabled_at = now() where id = 'bbbbbbbb-0000-4000-8000-000000000002';
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
+select throws_ok($$update public.profiles set disabled_at = null where id = 'bbbbbbbb-0000-4000-8000-000000000002'$$,
+  '42501', null, 'disabled user cannot clear disabled_at');
+select ok((select disabled_at is not null from public.profiles where id = 'bbbbbbbb-0000-4000-8000-000000000002'), 'disabled user can still read the flag');
+reset role;
+
 select * from finish();
 rollback;
 

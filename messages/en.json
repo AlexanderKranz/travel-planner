@@ -1314,6 +1314,33 @@
         "failed": "That did not work. Please try again later."
       }
     },
+    "users": {
+      "title": "Users",
+      "intro": "Disable blocks a person without deleting anything; you can enable them again later. Delete removes the account and all its data permanently. You cannot change yourself, other admins or the demo account.",
+      "empty": "No users yet.",
+      "active": "Active",
+      "disabled": "Disabled",
+      "lastSignIn": "Last sign-in",
+      "never": "never",
+      "you": "You",
+      "admin": "Admin",
+      "demo": "Demo",
+      "disable": "Disable",
+      "enable": "Enable",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "disableTitle": "Disable this user?",
+      "disableBody": "The person is signed out within moments and cannot sign in. Their data and share links stay but are not reachable until you enable them again.",
+      "deleteTitle": "Delete this user?",
+      "deleteBody": "The account and all their data (trips, groups, purposes, plans, share links) are deleted permanently. This cannot be undone. They need a new invitation to come back.",
+      "errors": {
+        "forbidden": "Only admins can do this.",
+        "invalid": "That user could not be identified.",
+        "protected": "You cannot change yourself, another admin or the demo account.",
+        "not_found": "This user no longer exists.",
+        "failed": "That did not work. Please check the list and try again later."
+      }
+    },
     "settings": {
       "title": "Settings",
       "intro": "Switches and limits you can change here without a restart. Order: admin value, then environment variable, then default. A change takes effect at once on this instance; other instances catch up within 30 seconds. Secrets (API keys) are never stored here.",

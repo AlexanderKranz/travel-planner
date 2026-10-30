@@ -169,6 +169,15 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
     if (error || !link) return null;
     if (link.expires_at !== null && Date.parse(link.expires_at) <= Date.now()) return null;
 
+    // Links of a disabled owner answer like an unknown token; re-enabling the owner brings them back.
+    // Fails closed: if the flag cannot be read, the link is not served.
+    const { data: owner, error: ownerErr } = await admin
+      .from("profiles")
+      .select("disabled_at")
+      .eq("id", link.owner_id)
+      .maybeSingle<{ disabled_at: string | null }>();
+    if (ownerErr || !owner || owner.disabled_at) return null;
+
     const { data: planRow, error: planErr } = await admin
       .from("plans")
       .select("id, latest_version, open_done")

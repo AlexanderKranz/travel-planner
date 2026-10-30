@@ -53,6 +53,7 @@ beforeEach(() => {
   events.length = 0;
   tables = {
     share_links: link(),
+    profiles: { disabled_at: null },
     plans: { id: "P1", latest_version: 3, open_done: ["abcd1234"] },
     plan_versions: { plan, version_no: 3, created_at: "2026-10-01T00:00:00Z" },
     trip_items: itemRows,
@@ -68,6 +69,7 @@ describe("getSharedPlanDocument", () => {
     expect(doc).not.toBeNull();
     expect(calls).toEqual([
       { table: "share_links", select: "id, owner_id, trip_id, include_items, include_item_notes, expires_at" },
+      { table: "profiles", select: "disabled_at" },
       { table: "plans", select: "id, latest_version, open_done" },
       { table: "plan_versions", select: "plan, version_no, created_at" },
       {
@@ -100,7 +102,7 @@ describe("getSharedPlanDocument", () => {
     const doc = await getSharedPlanDocument(TOKEN, "page");
     expect(doc!.items).toBeNull();
     expect(doc!.costs).toBeNull();
-    expect(calls.map((c) => c.table)).toEqual(["share_links", "plans", "plan_versions"]);
+    expect(calls.map((c) => c.table)).toEqual(["share_links", "profiles", "plans", "plan_versions"]);
   });
   it("touches the link and logs a view without token, hash or IP", async () => {
     await getSharedPlanDocument(TOKEN, "pdf");
@@ -117,6 +119,8 @@ describe("getSharedPlanDocument", () => {
   it.each([
     ["unknown token", () => (tables.share_links = null)],
     ["expired", () => (tables.share_links = link({ expires_at: "2000-01-01T00:00:00Z" }))],
+    ["disabled owner", () => (tables.profiles = { disabled_at: "2026-10-31T10:00:00Z" })],
+    ["owner flag unreadable (fails closed)", () => (tables.profiles = null)],
     ["no plan", () => (tables.plans = null)],
     ["plan without version", () => (tables.plans = { id: "P1", latest_version: 0, open_done: [] })],
     ["missing version", () => (tables.plan_versions = null)],

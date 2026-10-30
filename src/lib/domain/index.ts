@@ -7,6 +7,7 @@ export * from "./interests";
 export * from "./result";
 export * from "./auth";
 export * from "./invite";
+export * from "./admin-user";
 export * from "./geo";
 export * from "./trip";
 export * from "./facts";
