@@ -386,8 +386,8 @@ A pull request that changes **only documentation** skips the slow parts. What co
 
 **Vercel previews (`vercel.json` -> `ignoreCommand` -> `scripts/vercel-ignore-build.sh`)**
 - Vercel runs the script before each build: exit 0 skips the build, exit 1 builds (docs checked 2026-10-31: https://vercel.com/docs/project-configuration/vercel-json#ignorecommand). The skipped deployment shows as canceled/ignored on the PR.
-- It skips only when `VERCEL_ENV` is `preview` **and** the last commit (`HEAD^` vs `HEAD`; Vercel clones shallow, depth about 10) changed only docs. Production always builds. Missing git history or any error means: build.
-- If you push a code commit and later a docs commit, the second preview is skipped and the PR keeps the preview of the code commit, which is correct for the code. For a fresh preview anyway: Vercel -> Deployments -> Redeploy.
+- It skips only when `VERCEL_ENV` is `preview` **and** only docs changed since the branch's last successful deployment (`VERCEL_GIT_PREVIOUS_SHA` compared with `HEAD`). Without that SHA, on a branch's first deployment, it compares `HEAD^` with `HEAD`. A SHA outside the shallow clone (depth about 10) means: build. Production always builds. Missing git history or any error means: build.
+- If you push a code commit and later a docs commit, the second preview is skipped when the code commit already deployed; otherwise it builds. Known gap, accepted: the very first push of a branch with a code commit followed by a docs commit gets no preview, because building whenever the SHA is missing would build every docs-only branch. CI still builds and tests the whole PR. For a fresh preview anyway: Vercel -> Deployments -> Redeploy.
 - CI decides with `scripts/ci/is-docs-only.sh` from the PR's own checkout, so a PR changing that script deserves a manual look.
 - The Vercel skip needs "Automatically expose System Environment Variables" on (project settings). If it is off, every preview builds: safe, just no saving.
 - `ignoreCommand` in `vercel.json` overrides an "Ignored Build Step" set in the Vercel dashboard.

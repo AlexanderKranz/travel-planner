@@ -46,7 +46,7 @@ git add -A; git commit -q -m base
 
 check_vercel() {
   want=$1; label=$2; envv=$3
-  got=0; VERCEL_ENV=$envv sh scripts/vercel-ignore-build.sh >/dev/null || got=$?
+  got=0; VERCEL_ENV=$envv VERCEL_GIT_PREVIOUS_SHA=${VERCEL_GIT_PREVIOUS_SHA:-} sh scripts/vercel-ignore-build.sh >/dev/null || got=$?
   if [ "$got" -eq "$want" ]; then echo "ok   $label"; else echo "FAIL $label (exit $got, want $want)"; fail=1; fi
 }
 
@@ -56,6 +56,11 @@ check_vercel 1 "vercel: production + docs-only commit builds"  production
 check_vercel 1 "vercel: VERCEL_ENV unset builds"               ""
 echo b >> src/a.ts; git add -A; git commit -q -m code
 check_vercel 1 "vercel: preview + code commit builds"          preview
+code_sha=$(git rev-parse HEAD~1)
+echo c >> docs/b.md; git add -A; git commit -q -m docs2
+VERCEL_GIT_PREVIOUS_SHA=$code_sha check_vercel 1 "vercel: code since last deployment builds" preview
+VERCEL_GIT_PREVIOUS_SHA=$(git rev-parse HEAD~1) check_vercel 0 "vercel: only docs since last deployment skips" preview
+VERCEL_GIT_PREVIOUS_SHA=0000000000000000000000000000000000000000 check_vercel 1 "vercel: unknown previous sha builds" preview
 git mv docs/a.md src/a.md; git commit -q -m move
 check_vercel 1 "vercel: rename out of docs builds"             preview
 git checkout -q --orphan fresh; git add -A; git commit -q -m first
