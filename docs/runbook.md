@@ -372,3 +372,24 @@ Handy: `npx playwright test e2e/share.spec.ts --project=mobile`, `--ui`, `PW_CHA
 **When a CI run fails:** open the run in GitHub -> **e2e** job. Failures show as annotations and in the log. Download the artifact `playwright-report` (HTML report, screenshots and traces) and open a trace with `npx playwright show-trace trace.zip`. A failure of `a11y.spec.ts` lists the axe rule and the element.
 
 **Adding a flow:** add `e2e/<name>.spec.ts`, import `test`/`expect` from `./lib/fixtures` (gives `seed`, `anonContext`, `contextAs`). Anything that needs an external fact must be in the stub (`e2e/stub-fetch.cjs`) or must be shown as "unavailable" in the test.
+
+## 14. Docs-only changes (lighter CI and Vercel previews)
+
+A pull request that changes **only documentation** skips the slow parts. What counts as documentation: every changed file is below `docs/` (including `docs/email-templates/*.html`) or is a `*.md` file in the repo root (`README.md`, `CLAUDE.md`, ...). Anything else, such as `.github/**`, `package.json`, `package-lock.json`, `supabase/**`, `messages/**`, `.coderabbit.yaml`, `vercel.json`, `scripts/**` or a `.md` file in another folder, means "not docs-only" and everything runs exactly as before.
+
+**GitHub Actions (`.github/workflows/ci.yml`)**
+- A small first job `changes` compares the PR with `git diff base...head` (all commits of the PR, not just the last) and sets `docs_only`.
+- For a docs-only PR the jobs `db-test` and `e2e` are **skipped** and the `npm run build` step inside `check` is skipped. Lint, typecheck and unit tests of `check` still run (about a minute).
+- Skipped jobs show a grey "skipped" mark and count as passing for required checks. That is why the workflow has no `paths-ignore`: a skipped *workflow* would leave required checks "pending" forever and block merging.
+- Fail safe: pushes to `main` and `phase-*` branches always run everything. If the `changes` job fails or cannot read the diff, everything runs.
+- The classification lives in `scripts/ci/is-docs-only.sh` (same rules for CI and Vercel). Self-test: `sh scripts/ci/test-docs-only.sh`.
+
+**Vercel previews (`vercel.json` -> `ignoreCommand` -> `scripts/vercel-ignore-build.sh`)**
+- Vercel runs the script before each build: exit 0 skips the build, exit 1 builds (docs checked 2026-10-31: https://vercel.com/docs/project-configuration/vercel-json#ignorecommand). The skipped deployment shows as canceled/ignored on the PR.
+- It skips only when `VERCEL_ENV` is `preview` **and** only docs changed since the branch's last successful deployment (`VERCEL_GIT_PREVIOUS_SHA` compared with `HEAD`). Without that SHA, on a branch's first deployment, it compares `HEAD^` with `HEAD`. A SHA outside the shallow clone (depth about 10) means: build. Production always builds. Missing git history or any error means: build.
+- If you push a code commit and later a docs commit, the second preview is skipped when the code commit already deployed; otherwise it builds. Known gap, accepted: the very first push of a branch with a code commit followed by a docs commit gets no preview, because building whenever the SHA is missing would build every docs-only branch. CI still builds and tests the whole PR. For a fresh preview anyway: Vercel -> Deployments -> Redeploy.
+- CI decides with `scripts/ci/is-docs-only.sh` from the PR's own checkout, so a PR changing that script deserves a manual look.
+- The Vercel skip needs "Automatically expose System Environment Variables" on (project settings). If it is off, every preview builds: safe, just no saving.
+- `ignoreCommand` in `vercel.json` overrides an "Ignored Build Step" set in the Vercel dashboard.
+- CodeQL and CodeRabbit are unchanged and still run on every PR.
+- Dependabot, `backup.yml`, `restore-test.yml` and `deploy-db.yml` are not touched (they have their own triggers).
