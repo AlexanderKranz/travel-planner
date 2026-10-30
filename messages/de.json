@@ -659,7 +659,7 @@
       "hours": "{diff} Std.",
       "range": "{from} bis {to} Std.",
       "vs": "gegenüber {home}",
-      "changes": "Ändert sich während der Reise auf {diff} Std. (Zeitumstellung).",
+      "changes": "Ändert sich während der Reise (Zeitumstellung).",
       "byMonth": "Je nach Reisemonat (Zeitumstellung).",
       "defaultHome": "Deutschland"
     }

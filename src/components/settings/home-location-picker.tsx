@@ -123,8 +123,10 @@ export function HomeLocationPicker({
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
-            if (e.target.value.trim().length < MIN_CHARS) {
+            // Results of the previous query must not stay selectable until the debounce fires.
+            if (e.target.value.trim() !== q) {
               setResults([]);
+              setActive(-1);
               setState("idle");
             }
           }}

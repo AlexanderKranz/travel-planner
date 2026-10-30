@@ -659,7 +659,7 @@
       "hours": "{diff} h",
       "range": "{from} to {to} h",
       "vs": "vs. {home}",
-      "changes": "Changes to {diff} h during the trip (daylight saving).",
+      "changes": "Changes during the trip (daylight saving).",
       "byMonth": "Depends on the travel month (daylight saving).",
       "defaultHome": "Germany"
     }

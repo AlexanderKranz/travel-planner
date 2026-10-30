@@ -8,7 +8,6 @@ const hours = (m: number) => formatHours(m);
 export function TimeDifferenceTile({ diff, homeName }: { diff: TimeDifference; homeName: string }) {
   const t = useTranslations("facts.timeDifference");
   const [first, ...rest] = diff.minutes;
-  const last = diff.minutes[diff.minutes.length - 1];
   const varies = rest.length > 0;
   const none = !varies && first === 0;
 
@@ -23,7 +22,7 @@ export function TimeDifferenceTile({ diff, homeName }: { diff: TimeDifference; h
       <p className="text-sm text-muted">{t("vs", { home: homeName })}</p>
       {varies && (
         <p className="text-sm text-muted">
-          {diff.byMonth ? t("byMonth") : t("changes", { diff: hours(last) })}
+          {diff.byMonth ? t("byMonth") : t("changes")}
         </p>
       )}
     </Tile>
