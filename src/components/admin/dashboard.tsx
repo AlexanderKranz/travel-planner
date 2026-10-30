@@ -18,7 +18,7 @@ export async function AdminDashboard({ data, health }: { data: Dashboard; health
   const day = (iso: string) => f.dateTime(new Date(`${iso}T12:00:00Z`), { day: "2-digit", month: "2-digit", timeZone: "UTC" });
   const levelText = (m: Meter) => t(`level.${m.level}`);
 
-  const { users, usage, ai, providers, adb, ors, overpass, events } = data;
+  const { users, usage, ai, providers, adb, ors, geoapify, overpass, events } = data;
 
   return (
     <div className="flex flex-col gap-4">
@@ -179,6 +179,14 @@ export async function AdminDashboard({ data, health }: { data: Dashboard; health
               widthPct={ors.requestsToday.pct}
               level={ors.requestsToday.level}
               aria={t("api.orsTitle")}
+            />
+            <h3 className={`${labelCls} mt-2`}>{t("api.geoapifyTitle")}</h3>
+            <Bar
+              label={t("api.geoapifyToday")}
+              valueText={t("ofCap", { used: num(geoapify.creditsToday.used), cap: num(geoapify.creditsToday.cap) })}
+              widthPct={geoapify.creditsToday.pct}
+              level={geoapify.creditsToday.level}
+              aria={t("api.geoapifyTitle")}
             />
             <h3 className={`${labelCls} mt-2`}>{t("api.overpassTitle")}</h3>
             {overpass.length === 0 ? <p className={mutedCls}>{t("noData")}</p> : null}

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BudgetConfig } from "./config";
 import { cacheHitShare, meter, microToUsd, ratePct, shapeDashboard } from "./shape";
 
-const cfg: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsDailyCap: 400, errors24hThreshold: 20 };
+const cfg: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsDailyCap: 400, geoapifyDailyCap: 400, errors24hThreshold: 20 };
 
 describe("meter", () => {
   it("levels: ok below 80 %, warn from 80 %, over at the cap", () => {

@@ -1,5 +1,6 @@
 import { globalCapMicroUsd, usdToMicro } from "../ai-usage";
 import { orsDailyCap } from "../facts/drive-times";
+import { geoapifyDailyCap } from "../facts/geoapify-quota";
 
 type Env = Record<string, string | undefined>;
 
@@ -10,6 +11,7 @@ export type BudgetConfig = {
   adbDailyUnits: number;
   adbMinRemaining: number;
   orsDailyCap: number;
+  geoapifyDailyCap: number;
   errors24hThreshold: number;
 };
 
@@ -28,6 +30,7 @@ export function readBudgetConfig(env: Env = process.env): BudgetConfig {
     adbDailyUnits: intEnvFrom(env.AERODATABOX_DAILY_UNITS, 40),
     adbMinRemaining: intEnvFrom(env.AERODATABOX_MIN_REMAINING, 40),
     orsDailyCap: orsDailyCap(env),
+    geoapifyDailyCap: geoapifyDailyCap(env),
     errors24hThreshold: intEnvFrom(env.ALERT_ERRORS_24H, DEFAULT_ERRORS_24H_THRESHOLD),
   };
 }

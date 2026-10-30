@@ -238,6 +238,10 @@ Nearby days ("±1 day" button in the flights panel, spec phase 4 section 12): ea
 
 Free Standard key: about 500 matrix requests per day. One plan generation makes at most one request (`src/lib/server/facts/drive-times.ts`), cached 90 days per destination point and place set. Every request is logged in `api_calls` (provider `openrouteservice`). The guard counts today's non-hit rows (Europe/Berlin day) before each request and refuses at `ORS_DAILY_REQUESTS` (default 400); it fails closed. When it refuses or ORS is down, plans generate without drive times. Check usage with `select count(*) from api_calls where provider='openrouteservice' and cache <> 'hit' and created_at >= date_trunc('day', now())`.
 
+### Geoapify quota
+
+Free plan: 3,000 credits per day, one credit per started block of 20 places. One interest lookup costs 1-5 credits (city sights: up to 15, three requests), cached 30 days per interest and destination point (`src/lib/server/facts/places.ts`). Every lookup is logged in `api_calls` (provider `geoapify`, credits in `units`). The guard sums today's credits (Europe/Berlin day) and refuses when they plus a headroom of 60 credits (one plan's parallel lookups at their maximum) would pass `GEOAPIFY_DAILY_CREDITS` (default 2,000, admin page); it fails closed. When it refuses, the key is missing or Geoapify is down, places come from Overpass (slow, but the plan still gets concrete places). Usage today: admin page, API section, or `select coalesce(sum(units),0) from api_calls where provider='geoapify' and created_at >= date_trunc('day', now())`.
+
 ## 9. Admin page
 
 `/de/app/admin` (or `/en/app/admin`) shows aggregates only: users, trips and plans, AI cost against the budgets, external API usage and latency, health, and the last 50 warnings/errors. It never shows names, notes, purposes, plans or user ids. Anyone who is not an admin gets the normal 404 page. An "Admin" link appears in the header for admins only. Spec: `docs/specs/phase-6-admin.md`.
@@ -339,7 +343,7 @@ Steps (Supabase dashboard; menu names move occasionally, search for "SMTP" if th
 
 ## 12. Runtime settings (admin page "Einstellungen")
 
-The switches and limits that used to need a Vercel env var change and a redeploy are editable on the admin page: AI plans on/off, demo access on/off, the five AI budgets (`AI_USER_DAILY_USD`, `AI_ADMIN_DAILY_USD`, `AI_DEMO_DAILY_USD`, `AI_GLOBAL_DAILY_USD`, `AI_MONTHLY_ALERT_USD`), `AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`, `ORS_DAILY_REQUESTS` and `ALERT_ERRORS_24H`. Secrets (API keys, `CRON_SECRET`, Supabase keys, `DEMO_PASSWORD`) are not settings and never appear there. Spec: `docs/specs/phase-6-hardening.md` section 6.
+The switches and limits that used to need a Vercel env var change and a redeploy are editable on the admin page: AI plans on/off, demo access on/off, the five AI budgets (`AI_USER_DAILY_USD`, `AI_ADMIN_DAILY_USD`, `AI_DEMO_DAILY_USD`, `AI_GLOBAL_DAILY_USD`, `AI_MONTHLY_ALERT_USD`), `AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`, `ORS_DAILY_REQUESTS`, `GEOAPIFY_DAILY_CREDITS` and `ALERT_ERRORS_24H`. Secrets (API keys, `CRON_SECRET`, Supabase keys, `DEMO_PASSWORD`) are not settings and never appear there. Spec: `docs/specs/phase-6-hardening.md` section 6.
 
 - **Precedence:** admin value, else the environment variable, else the code default. The environment variables are therefore now the *defaults*; keep them as they are or remove them. Each row shows the effective value and its source (Admin / Umgebungsvariable / Standard).
 - **Zurücksetzen** deletes the admin value, so the environment variable or default applies again.

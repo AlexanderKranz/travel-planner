@@ -18,13 +18,37 @@ export type InterestExclude = {
 };
 
 export type InterestSource =
-  | { source: "osm"; filters: readonly string[]; minRadiusKm?: number; exclude?: InterestExclude }
+  | {
+      source: "osm";
+      filters: readonly string[];
+      /**
+       * Geoapify category groups that together cover every filter line (a superset; the filters are applied to the
+       * results in code). One request per group, so a broad category (tourism.attraction: mostly artworks) cannot
+       * crowd the others out of the 100-place page. Absent = no reliable category mapping, Overpass only.
+       */
+      geoapify?: readonly (readonly string[])[];
+      minRadiusKm?: number;
+      exclude?: InterestExclude;
+    }
   | { source: "none" };
 
 const city = [
   `["tourism"~"^(attraction|viewpoint)$"]["wikidata"]`,
   `["historic"~"^(castle|monument|city_gate|fort)$"]["wikidata"]`,
   `["building"="cathedral"]["wikidata"]`,
+] as const;
+// tourism.attraction (mostly artworks, which the city filters drop) gets its own request, and viewpoints get
+// one more, so neither can crowd the others out of the 100-place page.
+const cityGeoapify = [
+  ["tourism.attraction.viewpoint"],
+  ["tourism.attraction"],
+  [
+    "tourism.sights.castle",
+    "tourism.sights.memorial.monument",
+    "tourism.sights.city_gate",
+    "tourism.sights.fort",
+    "tourism.sights.place_of_worship.cathedral",
+  ],
 ] as const;
 
 /** Compile-time complete: a new INTEREST_KEYS entry without a mapping fails typecheck. */
@@ -33,16 +57,27 @@ export const INTEREST_SOURCES: Record<InterestKey, InterestSource> = {
     source: "osm",
     // Query side: drop elements explicitly tagged as driving range / practice.
     filters: [`["leisure"="golf_course"]["golf"!~"^(driving_range|practice)$"]`],
+    geoapify: [["sport.golf_course"]],
     minRadiusKm: 40,
     exclude: {
       nameRegex: "driving range|\\brange\\b|practice|lessons?\\b|clubhouse|club house|academy|academia|pitch ?(&|and|n)? ?putt|par ?3",
       dropNodesIfAreas: true,
     },
   },
-  beach: { source: "osm", filters: [`["natural"="beach"]`] },
-  hiking: { source: "osm", filters: [`["tourism"="viewpoint"]`, `["natural"="peak"]["wikidata"]`], minRadiusKm: 25 },
-  city_sightseeing: { source: "osm", filters: city },
-  museums: { source: "osm", filters: [`["tourism"~"^(museum|gallery)$"]`] },
+  beach: { source: "osm", filters: [`["natural"="beach"]`], geoapify: [["beach"]] },
+  hiking: {
+    source: "osm",
+    filters: [`["tourism"="viewpoint"]`, `["natural"="peak"]["wikidata"]`],
+    // Separate requests: nearby viewpoints must not crowd peaks out of the 100-place page.
+    geoapify: [["tourism.attraction.viewpoint"], ["natural.mountain.peak"]],
+    minRadiusKm: 25,
+  },
+  city_sightseeing: { source: "osm", filters: city, geoapify: cityGeoapify },
+  museums: {
+    source: "osm",
+    filters: [`["tourism"~"^(museum|gallery)$"]`],
+    geoapify: [["entertainment.museum", "entertainment.culture.gallery"]],
+  },
   architecture: {
     source: "osm",
     filters: [`["building"~"^(cathedral|church|palace)$"]["wikidata"]`, `["historic"="castle"]["wikidata"]`],
@@ -50,23 +85,46 @@ export const INTEREST_SOURCES: Record<InterestKey, InterestSource> = {
   history: {
     source: "osm",
     filters: [`["historic"~"^(castle|ruins|archaeological_site|fort|monument)$"]["wikidata"]`],
+    geoapify: [
+      [
+        "tourism.sights.castle",
+        "tourism.sights.ruines",
+        "tourism.sights.archaeological_site",
+        "tourism.sights.fort",
+        "tourism.sights.memorial.monument",
+      ],
+    ],
   },
-  food_wine: { source: "osm", filters: [`["craft"~"^(winery|brewery)$"]`, `["amenity"="marketplace"]`] },
-  wellness: { source: "osm", filters: [`["amenity"="public_bath"]`, `["leisure"="sauna"]`] },
+  food_wine: {
+    source: "osm",
+    filters: [`["craft"~"^(winery|brewery)$"]`, `["amenity"="marketplace"]`],
+    geoapify: [["production.winery", "production.brewery", "commercial.marketplace"]],
+  },
+  wellness: {
+    source: "osm",
+    filters: [`["amenity"="public_bath"]`, `["leisure"="sauna"]`],
+    geoapify: [["leisure.spa.public_bath", "leisure.spa.sauna"]],
+  },
   family_activities: {
     source: "osm",
     filters: [`["tourism"~"^(zoo|aquarium|theme_park)$"]`, `["leisure"="water_park"]`],
+    geoapify: [["entertainment.zoo", "entertainment.aquarium", "entertainment.theme_park", "entertainment.water_park"]],
     minRadiusKm: 25,
   },
   nature_wildlife: {
     source: "osm",
     filters: [`["leisure"="nature_reserve"]["wikidata"]`, `["boundary"="national_park"]`],
+    geoapify: [["leisure.park.nature_reserve", "national_park"]],
     minRadiusKm: 40,
   },
-  cycling: { source: "osm", filters: [`["amenity"="bicycle_rental"]`] },
+  cycling: { source: "osm", filters: [`["amenity"="bicycle_rental"]`], geoapify: [["rental.bicycle"]] },
   skiing: { source: "osm", filters: [`["landuse"="winter_sports"]`], minRadiusKm: 60 },
-  shopping: { source: "osm", filters: [`["shop"~"^(mall|department_store)$"]`, `["amenity"="marketplace"]`] },
-  photography: { source: "osm", filters: [`["tourism"="viewpoint"]`] },
+  shopping: {
+    source: "osm",
+    filters: [`["shop"~"^(mall|department_store)$"]`, `["amenity"="marketplace"]`],
+    geoapify: [["commercial.shopping_mall", "commercial.department_store", "commercial.marketplace"]],
+  },
+  photography: { source: "osm", filters: [`["tourism"="viewpoint"]`], geoapify: [["tourism.attraction.viewpoint"]] },
   water_sports: {
     source: "osm",
     filters: [`["leisure"="marina"]`, `["sport"~"^(scuba_diving|surfing|kitesurfing|sailing)$"]`],

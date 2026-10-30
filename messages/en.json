@@ -662,7 +662,7 @@
       },
       "osm": {
         "label": "© OpenStreetMap contributors",
-        "provides": "Candidate places such as sights and golf courses.",
+        "provides": "Candidate places such as sights and golf courses. Queried via Geoapify (Powered by Geoapify), with the Overpass API as fallback.",
         "license": "ODbL 1.0. The copyright page must be linked."
       },
       "wikivoyage": {
@@ -1221,6 +1221,8 @@
       "adbUnknown": "unknown",
       "orsTitle": "OpenRouteService",
       "orsToday": "Requests today (daily cap ORS_DAILY_REQUESTS)",
+      "geoapifyTitle": "Geoapify (places)",
+      "geoapifyToday": "Credits today (daily cap GEOAPIFY_DAILY_CREDITS)",
       "overpassTitle": "Overpass mirrors, this month",
       "overpassCalls": "{calls} requests, {errors} failed",
       "overpassUnknown": "unknown (before logging)"
@@ -1323,6 +1325,7 @@
         "aerodatabox_daily_units": "AeroDataBox: units per day",
         "aerodatabox_min_remaining": "AeroDataBox: monthly safety margin",
         "ors_daily_requests": "OpenRouteService: requests per day",
+        "geoapify_daily_credits": "Geoapify: credits per day",
         "alert_errors_24h": "Error alert: errors in 24 hours"
       },
       "errors": {

@@ -10,11 +10,13 @@ import type {
 } from "@/lib/domain/facts";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
-import { interestsForTrip, radiusForInterest, sourceFor, tripRadiusKm } from "@/lib/facts/interest-sources";
-import { rankCandidates } from "@/lib/facts/places";
+import { interestsForTrip, radiusForInterest, sourceFor, tripRadiusKm, type InterestExclude } from "@/lib/facts/interest-sources";
+import { matchesFilter, rankCandidates } from "@/lib/facts/places";
+import { fetchPlaces, hasGeoapifyKey } from "@/lib/integrations/geoapify";
 import { OVERPASS_CLIENT_TIMEOUT_MS, buildQuery, runQuery } from "@/lib/integrations/overpass";
 import { cacheKey, cached, type CachedResult } from "../api-cache";
 import { geoDestination, unavailable } from "./common";
+import { assertGeoapifyQuota } from "./geoapify-quota";
 
 const candidateSchema = z.object({
   osmType: z.enum(["node", "way", "relation"]),
@@ -31,6 +33,8 @@ const candidateSchema = z.object({
   osmUrl: z.string(),
 });
 const candidatesSchema = z.array(candidateSchema);
+/** Empty results are cached too. */
+const PLACES_TTL_SECONDS = 30 * 86400;
 
 /**
  * Total time budget for one places request (route handler maxDuration is 300 s, minus margin). Cached interests
@@ -45,39 +49,79 @@ export const PLACES_REQUEST_BUDGET_MS = VIEW_BUDGET_MS;
 /** Budget meaning "cache only, no network query" (plan generation right after the client's places request). */
 export const PLACES_CACHE_ONLY = 0;
 
-const inFlight = new Map<string, Promise<CachedResult<PlaceCandidate[]>>>();
+const inFlight = new Map<string, Promise<CachedResult<PlaceCandidate[]> | null>>();
 
-function fetchCandidates(
-  interest: InterestOrGeneral,
-  anchor: { lat: number; lon: number },
-  radiusKm: number,
-  ctx: FactsCtx,
-  deadline: number,
-  fetchAllowed: () => boolean,
-): Promise<CachedResult<PlaceCandidate[]>> {
-  const src = sourceFor(interest);
-  if (src.source !== "osm") return Promise.resolve({ ok: false, error: "provider_error" });
-  const key = cacheKey("interpreter", 2, { interest, lat: anchor.lat, lon: anchor.lon, r: radiusKm });
+/** Concurrent requests for the same lookup on this instance (page loader + plan runner) share one promise. */
+function shared<T extends CachedResult<PlaceCandidate[]> | null>(key: string, run: () => Promise<T>): Promise<T> {
   const existing = inFlight.get(key);
-  if (existing) return existing;
-  const p = cached({
-    provider: "overpass",
-    endpoint: "interpreter",
-    key,
-    ttlSeconds: 30 * 86400, // empty results are cached too
-    schema: candidatesSchema,
-    ctx,
-    fetchAllowed,
-    fetcher: async () => {
-      const r = await runQuery(buildQuery(src.filters, anchor, radiusKm * 1000), { deadline });
-      return { data: rankCandidates(r.elements, src.filters, anchor, src.exclude, radiusKm), status: r.status, latencyMs: r.latencyMs, variant: r.mirror };
-    },
-  }).finally(() => inFlight.delete(key));
+  if (existing) return existing as Promise<T>;
+  const p = run().finally(() => inFlight.delete(key));
   inFlight.set(key, p);
   return p;
 }
 
-/** Sequential on purpose: Overpass allows 2 slots per IP and is slow (see research doc). */
+type Lookup = { interest: InterestOrGeneral; anchor: { lat: number; lon: number }; radiusKm: number; ctx: FactsCtx };
+
+const overpassKey = ({ interest, anchor, radiusKm }: Lookup) =>
+  cacheKey("interpreter", 2, { interest, lat: anchor.lat, lon: anchor.lon, r: radiusKm });
+
+function fromOverpass(l: Lookup, filters: readonly string[], exclude: InterestExclude | undefined, deadline: number, fetchAllowed: () => boolean) {
+  return cached({
+    provider: "overpass",
+    endpoint: "interpreter",
+    key: overpassKey(l),
+    ttlSeconds: PLACES_TTL_SECONDS,
+    schema: candidatesSchema,
+    ctx: l.ctx,
+    fetchAllowed,
+    fetcher: async () => {
+      const r = await runQuery(buildQuery(filters, l.anchor, l.radiusKm * 1000), { deadline });
+      return { data: rankCandidates(r.elements, filters, l.anchor, exclude, l.radiusKm), status: r.status, latencyMs: r.latencyMs, variant: r.mirror };
+    },
+  });
+}
+
+/**
+ * Fast path, safe to run for all interests in parallel: an Overpass result already in the cache (keeps results
+ * fetched before Geoapify existed), else Geoapify (about 1 s; the OSM filters are applied to its results in code).
+ * null = not applicable (no key, no category mapping); a failed result = use the Overpass fallback.
+ */
+function fastCandidates(l: Lookup, networkAllowed: boolean): Promise<CachedResult<PlaceCandidate[]> | null> {
+  const src = sourceFor(l.interest);
+  if (src.source !== "osm" || !src.geoapify || !hasGeoapifyKey()) return Promise.resolve(null);
+  const groups = src.geoapify;
+  return shared(`fast:${overpassKey(l)}`, async () => {
+    const hit = await fromOverpass(l, src.filters, src.exclude, 0, () => false);
+    if (hit.ok && hit.cache === "hit") return hit;
+    return cached({
+      provider: "geoapify",
+      endpoint: "places",
+      key: cacheKey("places", 2, { interest: l.interest, lat: l.anchor.lat, lon: l.anchor.lon, r: l.radiusKm }),
+      ttlSeconds: PLACES_TTL_SECONDS,
+      schema: candidatesSchema,
+      ctx: l.ctx,
+      fetchAllowed: () => networkAllowed,
+      fetcher: async () => {
+        await assertGeoapifyQuota();
+        const r = await fetchPlaces(groups, l.anchor, l.radiusKm * 1000);
+        const matching = r.elements.filter((e) => src.filters.some((f) => matchesFilter(e.tags, f)));
+        return { data: rankCandidates(matching, src.filters, l.anchor, src.exclude, l.radiusKm), status: r.status, latencyMs: r.latencyMs, units: r.credits };
+      },
+    });
+  });
+}
+
+/** Slow path: Overpass over the network (25-60 s per query). Sequential callers only (2 slots per IP). */
+function overpassCandidates(l: Lookup, deadline: number, fetchAllowed: () => boolean): Promise<CachedResult<PlaceCandidate[]>> {
+  const src = sourceFor(l.interest);
+  if (src.source !== "osm") return Promise.resolve({ ok: false, error: "provider_error" });
+  return shared(`overpass:${overpassKey(l)}`, () => fromOverpass(l, src.filters, src.exclude, deadline, fetchAllowed));
+}
+
+/**
+ * Geoapify (and cached results) for all interests in parallel first; whatever is still missing then goes to
+ * Overpass one interest at a time, on purpose: Overpass allows 2 slots per IP and is slow (see research doc).
+ */
 export async function getPlacesFacts(
   trip: Trip,
   purpose: TripPurpose | null,
@@ -96,7 +140,9 @@ export async function getPlacesFacts(
     const fetchedAts: string[] = [];
     let stale = false;
     let queried = 0;
-    for (const interest of keys) {
+    const lookups = keys.map((interest) => ({ interest, anchor, radiusKm: radiusForInterest(interest, baseRadius), ctx }));
+    const fast = await Promise.all(lookups.map((l) => fastCandidates(l, budgetMs !== PLACES_CACHE_ONLY)));
+    for (const [i, interest] of keys.entries()) {
       if (sourceFor(interest).source === "none") {
         groups.push({ interest, status: "no_source" });
         continue;
@@ -109,7 +155,8 @@ export async function getPlacesFacts(
         queried += 1;
         return true;
       };
-      const res = await fetchCandidates(interest, anchor, radiusForInterest(interest, baseRadius), ctx, started + budgetMs, fetchAllowed);
+      const quick = fast[i];
+      const res = quick?.ok ? quick : await overpassCandidates(lookups[i], started + budgetMs, fetchAllowed);
       if (!res.ok) {
         groups.push({ interest, status: "error" }); // contract has no "pending": UI says "try again later"
         continue;

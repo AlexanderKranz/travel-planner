@@ -65,7 +65,7 @@ describe("validation", () => {
   it("only the listed variables are settings, none of them a secret", () => {
     const envNames = SETTING_KEYS.map((k) => SETTING_DEFS[k].env);
     expect(envNames.some((n) => /KEY|SECRET|PASSWORD|TOKEN|DSN/.test(n))).toBe(false);
-    expect(envNames).toHaveLength(11);
+    expect(envNames).toHaveLength(12);
   });
 });
 

@@ -26,6 +26,29 @@ function parseFilter(filter: string): Clause[] {
   return out;
 }
 
+/**
+ * Full Overpass semantics of one filter line (`["k"="v"]`, `["k"~"re"]`, `["k"!~"re"]`, `["k"]`), for results
+ * that did not come from an Overpass query with that filter (Geoapify). `!~` also matches when the key is absent,
+ * like Overpass. Every filter line of an interest also requires a name (buildQuery adds `["name"]`).
+ */
+export function matchesFilter(tags: Record<string, string>, filter: string): boolean {
+  if (!tags.name) return false;
+  for (const m of filter.matchAll(/\["([^"]+)"(?:(=|~|!~)"([^"]*)")?\]/g)) {
+    const [, key, op, value] = m;
+    const v = tags[key];
+    if (!op) {
+      if (v === undefined) return false;
+    } else if (op === "=") {
+      if (v !== value) return false;
+    } else if (op === "~") {
+      if (v === undefined || !new RegExp(value).test(v)) return false;
+    } else if (v !== undefined && new RegExp(value).test(v)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /** Category of the first filter's value clause that the element matches, as `key=value`. */
 export function matchCategory(tags: Record<string, string>, filters: readonly string[]): string | null {
   for (const f of filters) {
