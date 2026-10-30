@@ -33,7 +33,7 @@ jobs:
         run: |
           docs_only=false
           if [ "$EVENT" = "pull_request" ] && [ -n "$BASE_SHA" ] && [ -n "$HEAD_SHA" ]; then
-            if files=$(git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA") \
+            if files=$(git -c core.quotePath=false diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA") \
                && printf '%s\n' "$files" | sh scripts/ci/is-docs-only.sh; then
               docs_only=true
             fi

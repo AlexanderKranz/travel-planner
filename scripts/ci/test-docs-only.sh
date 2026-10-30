@@ -37,7 +37,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT INT TERM
 cd "$tmp"
 git init -q .
-git config user.email t@example.invalid; git config user.name t
+git config user.email t@example.invalid; git config user.name t; git config commit.gpgsign false
 mkdir -p scripts/ci docs src
 cp "$classify" scripts/ci/is-docs-only.sh
 cp "$ignore" scripts/vercel-ignore-build.sh
