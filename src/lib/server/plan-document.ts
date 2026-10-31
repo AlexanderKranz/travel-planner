@@ -32,7 +32,7 @@ export type PlanDocumentParts = {
   /** null = items not part of this document. */
   items: SharedItem[] | null;
   partySize: number | null;
-  /** Owner's home place. Only a computed display value reaches the document, never the raw zone. */
+  /** Owner's home place, null = none set (Germany). `undefined` = unknown (read failed): no time difference at all. */
   home?: PlanHome | null;
 };
 
@@ -48,7 +48,7 @@ export function buildPlanDocument(parts: PlanDocumentParts): PlanDocument {
     openDone: parts.openDone,
     items: parts.items,
     costs: parts.items ? computeCosts(parts.items, parts.partySize) : null,
-    timeDifference: planTimeDifference(parts.plan, parts.home ?? null, berlinToday()),
+    timeDifference: parts.home === undefined ? null : planTimeDifference(parts.plan, parts.home, berlinToday()),
   };
 }
 
@@ -126,13 +126,13 @@ export async function getOwnerPlanDocumentResult(
       .returns<ItemRow[]>();
     if (itemErr) return { ok: false, error: "failed" };
     const items = rows.map((r) => rowToSharedItem(r, true));
-    const { data: prof } = await sb
+    const { data: prof, error: profErr } = await sb
       .from("profiles")
       .select("home_location, home_timezone")
       .eq("id", session.userId)
       .maybeSingle<{ home_location: string | null; home_timezone: string | null }>();
     const doc = buildPlanDocument({
-      home: prof ? { name: prof.home_location, timezone: prof.home_timezone } : null,
+      home: profErr ? undefined : prof ? { name: prof.home_location, timezone: prof.home_timezone } : null,
       plan: plan.data,
       versionNo: ver.version_no,
       versionAt: ver.created_at,
@@ -239,7 +239,7 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
       items,
       partySize: party,
       // Only the computed display value leaves this function (planTimeDifference), never the raw zone.
-      home: owner ? { name: owner.home_location, timezone: owner.home_timezone } : null,
+      home: owner ? { name: owner.home_location, timezone: owner.home_timezone } : flagMissing ? undefined : null,
     });
   } catch {
     return null;

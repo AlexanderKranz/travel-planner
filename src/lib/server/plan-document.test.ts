@@ -158,6 +158,13 @@ describe("getSharedPlanDocument", () => {
 });
 
 describe("buildPlanDocument", () => {
+  it("shows no time difference when the owner's home is unknown (profile read failed)", () => {
+    const g = plan as { facts: { daylight: object } };
+    const p = { ...g, facts: { ...g.facts, daylight: { ...g.facts.daylight, timezone: "Asia/Bangkok" } } } as never;
+    const parts = { plan: p, versionNo: 1, versionAt: "x", openDone: [], items: null, partySize: null };
+    expect(buildPlanDocument({ ...parts, home: undefined }).timeDifference).toBeNull();
+    expect(buildPlanDocument({ ...parts, home: null }).timeDifference).not.toBeNull();
+  });
   it("drops reserved items/costs keys of the plan", () => {
     const p = { ...(plan as object), items: [1], costs: { x: 1 } } as never;
     const doc = buildPlanDocument({ plan: p, versionNo: 1, versionAt: "x", openDone: [], items: null, partySize: null });
