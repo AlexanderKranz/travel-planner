@@ -1,8 +1,8 @@
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { linkCls } from "@/components/ui/styles";
 import type { DestinationPictureResult } from "@/lib/domain/picture";
 import { pictureCredit } from "@/lib/picture-credit";
+import { PictureFigure } from "./picture-figure";
 
 const ext = { target: "_blank", rel: "noopener noreferrer" } as const;
 
@@ -23,17 +23,7 @@ export function DestinationPictureBand({ picture, placeName }: { picture: Destin
       chunks
     );
   return (
-    <figure className="m-0 flex min-w-0 flex-col gap-1.5">
-      <div className="relative h-[140px] w-full overflow-hidden rounded-[14px] border border-line bg-hover sm:h-[180px] lg:h-[220px]">
-        <Image
-          src={picture.url}
-          alt={t("alt", { place: placeName })}
-          fill
-          priority
-          sizes="(min-width: 1280px) 1200px, 100vw"
-          className="object-cover object-center"
-        />
-      </div>
+    <PictureFigure src={picture.url} alt={t("alt", { place: placeName })}>
       <figcaption className="min-w-0 break-words text-xs text-muted sm:text-right [overflow-wrap:anywhere]">
         {t.rich(c.variant === "withAuthor" ? "creditAuthor" : "creditLicense", {
           author: c.author,
@@ -45,6 +35,6 @@ export function DestinationPictureBand({ picture, placeName }: { picture: Destin
         </a>
         . {t("cropped")}
       </figcaption>
-    </figure>
+    </PictureFigure>
   );
 }

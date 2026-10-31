@@ -87,10 +87,18 @@ export async function getSharedDestinationPicture(token: string): Promise<Destin
     const admin = createSupabaseAdminClient();
     const { data: link } = await admin
       .from("share_links")
-      .select("trip_id")
+      .select("trip_id, owner_id, expires_at")
       .eq("token_hash", hashShareToken(token))
-      .maybeSingle<{ trip_id: string }>();
+      .maybeSingle<{ trip_id: string; owner_id: string; expires_at: string | null }>();
     if (!link) return null;
+    // Same rules as getSharedPlanDocument, so this stays safe on its own: nothing for an expired link or a disabled owner.
+    if (link.expires_at !== null && Date.parse(link.expires_at) <= Date.now()) return null;
+    const { data: owner, error: ownerErr } = await admin
+      .from("profiles")
+      .select("disabled_at")
+      .eq("id", link.owner_id)
+      .maybeSingle<{ disabled_at: string | null }>();
+    if (ownerErr || !owner || owner.disabled_at) return null;
     const { data: trip } = await admin
       .from("trips")
       .select("dest_kind, dest_geo_id")

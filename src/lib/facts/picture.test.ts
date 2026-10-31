@@ -46,7 +46,7 @@ describe("classifyLicense", () => {
     "allows %s",
     (n) => expect(classifyLicense(n, null)).not.toBeNull(),
   );
-  it.each(["CC BY-NC 4.0", "CC BY-ND 2.0", "CC BY-NC-SA 3.0", "GFDL", "Fair use", "", "All rights reserved", "CC BY-SA"])(
+  it.each(["CC0-NC", "CC BY-NC 4.0", "CC BY-ND 2.0", "CC BY-NC-SA 3.0", "GFDL", "Fair use", "", "All rights reserved", "CC BY-SA"])(
     "rejects %s",
     (n) => expect(classifyLicense(n, null)).toBeNull(),
   );

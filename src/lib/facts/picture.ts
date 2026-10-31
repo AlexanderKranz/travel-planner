@@ -64,7 +64,7 @@ const CC_BY = /^CC[ -]BY(-SA)?[ -](\d)\.(\d)(?:[ -]([A-Za-z]{2,3}))?$/i;
 export function classifyLicense(shortName: string | null, licenseUrl: string | null): LicenseInfo | null {
   const name = shortName?.replace(/\s+/g, " ").trim() ?? "";
   if (!name || name.length > 60) return null;
-  if (/^CC0\b/i.test(name)) return { name, url: ccUrl(licenseUrl) ?? "https://creativecommons.org/publicdomain/zero/1.0/", needsAttribution: false };
+  if (/^CC0(?:[ -]1\.0)?$/i.test(name)) return { name, url: ccUrl(licenseUrl) ?? "https://creativecommons.org/publicdomain/zero/1.0/", needsAttribution: false };
   if (/^(public domain|pd)(\b|-)/i.test(name) && !/\b(nc|nd)\b/i.test(name)) {
     return { name, url: null, needsAttribution: false };
   }
