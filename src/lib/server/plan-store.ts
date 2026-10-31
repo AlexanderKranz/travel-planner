@@ -43,6 +43,8 @@ export type NewVersion = {
 };
 
 const StoredInput = z.object({
+  /** Interests whose places did not load when the plan was written (never part of the hash or the LLM input). */
+  pendingPlaces: z.array(z.string()).optional(),
   llm: z.looseObject({ v: z.literal(1) }),
   index: z.record(z.string(), z.object({ key: OsmKey, place: PlanPlace })),
 });
@@ -197,21 +199,26 @@ export async function pruneVersions(sb: SupabaseClient, planId: string, latestVe
   await sb.from("plan_versions").delete().eq("plan_id", planId).lte("version_no", cutoff);
 }
 
-/** Generation lock: true when this call took it. */
-export async function acquireLock(sb: SupabaseClient, planId: string, now: number = Date.now()): Promise<boolean> {
+/** Generation lock: the `busy_until` value this call set (the token for `releaseLock`), or null when it was held. */
+export async function acquireLock(sb: SupabaseClient, planId: string, now: number = Date.now()): Promise<string | null> {
+  const until = new Date(now + LOCK_MS).toISOString();
   const { data, error } = await sb
     .from("plans")
-    .update({ busy_until: new Date(now + LOCK_MS).toISOString() })
+    .update({ busy_until: until })
     .eq("id", planId)
     .or(`busy_until.is.null,busy_until.lt.${new Date(now).toISOString()}`)
     .select("id");
   if (error) throw new Error("lock failed");
-  return data.length === 1;
+  return data.length === 1 ? until : null;
 }
 
-export async function releaseLock(sb: SupabaseClient, planId: string): Promise<void> {
+/**
+ * Frees the lock only while it still carries the `busy_until` this run set (one atomic conditional update): a run
+ * whose lock expired and was taken by a later run can never free that later lock.
+ */
+export async function releaseLock(sb: SupabaseClient, planId: string, token: string): Promise<void> {
   try {
-    await sb.from("plans").update({ busy_until: null }).eq("id", planId);
+    await sb.from("plans").update({ busy_until: null }).eq("id", planId).eq("busy_until", token);
   } catch {
     // the lock expires on its own after LOCK_MS
   }

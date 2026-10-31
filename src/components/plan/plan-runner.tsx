@@ -8,14 +8,13 @@ import { useRouter } from "@/i18n/navigation";
 import type { ActionError } from "@/lib/domain";
 import { asPlanError, formatElapsed, POLL_INTERVAL_MS, progressStage, shouldKeepPolling } from "./helpers";
 
-type Phase = "idle" | "places" | "running" | "polling";
+type Phase = "idle" | "running" | "polling";
 
 /**
- * Starts plan generation in two visible steps with a running timer:
- * 1. GET /places (Overpass; instant when cached, minutes for a new destination),
- * 2. POST /plan with `placesLoaded`, so the server reads places from the cache instead of waiting again.
- * If the plan request dies (network, proxy timeout) or the server says "busy", it polls GET /plan until the lock
- * is released. With `watchOnly` it only polls (plan generated elsewhere, e.g. another tab).
+ * Starts plan generation with one POST /plan; the server loads places and writes the plan, so leaving the page
+ * cannot stop it. A running timer and an elapsed-based status text give feedback. If the request dies (network,
+ * proxy timeout) or the server says "busy", it polls GET /plan until the lock is released. With `watchOnly` or
+ * `initialBusy` (a return visit during a run) it only polls.
  */
 export function PlanRunner({
   tripId,
@@ -35,7 +34,7 @@ export function PlanRunner({
   watchOnly?: boolean;
   disabled?: boolean;
   secondary?: boolean;
-  /** Regenerate: a new AI version even when the input is unchanged (sent with force, so pending places don't block). */
+  /** Regenerate: a new AI version even when the input is unchanged (sent with force: cache-only places, no new wait). */
   fresh?: boolean;
   /** Ask before starting: inline confirmation with this text and button labels. */
   confirm?: { text: string; yes: string; no: string };
@@ -45,18 +44,34 @@ export function PlanRunner({
   const [phase, setPhase] = useState<Phase>(initialBusy || watchOnly ? "polling" : "idle");
   const [error, setError] = useState<ActionError | null>(null);
   const [timedOut, setTimedOut] = useState(false);
+  /** A run ended without a new version (killed, or places pending after the connection dropped). */
+  const [incomplete, setIncomplete] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [asking, setAsking] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const startedAt = useRef(Date.now());
-  const planStartedAt = useRef(Date.now());
+  /** Latest version number when this run started (or when the first poll saw the lock); null = unknown, no alarm. */
+  const baseline = useRef<number | null>(null);
   const url = `/api/trips/${encodeURIComponent(tripId)}/plan`;
-  const placesUrl = `/api/trips/${encodeURIComponent(tripId)}/places?locale=${encodeURIComponent(locale)}`;
 
   const done = useCallback(() => {
     startRefresh(() => router.refresh());
     setPhase("idle");
   }, [router]);
+
+  /** One read of the plan state: busy flag and latest version number (0 = none). Null when it cannot be read. */
+  const readState = useCallback(async (): Promise<{ busy: boolean; versionNo: number } | null> => {
+    try {
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) return null;
+      const json = (await res.json()) as {
+        state?: { busy?: boolean; version?: { meta?: { versionNo?: number } } | null };
+      };
+      return { busy: json.state?.busy === true, versionNo: json.state?.version?.meta?.versionNo ?? 0 };
+    } catch {
+      return null;
+    }
+  }, [url]);
 
   // Elapsed seconds drive the staged status text.
   useEffect(() => {
@@ -71,21 +86,25 @@ export function PlanRunner({
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
-      if (!shouldKeepPolling(Date.now() - planStartedAt.current)) {
+      if (!shouldKeepPolling(Date.now() - startedAt.current)) {
         setTimedOut(true);
         setPhase("idle");
         return;
       }
-      try {
-        const res = await fetch(url, { cache: "no-store" });
-        if (res.ok) {
-          const json = (await res.json()) as { state?: { busy?: boolean }; busy?: boolean };
-          const busy = (json.state ?? json).busy;
-          if (!cancelled && !busy) return done();
-        }
-      } catch {
-        // network blip: keep polling until the time limit
+      const state = await readState();
+      if (cancelled) return;
+      if (state && !state.busy) {
+        // The lock is gone. No new version = the run did not finish (a finished run, also a restore, adds one;
+        // an unchanged result cannot happen from the buttons, they only show when the input changed or use `fresh`).
+        const noNew = baseline.current !== null && state.versionNo <= baseline.current;
+        if (noNew) {
+          // No refresh: a watching runner unmounts when the page learns "not busy", which would hide the message.
+          setIncomplete(true);
+          setPhase("idle");
+        } else done();
+        return;
       }
+      if (state && baseline.current === null) baseline.current = state.versionNo;
       if (!cancelled) timer = setTimeout(tick, POLL_INTERVAL_MS);
     };
     timer = setTimeout(tick, watchOnly ? 0 : POLL_INTERVAL_MS);
@@ -93,41 +112,34 @@ export function PlanRunner({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [phase, url, done, watchOnly]);
-
-  /** Step 1: let the server fetch places (cached interests answer instantly). False when the request failed. */
-  async function loadPlaces(): Promise<boolean> {
-    try {
-      const res = await fetch(placesUrl, { cache: "no-store" });
-      return res.ok;
-    } catch {
-      return false;
-    }
-  }
+  }, [phase, done, watchOnly, readState]);
 
   async function run(force = false) {
     setError(null);
     setTimedOut(false);
+    setIncomplete(false);
     startedAt.current = Date.now();
     setElapsed(0);
-    // "Generate anyway" skips the places step: the user chose not to wait.
-    let placesLoaded = force;
-    if (!force) {
-      setPhase("places");
-      placesLoaded = await loadPlaces();
-    }
-    planStartedAt.current = Date.now();
     setPhase("running");
+    baseline.current = (await readState())?.versionNo ?? null;
     try {
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locale, ...(fresh || force ? { force: true } : {}), ...(fresh ? { fresh: true } : {}), placesLoaded }),
+        body: JSON.stringify({ locale, ...(force || fresh ? { force: true } : {}), ...(fresh ? { fresh: true } : {}) }),
       });
       if (res.ok) return done();
       const json = (await res.json().catch(() => ({}))) as { error?: string };
       const code = asPlanError(json.error);
-      if (code === "busy") return setPhase("polling");
+      if (code === "busy") {
+        // The per-user guard also answers busy while ANOTHER trip is being planned: look at this trip once.
+        const state = await readState();
+        if (state && !state.busy) {
+          setPhase("idle");
+          return setError("busy");
+        }
+        return setPhase("polling");
+      }
       setPhase("idle");
       setError(code);
     } catch {
@@ -137,8 +149,7 @@ export function PlanRunner({
   }
 
   const working = phase !== "idle" || refreshing;
-  const planElapsed = Math.max(0, elapsed - Math.floor((planStartedAt.current - startedAt.current) / 1000));
-  const stage = progressStage(phase === "places" ? "places" : "plan", planElapsed);
+  const stage = progressStage(elapsed);
 
   return (
     <div className="flex flex-col gap-3">
@@ -189,6 +200,7 @@ export function PlanRunner({
             </span>
           </p>
         )}
+        {incomplete && !working && <p className={mutedCls}>{t("incomplete")}</p>}
         {timedOut && (
           <p className={mutedCls}>
             {t("timedOut")}{" "}
