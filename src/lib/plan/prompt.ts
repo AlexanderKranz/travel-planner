@@ -73,7 +73,7 @@ INPUT keys: lang = language of name and reason (de = German, en = English). purp
 
 Rules:
 1. Propose count places that suit the purpose, best fit first. Output only the schema, with name and reason in lang. Different regions and countries are better than several places next to each other.
-2. anchor is a single town or city that exists under this name, never a region. For a region or island, name is the region and anchor its main town (name "Costa del Sol", anchor "Marbella"; name "Mallorca", anchor "Palma"). cc is the ISO 3166-1 alpha-2 code of the country of the anchor.
+2. anchor is a single town or city that exists under this name, never a region, written as its English name as in the GeoNames database ("Lisbon", "Florence", "Prague", "Vienna", "Seville", "Palma de Mallorca"), with its local diacritics where English has them. name stays in lang ("Lissabon", "Florenz"). For a region or island, name is the region and anchor its main town (name "Costa del Sol", anchor "Marbella"; name "Mallorca", anchor "Palma de Mallorca"). cc is the ISO 3166-1 alpha-2 code of the country of the anchor.
 3. Prefer places within radiusKm of from. The app checks this; do not mention it.
 4. reason is one sentence, at most 140 characters, on why the place fits the purpose, the group (for example toddlers) or the months.
 5. Never state flights, airlines, routes, travel times, distances, prices, opening hours or numbers of courses or sights in reason.

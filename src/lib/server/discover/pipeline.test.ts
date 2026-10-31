@@ -185,11 +185,20 @@ describe("gates, in the order of the spec", () => {
   });
 
   it("4. one real run per minute", async () => {
-    h.claim1.mockResolvedValue({ ok: false, reason: "busy" }); // the first run consumes the slot and ends early
-    await runDestinationSearch(body);
+    await runDestinationSearch(body); // a real run takes the slot
     const r = await runDestinationSearch(body);
     expect(r).toMatchObject({ ok: false, error: "rate_limited" });
     expect((r as { retryAfter?: number }).retryAfter).toBeGreaterThan(0);
+  });
+
+  it("4. the slot is taken only after budget and claim passed: busy or budget_exceeded do not block the next minute", async () => {
+    h.claim1.mockResolvedValueOnce({ ok: false, reason: "busy" });
+    expect(await runDestinationSearch(body)).toMatchObject({ ok: false, error: "busy" });
+    h.budgetOk = false;
+    expect(await runDestinationSearch(body)).toMatchObject({ ok: false, error: "budget_exceeded" });
+    h.budgetOk = true;
+    expect(await runDestinationSearch(body)).toMatchObject({ ok: true }); // not rate_limited
+    expect(await runDestinationSearch(body)).toMatchObject({ ok: false, error: "rate_limited" });
   });
 
   it("5. daily runs: 10 users, 30 admin, 5 demo; search_limit carries resetAt", async () => {

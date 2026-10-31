@@ -76,3 +76,13 @@ describe("REASON_BANNED / cleanReason (E6)", () => {
     expect(cleanReason("<br>")).toEqual({ reason: null, removed: false });
   });
 });
+
+describe("more evasions and non-matches (review round)", () => {
+  it.each(["Kosten ab CHF 50", "ab 99,- Euro", "80 Dollar die Nacht", "Mit Eurowings direkt", "Mo-Fr 9-17 Uhr", "open 24/7", "Opening times vary", "ein halbe Stunde", "half an hour away", "３ km entfernt"])(
+    "removes %s",
+    (s) => expect(cleanReason(s).removed).toBe(true),
+  );
+  it.each(["Tagesausflüge und Flüsse", "Zwei Flüsse", "Schöne Ausflüge", "Weite Strände im Süden", "Golf and good food"])("keeps %s", (s) =>
+    expect(cleanReason(s)).toEqual({ reason: s, removed: false }),
+  );
+});

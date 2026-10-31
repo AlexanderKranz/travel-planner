@@ -37,8 +37,20 @@ describe("pickAnchorPlace (step 1)", () => {
     expect(pickAnchorPlace([place({ featureCode: "ADM1" })], "Marbella", "ES")).toBeNull();
     expect(pickAnchorPlace([place({ featureCode: "ISL" })], "Marbella", "ES")).toBeNull();
   });
-  it("requires the exact folded name (no partial matches)", () => {
-    expect(pickAnchorPlace([place({ name: "Marbella del Sol" })], "Marbella", "ES")).toBeNull();
+  it("a longer name that starts with the anchor counts only for administrative seats and capitals", () => {
+    expect(pickAnchorPlace([place({ geoId: 5, name: "Palma de Mallorca", featureCode: "PPLA" })], "Palma", "ES")?.geoId).toBe(5);
+    expect(pickAnchorPlace([place({ geoId: 6, name: "Palma de Mallorca", featureCode: "PPLC" })], "Palma", "ES")?.geoId).toBe(6);
+    expect(pickAnchorPlace([place({ name: "Palma de Mallorca", featureCode: "PPL" })], "Palma", "ES")).toBeNull();
+    expect(pickAnchorPlace([place({ name: "Palmanova", featureCode: "PPLA2" })], "Palma", "ES")).toBeNull(); // no word boundary
+    expect(pickAnchorPlace([place({ name: "Marbella", featureCode: "PPLX" }), place({ geoId: 9, name: "Palma de Mallorca", featureCode: "PPLA" })], "Palma", "ES")?.geoId).toBe(9);
+  });
+  it("an exact match beats a prefix match, whatever the population", () => {
+    const r = [place({ geoId: 1, name: "Palma de Mallorca", featureCode: "PPLA", population: 400000 }), place({ geoId: 2, name: "Palma", featureCode: "PPL", population: 900 })];
+    expect(pickAnchorPlace(r, "Palma", "ES")?.geoId).toBe(2);
+  });
+  it("requires the whole anchor (no partial matches inside a word, no other country)", () => {
+    expect(pickAnchorPlace([place({ name: "Marbellas" })], "Marbella", "ES")).toBeNull();
+    expect(pickAnchorPlace([place({ name: "Palma de Mallorca", featureCode: "PPLA", countryCode: "PT" })], "Palma", "ES")).toBeNull();
   });
   it("on a tie takes the highest population (null counts as 0)", () => {
     const r = [place({ geoId: 1, population: null }), place({ geoId: 2, population: 400000 }), place({ geoId: 3, population: 1000 })];
@@ -53,6 +65,11 @@ describe("pickAnchorPlace (step 1)", () => {
 describe("kindOf (D8)", () => {
   it("name equal to the anchor (folded) is a city", () => {
     expect(kindOf("Málaga", "Malaga")).toBe("city");
+  });
+  it("the verified (localized) place name counts too: Lissabon for the anchor Lisbon is a city", () => {
+    expect(kindOf("Lissabon", "Lisbon", "Lissabon")).toBe("city");
+    expect(kindOf("Lissabon", "Lisbon")).toBe("region");
+    expect(kindOf("Algarve", "Faro", "Faro")).toBe("region");
   });
   it("E5: Costa del Sol / Marbella and Mallorca / Palma are regions", () => {
     expect(kindOf("Costa del Sol", "Marbella")).toBe("region");

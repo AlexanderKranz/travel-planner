@@ -20,6 +20,8 @@ export type IdeaInput = {
   };
   months?: number[]; // 1..12, up to 3
   from?: string[]; // airport cities, e.g. ["Frankfurt am Main"]
+  /** Airport codes. In the cache hash only (LHR and LGW both say "London"); never sent to the model. */
+  fromIata?: string[];
   radiusKm?: number; // hint only
   group?: { adults: number; children: number; toddlers: number };
   count: 8;
@@ -27,8 +29,11 @@ export type IdeaInput = {
 };
 
 /** A flight limit never reaches the model as a task: code applies it as a radius. */
-const FLIGHT_WORD = /flug|flight|fly/i;
-export const mentionsFlight = (s: string): boolean => parseMaxFlightHours(s) !== null || FLIGHT_WORD.test(s);
+const FLIGHT_WORD = /flug|flieg|flight|fly|airline|airport|in the air|anreise/i;
+/** "weniger als 1500 km entfernt", "within 3 hours", "unter 2 Stunden Fahrt": a distance or travel time limit. */
+const TRAVEL_LIMIT =
+  /(?:weniger als|unter|max(?:imal|\.)?|h[öo]chstens|bis zu|innerhalb|nicht (?:mehr|weiter|l[äa]nger) als|within|under|less than|up to|at most|no more than|not more than)\s*\d[\d.,]*\s*(?:km|kilometer|meilen|miles?|mi\b|h\b|std|stunden?|hours?|hrs?|min)|\d[\d.,]*\s*(?:km|kilometer|meilen|miles?)\s*(?:entfernt|weit|away|radius|from)/i;
+export const mentionsFlight = (s: string): boolean => parseMaxFlightHours(s) !== null || FLIGHT_WORD.test(s) || TRAVEL_LIMIT.test(s);
 
 /** Sentences of a free text without the ones that mention a flight. */
 export function withoutFlightSentences(text: string): string {
@@ -75,10 +80,10 @@ function purposePart(p: TripPurpose): IdeaInput["purpose"] {
   // Same rule as the plan input: typed custom interests are only used raw while there are no tags.
   for (const i of g.interests ?? []) {
     if (isInterestKey(i)) addInterest(i);
-    else if (!t) addCustom(i);
+    else if (!t && !mentionsFlight(i)) addCustom(i);
   }
   for (const i of t?.interests ?? []) addInterest(i);
-  for (const i of t?.custom ?? []) addCustom(i);
+  for (const i of t?.custom ?? []) if (!mentionsFlight(i)) addCustom(i);
   // Tags replace the raw text; without tags the cut text and the constraints go in as-is (phase 3 D7).
   const hard = clean(t ? t.hard : p.constraints).filter((s) => !mentionsFlight(s));
   const soft = clean(t ? t.soft : []).filter((s) => !mentionsFlight(s));
@@ -112,6 +117,7 @@ export type IdeaInputSource = {
 export function buildIdeaInput(s: IdeaInputSource): IdeaInput {
   const months = [...new Set(s.months)].sort((a, b) => a - b).slice(0, 3);
   const from = clean(s.origins.flatMap((o) => (getAirport(o)?.city ? [getAirport(o)!.city] : [])));
+  const fromIata = [...new Set(s.origins.filter((o) => getAirport(o)))];
   // Counts only: no names, ages or notes. A text-only group has no counts and is left out.
   const summary = s.group ? resolveGroup(s.group, ageDateFor(months, s.today), s.profileBirthdate).summary : null;
   const group =
@@ -123,7 +129,7 @@ export function buildIdeaInput(s: IdeaInputSource): IdeaInput {
     lang: s.lang,
     purpose: purposePart(s.purpose),
     ...(months.length ? { months } : {}),
-    ...(from.length ? { from } : {}),
+    ...(from.length ? { from, fromIata } : {}),
     ...(s.radiusKm !== undefined && from.length ? { radiusKm: s.radiusKm } : {}),
     ...(group ? { group } : {}),
     count: 8,

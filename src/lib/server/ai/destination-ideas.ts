@@ -48,6 +48,9 @@ export function normalizeIdeas(w: z.infer<typeof WireIdeas>, exclude: readonly s
 }
 
 export function ideasRequest(input: IdeaInput): StructuredRequest<typeof WireIdeas> {
+  // Airport codes only distinguish the cache hash (LHR and LGW are both "London"); the model gets the city.
+  const { fromIata: _codes, ...forModel } = input;
+  void _codes;
   return {
     task: "destination_ideas",
     model: MODEL_IDEAS,
@@ -55,7 +58,7 @@ export function ideasRequest(input: IdeaInput): StructuredRequest<typeof WireIde
     effort: "low",
     maxTokens: IDEAS_MAX_TOKENS,
     system: IDEAS_RULES,
-    blocks: [{ text: "INPUT\n" + canonicalJson(input) }],
+    blocks: [{ text: "INPUT\n" + canonicalJson(forModel) }],
   };
 }
 

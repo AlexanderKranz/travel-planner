@@ -10,21 +10,30 @@ export const DUPLICATE_KM = 30;
 
 /**
  * Step 1 of the verification: the geocoding result that is the anchor town. Only populated places (PPL*) of the
- * stated country whose folded name equals the folded anchor; on a tie the largest population. null = not found.
+ * stated country. An exact match on the folded name wins; failing that, a name that starts with the anchor
+ * ("Palma" -> "Palma de Mallorca") counts, but only for administrative seats and capitals (PPLA*, PPLC), so a
+ * hamlet that merely begins with the same letters cannot pass. On a tie the largest population. null = not found.
  */
 export function pickAnchorPlace(results: GeoPlace[], anchor: string, cc: string): GeoPlace | null {
   const wanted = foldName(anchor);
   const country = cc.trim().toUpperCase();
   if (!wanted) return null;
-  const hits = results.filter(
-    (p) => p.featureCode.startsWith("PPL") && p.countryCode?.toUpperCase() === country && foldName(p.name) === wanted,
-  );
-  if (hits.length === 0) return null;
-  return hits.reduce((best, p) => ((p.population ?? 0) > (best.population ?? 0) ? p : best));
+  const inCountry = results.filter((p) => p.featureCode.startsWith("PPL") && p.countryCode?.toUpperCase() === country);
+  const biggest = (xs: GeoPlace[]) => xs.reduce((best, p) => ((p.population ?? 0) > (best.population ?? 0) ? p : best));
+  const exact = inCountry.filter((p) => foldName(p.name) === wanted);
+  if (exact.length > 0) return biggest(exact);
+  const prefix = inCountry.filter((p) => /^PPL[AC]/.test(p.featureCode) && foldName(p.name).startsWith(`${wanted} `));
+  return prefix.length > 0 ? biggest(prefix) : null;
 }
 
-/** `city` when the label is the anchor itself, else `region` around the anchor town (spec [D8]). */
-export const kindOf = (name: string, anchor: string): "city" | "region" => (foldName(name) === foldName(anchor) ? "city" : "region");
+/**
+ * `city` when the label is the anchor itself or the verified place name (so "Lissabon" for the anchor "Lisbon" is a
+ * city), else `region` around the anchor town (spec [D8]).
+ */
+export const kindOf = (name: string, anchor: string, placeName?: string): "city" | "region" => {
+  const n = foldName(name);
+  return n === foldName(anchor) || (placeName !== undefined && n === foldName(placeName)) ? "city" : "region";
+};
 
 type Point = Pick<GeoPlace, "geoId" | "lat" | "lon">;
 export function isDuplicate(p: Point, others: Point[]): boolean {

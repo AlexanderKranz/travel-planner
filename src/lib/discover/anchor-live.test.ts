@@ -13,8 +13,7 @@ vi.mock("@/lib/server/api-cache", () => ({
   },
 }));
 
-import { searchPlacesCached } from "@/lib/integrations/open-meteo-geocoding";
-import { pickAnchorPlace } from "./names";
+import { defaultVerifyDeps, resolveAnchor, type VerifyDeps } from "@/lib/server/discover/verify";
 
 /**
  * Live check of step 1 against the real Open-Meteo geocoder. Off by default (network): LIVE_GEOCODING=1.
@@ -57,30 +56,41 @@ const live = process.env.LIVE_GEOCODING === "1" ? describe : describe.skip;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 live("anchor matching against the live geocoder", () => {
-  it("reports the not_found rate per language", { timeout: 600_000 }, async () => {
+  it("resolves local, German and English spellings to the right country and reports the call count", { timeout: 900_000 }, async () => {
+    let calls = 0;
+    const deps: VerifyDeps = {
+      ...defaultVerifyDeps,
+      geocode: async (a, l, u) => {
+        calls += 1;
+        await sleep(350);
+        return defaultVerifyDeps.geocode(a, l, u);
+      },
+      placeById: async (id, l) => {
+        calls += 1;
+        await sleep(350);
+        return defaultVerifyDeps.placeById(id, l);
+      },
+    };
     const rows: string[] = [];
     let total = 0;
     let missed = 0;
+    let failed = 0;
     for (const lang of ["de", "en"] as const) {
       for (const idea of IDEAS) {
         for (const anchor of idea.anchors) {
-          const r = await searchPlacesCached(anchor, lang);
-          await sleep(350);
           total += 1;
-          if (!r.ok) {
-            rows.push(`${lang} ${anchor} ${idea.cc}: PROVIDER ${r.error}`);
-            continue;
-          }
-          const hit = pickAnchorPlace(r.data, anchor, idea.cc);
-          if (!hit) {
+          const r = await resolveAnchor({ name: anchor, anchor, cc: idea.cc, reason: "" }, lang, "live", deps);
+          if (r.status === "failed") failed += 1;
+          if (r.status === "not_found") {
             missed += 1;
-            const seen = r.data.slice(0, 4).map((p) => `${p.name}/${p.featureCode}/${p.countryCode}`).join(" | ");
-            rows.push(`${lang} ${anchor} ${idea.cc}: DROPPED not_found; geocoder gave: ${seen}`);
+            rows.push(`${lang} ${anchor} ${idea.cc}: DROPPED not_found`);
           }
+          if (r.status === "ok" && r.place.countryCode !== idea.cc) rows.push(`${lang} ${anchor} ${idea.cc}: WRONG COUNTRY ${r.place.countryCode}`);
         }
       }
     }
-    console.log(`TOTAL ${total} MISSED ${missed}\n` + rows.join("\n"));
+    console.log(`TOTAL ${total} MISSED ${missed} (${Math.round((100 * missed) / total)} %) FAILED ${failed} GEOCODING CALLS ${calls} (${(calls / total).toFixed(2)} per idea)\n` + rows.join("\n"));
     expect(total).toBeGreaterThan(0);
+    expect(rows.filter((r) => r.includes("WRONG COUNTRY"))).toEqual([]);
   });
 });

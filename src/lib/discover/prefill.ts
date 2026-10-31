@@ -1,5 +1,6 @@
 import { emptyTripDraft, type TripDraft } from "@/components/trips/trip-draft";
 import type { DestinationSearch, SuggestionCard } from "@/lib/domain/destination-search";
+import { cleanReason } from "./reason";
 
 /**
  * The trip form draft for a tapped suggestion (spec section 7 [D11]). Nothing is created by this.
@@ -25,7 +26,8 @@ export function buildTripDraft(
       geoId: card.geoId,
       placeName: card.placeName,
       placeLabel: [card.placeName, card.admin1].filter(Boolean).join(", "),
-      name: card.name,
+      // The name is model text: only a clean one is ever carried into a trip (older saved cards are checked again).
+      name: cleanReason(card.name).reason ?? card.placeName,
       radiusKm: null,
     },
     timing: search.months.length > 0 ? { mode: "months", startDate: "", months: [...search.months] } : base.timing,

@@ -8,8 +8,7 @@ import { cleanReason } from "./reason";
 /**
  * QA review of branch feat/find-destinations. Two kinds of test:
  * - plain `it`: behaviour that holds today and must keep holding;
- * - `it.fails`: a known defect. The test states the DESIRED behaviour and is expected to fail until the defect is
- *   fixed; when it starts passing, vitest reports it, and the `.fails` marker is to be removed.
+ * - the former `it.fails` gaps, fixed on this branch and now plain tests.
  */
 
 const removed = (s: string) => cleanReason(s).removed;
@@ -51,23 +50,23 @@ describe("REASON_BANNED: what is caught", () => {
 });
 
 describe("REASON_BANNED: evasions (defects)", () => {
-  // Each of these states a travel time, a price, an airline or opening hours and is KEPT today.
-  it.fails("English abbreviations: 45 mins by car", () => expect(removed("45 mins by car")).toBe(true));
-  it.fails("English abbreviations: 2 hrs away", () => expect(removed("2 hrs away")).toBe(true));
-  it.fails("compound minutes: 10 Autominuten vom Strand", () => expect(removed("10 Autominuten vom Strand")).toBe(true));
-  it.fails("hyphenated: a 3-hour drive", () => expect(removed("a 3-hour drive from the coast")).toBe(true));
-  it.fails("number words: zwei Stunden entfernt", () => expect(removed("zwei Stunden entfernt")).toBe(true));
-  it.fails("number words: two hours away", () => expect(removed("two hours away")).toBe(true));
-  it.fails("airline name: Ryanair", () => expect(removed("Mit Ryanair ab Frankfurt")).toBe(true));
-  it.fails("non-stop with hyphen", () => expect(removed("Non-stop ab Frankfurt")).toBe(true));
-  it.fails("price: 99,- Euro", () => expect(removed("ab 99,- Euro pro Nacht")).toBe(true));
-  it.fails("price: other currencies", () => expect(removed("ab 80 Dollar")).toBe(true));
-  it.fails("opening hours: Uhr", () => expect(removed("Mo-Fr 9-17 Uhr")).toBe(true));
-  it.fails("opening hours: 24/7", () => expect(removed("open 24/7")).toBe(true));
-  it.fails("opening hours: opening times", () => expect(removed("Opening times 9 to 5")).toBe(true));
-  it.fails("Unicode: decomposed u + combining diaeresis (Flug)", () => expect(removed("Flüg nach Rom")).toBe(true));
-  it.fails("Unicode: zero-width space inside the word", () => expect(removed("Flu​g nach Rom")).toBe(true));
-  it.fails("Unicode: fullwidth digits", () => expect(removed("２ Stunden entfernt")).toBe(true));
+  // Each of these states a travel time, a price, an airline or opening hours and must be removed.
+  it("English abbreviations: 45 mins by car", () => expect(removed("45 mins by car")).toBe(true));
+  it("English abbreviations: 2 hrs away", () => expect(removed("2 hrs away")).toBe(true));
+  it("compound minutes: 10 Autominuten vom Strand", () => expect(removed("10 Autominuten vom Strand")).toBe(true));
+  it("hyphenated: a 3-hour drive", () => expect(removed("a 3-hour drive from the coast")).toBe(true));
+  it("number words: zwei Stunden entfernt", () => expect(removed("zwei Stunden entfernt")).toBe(true));
+  it("number words: two hours away", () => expect(removed("two hours away")).toBe(true));
+  it("airline name: Ryanair", () => expect(removed("Mit Ryanair ab Frankfurt")).toBe(true));
+  it("non-stop with hyphen", () => expect(removed("Non-stop ab Frankfurt")).toBe(true));
+  it("price: 99,- Euro", () => expect(removed("ab 99,- Euro pro Nacht")).toBe(true));
+  it("price: other currencies", () => expect(removed("ab 80 Dollar")).toBe(true));
+  it("opening hours: Uhr", () => expect(removed("Mo-Fr 9-17 Uhr")).toBe(true));
+  it("opening hours: 24/7", () => expect(removed("open 24/7")).toBe(true));
+  it("opening hours: opening times", () => expect(removed("Opening times 9 to 5")).toBe(true));
+  it("Unicode: decomposed u + combining diaeresis (Flug)", () => expect(removed("Flüg nach Rom")).toBe(true));
+  it("Unicode: zero-width space inside the word", () => expect(removed("Flu​g nach Rom")).toBe(true));
+  it("Unicode: fullwidth digits", () => expect(removed("２ Stunden entfernt")).toBe(true));
 });
 
 const base = { id: "p", name: "x", constraints: [], text: null, guided: null, tags: null, createdAt: "", updatedAt: "" } as unknown as TripPurpose;
@@ -91,17 +90,17 @@ describe("flight limit never reaches the model", () => {
   });
 
   // Defects: the limit or travel time leaks through other phrasings.
-  it.fails("verb form: maximal 2 Stunden fliegen", () => expect(modelSees({ constraints: ["maximal 2 Stunden fliegen"] })).not.toMatch(/2 Stunden/));
-  it.fails("noun Flieger: nicht länger als 3 Stunden im Flieger", () => expect(modelSees({ constraints: ["nicht länger als 3 Stunden im Flieger"] })).not.toMatch(/3 Stunden/));
-  it.fails("English: no more than 2.5h in the air", () => expect(modelSees({ constraints: ["no more than 2.5h in the air"] })).not.toMatch(/2\.5h/));
-  it.fails("custom guided interest keeps its flight text", () =>
+  it("verb form: maximal 2 Stunden fliegen", () => expect(modelSees({ constraints: ["maximal 2 Stunden fliegen"] })).not.toMatch(/2 Stunden/));
+  it("noun Flieger: nicht länger als 3 Stunden im Flieger", () => expect(modelSees({ constraints: ["nicht länger als 3 Stunden im Flieger"] })).not.toMatch(/3 Stunden/));
+  it("English: no more than 2.5h in the air", () => expect(modelSees({ constraints: ["no more than 2.5h in the air"] })).not.toMatch(/2\.5h/));
+  it("custom guided interest keeps its flight text", () =>
     expect(modelSees({ guided: { interests: ["golf", "Direktflug unter 2 Stunden"] } } as unknown as Partial<TripPurpose>)).not.toMatch(/Direktflug|2 Stunden/));
-  it.fails("tag custom interest keeps its flight text", () =>
+  it("tag custom interest keeps its flight text", () =>
     expect(modelSees({ tags: { v: 1, interests: ["golf"], custom: ["Flugzeit unter 2 Stunden"], hard: [], soft: [], summary: "Golf" } } as unknown as Partial<TripPurpose>)).not.toMatch(/Flugzeit/));
 });
 
 describe("cache hash", () => {
-  it.fails("two airports of the same city give two different lists (LHR vs LGW both send from: [London])", () => {
+  it("two airports of the same city give two different lists (LHR vs LGW both send from: [London])", () => {
     const a = inputFor({}, { origins: ["LHR"], radiusKm: 1330 });
     const b = inputFor({}, { origins: ["LGW"], radiusKm: 1330 });
     expect(ideasInputHash(a)).not.toBe(ideasInputHash(b));
@@ -113,5 +112,5 @@ describe("cache hash", () => {
 
 describe("kind city or region", () => {
   it("name and anchor equal -> city", () => expect(kindOf("Palma", "Palma")).toBe("city"));
-  it.fails("a translated city name is not a region (name Lissabon, anchor Lisbon)", () => expect(kindOf("Lissabon", "Lisbon")).toBe("city"));
+  it("a translated city name is not a region (name Lissabon, anchor Lisbon)", () => expect(kindOf("Lissabon", "Lisbon", "Lissabon")).toBe("city"));
 });

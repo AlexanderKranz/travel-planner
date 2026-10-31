@@ -24,7 +24,7 @@ import { getGroup } from "../groups";
 import { getProfile } from "../profile";
 import { tagAndSave, wantsTags } from "../purpose-tagging";
 import { getPurpose } from "../purposes";
-import { rateLimit } from "../rate-limit";
+import { rateLimit, rateLimitAvailable } from "../rate-limit";
 import { getUserSession } from "../session";
 import { getEffectiveEnv } from "../settings";
 import {
@@ -127,7 +127,8 @@ async function budgetInfo(c: Ctx): Promise<BudgetInfo> {
 /** Gates 3 to 5 of spec section 9: AI switch, one run per minute, runs per day. Gate 6 (budget) is `checkBudget`. */
 async function gateRun(c: Ctx): Promise<SearchError | null> {
   if (!isAiEnabled(await getEffectiveEnv())) return err("ai_disabled");
-  const rl = rateLimit(`discover:${c.userId}`, 1, RUN_WINDOW_MS);
+  // Only looks: the slot is taken by `takeRunSlot` once budget and claim passed, so a refusal there costs no minute.
+  const rl = rateLimitAvailable(`discover:${c.userId}`, 1);
   if (!rl.ok) return err("rate_limited", { retryAfter: rl.retryAfterSeconds });
   const cap = c.isDemo ? DAILY_RUNS.demo : c.role === "admin" ? DAILY_RUNS.admin : DAILY_RUNS.user;
   let runs: number;
@@ -139,6 +140,9 @@ async function gateRun(c: Ctx): Promise<SearchError | null> {
   if (runs >= cap) return err("search_limit", { resetAt: berlinMidnight(new Date(), 1).toISOString() });
   return null;
 }
+
+/** Counts the one real run per minute; called right after the claim succeeded. */
+const takeRunSlot = (c: Ctx) => void rateLimit(`discover:${c.userId}`, 1, RUN_WINDOW_MS);
 
 async function checkBudget(c: Ctx, reserve: number): Promise<SearchError | null> {
   const info = await budgetInfo(c);
@@ -273,6 +277,7 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
       const again = await getSearchByHash(c.sb, built.hash);
       return again ? { ok: true, data: toView(again, aiEnabled, true) } : err("busy");
     }
+    takeRunSlot(c);
     return await executeRound(c, claim.search, 1, built.input, ai, null);
   } catch {
     await logEvent({ event: "destination.search_failed", level: "warn", userId: c.userId, props: { reason: "exception" } });
@@ -298,6 +303,7 @@ export async function showOtherDestinations(id: string): Promise<SearchResult> {
     if (blocked) return blocked;
     const claim = await claimRound2(c.sb, id);
     if (!claim.ok) return err(claim.reason === "busy" ? "busy" : "conflict");
+    takeRunSlot(c);
     const exclude = row.input.exclude?.length ? row.input.exclude : row.cards.map((x) => x.placeName);
     return await executeRound(c, claim.search, 2, { ...row.input, exclude }, makeAiCtx(c), row);
   } catch {

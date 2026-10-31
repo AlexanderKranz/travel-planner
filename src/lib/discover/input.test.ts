@@ -163,7 +163,26 @@ describe("ideasInputHash (D6, E9)", () => {
     expect(ideasInputHash(buildIdeaInput(src({ purpose: purpose({ guided: { interests: ["beach"] } }) })))).not.toBe(base);
   });
   it("includes the prompt version and the model (changing either invalidates saved lists)", () => {
-    expect(IDEAS_PROMPT_VERSION).toBe("ideas-1");
+    expect(IDEAS_PROMPT_VERSION).toBe("ideas-2");
     expect(MODEL_IDEAS).toBe("claude-haiku-5-5");
+  });
+});
+
+describe("flight and distance limits never reach the model (review round)", () => {
+  it.each(["weniger als 1500 km entfernt", "maximal 2 Stunden fliegen", "nicht länger als 3 Stunden im Flieger", "no more than 2.5h in the air", "gute Anreise", "near an airport", "within 3 hours"])(
+    "mentionsFlight: %s",
+    (s) => expect(mentionsFlight(s)).toBe(true),
+  );
+  it("custom interests (guided and tag) are filtered too", () => {
+    const i = buildIdeaInput(src({ purpose: purpose({ guided: { interests: ["golf", "Direktflug unter 2 Stunden", "flat courses"] } }) }));
+    expect(i.purpose.custom).toEqual(["flat courses"]);
+    const tagged = buildIdeaInput(src({ purpose: purpose({ tags: { v: 1, interests: ["golf"], custom: ["Flugzeit kurz", "links courses"], hard: [], soft: [], summary: "" } }) }));
+    expect(tagged.purpose.custom).toEqual(["links courses"]);
+  });
+  it("airport codes distinguish the hash (LHR vs LGW) without being a separate model fact", () => {
+    const a = buildIdeaInput(src({ origins: ["LHR"] }));
+    const b = buildIdeaInput(src({ origins: ["LGW"] }));
+    expect(a.from).toEqual(b.from);
+    expect(ideasInputHash(a)).not.toBe(ideasInputHash(b));
   });
 });

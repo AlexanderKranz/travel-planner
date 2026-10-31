@@ -18,6 +18,8 @@ Secrets are referred to by **name** only. Never paste a secret value into the re
 
 Important: the app and the database deploy independently and in parallel. Write migrations so the old app version still works with the new schema (add columns/tables first, remove things only in a later release).
 
+Order matters when a migration adds a column that the new app code selects (for example `trips.destination_search_id`, migration `20261106120031`): merge the migration-only PR first, wait for **Deploy database migrations** to be green, then merge the app PR. The old app keeps working with the extra column.
+
 Run the migration by hand: Actions -> Deploy database migrations -> **Run workflow** -> branch `main`.
 
 ## 2. Rollback

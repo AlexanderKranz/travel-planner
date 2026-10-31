@@ -67,7 +67,7 @@ export const roundedFlightMin = (min: number) => Math.round(min / 30) * 30;
 
 ## 4. LLM call **[D3]** **[D4]**
 
-Task `destination_ideas`, `src/lib/server/ai/destination-ideas.ts`, through `callStructured`. System block `IDEAS_RULES` (cached), prompt version `IDEAS_PROMPT_VERSION = "ideas-1"`, `effort: "low"`, `maxTokens: 1500`. Model constant `MODEL_IDEAS`, default `claude-haiku-5-5` until the section 10 eval decides.
+Task `destination_ideas`, `src/lib/server/ai/destination-ideas.ts`, through `callStructured`. System block `IDEAS_RULES` (cached), prompt version `IDEAS_PROMPT_VERSION = "ideas-2"`, `effort: "low"`, `maxTokens: 1500`. Model constant `MODEL_IDEAS`, default `claude-haiku-5-5` until the section 10 eval decides.
 
 ```ts
 // Input: canonicalJson, no timestamps
@@ -87,7 +87,7 @@ export type IdeaInput = {
 // Wire schema: every field required (group-text D4: optional fields produced broken strings)
 export const WireIdea = z.object({
   name: z.string(),     // display name in lang: "Costa del Sol", "Mallorca", "Lissabon"
-  anchor: z.string(),   // one real town that can be geocoded: "Marbella", "Palma", "Lisboa"
+  anchor: z.string(),   // one real town, English GeoNames spelling: "Marbella", "Palma de Mallorca", "Lisbon"
   cc: z.string(),       // ISO 3166-1 alpha-2
   reason: z.string(),   // one sentence, in lang
 });
@@ -102,7 +102,7 @@ The schema has no field for flights, routes, prices, hours or distances, and it 
 
 **`IDEAS_RULES` content:**
 1. Propose places for this purpose. Output only the schema, in `lang`.
-2. `anchor` is a single town or city that exists under this name, never a region. For a region or island, `name` is the region and `anchor` its main town.
+2. `anchor` is a single town or city that exists under this name, never a region, written as its English GeoNames name ("Lisbon", "Florence", "Prague"); `name` stays in `lang` ("Lissabon"). For a region or island, `name` is the region and `anchor` its main town.
 3. Prefer places within `radiusKm` of `from`; code checks this.
 4. `reason` is one sentence, at most 140 characters, on why the place fits the purpose.
 5. Never state flights, airlines, routes, travel times, distances, prices, opening hours or numbers of courses or sights.
@@ -125,7 +125,7 @@ Per idea, cheapest first. A card needs step 1 and step 2 to pass.
 
 | # | Step | Source | Result |
 |---|---|---|---|
-| 1 | Exists | `searchPlaces(anchor, lang)` | Keep `PPL*` results where `countryCode === cc` and the folded name equals `anchor`; on a tie, highest population. None → drop `not_found`. Same `geoId` as an earlier card or within 30 km of one → drop `duplicate`. |
+| 1 | Exists | `searchPlaces(anchor, "en")`, on a miss once more with `"de"`; a hit in another language than the user's is read again with `getPlaceById(geoId, lang)` for the localized `placeName` (up to 3 calls per idea, all cached) | Keep `PPL*` results where `countryCode === cc` and the folded name equals `anchor`; failing that, a name that starts with the anchor plus a space ("Palma" for "Palma de Mallorca"), only for `PPLA*`/`PPLC`; on a tie, highest population. None → drop `not_found`. A failed call is never `not_found` (`geocode_failed`). Same `geoId` as an earlier card or within 30 km of one → drop `duplicate`. |
 | 2 | Radius | `gatewayAirports` + section 3 | Outside, or no gateway under a limit → drop `too_far`. No network. |
 | 3 | Climate | Same cached lookup as `getWeatherFacts` | Rule fails → drop `climate`. Provider failed → `not_checked`, card stays. |
 | 4 | POIs | Geoapify path of `places.ts` | Too few → drop `no_poi`. Provider, quota or no key → `not_checked`, card stays. |
@@ -146,7 +146,7 @@ Per idea, cheapest first. A card needs step 1 and step 2 to pass.
 | Provider | Calls | Units | Reuse |
 |---|---|---|---|
 | Anthropic | 1 | est. $0.0004 Haiku, $0.008 Sonnet plus thinking | hash per owner |
-| Open-Meteo geocoding | up to 8 | 8 | 30 d, shared key |
+| Open-Meteo geocoding | up to 8 ideas × 3 (search en, search de on a miss, place by id for the localized name) | up to 24, typically 8 to 16 | 30 d search, 365 d by id, shared key |
 | Open-Meteo archive | **at most 5 misses** | 105 each, 525 max | 365 d, **same key as `getWeatherFacts`**, so the trip gets it free |
 | Geoapify | up to 5 × 2 interests | typically 1–2 credits per lookup, max 50 | 30 d, **same key as `getPlacesFacts`** when the anchor is rounded the same way and the radius comes from `radiusForInterest` |
 | Overpass | 0 | never in the search: 25–60 s per query | cached results are read through `fastCandidates` |

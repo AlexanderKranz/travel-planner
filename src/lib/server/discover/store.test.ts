@@ -130,14 +130,23 @@ describe("isFresh / isExpired", () => {
 });
 
 describe("expireStaleRuns", () => {
-  it("sets only the user's own running rows with a past lock to failed", async () => {
-    const { sb, calls } = fakeSb([{ error: null }]);
+  it("reads the user's own lapsed running rows, then sets a killed first run to failed", async () => {
+    const { sb, calls } = fakeSb([{ data: [{ id: "a", cards: [], rounds: 1 }], error: null }, { error: null }]);
     await expireStaleRuns(sb, NOW);
-    expect(calls[0].ops).toEqual([
-      ["update", [{ status: "failed", busy_until: null, error_code: "failed" }]],
-      ["eq", ["status", "running"]],
-      ["lt", ["busy_until", new Date(NOW).toISOString()]],
-    ]);
+    expect(calls[0].ops).toContainEqual(["eq", ["status", "running"]]);
+    expect(calls[0].ops).toContainEqual(["lt", ["busy_until", new Date(NOW).toISOString()]]);
+    expect(calls[1].ops.find(([m]) => m === "update")![1][0]).toEqual({ status: "failed", busy_until: null, error_code: "failed" });
+    expect(calls[1].ops).toContainEqual(["eq", ["id", "a"]]);
+  });
+  it("a killed 'Show others' (cards, round still 1) goes back to done, keeping its cards", async () => {
+    const { sb, calls } = fakeSb([{ data: [{ id: "b", cards: [{ id: "g1" }], rounds: 1 }], error: null }, { error: null }]);
+    await expireStaleRuns(sb, NOW);
+    expect(calls[1].ops.find(([m]) => m === "update")![1][0]).toEqual({ status: "done", busy_until: null });
+  });
+  it("nothing lapsed: no update", async () => {
+    const { sb, calls } = fakeSb([{ data: [], error: null }]);
+    await expireStaleRuns(sb, NOW);
+    expect(calls).toHaveLength(1);
   });
 });
 

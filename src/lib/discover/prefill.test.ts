@@ -61,3 +61,10 @@ describe("buildTripDraft (D11)", () => {
     expect(parsed.timing).toEqual({ kind: "months", months: [3] });
   });
 });
+
+describe("buildTripDraft: only a clean name (review round)", () => {
+  it("a stored name with a banned fact falls back to the verified place name", () => {
+    const d = buildTripDraft(search, { ...card, name: "Costa del Sol ab 49 € Direktflug" }, []);
+    expect(d.destination).toMatchObject({ mode: "geo", name: "Marbella" });
+  });
+});

@@ -61,6 +61,8 @@ export function rowToSearch(r: SearchRow): StoredSearch {
   const drops = SearchDrops.safeParse(r.drops);
   const input = r.input && typeof r.input === "object" && (r.input as { v?: unknown }).v === 1 ? (r.input as IdeaInput) : null;
   const lockLost = r.status === "running" && isExpired(r.busy_until);
+  // A killed "Show others" (round 1 cards, round still 1) is a finished list again, not a failed one.
+  const restored = lockLost && r.rounds === 1 && cards.success && cards.data.length > 0;
   const knownError = ERROR_CODES.find((e) => e === r.error_code) ?? null;
   return {
     id: r.id,
@@ -73,11 +75,11 @@ export function rowToSearch(r: SearchRow): StoredSearch {
     maxFlightHours: r.max_flight_hours === null ? null : Number(r.max_flight_hours),
     radiusKm: r.radius_km,
     // A lock that ran out means the server died mid-run: report it as failed, never as running forever.
-    status: lockLost ? "failed" : r.status,
+    status: restored ? "done" : lockLost ? "failed" : r.status,
     rounds: r.rounds === 2 ? 2 : 1,
     cards: cards.success ? cards.data : [],
     drops: drops.success ? drops.data : {},
-    error: lockLost ? "failed" : (knownError ?? (r.status === "failed" ? "failed" : null)),
+    error: restored ? null : lockLost ? "failed" : (knownError ?? (r.status === "failed" ? "failed" : null)),
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     inputHash: r.input_hash,
@@ -125,12 +127,20 @@ export async function listSearches(sb: SupabaseClient): Promise<StoredSearch[]> 
 
 /** Runs whose lock ran out become `failed`, so the one-running-per-user index cannot block forever. */
 export async function expireStaleRuns(sb: SupabaseClient, now: number = Date.now()): Promise<void> {
-  const { error } = await sb
+  const { data, error } = await sb
     .from("destination_searches")
-    .update({ status: "failed", busy_until: null, error_code: "failed" })
+    .select("id, cards, rounds")
     .eq("status", "running")
-    .lt("busy_until", new Date(now).toISOString());
-  if (error) throw new Error("search update failed");
+    .lt("busy_until", new Date(now).toISOString())
+    .returns<{ id: string; cards: unknown; rounds: number }[]>();
+  if (error) throw new Error("search read failed");
+  for (const row of data ?? []) {
+    // A killed "Show others" keeps its round-1 list (done, no new call); a killed first run is failed.
+    const keep = row.rounds === 1 && Array.isArray(row.cards) && row.cards.length > 0;
+    const patch = keep ? { status: "done", busy_until: null } : { status: "failed", busy_until: null, error_code: "failed" };
+    const { error: e } = await sb.from("destination_searches").update(patch).eq("id", row.id).eq("status", "running");
+    if (e) throw new Error("search update failed");
+  }
 }
 
 export type NewSearch = {

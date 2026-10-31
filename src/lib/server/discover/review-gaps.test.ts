@@ -13,6 +13,7 @@ const deps: VerifyDeps = {
   geocode: async () => ok([rome]),
   climate: async () => ok([]),
   pois: async () => null,
+  placeById: async () => null,
   now: () => 0,
 };
 const run = (name: string, reason: string) =>
@@ -20,9 +21,11 @@ const run = (name: string, reason: string) =>
 
 describe("card name is model text too", () => {
   // `reason` goes through cleanReason; `name` does not, but it is the card title and becomes the trip's destination name.
-  it.fails("a name stating a flight, a price or a time is not shown as the title", async () => {
+  it("a name stating a flight, a price or a time is not shown as the title", async () => {
     const out = await run("Rom: Direktflug ab 49 € in 90 Minuten", "Schöne Altstadt");
     expect(out.cards[0].name).not.toMatch(/Direktflug|€|Minuten/);
+    expect(out.cards[0].name).toBe("Rome"); // the verified place name
+    expect(out.cards[0].kind).toBe("city");
   });
   it("a normal name passes", async () => {
     expect((await run("Rom", "Schöne Altstadt")).cards[0].name).toBe("Rom");
@@ -44,7 +47,7 @@ describe("a running row left behind by a killed function", () => {
   it("still running while the lock holds", () => {
     expect(rowToSearch(row({ status: "running", busy_until: new Date(Date.now() + 60_000).toISOString() })).status).toBe("running");
   });
-  it.fails("a killed round 2 keeps the round-1 list usable (today: failed, so 'Show others' and the saved list are gone and a retry wipes the cards)", () => {
+  it("a killed round 2 keeps the round-1 list usable (done, cards kept, no new call)", () => {
     const s = rowToSearch(row({ status: "running", rounds: 1, cards: [card] as never, busy_until: "2020-01-01T00:00:00Z" }));
     expect(s.status).toBe("done");
   });

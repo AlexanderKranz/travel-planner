@@ -34,6 +34,7 @@ function deps(over: Partial<VerifyDeps> = {}): Mocks {
     }),
     climate: vi.fn(async () => ok(climateYear(20, 10, 5))),
     pois: vi.fn(async (interest) => ({ radiusKm: 40, result: ok(candidates(interest === "golf" ? 6 : 3)) })),
+    placeById: vi.fn(async () => null),
     now: () => 0,
     ...over,
   };
@@ -262,27 +263,37 @@ describe("verifyIdeas: cold search limits (D9)", () => {
     expect(d.climate.mock.calls.length).toBeGreaterThanOrEqual(5);
   });
 
-  it("at most 5 climate cache misses per search: the 6th is refused through fetchAllowed, the card stays 'not checked', verification stops", async () => {
+  const manyPlaces = (n: number): GeoPlace[] => Array.from({ length: n }, (_, i) => ({ ...PLACES.Passau, geoId: 7000 + i, lat: 10 + i * 5, lon: 10 }));
+  const nth = (n: number) => Array.from({ length: n }, (_, i) => idea("Passau", { name: `X${i}` }));
+
+  it("at most 5 climate cache misses per search: the 6th is refused through fetchAllowed and that place is not shown", async () => {
     let attempts = 0;
     const climate = vi.fn(async (_p: unknown, _c: unknown, fetchAllowed: () => boolean) => {
       // every lookup is a cache miss and wants the network
       attempts += 1;
       return fetchAllowed() ? ok(climateYear(5, 0, 18)) /* cold: golf fails */ : bad("timeout");
     });
-    const ideas = Array.from({ length: 8 }, (_, i) => idea("Passau", { name: `X${i}` }));
-    const places: GeoPlace[] = ideas.map((_, i) => ({ ...PLACES.Passau, geoId: 7000 + i, lat: 10 + i * 5, lon: 10 }));
-    const d = deps({
-      geocode: vi.fn(async () => ok([places.shift()!])),
-      climate,
-    });
-    // geocode is called once per idea in order, each gets its own place
-    const out = await verifyIdeas(base({ ideas, origins: [], maxHours: null }), d);
+    const places = manyPlaces(8);
+    const d = deps({ geocode: vi.fn(async () => ok([places.shift()!])), climate });
+    const out = await verifyIdeas(base({ ideas: nth(8), origins: [], maxHours: null }), d);
     expect(MAX_CLIMATE_MISSES).toBe(5);
-    expect(attempts).toBe(6);
+    expect(attempts).toBe(8); // the cap stops network misses, not the walk over the places
     expect(out.climateMisses).toBe(5);
-    expect(out.drops.climate).toBe(5);
-    expect(out.cards).toHaveLength(1);
-    expect(out.cards[0].climate).toEqual({ status: "not_checked" });
+    expect(out.drops).toEqual({ climate: 5 });
+    expect(out.cards).toEqual([]); // refused places are neither dropped nor shown with an unchecked climate
+    expect(out.stoppedBy).toBe("climate_cap");
+  });
+
+  it("a hit cap only stops misses: places with a cached climate are still verified after it", async () => {
+    const places = manyPlaces(7);
+    // the 7th place (lat 40) has its climate cached: it never asks fetchAllowed
+    const climate = vi.fn(async (p: { lat: number }, _c: unknown, fetchAllowed: () => boolean) =>
+      p.lat === 40 ? ok(climateYear(20, 10, 5)) : fetchAllowed() ? ok(climateYear(5, 0, 18)) : bad("timeout"),
+    );
+    const d = deps({ geocode: vi.fn(async () => ok([places.shift()!])), climate });
+    const out = await verifyIdeas(base({ ideas: nth(7), origins: [], maxHours: null }), d);
+    expect(out.drops).toEqual({ climate: 5 });
+    expect(out.cards.map((c) => c.geoId)).toEqual([7006]);
     expect(out.stoppedBy).toBe("climate_cap");
   });
 
@@ -302,5 +313,62 @@ describe("verifyIdeas: cold search limits (D9)", () => {
     });
     const out = await verifyIdeas(base({ ideas: [idea("Palma"), idea("Marbella"), idea("Faro")], origins: [], maxHours: null }), deps({ climate }));
     expect(out.cards.map((c) => c.placeName)).toEqual(["Palma", "Marbella", "Faro"]);
+  });
+});
+
+describe("anchor resolution (step 1)", () => {
+  const lisbon: GeoPlace = { ...PLACES.Lisboa, name: "Lisbon" };
+  const lisbonDe: GeoPlace = { ...PLACES.Lisboa, name: "Lissabon", admin1: "Lissabon" };
+
+  it("English GeoNames spelling resolves with one call; the localized name comes from the cached place-by-id read", async () => {
+    const geocode = vi.fn(async () => ok([lisbon]));
+    const placeById = vi.fn(async () => lisbonDe);
+    const out = await verifyIdeas(base({ ideas: [idea("Lisbon", { name: "Lissabon", cc: "PT" })], interests: [], months: [], origins: [], maxHours: null }), deps({ geocode, placeById }));
+    expect(geocode).toHaveBeenCalledTimes(1);
+    expect(geocode).toHaveBeenCalledWith("Lisbon", "en", "u1");
+    expect(placeById).toHaveBeenCalledWith(2267057, "de");
+    expect(out.cards[0]).toMatchObject({ name: "Lissabon", placeName: "Lissabon", kind: "city", geoId: 2267057 });
+  });
+
+  it("an English request needs no by-id read", async () => {
+    const placeById = vi.fn(async () => null);
+    await verifyIdeas(base({ lang: "en", ideas: [idea("Lisbon", { cc: "PT" })], interests: [], months: [] }), deps({ geocode: vi.fn(async () => ok([lisbon])), placeById }));
+    expect(placeById).not.toHaveBeenCalled();
+  });
+
+  it("a miss in English is retried once in German (local spellings), then 3 calls at most per idea", async () => {
+    const cologne: GeoPlace = { ...PLACES.Passau, geoId: 2886242, name: "Köln", countryCode: "DE" };
+    const geocode = vi.fn(async (_a: string, lang: string) => ok(lang === "de" ? [cologne] : []));
+    const placeById = vi.fn(async () => null);
+    const out = await verifyIdeas(base({ ideas: [idea("Köln", { cc: "DE" })], interests: [], months: [], origins: [], maxHours: null }), deps({ geocode, placeById }));
+    expect(geocode.mock.calls.map((c) => c[1])).toEqual(["en", "de"]);
+    expect(out.cards[0].placeName).toBe("Köln");
+    expect(geocode.mock.calls.length + placeById.mock.calls.length).toBeLessThanOrEqual(3);
+  });
+
+  it("not found in both languages is a real negative: not_found, 2 calls", async () => {
+    const geocode = vi.fn(async () => ok([]));
+    const out = await verifyIdeas(base({ ideas: [idea("Atlantis", { cc: "PT" })] }), deps({ geocode }));
+    expect(geocode).toHaveBeenCalledTimes(2);
+    expect(out.drops).toEqual({ not_found: 1 });
+  });
+
+  it("a failure of the retry is a failure, not 'not found'", async () => {
+    const geocode = vi.fn(async (_a: string, lang: string) => (lang === "en" ? ok([]) : bad("timeout")));
+    const out = await verifyIdeas(base({ ideas: [idea("Marbella"), idea("Faro")] }), deps({ geocode }));
+    expect(out.geocodeDown).toBe(true);
+  });
+
+  it("a failed by-id read falls back to the English name", async () => {
+    const out = await verifyIdeas(
+      base({ ideas: [idea("Lisbon", { name: "Lissabon", cc: "PT" })], interests: [], months: [] }),
+      deps({ geocode: vi.fn(async () => ok([lisbon])), placeById: vi.fn(async () => null) }),
+    );
+    expect(out.cards[0]).toMatchObject({ placeName: "Lisbon", name: "Lissabon", kind: "region" });
+  });
+
+  it("the card name is filtered like the reason: a banned name becomes the verified place", async () => {
+    const out = await verifyIdeas(base({ ideas: [idea("Marbella", { name: "Marbella ab 49 € Direktflug" })], interests: [], months: [] }), deps());
+    expect(out.cards[0]).toMatchObject({ name: "Marbella", kind: "city" });
   });
 });

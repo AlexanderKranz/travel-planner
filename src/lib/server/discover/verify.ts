@@ -11,7 +11,7 @@ import { isDuplicate, kindOf, pickAnchorPlace } from "@/lib/discover/names";
 import { cleanReason } from "@/lib/discover/reason";
 import { selectSearchInterests, VERIFIABILITY } from "@/lib/discover/verifiability";
 import { CLIMATE_PERIOD } from "@/lib/facts/climate";
-import { searchPlacesCached } from "@/lib/integrations/open-meteo-geocoding";
+import { getPlaceById, searchPlacesCached } from "@/lib/integrations/open-meteo-geocoding";
 import type { CachedResult } from "../api-cache";
 import type { Idea } from "../ai/destination-ideas";
 import { getClimateAt } from "../facts/weather";
@@ -34,6 +34,8 @@ export type VerifyDeps = {
     ctx: FactsCtx,
     networkAllowed: boolean,
   ) => Promise<{ radiusKm: number; result: CachedResult<PlaceCandidate[]> } | null>;
+  /** A place by id in the user's language (cached 365 days); null on any failure, the English name is used then. */
+  placeById: (geoId: number, lang: "de" | "en") => Promise<GeoPlace | null>;
   now: () => number;
 };
 
@@ -41,8 +43,42 @@ export const defaultVerifyDeps: VerifyDeps = {
   geocode: (anchor, lang, userId) => searchPlacesCached(anchor, lang, { userId }),
   climate: (point, ctx, fetchAllowed) => getClimateAt(point, ctx, { fetchAllowed }),
   pois: (interest, point, baseRadiusKm, ctx, networkAllowed) => getPlacesAt(interest, point, baseRadiusKm, ctx, { networkAllowed }),
+  placeById: async (geoId, lang) => {
+    try {
+      return await getPlaceById(geoId, lang);
+    } catch {
+      return null;
+    }
+  },
   now: () => Date.now(),
 };
+
+type Anchor =
+  | { status: "ok"; place: GeoPlace; fetchedAt: string; stale: boolean }
+  | { status: "not_found" }
+  | { status: "failed" };
+
+/**
+ * Step 1 for one idea. The model writes `anchor` as the English GeoNames spelling, and the geocoder only matches names
+ * in the requested language, so the search runs with lang=en first and, on a miss, once more in German (local
+ * spellings such as "Köln"). A hit in another language than the user's is read again by id for the localized name
+ * (cached). At most 3 calls per idea, all through `cached()`. A failed call is a failure, never "not found".
+ */
+export async function resolveAnchor(idea: Idea, lang: "de" | "en", userId: string, deps: VerifyDeps): Promise<Anchor> {
+  for (const searchLang of ["en", "de"] as const) {
+    const res = await deps.geocode(idea.anchor, searchLang, userId);
+    if (!res.ok) return { status: "failed" };
+    const hit = pickAnchorPlace(res.data, idea.anchor, idea.cc);
+    if (!hit) continue;
+    let place = hit;
+    if (searchLang !== lang) {
+      const local = await deps.placeById(hit.geoId, lang);
+      if (local) place = { ...hit, name: local.name, admin1: local.admin1 ?? hit.admin1 };
+    }
+    return { status: "ok", place, fetchedAt: res.fetchedAt, stale: res.stale };
+  }
+  return { status: "not_found" };
+}
 
 export type VerifyInput = {
   ideas: Idea[];
@@ -94,9 +130,10 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
   // Steps 1 and 2 for all ideas in parallel (step 2 needs no network).
   const lookups = await Promise.all(
     i.ideas.map(async (idea) => {
-      const res = await deps.geocode(idea.anchor, i.lang, i.userId);
-      if (!res.ok) return { idea, failed: true as const };
-      return { idea, failed: false as const, place: pickAnchorPlace(res.data, idea.anchor, idea.cc), fetchedAt: res.fetchedAt, stale: res.stale };
+      const a = await resolveAnchor(idea, i.lang, i.userId, deps);
+      if (a.status === "failed") return { idea, failed: true as const };
+      if (a.status === "not_found") return { idea, failed: false as const, place: null, fetchedAt: "", stale: false };
+      return { idea, failed: false as const, place: a.place, fetchedAt: a.fetchedAt, stale: a.stale };
     }),
   );
   const geocodeDown = lookups.length > 0 && lookups.every((l) => l.failed);
@@ -128,14 +165,12 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
 
   // Steps 3 and 4 in idea order, two at a time, until 5 cards or the time budget.
   let misses = 0;
-  let capped = false;
+  let timeUp = false;
   let stoppedBy: VerifyOutcome["stoppedBy"] = null;
   let reasonsRemoved = 0;
-  const fetchAllowed = () => {
-    if (misses >= MAX_CLIMATE_MISSES) {
-      capped = true;
-      return false;
-    }
+  /** Miss cap: refuses cold lookups only. Ideas whose climate is cached are still verified after it. */
+  const takeMiss = () => {
+    if (misses >= MAX_CLIMATE_MISSES) return false;
     misses += 1;
     return true;
   };
@@ -143,10 +178,19 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
   const built: { index: number; card: SuggestionCard }[] = [];
   let next = 0;
 
-  async function verifyOne(s: Resolved): Promise<SuggestionCard | DropReason> {
+  async function verifyOne(s: Resolved): Promise<SuggestionCard | DropReason | "skipped"> {
     let climate: SuggestionCard["climate"] = null;
     if (i.months.length > 0) {
-      const res = await deps.climate(s.place, ctx, fetchAllowed);
+      let refused = false;
+      const res = await deps.climate(s.place, ctx, () => {
+        refused = !takeMiss();
+        return !refused;
+      });
+      if (!res.ok && refused) {
+        // The cap, not a provider failure: this place is not verified further and not shown (spec [D9]).
+        if (!stoppedBy) stoppedBy = "climate_cap";
+        return "skipped";
+      }
       if (res.ok) {
         const mean = climateMean(res.data, i.months);
         if (mean && !passesAllClimate(searchInterests, mean)) return "climate";
@@ -159,10 +203,13 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
           stale: res.stale,
         };
       } else {
-        climate = { status: "not_checked" }; // provider failed or the miss cap was reached: not a negative result
+        climate = { status: "not_checked" }; // the provider failed: not a negative result
       }
     }
-    const kind = kindOf(s.idea.name, s.idea.anchor);
+    // The name is model text too: same filter as the reason; a banned or empty name falls back to the verified place.
+    const nameClean = cleanReason(s.idea.name);
+    const name = (nameClean.reason ?? s.place.name).slice(0, 80);
+    const kind = kindOf(name, s.idea.anchor, s.place.name);
     const pois = await Promise.all(
       searchInterests.map(async (interest): Promise<SuggestionCard["pois"][number] | "no_poi"> => {
         const v = VERIFIABILITY[interest];
@@ -180,7 +227,7 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
     return {
       id: `g${s.place.geoId}`,
       round: i.round,
-      name: (s.idea.name.trim() || s.place.name).slice(0, 80),
+      name,
       reason: cleaned.reason,
       kind,
       geoId: s.place.geoId,
@@ -196,16 +243,17 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
   }
 
   async function worker() {
-    while (next < survivors.length && built.length < MAX_CARDS_PER_ROUND && !stoppedBy) {
+    while (next < survivors.length && built.length < MAX_CARDS_PER_ROUND && !timeUp) {
       if (deps.now() >= deadline) {
+        timeUp = true;
         stoppedBy = "time";
         return;
       }
       const index = next++;
       const out = await verifyOne(survivors[index]);
+      if (out === "skipped") continue;
       if (typeof out === "string") bump(out);
       else built.push({ index, card: out });
-      if (capped && !stoppedBy) stoppedBy = "climate_cap";
     }
   }
   await Promise.all(Array.from({ length: VERIFY_CONCURRENCY }, () => worker()));
