@@ -80,7 +80,7 @@ GitHub -> your avatar -> **Settings** -> **Developer settings** -> **Personal ac
 ### 4c. Schedule it
 DSM -> **Control Panel** -> **Task Scheduler** -> **Create** -> **Scheduled Task** -> **User-defined script**:
 - General: name `Travel Planner backup pull`, User: the user who owns the config file.
-- Schedule: Daily, at 06:00 (the backup runs about 02:00-03:00 Berlin).
+- Schedule: Daily, at 10:00 (the backup has been starting around 06:30 UTC, later than its cron time, so an early pull would miss the newest copy).
 - Task Settings: Run command `sh /volume1/scripts/travel-planner-pull-to-nas.sh`; tick "Send run details by email" (and "only when the script terminates abnormally") so errors reach you.
 - OK, then select the task and **Run** once to test.
 
