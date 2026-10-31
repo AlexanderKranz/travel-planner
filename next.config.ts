@@ -13,6 +13,19 @@ const nextConfig: NextConfig = {
     "/api/trips/[id]/pdf": ["./src/assets/fonts/**", "./node_modules/pdfkit/js/standard-fonts/**"],
     "/api/share/[token]/pdf": ["./src/assets/fonts/**", "./node_modules/pdfkit/js/standard-fonts/**"],
   },
+  // The link confirmation page carries a one-time token in its URL: no caching, no referrer, no indexing.
+  async headers() {
+    return [
+      {
+        source: "/:locale/login/confirm",
+        headers: [
+          { key: "Cache-Control", value: "no-store" },
+          { key: "Referrer-Policy", value: "same-origin" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+    ];
+  },
   // Make the Vercel build info visible to the browser bundle (Sentry environment/release).
   env: {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV ?? "development",

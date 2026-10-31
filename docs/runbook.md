@@ -370,6 +370,7 @@ Behaviour to know:
 
 ### Common problems
 
+- Login or reset link says "invalid or expired" right away: in the admin log, `auth.login` (method `recovery` or `link`) shortly before `auth.login_failed` with reason `otp_expired` means the link was opened twice (see `docs/hosting-setup.md` section 6, step 9). Since the confirm button was added, opening a link no longer spends the token, so this should only happen after a real double button press or a reused link; ask for a new link.
 - "Added to the list, but the email could not be sent": the hourly mail limit (built-in sender) or an SMTP error. Wait, or tell the person to use the login page.
 - "This address already has an account": the person exists; nothing to do.
 - Revoked by mistake: invite again. A person who already signed in cannot be revoked here (their account stays); remove them by deleting the account (Settings -> delete account for themselves, or Dashboard -> Authentication -> Users).
