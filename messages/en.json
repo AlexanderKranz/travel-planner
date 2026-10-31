@@ -744,6 +744,11 @@
         "provides": "Destination description when the Wikivoyage intro is very short.",
         "license": "CC BY-SA 4.0. A shortened excerpt is shown with a link to the article."
       },
+      "wikimedia": {
+        "label": "Wikimedia Commons and Wikidata",
+        "provides": "Picture of the destination (page banner or main image of the place).",
+        "license": "Per picture: CC0, public domain, CC BY or CC BY-SA. Author and licence are shown under the picture."
+      },
       "rest_countries": {
         "label": "Country data: mledoze/countries (ODbL)",
         "provides": "Country facts such as currency, language and driving side from a bundled dataset (rebuilt about yearly).",

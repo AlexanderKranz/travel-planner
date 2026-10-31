@@ -15,6 +15,7 @@ export const SOURCES: Record<SourceId, SourceInfo> = {
   osm: { id: "osm", homepage: "https://www.openstreetmap.org/copyright", license: "ODbL 1.0", licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/", labelKey: "osm" },
   wikivoyage: { id: "wikivoyage", homepage: "https://www.wikivoyage.org/", license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/", labelKey: "wikivoyage" },
   wikipedia: { id: "wikipedia", homepage: "https://www.wikipedia.org/", license: "CC BY-SA 4.0", licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/", labelKey: "wikipedia" },
+  wikimedia: { id: "wikimedia", homepage: "https://commons.wikimedia.org/", license: "CC0, public domain, CC BY or CC BY-SA (per picture)", licenseUrl: null, labelKey: "wikimedia" },
   rest_countries: { id: "rest_countries", homepage: "https://github.com/mledoze/countries", license: "ODbL 1.0", licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/", labelKey: "rest_countries" },
   aerodatabox: { id: "aerodatabox", homepage: "https://aerodatabox.com", license: "RapidAPI Basic plan (non-commercial, attribution required)", licenseUrl: null, labelKey: "aerodatabox" },
   openrouteservice: { id: "openrouteservice", homepage: "https://openrouteservice.org/", license: "© openrouteservice.org, data © OpenStreetMap contributors (ODbL 1.0)", licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/", labelKey: "openrouteservice" },

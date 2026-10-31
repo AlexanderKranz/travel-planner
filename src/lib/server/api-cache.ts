@@ -9,6 +9,7 @@ export const CacheProvider = z.enum([
   "overpass",
   "wikivoyage",
   "wikipedia",
+  "wikidata",
   "aerodatabox",
   "openrouteservice",
   "geoapify",
@@ -190,5 +191,31 @@ export async function cached<T>(opts: {
   } catch (error) {
     console.error("cached() failed", error instanceof Error ? error.name : "unknown");
     return { ok: false, error: "provider_error" };
+  }
+}
+
+/**
+ * Cache-only read for the public share path (ADR 0005: no external calls while rendering a shared plan).
+ * Returns the stored value even if expired (a stale picture beats none), `undefined` on miss, schema mismatch or
+ * read error. Writes nothing and logs nothing. Never throws.
+ */
+export async function peekCache<T>(opts: {
+  provider: CacheProvider;
+  key: string;
+  schema: z.ZodType<T>;
+}): Promise<{ data: T; fetchedAt: string } | undefined> {
+  try {
+    const { data: row, error } = await createSupabaseAdminClient()
+      .from("api_cache")
+      .select("payload, fetched_at")
+      .eq("provider", opts.provider)
+      .eq("cache_key", `${opts.key}${ENVELOPE_KEY_SUFFIX}`)
+      .maybeSingle<{ payload: unknown; fetched_at: string }>();
+    if (error || !row) return undefined;
+    const env = Envelope.safeParse(row.payload);
+    const parsed = env.success ? opts.schema.safeParse(env.data.v) : null;
+    return parsed?.success ? { data: parsed.data, fetchedAt: row.fetched_at } : undefined;
+  } catch {
+    return undefined;
   }
 }
