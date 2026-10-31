@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GeoPlace } from "@/lib/domain";
-import { pickHomeSuggestion, shouldSuggestHome } from "./home-suggestion";
+import { cleanAirportCity, pickHomeSuggestion, shouldSuggestHome } from "./home-suggestion";
 
 const fra = { city: "Frankfurt am Main", country: "DE", lat: 50.03, lon: 8.57 };
 const place = (o: Partial<GeoPlace>): GeoPlace => ({
@@ -24,10 +24,14 @@ describe("pickHomeSuggestion", () => {
       timezone: "Europe/Berlin",
     });
   });
-  it("picks the nearest hit in the same country", () => {
-    const far = place({ geoId: 2, lat: 53.5, lon: 10 });
-    const near = place({ geoId: 3, name: "Frankfurt", lat: 50.1, lon: 8.7 });
-    expect(pickHomeSuggestion(fra, [far, near], "de")?.name).toMatch(/^Frankfurt,/);
+  it("prefers the most populous populated place, not the closest", () => {
+    const hill = place({ geoId: 2, name: "Zürichberg", featureCode: "PPLX", population: 500, lat: 50.03, lon: 8.57 });
+    const city = place({ geoId: 3, name: "Zürich", population: 400000, lat: 50.1, lon: 8.7 });
+    expect(pickHomeSuggestion(fra, [hill, city], "de")?.name).toMatch(/^Zürich,/);
+  });
+  it("skips airports and other non-populated features", () => {
+    const airport = place({ featureCode: "AIRP", name: "Flughafen Düsseldorf" });
+    expect(pickHomeSuggestion(fra, [airport, place({ featureCode: "HLL" })], "de")).toBeNull();
   });
   it("ignores other countries, far places, missing and invalid zones", () => {
     expect(pickHomeSuggestion(fra, [place({ countryCode: "US" })], "de")).toBeNull();
@@ -43,5 +47,14 @@ describe("shouldSuggestHome", () => {
     expect(shouldSuggestHome(null, ["FRA"])).toBe(true);
     expect(shouldSuggestHome(null, [])).toBe(false);
     expect(shouldSuggestHome({ name: "Wien", timezone: "Europe/Vienna" }, ["FRA"])).toBe(false);
+  });
+});
+
+describe("cleanAirportCity", () => {
+  it("strips parentheticals and takes the part before ' / '", () => {
+    expect(cleanAirportCity("Frankfurt am Main (Lautzenhausen)")).toBe("Frankfurt am Main");
+    expect(cleanAirportCity("Bâle / Mulhouse")).toBe("Bâle");
+    expect(cleanAirportCity("Köln (Cologne)")).toBe("Köln");
+    expect(cleanAirportCity("Málaga")).toBe("Málaga");
   });
 });

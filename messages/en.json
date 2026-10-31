@@ -851,7 +851,7 @@
       "timeChanges": "Changes during the trip (daylight saving).",
       "timeByMonth": "Depends on the travel month (daylight saving).",
       "timeDefaultHome": "Germany",
-      "sources": "Open-Meteo (climate), suncalc (daylight), OpenStreetMap (places)",
+      "sources": "Open-Meteo (climate), suncalc (daylight), OpenStreetMap (places), IANA time zones (time difference)",
       "checked": "checked {date}",
       "sourcesLink": "All sources"
     },
@@ -1154,7 +1154,7 @@
     "openItems": "To clarify",
     "tips": "Tips and notes",
     "packing": "Packing list",
-    "sources": "Sources: OpenStreetMap, Open-Meteo, AeroDataBox",
+    "sources": "Sources: OpenStreetMap, Open-Meteo, AeroDataBox, IANA time zones",
     "generated": "generated {date}",
     "page": "Page {n} of {total}",
     "statuses": {

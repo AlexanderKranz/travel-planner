@@ -1,7 +1,7 @@
 import { describe, it, vi } from "vitest";
 import { getAirport } from "@/lib/integrations/airports";
 import { parseSearchResponse } from "@/lib/integrations/open-meteo-geocoding";
-import { pickHomeSuggestion } from "./home-suggestion";
+import { cleanAirportCity, pickHomeSuggestion } from "./home-suggestion";
 
 vi.mock("server-only", () => ({}));
 
@@ -14,7 +14,7 @@ live("home suggestion against the live geocoder", () => {
       it(`${code} ${lang}`, async () => {
         const a = getAirport(code);
         if (!a) return void console.log(code, "not in dataset");
-        const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(a.city)}&count=8&language=${lang}&format=json`);
+        const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cleanAirportCity(a.city))}&count=8&language=${lang}&format=json`);
         const places = parseSearchResponse(await r.json());
         const pick = pickHomeSuggestion(a, places, lang);
         console.log(`RESULT ${code} ${lang} city="${a.city}" ${a.country} ->`, pick ? JSON.stringify(pick) : "none", "| hits:", places.map((p) => `${p.name}/${p.countryCode}/${p.timezone ?? "-"}`).join("; "));

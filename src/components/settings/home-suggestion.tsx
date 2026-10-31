@@ -4,7 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { btnSecondary, mutedCls } from "@/components/ui/styles";
 import { geocode } from "@/lib/geocode-client";
-import { pickHomeSuggestion, shouldSuggestHome, type HomeSuggestion, type SuggestionAirport } from "@/lib/home-suggestion";
+import { cleanAirportCity, pickHomeSuggestion, shouldSuggestHome, type HomeSuggestion, type SuggestionAirport } from "@/lib/home-suggestion";
 import type { HomeLocation } from "./home-location-picker";
 
 type Found = { code: string; value: HomeSuggestion | null };
@@ -43,7 +43,7 @@ export function HomeSuggestionButton({
       try {
         const airport = await lookupAirport(first, controller.signal);
         if (!airport) return setFound({ code: first, value: null });
-        const r = await geocode(airport.city, locale, controller.signal);
+        const r = await geocode(cleanAirportCity(airport.city), locale, controller.signal);
         setFound({ code: first, value: r.unavailable || r.rateLimited ? null : pickHomeSuggestion(airport, r.results, locale) });
       } catch {
         // Aborted or offline: no suggestion.

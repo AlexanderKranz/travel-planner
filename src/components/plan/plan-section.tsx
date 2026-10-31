@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { MAX_PLAN_DAYS } from "@/lib/domain/plan";
+import { shownTimeDifference } from "@/lib/facts/plan-time-difference";
 import { getOwnerPlanDocument } from "@/lib/server/plan-document";
 import { getPlanState } from "@/lib/server/plans";
 import { budgetExhausted } from "./helpers";
@@ -68,7 +69,7 @@ export async function PlanSection({
           shown={shown}
           locale={locale}
           openDone={openDone}
-          timeDifference={doc?.timeDifference ?? null}
+          timeDifference={shownTimeDifference(state.isLatest, doc?.timeDifference)}
           items={{ lengthDays, partySize, startDate, list: doc?.items ?? [], changed: doc?.itemsChanged === true }}
         />
       </div>

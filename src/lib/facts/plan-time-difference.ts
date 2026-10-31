@@ -75,5 +75,10 @@ export function planTimeDifferenceText(td: PlanTimeDifference, t: Translate): st
       ? t("timeRange", { from: td.hours, to: td.to ?? td.hours, home })
       : t(td.kind === "ahead" ? "timeAhead" : "timeBehind", { diff: td.hours, home });
   const notes = td.notes.map((n) => t(n === "current" ? "timeCurrent" : n === "changes" ? "timeChanges" : "timeByMonth"));
-  return [main, ...notes].join(" ");
+  return notes.length ? `${main}. ${notes.join(" ")}` : main;
+}
+
+/** The figure belongs to the latest plan version (the document's); older versions show none rather than a wrong one. */
+export function shownTimeDifference(isLatest: boolean, td: PlanTimeDifference | null | undefined): PlanTimeDifference | null {
+  return isLatest ? (td ?? null) : null;
 }

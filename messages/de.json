@@ -851,7 +851,7 @@
       "timeChanges": "Ändert sich während der Reise (Zeitumstellung).",
       "timeByMonth": "Je nach Reisemonat (Zeitumstellung).",
       "timeDefaultHome": "Deutschland",
-      "sources": "Open-Meteo (Klima), suncalc (Tageslicht), OpenStreetMap (Orte)",
+      "sources": "Open-Meteo (Klima), suncalc (Tageslicht), OpenStreetMap (Orte), IANA-Zeitzonen (Zeitverschiebung)",
       "checked": "geprüft am {date}",
       "sourcesLink": "Alle Quellen"
     },
@@ -1154,7 +1154,7 @@
     "openItems": "Noch zu klären",
     "tips": "Tipps und Hinweise",
     "packing": "Packliste",
-    "sources": "Quellen: OpenStreetMap, Open-Meteo, AeroDataBox",
+    "sources": "Quellen: OpenStreetMap, Open-Meteo, AeroDataBox, IANA-Zeitzonen",
     "generated": "erstellt am {date}",
     "page": "Seite {n} von {total}",
     "statuses": {
