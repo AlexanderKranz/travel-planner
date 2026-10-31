@@ -68,6 +68,7 @@ export async function PlanSection({
           shown={shown}
           locale={locale}
           openDone={openDone}
+          timeDifference={doc?.timeDifference ?? null}
           items={{ lengthDays, partySize, startDate, list: doc?.items ?? [], changed: doc?.itemsChanged === true }}
         />
       </div>

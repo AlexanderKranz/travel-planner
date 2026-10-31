@@ -2,15 +2,23 @@ import { useFormatter, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import type { Plan } from "@/lib/domain/plan";
+import { planTimeDifferenceText, type PlanTimeDifference } from "@/lib/facts/plan-time-difference";
 import { daylightRange } from "./helpers";
 
 /** Compact digest of the facts the plan was written from, with sources and check dates. */
-export function PlanFactsStrip({ facts }: { facts: Plan["facts"] }) {
+export function PlanFactsStrip({
+  facts,
+  timeDifference = null,
+}: {
+  facts: Plan["facts"];
+  /** Computed on the server, relative to the plan owner's home. */
+  timeDifference?: PlanTimeDifference | null;
+}) {
   const t = useTranslations("plan.facts");
   const f = useFormatter();
   const light = facts.daylight ? daylightRange(facts.daylight.days) : null;
   const dates = [facts.climate?.fetchedAt, facts.placesFetchedAt].filter((x): x is string => !!x).sort();
-  if (!facts.climate && !light && !facts.airports?.length) return null;
+  if (!facts.climate && !light && !facts.airports?.length && !timeDifference) return null;
   const month = (m: number) => f.dateTime(new Date(Date.UTC(2000, m - 1, 15)), { month: "short", timeZone: "UTC" });
   const num = (n: number) => f.number(n, { maximumFractionDigits: 1 });
   return (
@@ -37,6 +45,12 @@ export function PlanFactsStrip({ facts }: { facts: Plan["facts"] }) {
           <li>
             <span className="font-medium">{t("airports")}: </span>
             {facts.airports.map((a) => `${a.name} (${a.iata}, ${t("km", { km: num(a.km) })})`).join("; ")}
+          </li>
+        )}
+        {timeDifference && (
+          <li>
+            <span className="font-medium">{t("timeDifference")}: </span>
+            {planTimeDifferenceText(timeDifference, (k, v) => t(k as "timeAhead", v))}
           </li>
         )}
       </ul>

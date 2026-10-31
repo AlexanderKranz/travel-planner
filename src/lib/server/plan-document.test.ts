@@ -71,7 +71,7 @@ describe("getSharedPlanDocument", () => {
     expect(doc).not.toBeNull();
     expect(calls).toEqual([
       { table: "share_links", select: "id, owner_id, trip_id, include_items, include_item_notes, expires_at" },
-      { table: "profiles", select: "disabled_at" },
+      { table: "profiles", select: "disabled_at, home_location, home_timezone" },
       { table: "plans", select: "id, latest_version, open_done" },
       { table: "plan_versions", select: "plan, version_no, created_at" },
       {
@@ -83,6 +83,18 @@ describe("getSharedPlanDocument", () => {
       { table: "group_entries", select: "kind, count" },
     ]);
     expect(calls.some((c) => c.select.includes("*"))).toBe(false);
+  });
+  it("exposes only the computed time difference, not the owner's zone or profile", async () => {
+    tables.profiles = { disabled_at: null, home_location: "Bangkok", home_timezone: "Asia/Bangkok", display_name: "Secret" };
+    const doc = await getSharedPlanDocument(TOKEN, "page");
+    expect(doc!.timeDifference).toEqual({ kind: "behind", hours: "6", home: "Bangkok", notes: [] });
+    const dump = JSON.stringify(doc);
+    expect(dump).not.toContain("Asia/Bangkok");
+    expect(dump).not.toContain("Secret");
+  });
+  it("omits the time difference when it is zero (Madrid vs. default Germany)", async () => {
+    const doc = await getSharedPlanDocument(TOKEN, "page");
+    expect(doc!.timeDifference).toBeNull();
   });
   it("hides item notes unless the link allows them", async () => {
     const without = await getSharedPlanDocument(TOKEN, "page");

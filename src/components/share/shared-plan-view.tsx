@@ -58,7 +58,7 @@ export function SharedPlanView({ doc, token, uiLocale }: { doc: PlanDocument; to
       <PlanNotes notes={plan.notes} />
       <PlanOpenItems items={plan.openItems} done={doc.openDone} />
       <PlanPacking items={plan.packing} />
-      <PlanFactsStrip facts={plan.facts} />
+      <PlanFactsStrip facts={plan.facts} timeDifference={doc.timeDifference ?? null} />
       {doc.items && (
         <section aria-labelledby="shared-items" className="flex min-w-0 flex-col gap-3">
           <h2 id="shared-items" className="text-2xl font-bold">

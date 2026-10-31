@@ -4,6 +4,7 @@ import { Plan, PlanFlights } from "@/lib/domain/plan";
 import type { SharedItem } from "@/lib/domain/items";
 import type { PlanDocument } from "@/lib/domain/share";
 import { berlinToday } from "@/lib/date";
+import { planTimeDifference, type PlanHome } from "@/lib/facts/plan-time-difference";
 import { groupPartySize, resolveGroup, tripGroupSource, type GroupSource } from "@/lib/group-text";
 import { computeCosts } from "@/lib/items/costs";
 import { cachedParse } from "./group-mapping";
@@ -31,6 +32,8 @@ export type PlanDocumentParts = {
   /** null = items not part of this document. */
   items: SharedItem[] | null;
   partySize: number | null;
+  /** Owner's home place. Only a computed display value reaches the document, never the raw zone. */
+  home?: PlanHome | null;
 };
 
 /** Pure. Reserved plan keys `items`/`costs` are dropped (items live in trip_items); costs are computed here. */
@@ -45,6 +48,7 @@ export function buildPlanDocument(parts: PlanDocumentParts): PlanDocument {
     openDone: parts.openDone,
     items: parts.items,
     costs: parts.items ? computeCosts(parts.items, parts.partySize) : null,
+    timeDifference: planTimeDifference(parts.plan, parts.home ?? null, berlinToday()),
   };
 }
 
@@ -122,7 +126,13 @@ export async function getOwnerPlanDocumentResult(
       .returns<ItemRow[]>();
     if (itemErr) return { ok: false, error: "failed" };
     const items = rows.map((r) => rowToSharedItem(r, true));
+    const { data: prof } = await sb
+      .from("profiles")
+      .select("home_location, home_timezone")
+      .eq("id", session.userId)
+      .maybeSingle<{ home_location: string | null; home_timezone: string | null }>();
     const doc = buildPlanDocument({
+      home: prof ? { name: prof.home_location, timezone: prof.home_timezone } : null,
       plan: plan.data,
       versionNo: ver.version_no,
       versionAt: ver.created_at,
@@ -174,9 +184,9 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
     // minutes between the code deploy and migration 20261104120029, when nobody can be disabled yet.
     const { data: owner, error: ownerErr } = await admin
       .from("profiles")
-      .select("disabled_at")
+      .select("disabled_at, home_location, home_timezone")
       .eq("id", link.owner_id)
-      .maybeSingle<{ disabled_at: string | null }>();
+      .maybeSingle<{ disabled_at: string | null; home_location: string | null; home_timezone: string | null }>();
     const flagMissing = ownerErr?.code === "42703";
     if (!flagMissing && (ownerErr || !owner || owner.disabled_at)) return null;
 
@@ -228,6 +238,8 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
       openDone: planRow.open_done ?? [],
       items,
       partySize: party,
+      // Only the computed display value leaves this function (planTimeDifference), never the raw zone.
+      home: owner ? { name: owner.home_location, timezone: owner.home_timezone } : null,
     });
   } catch {
     return null;
