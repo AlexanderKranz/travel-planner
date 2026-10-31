@@ -170,6 +170,7 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
    Usage logging (`ai_usage`, `api_calls`, `app_events`) is built from phase 2/3 onwards, so the admin page has data when it arrives.
 
 ### Open items / backlog
+- **"Noch zu klären" list** (Alex, 2026-11-01): today its entries can only be checked off. Specify what this section should do.
 - **Default page after login** (Alex, 2026-11-01): revisit whether this page is needed or should be removed.
 - **Loading times** (Alex, 2026-11-01): analyse where the app is slow.
 - **Trip page length** (Alex, 2026-11-01): revisit whether all content on the trip pages is needed. Lots of scrolling, especially on phones.
