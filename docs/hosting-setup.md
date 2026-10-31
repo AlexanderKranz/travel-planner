@@ -138,6 +138,8 @@ Supabase's built-in mailer only delivers to members of your Supabase team, so in
    - **Secure password change** (same Email provider page): if on, Supabase requires a *recently signed-in* session to change the password (otherwise `updateUser` fails with `reauthentication_needed`). The app handles it: it shows "sign in again first, then change the password" (a fresh email-link login, or a password reset link, always counts as recent). Leaving it off is fine too. I did not find the exact "recent" window in the docs, so I do not state it here.
    - **URL configuration → Redirect URLs**: the reset link redirects to `https://<host>/auth/confirm?locale=…&next=…`; it must match an entry the same way the magic link does (your existing `/auth/confirm**` entry covers it; check if the reset mail says "redirect not allowed").
 
+9. **Why mail links need a button.** Mail links get opened before the user clicks them: Brevo wraps them for click tracking, and web.de rewrites them through its redirector (`ui-deref.de`); both (and mail scanners) can request the URL once on their own. A one-time token verified on `GET /auth/confirm` was spent by that first request (symptom: `auth.login` followed about 1 s later by `auth.login_failed` with `otp_expired`). So `GET /auth/confirm` only redirects to `/<locale>/login/confirm`, a page with one button, and only that button (POST) verifies the token. I found no self-serve Brevo switch to disable click tracking; disabling appears to be on request / Enterprise only (unverified, undated source), so the app does not depend on it.
+
 Inviting, revoking and common problems: `docs/runbook.md` section 11.
 
 ## 7. Monitoring

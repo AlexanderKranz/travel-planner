@@ -85,7 +85,25 @@
       "resetSentBody": "Wenn zu dieser Adresse ein Konto besteht, haben wir dir einen Link zum Zurücksetzen des Passworts geschickt.",
       "backToPassword": "Zurück zur Anmeldung"
     },
-    "invited": "Einladung bestätigt. Gib jetzt deine E-Mail-Adresse ein, dann schicken wir dir den Anmeldelink."
+    "invited": "Einladung bestätigt. Gib jetzt deine E-Mail-Adresse ein, dann schicken wir dir den Anmeldelink.",
+    "confirm": {
+      "hint": "Der Link funktioniert nur einmal. Wenn er nicht klappt, fordere auf der Anmeldeseite einen neuen an.",
+      "signin": {
+        "title": "Anmeldung bestätigen",
+        "body": "Tippe auf den Button, um die Anmeldung auf diesem Gerät abzuschließen.",
+        "button": "Anmelden"
+      },
+      "recovery": {
+        "title": "Neues Passwort festlegen",
+        "body": "Tippe auf den Button, um fortzufahren und ein neues Passwort zu wählen.",
+        "button": "Weiter zum neuen Passwort"
+      },
+      "invite": {
+        "title": "Einladung annehmen",
+        "body": "Du wurdest eingeladen. Tippe auf den Button, um die Einladung anzunehmen und dich anzumelden.",
+        "button": "Einladung annehmen"
+      }
+    }
   },
   "dashboard": {
     "welcome": "Willkommen",

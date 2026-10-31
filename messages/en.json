@@ -85,7 +85,25 @@
       "resetSentBody": "If this address has an account, we have sent you a link to reset the password.",
       "backToPassword": "Back to sign in"
     },
-    "invited": "Invitation confirmed. Now enter your email address and we will send you the sign-in link."
+    "invited": "Invitation confirmed. Now enter your email address and we will send you the sign-in link.",
+    "confirm": {
+      "hint": "The link only works once. If it does not work, request a new one on the sign-in page.",
+      "signin": {
+        "title": "Confirm sign-in",
+        "body": "Press the button to finish signing in on this device.",
+        "button": "Sign in"
+      },
+      "recovery": {
+        "title": "Set a new password",
+        "body": "Press the button to continue and choose a new password.",
+        "button": "Continue to set new password"
+      },
+      "invite": {
+        "title": "Accept invitation",
+        "body": "You have been invited. Press the button to accept and sign in.",
+        "button": "Accept invitation"
+      }
+    }
   },
   "dashboard": {
     "welcome": "Welcome",
