@@ -200,7 +200,7 @@ describe("GET /auth/confirm with a token hash never spends the token", () => {
     expect(loc(res).searchParams.get("type")).toBe(type);
     expect(loc(res).searchParams.get("next")).toBe("/en/app/groups");
     expect(res.headers.get("cache-control")).toBe("no-store");
-    expect(res.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(res.headers.get("referrer-policy")).toBe("same-origin");
   });
 
   it("uses the default locale for a hostile locale value", async () => {
@@ -233,6 +233,12 @@ describe("POST /auth/confirm input handling", () => {
 
   it("rejects a cross-site POST", async () => {
     const res = await post(`token_hash=${hash}&type=email&locale=en`, { origin: "https://evil.example" });
+    expect(verifyOtp).not.toHaveBeenCalled();
+    expect(loc(res).pathname).toBe("/en/login");
+  });
+
+  it("rejects `Origin: null` (sandboxed frame, or a no-referrer page)", async () => {
+    const res = await post(`token_hash=${hash}&type=email&locale=en`, { origin: "null" });
     expect(verifyOtp).not.toHaveBeenCalled();
     expect(loc(res).pathname).toBe("/en/login");
   });

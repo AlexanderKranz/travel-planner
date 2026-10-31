@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     url.search = `?${search}`;
     const res = NextResponse.redirect(url);
     res.headers.set("Cache-Control", "no-store");
-    res.headers.set("Referrer-Policy", "no-referrer");
+    res.headers.set("Referrer-Policy", "same-origin");
     return res;
   }
 
@@ -72,7 +72,8 @@ export async function POST(request: NextRequest) {
   const localeParsed = Locale.safeParse(fields.locale);
   const locale = localeParsed.success ? localeParsed.data : routing.defaultLocale;
 
-  // Browsers always send Origin on cross-site form POSTs; refuse those (no cross-site sign-in).
+  // Browsers always send Origin on cross-site form POSTs; refuse those (no cross-site sign-in). The confirm page
+  // must stay on Referrer-Policy same-origin: with no-referrer its own POST would arrive as `Origin: null`.
   const origin = request.headers.get("origin");
   if (origin && origin !== request.nextUrl.origin) return failRedirect(request, locale, "bad_origin");
 

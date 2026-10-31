@@ -8,7 +8,7 @@ import { ConfirmQuery } from "@/lib/domain/auth";
 // The URL carries a one-time token: never cache, never index. Referrer-Policy and Cache-Control headers for
 // this path are set in next.config.ts.
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { robots: { index: false, follow: false }, referrer: "no-referrer" };
+export const metadata: Metadata = { robots: { index: false, follow: false }, referrer: "same-origin" };
 
 /** Button copy key per token type ("magiclink"/"signup" are legacy names for the email link). */
 const COPY = {

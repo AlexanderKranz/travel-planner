@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
         source: "/:locale/login/confirm",
         headers: [
           { key: "Cache-Control", value: "no-store" },
-          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Referrer-Policy", value: "same-origin" },
           { key: "X-Robots-Tag", value: "noindex, nofollow" },
         ],
       },
