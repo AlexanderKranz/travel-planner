@@ -1,6 +1,6 @@
 # Find destinations by trip purpose
 
-Status: proposed (architect, 2026-10-31). Every call is listed as **[D#]** in section 12 for Alex to review. Decisions and reasons: `docs/adr/0006-find-destinations.md`.
+Status: accepted (Alex, 2026-10-31: all decisions as written, Haiku without the phase 0 model test, radius 1,330 km for 2 h). Every call is listed as **[D#]** in section 12. Decisions and reasons: `docs/adr/0006-find-destinations.md`.
 Conventions from the earlier specs apply unchanged (explicit grants, `(select auth.uid())`, composite same-owner FKs, DB + Zod limits, snake_case DB / camelCase TS, `ActionResult`).
 
 Scope: a user starts from a saved purpose, gets 3 to 5 checked suggestions, and turns one into a normal trip.
@@ -363,7 +363,7 @@ Add a `discover` block to both fixtures, keeping the rest:
 If the eval picks Sonnet, the first word changes.
 
 **Phases:**
-- **Phase 0, spike (no UI, needs Alex's go):** `discover.eval.ts` plus the pure modules. Answers the model question and the climate thresholds.
+- **Phase 0, spike, skipped by Alex 2026-10-31 (Haiku chosen):** `discover.eval.ts` plus the pure modules. Answers the model question and the climate thresholds.
 - **Phase 1, first version:** migration, pipeline, form, cards, "Show others", prefill, back link, all section 9 gates.
 - **Phase 2, later and only if used:** recorded demo list; Geoapify mappings for `skiing` and `water_sports`; reuse the trip when picking another card; a rough flatness check; a one-off purpose typed into the search.
 
@@ -371,7 +371,7 @@ If the eval picks Sonnet, the first word changes.
 
 - **[D1] All context optional, purpose required for this feature only.** Missing month, group, airports or limit skip that check and say so. Default: as section 2.
 - **[D2] Radius = 13.3 km/min × (60 × hours − 30 + 10 min tolerance), 1,330 km for 2 h,** measured origin to nearest gateway, at most 2 origins, shown rounded to the half hour. Same constants as `approxBlockMin`. Strict alternative: no tolerance, 1,197 km, which loses Mallorca from FRA at 2 h.
-- **[D3] Model: Haiku by default, decided by the section 10 eval.** Sonnet is about 20 times the cost but likely gives better ideas; both fit the budget. Verification limits the harm of a weak idea.
+- **[D3] Model: Haiku** (Alex, 2026-10-31: no model test now; the section 10 eval stays available for later). Original proposal: **Haiku by default, decided by the section 10 eval.** Sonnet is about 20 times the cost but likely gives better ideas; both fit the budget. Verification limits the harm of a weak idea.
 - **[D4] The LLM returns `name`, `anchor`, `cc`, `reason`, and nothing else,** all required. It gets the radius as a hint only.
 - **[D5] A reason that states a banned fact is removed, the card stays.** Alternatives: drop the place (loses a verified result over wording) or retry (costs tokens).
 - **[D6] Cache per owner for 30 days, never across users.** The hash covers the agreed items plus locale, radius and group. The extra cache hits from sharing are not worth a reason leaking one user's purpose to another.
