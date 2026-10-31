@@ -208,7 +208,7 @@ Sentry collects crashes from the browser and the server and emails you. Docs che
 - Privacy: no session replay, no profiling, no performance tracing (`tracesSampleRate` 0), `sendDefaultPii` off. Before sending, `src/lib/sentry-scrub.ts` removes email addresses, tokens (`token_hash`, `code`, `access_token`, `password`, `apikey`, `Authorization`, cookies) from messages, URLs, query strings, breadcrumbs and request data. At most the Supabase user id is attached (we do not set one at all today). Use an EU-region organisation (de.sentry.io) so the data stays in the EU.
 - Handled errors that our code writes with `logEvent()` (table `app_events`) are not sent to Sentry; Sentry only sees unhandled errors. So nothing is reported twice. Do not add Sentry's `captureConsole` integration.
 - Source maps (readable stack traces) are uploaded during the Vercel build only if `SENTRY_AUTH_TOKEN` is set, and deleted from the build output afterwards, so they are never public.
-- No tunnel route (ad-blocker workaround): a few blocked browsers would not report errors, which is acceptable for a family app, and the tunnel would add a route that needs excluding from the middleware and uses function invocations. If it ever matters, add `tunnelRoute: "/api/monitoring"` to `withSentryConfig` in `next.config.ts` (`/api` is already excluded from the middleware matcher).
+- No tunnel route (ad-blocker workaround): a few blocked browsers would not report errors, which is acceptable for a family app, and the tunnel would add a route that needs excluding from the proxy (formerly middleware) and uses function invocations. If it ever matters, add `tunnelRoute: "/api/monitoring"` to `withSentryConfig` in `next.config.ts` (`/api` is already excluded from the proxy matcher).
 
 **Test that it works**
 1. Vercel -> Settings -> Environment Variables: add `SENTRY_TEST_ENABLED` = `true` (Preview only is safest), redeploy.
@@ -426,3 +426,11 @@ A pull request that changes **only documentation** skips the slow parts. What co
 - `ignoreCommand` in `vercel.json` overrides an "Ignored Build Step" set in the Vercel dashboard.
 - CodeQL and CodeRabbit are unchanged and still run on every PR.
 - Dependabot, `backup.yml`, `restore-test.yml` and `deploy-db.yml` are not touched (they have their own triggers).
+
+## 15. Framework notes (Next.js 16)
+
+- Next.js 16 builds and runs the dev server with Turbopack by default. There is no custom `webpack` config; Sentry's `withSentryConfig` and next-intl's plugin work with it (verified 2026-10-31 by `npm run build`). If a build ever needs webpack: `next build --webpack`.
+- The former `middleware.ts` is now `src/proxy.ts` (export `proxy`, Node.js runtime). It still does next-intl locale routing, the Supabase `getClaims()` session refresh and the login redirect. Official guide: https://nextjs.org/docs/app/guides/upgrading/version-16 (checked 2026-10-31).
+- `next lint` no longer exists; `npm run lint` calls ESLint directly with a flat config (`eslint.config.mjs`).
+- ESLint 10 is installed although `eslint-plugin-react`, `-import` and `-jsx-a11y` (pulled in by `eslint-config-next`) still declare peers up to ESLint 9. `npm ci` works (npm only warns) and their rules were checked to still fire. TypeScript stays on 5 (typescript-eslint rejects TS 7, see the backlog in `docs/architecture.md`).
+- Fonts (Inter, Fraunces) are self-hosted in `src/assets/web-fonts/` (latin variable woff2 with their OFL licences) and loaded with `next/font/local`, so a build never fetches from Google. The PDF uses the static TTFs in `src/assets/fonts/`.
