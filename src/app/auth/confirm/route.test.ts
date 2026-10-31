@@ -78,7 +78,12 @@ describe("GET /auth/confirm with a password reset link (type=recovery)", () => {
   it("never leaves the origin via `next`", async () => {
     const res = await call(`token_hash=${hash}&type=recovery&locale=de&next=${encodeURIComponent("//evil.com")}`);
     expect(loc(res).origin).toBe(ORIGIN);
-    expect(loc(res).pathname).toBe("/de/app");
+    expect(loc(res).pathname).toBe("/de/settings");
+  });
+  it("ignores `next` away from the password section", async () => {
+    const res = await call(`token_hash=${hash}&type=recovery&locale=en&next=${encodeURIComponent("/en/app")}`);
+    expect(loc(res).pathname).toBe("/en/settings");
+    expect(loc(res).search).toBe("?focus=password");
   });
 });
 

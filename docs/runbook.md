@@ -352,7 +352,7 @@ Steps (Supabase dashboard; menu names move occasionally, search for "SMTP" if th
 
 ### Optional password login
 
-Everybody still signs in with the email link by default. Under **Einstellungen -> Passwort** a person can set a password (10 to 72 characters), then use "Mit Passwort anmelden" on the login page. Password login never creates accounts (invite-only is unchanged). "Passwort vergessen?" sends the **Reset Password** email through the same mail limit as the sign-in link.
+Everybody still signs in with the email link by default. Under **Einstellungen -> Passwort** a person can set a password (at least 10 characters, at most 72 bytes), then use "Mit Passwort anmelden" on the login page. Password login never creates accounts (invite-only is unchanged). "Passwort vergessen?" sends the **Reset Password** email through the same mail limit as the sign-in link.
 
 Alex, one-off in the Supabase dashboard (details and the leaked-password / secure-password-change notes: `docs/hosting-setup.md` section 6, step 8):
 1. **Authentication -> Emails -> Templates -> Reset Password**: subject `Passwort zurücksetzen · Reset your password`, body = the contents of `docs/email-templates/reset-password.html`. The link is `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=recovery`, so it needs custom SMTP like the other templates (with the built-in sender the default mail is sent instead and the link cannot sign in on another device).

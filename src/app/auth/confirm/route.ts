@@ -67,7 +67,9 @@ export async function GET(request: NextRequest) {
   });
 
   const next = parsed.success ? parsed.data.next : codeParsed.data!.next;
-  const target = safeNextPath(next, `/${locale}/app`);
+  // A recovery link exists to set a new password: it always lands there, whatever `next` says.
+  const recovery = parsed.success && parsed.data.type === "recovery";
+  const target = recovery ? `/${locale}/settings?focus=password` : safeNextPath(next, `/${locale}/app`);
   const url = request.nextUrl.clone();
   url.pathname = target.split("?")[0];
   url.search = target.includes("?") ? `?${target.split("?").slice(1).join("?")}` : "";
