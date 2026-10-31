@@ -55,6 +55,8 @@ export const TripInput = z
     wantsFlights: z.boolean().default(false),
     originAirports: HomeAirports.default([]), // isKnownIata checked server-side
     notes: optionalText(2000),
+    /** Set when the trip was made from a destination suggestion; absent on an update = keep the stored link. */
+    destinationSearchId: z.string().uuid().nullable().optional(),
   })
   .superRefine((trip, ctx) => {
     if (trip.groupId && (trip.groupText || trip.groupStructure.length > 0)) {
@@ -114,6 +116,8 @@ export type Trip = {
   wantsFlights: boolean;
   originAirports: string[]; // as stored; empty = use profile
   notes?: string;
+  /** The saved suggestion list this trip was made from (find-destinations); the link "Back to suggestions". */
+  destinationSearchId?: string;
   createdAt: string;
   updatedAt: string;
 };

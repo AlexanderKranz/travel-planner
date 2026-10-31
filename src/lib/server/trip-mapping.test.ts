@@ -98,6 +98,7 @@ const row: TripRow = {
   group_structure: null,
   group_parsed: null,
   group_parsed_hash: null,
+  destination_search_id: null,
   purpose_id: null,
   wants_flights: true,
   origin_airports: [],
@@ -200,5 +201,26 @@ describe("one-off group (spec group-text)", () => {
     expect(rowToTrip({ ...row, group_text: text, group_structure: ok }).groupStructure).toEqual(ok);
     expect(rowToTrip({ ...row, group_text: text, group_structure: [{ count: 0 }] }).groupStructure).toEqual([]);
     expect(rowToTrip(row).groupStructure).toEqual([]);
+  });
+});
+
+describe("destination_search_id (find destinations)", () => {
+  const SEARCH = "33333333-3333-4333-8333-333333333333";
+  const free = { destination: { kind: "freetext" as const, name: "X" }, lengthDays: 3 };
+  it("is written when the trip comes from a suggestion list", () => {
+    expect(buildTripWrite(TripInput.parse({ ...free, destinationSearchId: SEARCH }), null)).toMatchObject({ destination_search_id: SEARCH });
+  });
+  it("absent on an update = not written, so editing a trip keeps the link", () => {
+    expect(buildTripWrite(TripInput.parse(free), null)).not.toHaveProperty("destination_search_id");
+  });
+  it("null clears the link explicitly", () => {
+    expect(buildTripWrite(TripInput.parse({ ...free, destinationSearchId: null }), null)).toMatchObject({ destination_search_id: null });
+  });
+  it("must be a uuid", () => {
+    expect(TripInput.safeParse({ ...free, destinationSearchId: "x" }).success).toBe(false);
+  });
+  it("is mapped onto the trip (undefined when none)", () => {
+    expect(rowToTrip({ ...row, destination_search_id: SEARCH }).destinationSearchId).toBe(SEARCH);
+    expect(rowToTrip(row).destinationSearchId).toBeUndefined();
   });
 });

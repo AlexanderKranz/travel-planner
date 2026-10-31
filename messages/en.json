@@ -50,6 +50,8 @@
     "reauth_required": "For security you need to sign in again first. Sign out, sign in with the email link, then change the password right away.",
     "no_plan": "Create a travel plan first.",
     "places_pending": "Places are still loading. Please try again in a minute.",
+    "search_limit": "You have used all destination searches for today. They reset at midnight (Berlin time).",
+    "places_unavailable": "Places could not be checked right now, so no suggestions are shown. Please try again later.",
     "forbidden": "You do not have permission to do that.",
     "already_member": "This address already has an account.",
     "email_failed": "The address is on the invite list, but the email could not be sent."
@@ -1298,6 +1300,7 @@
       "tasks": {
         "purpose_tags": "Purpose tags (Haiku)",
         "group_parse": "Group text (Haiku)",
+        "destination_ideas": "Destination ideas (Haiku)",
         "plan_generate": "Plan (Sonnet)",
         "plan_patch": "Patch (Sonnet)"
       }

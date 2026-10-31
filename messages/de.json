@@ -50,6 +50,8 @@
     "reauth_required": "Aus Sicherheitsgründen musst du dich dafür neu anmelden. Melde dich ab, mit dem Anmeldelink wieder an und ändere das Passwort dann sofort.",
     "no_plan": "Erstelle zuerst einen Reiseplan.",
     "places_pending": "Orte werden noch geladen. Bitte in einer Minute erneut versuchen.",
+    "search_limit": "Du hast heute alle Reiseziel-Suchen verbraucht. Sie werden um Mitternacht (Berliner Zeit) zurückgesetzt.",
+    "places_unavailable": "Orte konnten gerade nicht geprüft werden, deshalb werden keine Vorschläge gezeigt. Bitte später erneut versuchen.",
     "forbidden": "Dafür fehlt dir die Berechtigung.",
     "already_member": "Diese Adresse hat bereits ein Konto.",
     "email_failed": "Die Adresse steht auf der Einladungsliste, aber die E-Mail konnte nicht gesendet werden."
@@ -1298,6 +1300,7 @@
       "tasks": {
         "purpose_tags": "Reiseanlass-Tags (Haiku)",
         "group_parse": "Gruppentext (Haiku)",
+        "destination_ideas": "Reiseziel-Ideen (Haiku)",
         "plan_generate": "Plan (Sonnet)",
         "plan_patch": "Änderung (Sonnet)"
       }

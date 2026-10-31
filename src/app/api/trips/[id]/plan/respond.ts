@@ -4,7 +4,7 @@ import type { PipelineResult } from "@/lib/server/plan-pipeline";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
-const STATUS: Record<ActionError, number> = {
+export const STATUS: Record<ActionError, number> = {
   unauthenticated: 401,
   not_found: 404,
   busy: 409,
@@ -24,6 +24,8 @@ const STATUS: Record<ActionError, number> = {
   demo_forbidden: 403,
   no_plan: 409,
   places_pending: 503,
+  search_limit: 429,
+  places_unavailable: 502,
   forbidden: 403,
   protected: 403,
   already_member: 409,

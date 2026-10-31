@@ -22,6 +22,8 @@ export type ActionError =
   | "protected" // admin user action on yourself, the demo account or another admin
   | "already_member" // invite: this address already has an account
   | "email_failed" // invite: allowlisted, but the mail could not be sent
+  | "search_limit" // destination search: daily runs used up (resetAt = next Berlin midnight)
+  | "places_unavailable" // destination search: the geocoder is down, no place can be checked
   | "places_pending" // places with a source did not load yet; retry or generate anyway
   | "invalid_credentials" // password login: wrong email, wrong password or no password (always the same)
   | "weak_password" // rejected by Supabase (too short, leaked-password protection)

@@ -40,15 +40,19 @@ export type TripRow = {
   wants_flights: boolean;
   origin_airports: string[];
   notes: string | null;
+  destination_search_id: string | null;
   created_at: string;
   updated_at: string;
 };
 
 export const TRIP_COLUMNS =
-  "id, title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_country_code, dest_admin1, dest_lat, dest_lon, dest_timezone, dest_radius_km, length_days, start_date, months, group_id, group_text, group_structure, group_parsed, group_parsed_hash, purpose_id, wants_flights, origin_airports, notes, created_at, updated_at";
+  "id, title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_country_code, dest_admin1, dest_lat, dest_lon, dest_timezone, dest_radius_km, length_days, start_date, months, group_id, group_text, group_structure, group_parsed, group_parsed_hash, purpose_id, wants_flights, origin_airports, notes, destination_search_id, created_at, updated_at";
 
 /** The writable columns (everything except id, owner_id, the timestamps and the server-written parse cache). */
-export type TripWrite = Omit<TripRow, "id" | "created_at" | "updated_at" | "group_parsed" | "group_parsed_hash">;
+export type TripWrite = Omit<TripRow, "id" | "created_at" | "updated_at" | "group_parsed" | "group_parsed_hash" | "destination_search_id"> & {
+  /** Omitted = not written (an update keeps the stored link; an insert gets null). */
+  destination_search_id?: string | null;
+};
 
 const StoredStructure = z.array(
   z.object({
@@ -110,6 +114,7 @@ export function rowToTrip(row: TripRow): Trip {
     wantsFlights: row.wants_flights,
     originAirports: row.origin_airports,
     notes: row.notes ?? undefined,
+    destinationSearchId: row.destination_search_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -219,6 +224,7 @@ export function buildTripWrite(
     wants_flights: input.wantsFlights,
     origin_airports: input.originAirports,
     notes: input.notes ?? null,
+    ...(input.destinationSearchId !== undefined ? { destination_search_id: input.destinationSearchId } : {}),
   };
 }
 

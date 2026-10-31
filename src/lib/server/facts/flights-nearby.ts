@@ -9,12 +9,12 @@ import { flightDates } from "@/lib/flights/lookups";
 import { NEARBY_UNIT_CAP, buildNearbyDays, nearbyTargets } from "@/lib/flights/nearby";
 import type { FidsLeg } from "@/lib/integrations/aerodatabox-normalize";
 import { aeroDataBoxEnabled } from "@/lib/integrations/aerodatabox";
+import { MAX_ORIGINS } from "@/lib/flights/estimate";
 import { gatewayAirports } from "@/lib/plan/airports";
 import { Session, departures } from "./flights";
 import { geoDestination, unavailable } from "./common";
 
 const SOURCE = "aerodatabox" as const;
-const MAX_ORIGINS = 2;
 
 export type NearbyRequest = { dir: FlightDir; from: string; to: string };
 

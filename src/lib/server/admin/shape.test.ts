@@ -59,8 +59,8 @@ describe("shapeDashboard", () => {
   it("scales the per-day bars to the busiest day", () => {
     expect(d.usage.perDay.map((x) => x.widthPct)).toEqual([100, 25]);
   });
-  it("lists all four AI tasks, unused ones with zero", () => {
-    expect(d.ai.byTask.map((t) => t.key)).toEqual(["purpose_tags", "group_parse", "plan_generate", "plan_patch"]);
+  it("lists all known AI tasks, unused ones with zero", () => {
+    expect(d.ai.byTask.map((t) => t.key)).toEqual(["purpose_tags", "group_parse", "destination_ideas", "plan_generate", "plan_patch"]);
     expect(d.ai.byTask[2].widthPct).toBe(100);
     expect(d.ai.byTask[0]).toMatchObject({ calls: 0, microUsd: 0 });
   });
