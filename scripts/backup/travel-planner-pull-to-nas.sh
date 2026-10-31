@@ -124,7 +124,9 @@ else
     log "note: unzip not installed, skipping integrity test"
   fi
   # Hidden while copying, so NAS scripts never pick up a half-written file; the rename is atomic.
-  mv "$TMP/dl.zip" "$DEST/.$FILE.part" && mv "$DEST/.$FILE.part" "$DEST/$FILE"
+  PART="$DEST/.$FILE.$$.part"
+  mv "$TMP/dl.zip" "$PART" || die "cannot write to $DEST (disk full or no permission?)"
+  mv "$PART" "$DEST/$FILE" || die "cannot save $DEST/$FILE"
   log "saved $DEST/$FILE"
 fi
 log "done"

@@ -63,7 +63,9 @@ GitHub -> your avatar -> **Settings** -> **Developer settings** -> **Personal ac
 - Generate and copy the token (`github_pat_...`).
 
 ### 4b. Put script and config on the NAS
-1. Copy `scripts/backup/travel-planner-pull-to-nas.sh` into your scripts folder on the NAS, e.g. `/volume1/scripts/` (File Station upload, or `scp`). Make it executable: `chmod +x travel-planner-pull-to-nas.sh`.
+Paths below use `/volume1/scripts` and `/volume1/backups`: use your own folders in every command. The task user needs write access to both.
+
+1. Copy `scripts/backup/travel-planner-pull-to-nas.sh` into your scripts folder on the NAS (File Station upload, or `scp`). Make it executable: `chmod +x travel-planner-pull-to-nas.sh`.
 2. Create the config file next to the script, which is where the script looks for it, as the NAS user that will run the task (via SSH, enable SSH in Control Panel -> Terminal & SNMP):
    ```
    vi /volume1/scripts/travel-planner-backup.env
