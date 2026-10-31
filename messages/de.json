@@ -1119,6 +1119,13 @@
     "pdfBusy": "PDF wird erstellt …",
     "pdfFailed": "Das PDF konnte nicht erstellt werden. Bitte versuche es später noch einmal."
   },
+  "picture": {
+    "alt": "Foto von {place}",
+    "creditAuthor": "Foto: {author}, <lic>{license}</lic>.",
+    "creditLicense": "Foto: <lic>{license}</lic>.",
+    "source": "Quelle: Wikimedia Commons",
+    "cropped": "Bild zugeschnitten."
+  },
   "shared": {
     "banner": "Geteilter Reiseplan",
     "version": "Version {n}",

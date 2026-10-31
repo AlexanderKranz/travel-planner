@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
     "/api/trips/[id]/pdf": ["./src/assets/fonts/**", "./node_modules/pdfkit/js/standard-fonts/**"],
     "/api/share/[token]/pdf": ["./src/assets/fonts/**", "./node_modules/pdfkit/js/standard-fonts/**"],
   },
+  // Destination photos (Wikimedia Commons) are served through the image optimizer, so viewers never contact Wikimedia.
+  images: {
+    remotePatterns: [{ protocol: "https", hostname: "upload.wikimedia.org", pathname: "/**" }],
+  },
   // The link confirmation page carries a one-time token in its URL: no caching, no referrer, no indexing.
   async headers() {
     return [

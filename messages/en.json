@@ -1119,6 +1119,13 @@
     "pdfBusy": "Creating PDF…",
     "pdfFailed": "The PDF could not be created. Please try again later."
   },
+  "picture": {
+    "alt": "Photo of {place}",
+    "creditAuthor": "Photo: {author}, <lic>{license}</lic>.",
+    "creditLicense": "Photo: <lic>{license}</lic>.",
+    "source": "Source: Wikimedia Commons",
+    "cropped": "Image cropped."
+  },
   "shared": {
     "banner": "Shared travel plan",
     "version": "version {n}",

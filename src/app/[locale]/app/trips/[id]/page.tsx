@@ -23,6 +23,7 @@ import { unwrap } from "@/lib/unwrap";
 import { adultsFromEntries } from "@/lib/flights/ui";
 import { FlightsPanelSection } from "./_panels/flights-panel";
 import { GlancePanel, glanceAsideCls } from "./_panels/glance-panel";
+import { PicturePanel } from "./_panels/picture-panel";
 import { PlacesPanel } from "./_panels/places-panel";
 import { SummaryFallback, SummaryPanel } from "./_panels/summary-panel";
 
@@ -94,6 +95,10 @@ export default async function TripDetailPage({
 
   return (
     <main data-wide className="flex flex-col gap-8">
+      {/* Nothing while loading: a reserved band would jump away when there is no picture. */}
+      <Suspense fallback={null}>
+        <PicturePanel trip={trip} ctx={ctx} />
+      </Suspense>
       <TripHeader
         trip={trip}
         purposeName={purpose?.name ?? null}
