@@ -53,9 +53,16 @@ export function TripHeader({
       data-print-block
     >
       <div className="flex min-w-0 flex-col gap-3">
-        <Link href="/app/trips" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
-          {t("back")}
-        </Link>
+        <div className="flex flex-wrap gap-x-6">
+          <Link href="/app/trips" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
+            {t("back")}
+          </Link>
+          {trip.destinationSearchId && (
+            <Link href={`/app/trips/discover/${trip.destinationSearchId}`} className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`} data-no-print>
+              {t("backToSuggestions")}
+            </Link>
+          )}
+        </div>
         <p className={eyebrowCls}>{eyebrow}</p>
         <h1 className="break-words font-serif text-4xl font-bold leading-[1.05] sm:text-5xl lg:text-6xl">{title}</h1>
         <p className="max-w-3xl font-serif text-lg leading-relaxed text-muted sm:text-xl">

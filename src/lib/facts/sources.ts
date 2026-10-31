@@ -19,6 +19,7 @@ export const SOURCES: Record<SourceId, SourceInfo> = {
   rest_countries: { id: "rest_countries", homepage: "https://github.com/mledoze/countries", license: "ODbL 1.0", licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/", labelKey: "rest_countries" },
   aerodatabox: { id: "aerodatabox", homepage: "https://aerodatabox.com", license: "RapidAPI Basic plan (non-commercial, attribution required)", licenseUrl: null, labelKey: "aerodatabox" },
   openrouteservice: { id: "openrouteservice", homepage: "https://openrouteservice.org/", license: "© openrouteservice.org, data © OpenStreetMap contributors (ODbL 1.0)", licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/", labelKey: "openrouteservice" },
+  ourairports: { id: "ourairports", homepage: "https://ourairports.com/data/", license: "Public domain", licenseUrl: null, labelKey: "ourairports" },
   suncalc: { id: "suncalc", homepage: null, license: "n/a", licenseUrl: null, labelKey: "suncalc" },
 };
 

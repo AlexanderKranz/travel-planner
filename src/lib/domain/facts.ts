@@ -2,7 +2,7 @@ import type { InterestKey } from "./interests";
 import type { FlightsFacts } from "./flights";
 import type { Locale } from "./profile";
 
-export type SourceId = "open_meteo" | "geonames" | "osm" | "wikivoyage" | "wikipedia" | "wikimedia" | "rest_countries" | "suncalc" | "aerodatabox" | "openrouteservice";
+export type SourceId = "open_meteo" | "geonames" | "osm" | "wikivoyage" | "wikipedia" | "wikimedia" | "rest_countries" | "suncalc" | "aerodatabox" | "openrouteservice" | "ourairports";
 
 export type Fact<T> =
   | { status: "ok"; data: T; source: SourceId; sourceUrl?: string;
