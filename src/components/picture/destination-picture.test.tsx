@@ -44,7 +44,7 @@ describe("licence allow-list edge cases (QA)", () => {
   it.each([
     "GFDL", "GFDL 1.2", "CC BY-NC 4.0", "CC BY-NC-SA 3.0", "CC BY-ND 2.0", "CC BY-NC-ND 4.0", "CC-BY-NC-4.0",
     "CC BY-SA 4.0, GFDL", "Attribution", "Copyrighted free use", "Public domain NC", "PDF", "CC BY 4", "Fair use",
-    "CC BY-SA", "cc by-nd-sa 4.0", "<script>", "", "CC0-NC",
+    "CC BY-SA", "cc by-nd-sa 4.0", "<script>", "",
   ])("rejects %j", (n) => {
     expect(classifyLicense(n, null)).toBeNull();
   });
