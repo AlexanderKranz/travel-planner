@@ -22,6 +22,7 @@ Full plan: `docs/architecture.md`. Hosting walkthrough: `docs/hosting-setup.md`.
 2. **Deterministic first, minimal tokens.** If code, an API or a static form can do it, do not call an LLM. Allowed LLM uses:
    - Haiku turns free-text purposes into structured tags (once per purpose, cached)
    - Haiku turns a free-text travel group ("5 Freunde, alle in meinem Alter") into structured travellers (once per text change, cached by text hash; saved entries the user typed always win). Spec: `docs/specs/group-text.md`
+   - Haiku proposes destination ideas for a trip purpose (place name, anchor town, country and a one-line reason; one call per search, one more for "Show others", cached by input hash). Code verifies every idea and drops failures; the reason is labelled as a suggestion. It never receives or states flights, routes, prices, opening hours or distances. Spec: `docs/specs/find-destinations.md`
    - Sonnet composes the itinerary (one call, compact JSON in and out)
    - Iteration patches only the affected days
 
