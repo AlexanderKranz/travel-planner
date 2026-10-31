@@ -1,6 +1,6 @@
 # Nightly encrypted backup of the PRODUCTION database: DATA of public + auth (restored) and a
 # reference-only schema dump. MANIFEST.txt records the git commit and latest migration version. Result: workflow artifact "db-backup-<UTC timestamp>", kept 30 days.
-# scripts/backup/pull-to-nas.sh copies it off-site. scripts/backup/restore.sh restores it.
+# scripts/backup/travel-planner-pull-to-nas.sh copies it off-site. scripts/backup/restore.sh restores it.
 #
 # Docs checked 2026-10-27:
 #   https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore (dump scopes, restore order)

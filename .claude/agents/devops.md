@@ -13,7 +13,7 @@ Responsibilities:
   - `deploy-db.yml`: `supabase db push` on `main`
   - `backup.yml`: nightly `pg_dump` → gzip → gpg → artifact, then log the result
 - `scripts/backup/`:
-  - `pull-to-nas.sh`: download the latest artifact via the GitHub API, rotate daily/monthly copies; runs on the Synology DiskStation via DSM Task Scheduler, POSIX sh compatible
+  - `travel-planner-pull-to-nas.sh`: download the latest artifact via the GitHub API into the shared backup folder (the NAS rotates copies); runs on the Synology DiskStation via DSM Task Scheduler, POSIX sh compatible
   - `restore.sh`: decrypt and restore into a given database URL
 - `/api/health` route, Sentry setup, uptime monitor instructions, and the daily budget-alert cron (Vercel Cron).
 - `docs/runbook.md`: deploy, rollback (Vercel Instant Rollback), key rotation, restore, alert handling.

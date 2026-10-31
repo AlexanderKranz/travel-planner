@@ -53,7 +53,7 @@ Notes:
 
 ## 4. Pull backups to the DiskStation (DSM)
 
-The Actions artifact lives only 30 days. The NAS script keeps 30 daily + 12 monthly copies.
+The Actions artifact lives only 30 days. The NAS script saves each new backup as `travel-planner-db-backup_YYYY_MM_DD-HH_MM_SS.zip` in the shared backup folder and never deletes anything there: the NAS's own scripts archive and rotate those files.
 
 ### 4a. Create a read-only GitHub token
 GitHub -> your avatar -> **Settings** -> **Developer settings** -> **Personal access tokens** -> **Fine-grained tokens** -> **Generate new token**:
@@ -63,31 +63,28 @@ GitHub -> your avatar -> **Settings** -> **Developer settings** -> **Personal ac
 - Generate and copy the token (`github_pat_...`).
 
 ### 4b. Put script and config on the NAS
-1. Copy `scripts/backup/pull-to-nas.sh` to the NAS, e.g. `/volume1/scripts/travel-planner/pull-to-nas.sh` (File Station upload, or `scp`). Make it executable: `chmod +x pull-to-nas.sh`.
-2. Create the config file outside any shared repo, with the NAS user that will run the task (via SSH, enable SSH in Control Panel -> Terminal & SNMP):
+Paths below use `/volume1/scripts` and `/volume1/backups`: use your own folders in every command. The task user needs write access to both.
+
+1. Copy `scripts/backup/travel-planner-pull-to-nas.sh` into your scripts folder on the NAS (File Station upload, or `scp`). Make it executable: `chmod +x travel-planner-pull-to-nas.sh`.
+2. Create the config file next to the script, which is where the script looks for it, as the NAS user that will run the task (via SSH, enable SSH in Control Panel -> Terminal & SNMP):
    ```
-   mkdir -p ~/.config
-   vi ~/.config/travel-planner-backup.env
+   vi /volume1/scripts/travel-planner-backup.env
    ```
    Content (use your values):
    ```
    GITHUB_TOKEN=github_pat_xxxxxxxx
    GITHUB_REPO=AlexanderKranz/travel-planner
-   BACKUP_DIR=/volume1/backups/travel-planner
+   BACKUP_DIR=/volume1/backups
    ```
-   Then `chmod 600 ~/.config/travel-planner-backup.env` (the script refuses a config others can read).
-3. Test once by hand: `sh /volume1/scripts/travel-planner/pull-to-nas.sh --help`, then run it without `--help`. You should see `saved .../daily/...zip`. Running it again says "already downloaded, nothing to do".
+   Then `chmod 600 /volume1/scripts/travel-planner-backup.env` (the script refuses a config others can read).
+3. Test once by hand: `sh /volume1/scripts/travel-planner-pull-to-nas.sh --help`, then run it without `--help`. You should see `saved .../travel-planner-db-backup_...zip`. Running it again says "already downloaded, nothing to do".
 
 ### 4c. Schedule it
 DSM -> **Control Panel** -> **Task Scheduler** -> **Create** -> **Scheduled Task** -> **User-defined script**:
 - General: name `Travel Planner backup pull`, User: the user who owns the config file.
 - Schedule: Daily, at 10:00 (the backup has been starting around 06:30 UTC, later than its cron time, so an early pull would miss the newest copy).
-- Task Settings: Run command `sh /volume1/scripts/travel-planner/pull-to-nas.sh`; tick "Send run details by email" (and "only when the script terminates abnormally") so errors reach you.
+- Task Settings: Run command `sh /volume1/scripts/travel-planner-pull-to-nas.sh`; tick "Send run details by email" (and "only when the script terminates abnormally") so errors reach you.
 - OK, then select the task and **Run** once to test.
-
-If DSM has no home folder for the task user, keep the config next to the script (e.g. `/volume1/scripts/travel-planner/backup.env`, still `chmod 600`) and pass it with `--config <path>`, by hand and in the task.
-
-Optionally add `/volume1/backups/travel-planner` to your existing Hyper Backup job.
 
 The script needs `curl`; `unzip` is used for an integrity test when present (the script prints a note when not). It does not need `jq`.
 
