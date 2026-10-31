@@ -1,21 +1,10 @@
 import "server-only";
 import type { CountryFacts, Fact, FactsCtx } from "@/lib/domain/facts";
 import type { Trip } from "@/lib/domain/trip";
+import { utcOffsets } from "@/lib/facts/time-difference";
 import { referenceDates } from "@/lib/facts/trip-timing";
 import { countryDataInfo, getCountry } from "@/lib/integrations/countries";
 import { unavailable } from "./common";
-
-/** UTC offsets ("+01:00") of an IANA zone on the given dates, via Intl (handles DST). */
-export function utcOffsets(iana: string, dates: string[]): string[] {
-  const fmt = new Intl.DateTimeFormat("en-US", { timeZone: iana, timeZoneName: "longOffset" });
-  const out = new Set<string>();
-  for (const d of dates) {
-    const part = fmt.formatToParts(new Date(`${d}T12:00:00Z`)).find((p) => p.type === "timeZoneName")?.value ?? "";
-    const m = /GMT([+-]\d{2}:\d{2})?/.exec(part);
-    if (m) out.add(m[1] ?? "+00:00");
-  }
-  return [...out].sort();
-}
 
 export async function getCountryFacts(trip: Trip, ctx: FactsCtx): Promise<Fact<CountryFacts>> {
   try {

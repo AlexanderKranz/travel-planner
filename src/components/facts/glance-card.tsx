@@ -1,7 +1,10 @@
 import { useFormatter, useTranslations } from "next-intl";
 import type { CountryFacts, DaylightFacts, Fact, WeatherFacts } from "@/lib/domain";
 import { monthName } from "@/components/trips/trip-title";
-import { labelCls, mutedCls } from "@/components/ui/styles";
+import { mutedCls } from "@/components/ui/styles";
+import { Tile } from "./glance-tile";
+import { TimeDifferenceTile } from "./time-difference-tile";
+import type { TimeDifference } from "@/lib/facts/time-difference";
 import { climateGlance, flagEmoji, glanceMonths, middleDay } from "@/lib/facts/glance";
 import { SourcesLine, sourceItem } from "./sources-line";
 
@@ -30,27 +33,21 @@ function monthsLabel(months: number[], locale: string) {
 const chipCls =
   "inline-flex items-center gap-1 rounded-full border border-line bg-page px-2.5 py-1 text-xs text-ink";
 
-/** Fact tile: small uppercase caption, big serif value, one quiet line below (Atlas). */
-function Tile({ label, value, children }: { label: string; value: React.ReactNode; children?: React.ReactNode }) {
-  return (
-    <section aria-label={label} className="flex min-w-0 flex-col gap-1 rounded-xl border border-line bg-card p-4 sm:p-5">
-      <h3 className={labelCls}>{label}</h3>
-      <p className="break-words font-serif text-2xl font-bold leading-tight text-heading sm:text-[1.75rem]">{value}</p>
-      {children}
-    </section>
-  );
-}
-
 export function GlanceCard({
   weather,
   daylight,
   country,
+  timeDifference,
+  homeName,
   fallbackMonth,
   locale,
 }: {
   weather: Fact<WeatherFacts>;
   daylight: Fact<DaylightFacts>;
   country: Fact<CountryFacts>;
+  /** Destination vs. home clock; null when the destination has no time zone. */
+  timeDifference: TimeDifference | null;
+  homeName: string;
   fallbackMonth: number;
   locale: string;
 }) {
@@ -88,7 +85,7 @@ export function GlanceCard({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className={`grid gap-3 ${timeDifference ? "sm:grid-cols-2 lg:grid-cols-4" : "sm:grid-cols-3"}`}>
         {climate && (
           <Tile
             label={t("climateFor", { months: monthsLabel(months.map((m) => m.month), locale) })}
@@ -161,6 +158,7 @@ export function GlanceCard({
             </ul>
           </Tile>
         )}
+        {timeDifference && <TimeDifferenceTile diff={timeDifference} homeName={homeName} />}
       </div>
       {reasons.length > 0 && (
         <p className={`text-xs ${mutedCls}`}>

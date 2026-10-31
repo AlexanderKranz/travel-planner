@@ -11,6 +11,7 @@ import { routing } from "@/i18n/routing";
 import type { ActionError, Profile } from "@/lib/domain";
 import { updateProfile } from "@/lib/server/profile";
 import { AirportPicker } from "./airport-picker";
+import { HomeLocationPicker, type HomeLocation } from "./home-location-picker";
 
 export function SettingsForm({ profile }: { profile: Profile }) {
   const t = useTranslations("settings");
@@ -21,6 +22,9 @@ export function SettingsForm({ profile }: { profile: Profile }) {
   const [locale, setLocale] = useState<string>(profile.locale);
   const [birthdate, setBirthdate] = useState(profile.birthdate ?? "");
   const [airports, setAirports] = useState(profile.homeAirports);
+  const [home, setHome] = useState<HomeLocation | null>(
+    profile.homeLocation && profile.homeTimezone ? { name: profile.homeLocation, timezone: profile.homeTimezone } : null,
+  );
   const [error, setError] = useState<ActionError | null>(null);
   const [issues, setIssues] = useState<Issue[]>();
   const [saved, setSaved] = useState(false);
@@ -38,6 +42,8 @@ export function SettingsForm({ profile }: { profile: Profile }) {
         locale: locale as Profile["locale"],
         homeAirports: airports,
         birthdate: birthdate === "" ? null : birthdate,
+        homeLocation: home?.name ?? null,
+        homeTimezone: home?.timezone ?? null,
       });
       if (!result.ok) {
         setError(result.error);
@@ -94,6 +100,7 @@ export function SettingsForm({ profile }: { profile: Profile }) {
             : errorAt(issues, "homeAirports", bad)
         }
       />
+      <HomeLocationPicker value={home} onChange={setHome} error={errorAt(issues, "homeLocation", bad)} />
       <ErrorBanner error={error === "unknown_airport" ? null : error} />
       {saved && (
         <p role="status" className="text-sm text-ok">
