@@ -19,6 +19,7 @@ export type ActionError =
   | "demo_forbidden" // demo account cannot create share links
   | "no_plan" // trip has no plan version yet
   | "forbidden" // not an admin
+  | "protected" // admin user action on yourself, the demo account or another admin
   | "already_member" // invite: this address already has an account
   | "email_failed" // invite: allowlisted, but the mail could not be sent
   | "places_pending" // places with a source did not load yet; retry or generate anyway

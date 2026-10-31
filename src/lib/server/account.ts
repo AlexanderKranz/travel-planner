@@ -5,9 +5,7 @@ import { Locale } from "@/lib/domain/profile";
 import { fail, type ActionResult } from "@/lib/domain/result";
 import { logEvent } from "./events";
 import { getUserSession } from "./session";
-// SERVER-ONLY secret-key client. Deleting an auth user is not possible with RLS-bound
-// clients; everything the user owns cascades via the owner_id foreign keys.
-import { createSupabaseAdminClient } from "./supabase/admin";
+import { removeUserAccount } from "./user-removal";
 
 /**
  * Deletes the signed-in user's account and all their data (FK cascade), then
@@ -32,33 +30,14 @@ export async function deleteAccount(locale: string): Promise<ActionResult> {
     return fail("failed");
   }
 
-  const admin = createSupabaseAdminClient();
-  // Remove the invite too (S2): a deleted user needs a NEW invite to come back. The email is read
-  // from the auth user of the verified session id (never from client input) and never logged.
-  const { data: authUser } = await admin.auth.admin.getUserById(session.userId);
-  const email = authUser?.user?.email;
-  if (email) {
-    const { error: allowlistError } = await admin
-      .from("signup_allowlist")
-      .delete()
-      .eq("email", email.trim().toLowerCase());
-    if (allowlistError) {
-      await logEvent({
-        event: "error.account_delete",
-        level: "error",
-        userId: session.userId,
-        props: { step: "allowlist" },
-      });
-      return fail("failed");
-    }
-  }
-  const { error } = await admin.auth.admin.deleteUser(session.userId);
-  if (error) {
+  // Invite removal + user deletion are shared with the admin delete action. The id is the verified session's.
+  const removed = await removeUserAccount(session.userId);
+  if (!removed.ok) {
     await logEvent({
       event: "error.account_delete",
       level: "error",
       userId: session.userId,
-      props: { status: error.status ?? null },
+      props: removed.step === "delete" ? { status: removed.status } : { step: removed.step },
     });
     return fail("failed");
   }
