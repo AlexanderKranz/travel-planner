@@ -248,6 +248,23 @@ describe("POST /auth/confirm input handling", () => {
     expect(verifyOtp).toHaveBeenCalledTimes(1);
   });
 
+  it("accepts the public host behind a proxy", async () => {
+    await post(`token_hash=${hash}&type=email&locale=en`, {
+      origin: "https://app.example",
+      "x-forwarded-host": "app.example",
+    });
+    expect(verifyOtp).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects an origin that differs from the forwarded host", async () => {
+    const res = await post(`token_hash=${hash}&type=email&locale=en`, {
+      origin: "https://evil.example",
+      "x-forwarded-host": "app.example",
+    });
+    expect(verifyOtp).not.toHaveBeenCalled();
+    expect(loc(res).pathname).toBe("/en/login");
+  });
+
   it("never logs the token when the POST fails", async () => {
     verifyOtp.mockResolvedValue({ data: { user: null }, error: { code: "otp_expired" } });
     await post(`token_hash=${hash}&type=recovery&locale=en`);

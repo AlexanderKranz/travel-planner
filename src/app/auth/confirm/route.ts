@@ -74,8 +74,12 @@ export async function POST(request: NextRequest) {
 
   // Browsers always send Origin on cross-site form POSTs; refuse those (no cross-site sign-in). The confirm page
   // must stay on Referrer-Policy same-origin: with no-referrer its own POST would arrive as `Origin: null`.
+  // Compared by host as the browser addressed it: nextUrl is not guaranteed to follow the public host behind a proxy.
   const origin = request.headers.get("origin");
-  if (origin && origin !== request.nextUrl.origin) return failRedirect(request, locale, "bad_origin");
+  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? request.nextUrl.host;
+  if (origin && (!URL.canParse(origin) || new URL(origin).host !== host)) {
+    return failRedirect(request, locale, "bad_origin");
+  }
 
   const parsed = ConfirmQuery.safeParse(fields);
   if (!parsed.success) return failRedirect(request, locale, "bad_query");
