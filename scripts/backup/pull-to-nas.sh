@@ -12,15 +12,14 @@ Usage: pull-to-nas.sh [--config FILE] [--dest DIR] [--help]
 
 Downloads the newest "db-backup-*" artifact from GitHub Actions into DIR as
 travel-planner-db-backup-<timestamp>.zip. It never deletes or moves anything in DIR.
-Already downloaded artifacts are skipped: the last artifact id is kept in <config file>.last-artifact,
-so a file that was archived or removed from DIR is not fetched again.
+A backup whose file is still in DIR is skipped. If it was archived or removed before a newer backup
+exists, the same backup is downloaded again, which is harmless.
 
 Config file (default: $CONFIG_DEFAULT, or env TP_BACKUP_CONFIG), KEY=VALUE lines:
   GITHUB_TOKEN=...            fine-grained token, repo access: this repo only, permission Actions: Read-only
   GITHUB_REPO=owner/name      e.g. AlexanderKranz/travel-planner
   BACKUP_DIR=/volume1/backups     (optional; --dest overrides)
 The file must not be readable by others (chmod 600). The token is never printed.
-The folder of the config file must be writable (the state file lives next to it, not in DIR).
 
 Needs: curl, standard tools (sed, awk, sort, tr). Optional: unzip (to verify the download).
 Exit code 0 = ok (including "nothing new"), non-zero = failure (message on stderr).
@@ -59,7 +58,6 @@ GITHUB_REPO="$(getkey GITHUB_REPO)"
 case "$GITHUB_REPO" in */*) ;; *) die "GITHUB_REPO must look like owner/name" ;; esac
 
 mkdir -p "$DEST" || die "cannot create $DEST"
-STATE="$CONFIG.last-artifact"
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/tp-backup.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT INT TERM
@@ -98,8 +96,8 @@ case "$ID" in ''|*[!0-9]*) die "could not parse artifact id from API response" ;
 case "$NAME" in *[!A-Za-z0-9._-]*) die "unexpected artifact name: $NAME" ;; esac
 FILE="travel-planner-${NAME}.zip"
 
-# Idempotent: the state file survives the NAS moving or deleting the file.
-if [ "$(cat "$STATE" 2>/dev/null || true)" = "$ID" ] || [ -e "$DEST/$FILE" ]; then
+# Writes nothing but the backup itself: a file still in DEST means there is nothing to do.
+if [ -e "$DEST/$FILE" ]; then
   log "artifact $ID ($NAME) already downloaded, nothing to do"
 else
   log "downloading artifact $ID ($NAME, created $CREATED)"
@@ -113,7 +111,6 @@ else
   fi
   # Hidden while copying, so NAS scripts never pick up a half-written file; the rename is atomic.
   mv "$TMP/dl.zip" "$DEST/.$FILE.part" && mv "$DEST/.$FILE.part" "$DEST/$FILE"
-  echo "$ID" > "$STATE"
   log "saved $DEST/$FILE"
 fi
 log "done"
