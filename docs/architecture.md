@@ -170,6 +170,9 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
    Usage logging (`ai_usage`, `api_calls`, `app_events`) is built from phase 2/3 onwards, so the admin page has data when it arrives.
 
 ### Open items / backlog
+- **Default page after login** (Alex, 2026-11-01): revisit whether this page is needed or should be removed.
+- **Loading times** (Alex, 2026-11-01): analyse where the app is slow.
+- **Trip page length** (Alex, 2026-11-01): revisit whether all content on the trip pages is needed. Lots of scrolling, especially on phones.
 - **TypeScript 7** (2026-10-31): blocked. `typescript-eslint` 8.72.1 throws "does not support TS 7.0" on load and `vite-tsconfig-paths` (tsconfck) wants TS 5, so lint cannot run. `tsc`, vitest and `next build` themselves worked with 7.0.2. Retry when typescript-eslint supports TS 7. Next 16, the `postcss` override removal and ESLint 10 are done (see runbook section 15).
 - **npm audit has moderate findings again** (2026-10-31; Dependabot alerts #5 `glob`, fixed in 14.0.2, and #6 `minimatch`, both labelled runtime, `glob` not traced yet): a new `minimatch` advisory (GHSA-g3hv-75wg-m249, fixed in 11.0.1) reaches the dev tooling (eslint plugins, typescript-eslint, `@sentry/bundler-plugins` via glob). It was already present before the Next 16 upgrade. Resolves when those packages update minimatch.
 - **Dependabot ignores** (2026-10-31): the ignores for `eslint` and `eslint-config-next` majors outlived the upgrade in #53. `@dependabot unignore` is refused on closed PRs; try it on the next open Dependabot PR. TypeScript stays ignored.
