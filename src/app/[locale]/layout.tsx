@@ -1,21 +1,26 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { routing } from "@/i18n/routing";
 import "../globals.css";
 
-const inter = Inter({
+// Self-hosted latin subsets (variable woff2 from Google Fonts; OFL licences sit next to the files).
+// next/font/google fetched from Google at build time and failed intermittently.
+const inter = localFont({
+  src: "../../assets/web-fonts/Inter-latin-variable.woff2",
   variable: "--font-inter",
-  subsets: ["latin"],
+  weight: "100 900",
+  style: "normal",
   display: "swap",
 });
 
-const fraunces = Fraunces({
+const fraunces = localFont({
+  src: "../../assets/web-fonts/Fraunces-latin-variable.woff2",
   variable: "--font-fraunces",
-  subsets: ["latin"],
-  weight: ["500", "700"],
+  weight: "500 700",
+  style: "normal",
   display: "swap",
 });
 
