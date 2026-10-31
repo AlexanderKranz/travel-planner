@@ -53,7 +53,7 @@ Notes:
 
 ## 4. Pull backups to the DiskStation (DSM)
 
-The Actions artifact lives only 30 days. The NAS script saves each new backup as `travel-planner-db-backup-<timestamp>.zip` in the shared backup folder and never deletes anything there: the NAS's own scripts archive and rotate those files.
+The Actions artifact lives only 30 days. The NAS script saves each new backup as `travel-planner-db-backup_YYYY_MM_DD-HH_MM_SS.zip` in the shared backup folder and never deletes anything there: the NAS's own scripts archive and rotate those files.
 
 ### 4a. Create a read-only GitHub token
 GitHub -> your avatar -> **Settings** -> **Developer settings** -> **Personal access tokens** -> **Fine-grained tokens** -> **Generate new token**:
@@ -75,7 +75,7 @@ GitHub -> your avatar -> **Settings** -> **Developer settings** -> **Personal ac
    BACKUP_DIR=/volume1/backups
    ```
    Then `chmod 600 /volume1/scripts/travel-planner-backup.env` (the script refuses a config others can read).
-3. Test once by hand: `sh /volume1/scripts/travel-planner-pull-to-nas.sh --help`, then run it without `--help`. You should see `saved .../travel-planner-db-backup-...zip`. Running it again says "already downloaded, nothing to do".
+3. Test once by hand: `sh /volume1/scripts/travel-planner-pull-to-nas.sh --help`, then run it without `--help`. You should see `saved .../travel-planner-db-backup_...zip`. Running it again says "already downloaded, nothing to do".
 
 ### 4c. Schedule it
 DSM -> **Control Panel** -> **Task Scheduler** -> **Create** -> **Scheduled Task** -> **User-defined script**:

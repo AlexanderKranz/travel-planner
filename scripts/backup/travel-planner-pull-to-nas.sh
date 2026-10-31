@@ -12,7 +12,7 @@ usage() {
 Usage: travel-planner-pull-to-nas.sh [--config FILE] [--dest DIR] [--help]
 
 Downloads the newest "db-backup-*" artifact from GitHub Actions into DIR as
-travel-planner-db-backup-<timestamp>.zip. It never deletes or moves anything in DIR.
+travel-planner-db-backup_YYYY_MM_DD-HH_MM_SS.zip (UTC). It never deletes or moves anything in DIR.
 A backup whose file is still in DIR is skipped. If it was archived or removed before a newer backup
 exists, the same backup is downloaded again, which is harmless.
 
@@ -105,7 +105,10 @@ ID="${NEWEST%% *}"; REST="${NEWEST#* }"
 NAME="${REST%% *}"; CREATED="${REST#* }"
 case "$ID" in ''|*[!0-9]*) die "could not parse artifact id from API response" ;; esac
 case "$NAME" in *[!A-Za-z0-9._-]*) die "unexpected artifact name: $NAME" ;; esac
-FILE="travel-planner-${NAME}.zip"
+# Same pattern as the other backups on the NAS: name_YYYY_MM_DD-HH_MM_SS (UTC, from the artifact name).
+STAMP="$(echo "$NAME" | sed -n 's/^db-backup-\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)T\([0-9]\{2\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)Z$/\1_\2_\3-\4_\5_\6/p')"
+[ -n "$STAMP" ] || die "unexpected artifact name: $NAME"
+FILE="travel-planner-db-backup_${STAMP}.zip"
 
 # Writes nothing but the backup itself: a file still in DEST means there is nothing to do.
 if [ -e "$DEST/$FILE" ]; then
