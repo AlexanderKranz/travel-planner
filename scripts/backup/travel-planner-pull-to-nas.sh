@@ -61,7 +61,8 @@ case "$GITHUB_REPO" in */*) ;; *) die "GITHUB_REPO must look like owner/name" ;;
 mkdir -p "$DEST" || die "cannot create $DEST"
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/tp-backup.XXXXXX")"
-trap 'rm -rf "$TMP"' EXIT INT TERM
+PART=""
+trap 'rm -rf "$TMP"; [ -z "$PART" ] || rm -f "$PART"' EXIT INT TERM
 
 # curl with the token passed via stdin config, so it never shows in the process list.
 api() { # $1=url $2=output file
@@ -124,8 +125,8 @@ else
     log "note: unzip not installed, skipping integrity test"
   fi
   # Hidden while copying, so NAS scripts never pick up a half-written file; the rename is atomic.
-  PART="$DEST/.$FILE.$$.part"
-  mv "$TMP/dl.zip" "$PART" || die "cannot write to $DEST (disk full or no permission?)"
+  PART="$(mktemp "$DEST/.$FILE.XXXXXX")" || die "cannot write to $DEST (no permission?)"
+  mv "$TMP/dl.zip" "$PART" || die "cannot write to $DEST (disk full?)"
   mv "$PART" "$DEST/$FILE" || die "cannot save $DEST/$FILE"
   log "saved $DEST/$FILE"
 fi
