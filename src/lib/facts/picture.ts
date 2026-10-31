@@ -39,8 +39,12 @@ export function artistToText(html: string | null | undefined, max = MAX_AUTHOR_C
   if (!html) return null;
   let s = html
     .replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, " ")
-    .replace(/<\/?(br|p|div|li|tr|td)\b[^>]*>/gi, " ")
-    .replace(/<[^>]*>/g, "");
+    .replace(/<\/?(br|p|div|li|tr|td)\b[^>]*>/gi, " ");
+  // Until stable: removing one tag can join its neighbours into a new one ("<scr<b>ipt>").
+  for (let prev = ""; prev !== s; ) {
+    prev = s;
+    s = s.replace(/<[^>]*>/g, "");
+  }
   s = s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e: string) => {
     if (e[0] === "#") {
       const code = e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);

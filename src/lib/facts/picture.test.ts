@@ -41,6 +41,13 @@ describe("artistToText", () => {
   });
 });
 
+describe("artistToText, nested tags", () => {
+  it("leaves no tag when removing one would form another", () => {
+    expect(artistToText("<scr<b>ipt>Anna")).not.toMatch(/[<>]/);
+    expect(artistToText("a<<b>script>b")).not.toMatch(/[<>]/);
+  });
+});
+
 describe("classifyLicense", () => {
   it.each(["CC0", "CC0 1.0", "Public domain", "PD-old-70", "CC BY 4.0", "CC BY-SA 3.0", "CC BY-SA 2.5", "CC BY-SA 3.0 de", "CC BY 2.0"])(
     "allows %s",

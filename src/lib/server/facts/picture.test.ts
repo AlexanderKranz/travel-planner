@@ -86,13 +86,13 @@ describe("getSharedDestinationPicture (public path: cache only)", () => {
   const shared = (over: Record<string, unknown> = {}) => ({
     share_links: { trip_id: "t1", owner_id: "o1", expires_at: null },
     profiles: { disabled_at: null },
-    trips: { dest_kind: "city", dest_geo_id: 2855328 },
+    trips: { dest_kind: "city", dest_geo_id: 2855328, dest_name: "Passau" },
     ...over,
   });
   it("reads the same cache key without calling cached() (no external call)", async () => {
     state.rows = shared();
     state.peek.mockResolvedValue({ data: picture, fetchedAt: "2026-10-31T10:00:00.000Z" });
-    expect(await getSharedDestinationPicture(token)).toEqual({ ...picture, fetchedAt: "2026-10-31T10:00:00.000Z" });
+    expect(await getSharedDestinationPicture(token, "Passau")).toEqual({ ...picture, fetchedAt: "2026-10-31T10:00:00.000Z" });
     expect(state.peek.mock.calls[0][0]).toMatchObject({ provider: "wikidata", key: "picture:v1:geo=2855328" });
     expect(state.cached).not.toHaveBeenCalled();
     expect(hashShareToken(token)).toHaveLength(64);
@@ -100,22 +100,28 @@ describe("getSharedDestinationPicture (public path: cache only)", () => {
   it("returns null for an expired link and a disabled or missing owner, even with a cache hit", async () => {
     state.peek.mockResolvedValue({ data: picture, fetchedAt: "2026-10-31T10:00:00.000Z" });
     state.rows = shared({ share_links: { trip_id: "t1", owner_id: "o1", expires_at: "2020-01-01T00:00:00.000Z" } });
-    expect(await getSharedDestinationPicture(token)).toBeNull();
+    expect(await getSharedDestinationPicture(token, "Passau")).toBeNull();
     state.rows = shared({ profiles: { disabled_at: "2026-10-31T10:00:00.000Z" } });
-    expect(await getSharedDestinationPicture(token)).toBeNull();
+    expect(await getSharedDestinationPicture(token, "Passau")).toBeNull();
     state.rows = shared({ profiles: undefined });
-    expect(await getSharedDestinationPicture(token)).toBeNull();
+    expect(await getSharedDestinationPicture(token, "Passau")).toBeNull();
     state.rows = shared({ share_links: { trip_id: "t1", owner_id: "o1", expires_at: "2099-01-01T00:00:00.000Z" } });
-    expect(await getSharedDestinationPicture(token)).not.toBeNull();
+    expect(await getSharedDestinationPicture(token, "Passau")).not.toBeNull();
+  });
+  it("shows no picture when the destination changed since the shared plan was made", async () => {
+    state.peek.mockResolvedValue({ data: picture, fetchedAt: "2026-10-31T10:00:00.000Z" });
+    state.rows = shared();
+    expect(await getSharedDestinationPicture(token, "Wien")).toBeNull();
+    expect(state.peek).not.toHaveBeenCalled();
   });
   it("returns null on cache miss, freetext trips, unknown link and malformed token", async () => {
     state.rows = shared();
     state.peek.mockResolvedValue(undefined);
-    expect(await getSharedDestinationPicture(token)).toBeNull();
+    expect(await getSharedDestinationPicture(token, "Passau")).toBeNull();
     state.rows = shared({ trips: { dest_kind: "freetext", dest_geo_id: null } });
-    expect(await getSharedDestinationPicture(token)).toBeNull();
+    expect(await getSharedDestinationPicture(token, "Passau")).toBeNull();
     state.rows = {};
-    expect(await getSharedDestinationPicture(token)).toBeNull();
-    expect(await getSharedDestinationPicture("short")).toBeNull();
+    expect(await getSharedDestinationPicture(token, "Passau")).toBeNull();
+    expect(await getSharedDestinationPicture("short", "Passau")).toBeNull();
   });
 });

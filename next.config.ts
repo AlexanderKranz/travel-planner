@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
   },
   // Destination photos (Wikimedia Commons) are served through the image optimizer, so viewers never contact Wikimedia.
   images: {
-    remotePatterns: [{ protocol: "https", hostname: "upload.wikimedia.org", pathname: "/**" }],
+    remotePatterns: [{ protocol: "https", hostname: "upload.wikimedia.org", pathname: "/wikipedia/commons/**" }],
   },
   // The link confirmation page carries a one-time token in its URL: no caching, no referrer, no indexing.
   async headers() {

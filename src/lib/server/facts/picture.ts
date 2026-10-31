@@ -32,17 +32,23 @@ export async function lookupDestinationPicture(lat: number, lon: number, placeNa
   const failed = items.find((i) => i.status === "rejected");
   if (found.length === 0 && failed?.status === "rejected") throw failed.reason;
   let latency = Math.max(0, ...items.map((i) => (i.status === "fulfilled" ? i.value.latencyMs : 0)));
-  if (found.length === 0) return { data: null, status: 200, latencyMs: latency };
+  // A failed language may hold the item with the picture: "none" is only cached after both lookups worked.
+  const none = () => {
+    if (failed?.status === "rejected") throw failed.reason;
+    return { data: null, status: 200, latencyMs: latency };
+  };
+  if (found.length === 0) return none();
   const qids = [...new Set(found)];
   const claims = await Promise.all(qids.map((q) => fetchImageClaims(q)));
   latency += Math.max(...claims.map((c) => c.latencyMs));
   const uniq = (xs: string[]) => [...new Set(xs)];
   const banners = uniq(claims.flatMap((c) => c.banners));
   const images = uniq(claims.flatMap((c) => c.images));
-  if (banners.length + images.length === 0) return { data: null, status: 200, latencyMs: latency };
+  if (banners.length + images.length === 0) return none();
   const commons = await fetchCommonsFiles([...banners, ...images]);
   latency += commons.latencyMs;
-  return { data: choosePicture(commons.files, banners, images), status: commons.status, latencyMs: latency };
+  const picture = choosePicture(commons.files, banners, images);
+  return picture ? { data: picture, status: commons.status, latencyMs: latency } : none();
 }
 
 /**
@@ -81,7 +87,10 @@ export async function getDestinationPicture(trip: Trip, ctx: FactsCtx): Promise<
  * saving the trip) has looked it up. Call it only after `getSharedPlanDocument` returned a document for the same
  * token; it re-resolves token -> trip -> destination geoId with explicit columns and exposes nothing else.
  */
-export async function getSharedDestinationPicture(token: string): Promise<DestinationPictureResult | null> {
+export async function getSharedDestinationPicture(
+  token: string,
+  planDestination: string,
+): Promise<DestinationPictureResult | null> {
   if (!isShareTokenFormat(token)) return null;
   try {
     const admin = createSupabaseAdminClient();
@@ -101,10 +110,12 @@ export async function getSharedDestinationPicture(token: string): Promise<Destin
     if (ownerErr || !owner || owner.disabled_at) return null;
     const { data: trip } = await admin
       .from("trips")
-      .select("dest_kind, dest_geo_id")
+      .select("dest_kind, dest_geo_id, dest_name")
       .eq("id", link.trip_id)
-      .maybeSingle<{ dest_kind: string; dest_geo_id: number | string | null }>();
+      .maybeSingle<{ dest_kind: string; dest_geo_id: number | string | null; dest_name: string }>();
     if (!trip || trip.dest_kind === "freetext" || trip.dest_geo_id === null) return null;
+    // The destination changed since this plan was made: the cached picture would show another place.
+    if (trip.dest_name.slice(0, 120) !== planDestination) return null;
     const hit = await peekCache({ provider: "wikidata", key: pictureKey(Number(trip.dest_geo_id)), schema: pictureSchema });
     return hit?.data ? { ...hit.data, fetchedAt: hit.fetchedAt } : null;
   } catch {
