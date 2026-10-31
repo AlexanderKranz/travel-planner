@@ -70,6 +70,16 @@ api() { # $1=url $2=output file
     --retry 3 --retry-delay 5 -o "$2" "$1" || return 1
 }
 
+# GitHub answers a download with a redirect to its storage host, which rejects a GitHub token with 401, and older
+# curl versions (DSM) keep sending the token across hosts. So: ask GitHub for the link, then fetch it without the token.
+download() { # $1=url $2=output file
+  location="$(printf 'header = "Authorization: Bearer %s"\n' "$GITHUB_TOKEN" | curl -K - -sS --fail \
+    -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" \
+    --retry 3 --retry-delay 5 -o /dev/null -w '%{redirect_url}' "$1")" || return 1
+  [ -n "$location" ] || return 1
+  curl -sS -L --fail --retry 3 --retry-delay 5 -o "$2" "$location" </dev/null || return 1
+}
+
 log "listing artifacts of $GITHUB_REPO"
 api "https://api.github.com/repos/$GITHUB_REPO/actions/artifacts?per_page=100" "$TMP/list.json" \
   || { [ -f "$TMP/list.json" ] && head -c 300 "$TMP/list.json" >&2; echo >&2; die "GitHub API call failed (token expired? wrong repo? token lacks Actions: read?)"; }
@@ -102,7 +112,7 @@ if [ -e "$DEST/$FILE" ]; then
   log "artifact $ID ($NAME) already downloaded, nothing to do"
 else
   log "downloading artifact $ID ($NAME, created $CREATED)"
-  api "https://api.github.com/repos/$GITHUB_REPO/actions/artifacts/$ID/zip" "$TMP/dl.zip" \
+  download "https://api.github.com/repos/$GITHUB_REPO/actions/artifacts/$ID/zip" "$TMP/dl.zip" \
     || die "download failed"
   [ -s "$TMP/dl.zip" ] || die "downloaded file is empty"
   if command -v unzip >/dev/null 2>&1; then
