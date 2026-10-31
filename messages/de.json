@@ -660,6 +660,7 @@
       "range": "{from} bis {to} Std.",
       "vs": "gegenüber {home}",
       "changes": "Ändert sich während der Reise (Zeitumstellung).",
+      "current": "Aktueller Wert, die Reise hat noch kein Datum.",
       "byMonth": "Je nach Reisemonat (Zeitumstellung).",
       "defaultHome": "Deutschland"
     }

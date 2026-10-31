@@ -53,7 +53,7 @@ describe("timeDifferenceMinutes", () => {
 describe("tripTimeDifference", () => {
   it("defaults home to Europe/Berlin", () => {
     const r = tripTimeDifference({ destination: city("Asia/Tokyo"), ...date("2026-07-01") }, null, "2026-10-31");
-    expect(r).toEqual({ minutes: [420], byMonth: false });
+    expect(r).toEqual({ minutes: [420], byMonth: false, currentOnly: false });
   });
   it("uses a custom home", () => {
     const r = tripTimeDifference({ destination: city("Europe/Berlin"), ...date("2026-07-01") }, "America/New_York", "2026-10-31");
@@ -75,10 +75,11 @@ describe("tripTimeDifference", () => {
       null,
       "2026-01-10",
     );
-    expect(r).toEqual({ minutes: [-300, -360], byMonth: true });
+    expect(r).toEqual({ minutes: [-300, -360], byMonth: true, currentOnly: false });
   });
   it("falls back to today without timing", () => {
     const r = tripTimeDifference({ destination: city("Asia/Tokyo"), timing: { kind: "none" }, lengthDays: 5 }, null, "2026-01-10");
+    expect(r?.currentOnly).toBe(true);
     expect(r?.minutes).toEqual([480]);
   });
 });

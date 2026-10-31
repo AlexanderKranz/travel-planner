@@ -660,6 +660,7 @@
       "range": "{from} to {to} h",
       "vs": "vs. {home}",
       "changes": "Changes during the trip (daylight saving).",
+      "current": "Current value, the trip has no date yet.",
       "byMonth": "Depends on the travel month (daylight saving).",
       "defaultHome": "Germany"
     }

@@ -20,6 +20,7 @@ export function TimeDifferenceTile({ diff, homeName }: { diff: TimeDifference; h
   return (
     <Tile label={t("title")} value={value}>
       <p className="text-sm text-muted">{t("vs", { home: homeName })}</p>
+      {diff.currentOnly && <p className="text-sm text-muted">{t("current")}</p>}
       {varies && (
         <p className="text-sm text-muted">
           {diff.byMonth ? t("byMonth") : t("changes")}

@@ -115,7 +115,7 @@ export function HomeLocationPicker({
           aria-controls={`${id}-list`}
           aria-autocomplete="list"
           aria-activedescendant={open && active >= 0 ? `${id}-opt-${active}` : undefined}
-          aria-describedby={`${id}-hint`}
+          aria-describedby={error ? `${id}-hint ${id}-error` : `${id}-hint`}
           aria-invalid={error ? true : undefined}
           autoComplete="off"
           maxLength={80}
@@ -162,7 +162,7 @@ export function HomeLocationPicker({
       <p role="status" className={`text-sm ${mutedCls}`}>
         {status}
       </p>
-      {error && <p className={errorCls}>{error}</p>}
+      {error && <p id={`${id}-error`} className={errorCls}>{error}</p>}
     </fieldset>
   );
 }

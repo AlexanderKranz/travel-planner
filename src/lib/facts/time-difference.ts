@@ -64,6 +64,8 @@ export type TimeDifference = {
   minutes: number[];
   /** Candidate months: the values belong to different months, not to one journey. */
   byMonth: boolean;
+  /** No trip dates: the value is today's offset, a later trip may differ. */
+  currentOnly: boolean;
 };
 
 /**
@@ -80,7 +82,7 @@ export function tripTimeDifference(
   if (!dest || !isValidTimeZone(dest) || !isValidTimeZone(home)) return null;
   const refs = referenceDates(trip, today);
   const minutes = timeDifferenceMinutes(dest, home, refs.length ? refs : [today]);
-  return minutes.length ? { minutes, byMonth: trip.timing.kind === "months" } : null;
+  return minutes.length ? { minutes, byMonth: trip.timing.kind === "months", currentOnly: refs.length === 0 } : null;
 }
 
 /** "+1", "−5", "+5:30", "−3:30", "0" (real minus sign). Unit and wording are the caller's business. */

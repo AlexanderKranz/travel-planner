@@ -27,8 +27,8 @@ export const Profile = z.object({
   homeAirports: HomeAirports,
   birthdate: BirthDate.nullable(),
   /** Optional home place for the time difference (name + IANA zone, both null = default Europe/Berlin). */
-  homeLocation: HomeLocationName.nullable(),
-  /** Lenient on read: a stored zone this runtime does not know must not fail every page; the tile just hides. */
+  /** Both lenient on read: one odd stored value must not fail every page; the strict check is in ProfileUpdate. */
+  homeLocation: z.string().nullable(),
   homeTimezone: z.string().nullable(),
   /** Shared demo account: cannot delete the account or change the email. */
   isDemo: z.boolean(),
