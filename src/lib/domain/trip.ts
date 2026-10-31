@@ -52,7 +52,7 @@ export const TripInput = z
     /** The user's corrected structure for `groupText`; wins over the Haiku parse. Empty = none. */
     groupStructure: z.array(CompositionEntry).max(MAX_ENTRIES_PER_GROUP).default([]),
     purposeId: z.string().uuid().nullable().default(null),
-    wantsFlights: z.boolean().default(true),
+    wantsFlights: z.boolean().default(false),
     originAirports: HomeAirports.default([]), // isKnownIata checked server-side
     notes: optionalText(2000),
   })

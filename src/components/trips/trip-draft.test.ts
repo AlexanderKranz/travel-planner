@@ -29,7 +29,7 @@ describe("trip draft", () => {
   });
 
   it("omits name when unchanged and ignores origin override without flights", () => {
-    const draft = emptyTripDraft(false);
+    const draft = emptyTripDraft();
     draft.destination = {
       mode: "geo", geoKind: "city", geoId: 1, placeName: "Passau", placeLabel: "Passau", name: "Passau", radiusKm: null,
     };
