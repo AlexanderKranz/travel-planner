@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261103120027. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261106120031. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -753,6 +753,83 @@ select throws_ok($$update public.profiles set disabled_at = null where id = 'bbb
   '42501', null, 'disabled user cannot clear disabled_at');
 select ok((select disabled_at is not null from public.profiles where id = 'bbbbbbbb-0000-4000-8000-000000000002'), 'disabled user can still read the flag');
 reset role;
+
+-- ---------- find destinations: destination_searches (migration 20261106120031) ----------
+reset role;
+insert into public.trip_purposes (id, owner_id, name) values
+  ('a0000000-0000-4000-8000-000000003101', 'aaaaaaaa-0000-4000-8000-000000000001', 'A golf search'),
+  ('a0000000-0000-4000-8000-000000003102', 'bbbbbbbb-0000-4000-8000-000000000002', 'B beach search');
+insert into public.destination_searches (id, owner_id, purpose_id, purpose_name, locale, input_hash, input, status, cards) values
+  ('a0000000-0000-4000-8000-000000003111', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000003101',
+   'A golf search', 'de', repeat('a', 64), '{"v":1}'::jsonb, 'done', '[{"id":"g1"}]'::jsonb);
+select ok((select relrowsecurity from pg_class where oid = 'public.destination_searches'::regclass), 'RLS enabled on destination_searches');
+select ok(not has_table_privilege('anon', 'public.destination_searches', 'select'), 'anon has no select on destination_searches');
+select ok(not has_column_privilege('authenticated', 'public.destination_searches', 'owner_id', 'insert'), 'authenticated: cannot insert destination_searches.owner_id');
+select ok(not has_column_privilege('authenticated', 'public.destination_searches', 'owner_id', 'update'), 'authenticated: cannot update destination_searches.owner_id');
+select ok(not has_column_privilege('authenticated', 'public.destination_searches', 'input_hash', 'update'), 'authenticated: cannot update destination_searches.input_hash');
+select ok(has_column_privilege('authenticated', 'public.destination_searches', 'input_hash', 'insert'), 'authenticated: can insert destination_searches.input_hash');
+select ok(not has_column_privilege('authenticated', 'public.destination_searches', 'created_at', 'insert'), 'authenticated: cannot insert destination_searches.created_at');
+
+-- user B must not see or touch user A's lists
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
+select is((select count(*)::int from public.destination_searches), 0, 'B sees no destination searches of A');
+with u as (update public.destination_searches set status = 'failed' where id = 'a0000000-0000-4000-8000-000000003111' returning 1)
+select is((select count(*)::int from u), 0, 'B cannot update a destination search of A');
+with d as (delete from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003111' returning 1)
+select is((select count(*)::int from d), 0, 'B cannot delete a destination search of A');
+select throws_ok($$insert into public.destination_searches (owner_id, purpose_name, locale, input_hash, input) values ('aaaaaaaa-0000-4000-8000-000000000001', 'x', 'de', repeat('b', 64), '{}')$$,
+  '42501', null, 'B cannot insert a destination search owned by A (owner_id not granted)');
+select throws_ok($$insert into public.destination_searches (purpose_id, purpose_name, locale, input_hash, input) values ('a0000000-0000-4000-8000-000000003101', 'x', 'de', repeat('b', 64), '{}')$$,
+  '23503', null, 'B cannot attach a search to the purpose of A (composite FK)');
+select lives_ok($$insert into public.destination_searches (id, purpose_id, purpose_name, locale, input_hash, input, status, busy_until) values ('a0000000-0000-4000-8000-000000003112', 'a0000000-0000-4000-8000-000000003102', 'B beach search', 'en', repeat('c', 64), '{"v":1}', 'running', now() + interval '2 minutes')$$,
+  'B can insert an own destination search');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status) values ('x', 'en', repeat('d', 64), '{}', 'running')$$,
+  '23505', null, 'only one running search per user (partial unique index)');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input) values ('x', 'en', repeat('c', 64), '{}')$$,
+  '23505', null, 'one list per owner and input hash');
+select lives_ok($$update public.destination_searches set status = 'done', busy_until = null where id = 'a0000000-0000-4000-8000-000000003112'$$, 'B can finish an own search');
+select throws_ok($$update public.destination_searches set input_hash = repeat('e', 64) where id = 'a0000000-0000-4000-8000-000000003112'$$, '42501', null, 'input_hash cannot be changed afterwards');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input) values ('x', 'fr', repeat('f', 64), '{}')$$, '23514', null, 'locale is limited to de/en');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, months) values ('x', 'de', repeat('f', 64), '{}', '{1,2,3,4}')$$, '23514', null, 'at most 3 months');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, origins) values ('x', 'de', repeat('f', 64), '{}', '{FRA,MUC,HAM}')$$, '23514', null, 'at most 2 origins');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input) values ('x', 'de', 'not-a-hash', '{}')$$, '23514', null, 'input_hash must be sha256 hex');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, cards) values ('x', 'de', repeat('f', 64), '{}', '{}')$$, '23514', null, 'cards must be an array');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, rounds) values ('x', 'de', repeat('f', 64), '{}', 3)$$, '23514', null, 'at most 2 rounds');
+
+-- trips.destination_search_id: same owner only
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, destination_search_id) values ('freetext', 'X', 2, 'a0000000-0000-4000-8000-000000003111')$$,
+  '23503', null, 'a trip cannot reference the destination search of another owner');
+select lives_ok($$insert into public.trips (id, dest_kind, dest_name, length_days, destination_search_id) values ('a0000000-0000-4000-8000-000000003121', 'freetext', 'X', 2, 'a0000000-0000-4000-8000-000000003112')$$,
+  'a trip can reference an own destination search');
+delete from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003112';
+select is((select destination_search_id from public.trips where id = 'a0000000-0000-4000-8000-000000003121'), null, 'deleting the list clears the link, the trip stays');
+select is((select count(*)::int from public.trips where id = 'a0000000-0000-4000-8000-000000003121'), 1, 'the trip survives the deleted list');
+
+-- user A still has the list; deleting the purpose keeps it with its snapshot
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+select is((select count(*)::int from public.destination_searches), 1, 'A sees the own list');
+delete from public.trip_purposes where id = 'a0000000-0000-4000-8000-000000003101';
+select is((select purpose_id from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003111'), null, 'deleting the purpose clears purpose_id only');
+select is((select purpose_name from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003111'), 'A golf search', 'the list keeps its purpose_name snapshot');
+reset role;
+
+-- ai_usage accepts the new task
+select lives_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'destination_ideas', 'claude-haiku-5-5', 'ok')$$, 'ai_usage accepts the destination_ideas task');
+
+-- retention: lists untouched for 90 days are purged with the trips
+-- (updated_at is set explicitly on insert: the update trigger would overwrite it)
+insert into public.destination_searches (id, owner_id, purpose_name, locale, input_hash, input, status, updated_at)
+  values ('a0000000-0000-4000-8000-000000003113', 'aaaaaaaa-0000-4000-8000-000000000001', 'old', 'de', repeat('9', 64), '{"v":1}', 'done', now() - interval '91 days');
+select private.purge_expired_trips();
+select is((select count(*)::int from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003113'), 0, 'purge removes lists older than 90 days');
+select is((select count(*)::int from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003111'), 1, 'purge keeps recent lists');
+
+-- deleting the user removes their lists (owner_id cascade)
+insert into public.destination_searches (owner_id, purpose_name, locale, input_hash, input)
+  values ('bbbbbbbb-0000-4000-8000-000000000002', 'B again', 'en', repeat('8', 64), '{"v":1}');
+delete from auth.users where id = 'bbbbbbbb-0000-4000-8000-000000000002';
+select is((select count(*)::int from public.destination_searches where owner_id = 'bbbbbbbb-0000-4000-8000-000000000002'), 0, 'deleting a user removes their destination searches');
 
 select * from finish();
 rollback;
