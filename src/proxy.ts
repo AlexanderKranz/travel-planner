@@ -6,7 +6,7 @@ import { refreshSession } from "./lib/server/supabase/middleware";
 
 const intlMiddleware = createIntlMiddleware(routing);
 
-export default async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // 1. next-intl decides locale redirects/rewrites.
   const response = intlMiddleware(request);
 

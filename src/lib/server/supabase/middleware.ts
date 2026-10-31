@@ -4,7 +4,7 @@ import { getSupabasePublicEnv } from "@/lib/supabase/env";
 
 /**
  * Refreshes the Supabase session and writes refreshed cookies onto `response`
- * (the response produced by the next-intl middleware). Returns the verified
+ * (the response produced by the next-intl proxy). Returns the verified
  * user id or null. getClaims() verifies the JWT locally when asymmetric
  * signing keys are enabled, otherwise asks the Auth server.
  */

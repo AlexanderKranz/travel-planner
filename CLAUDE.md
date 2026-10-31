@@ -5,7 +5,7 @@ Multi-user web app: users save reusable travel context (optional travel groups, 
 Full plan: `docs/architecture.md`. Hosting walkthrough: `docs/hosting-setup.md`. Operations (deploy, rollback, backup/restore): `docs/runbook.md`. Decisions: `docs/adr/`.
 
 ## Stack
-- Next.js 15 (App Router, `src/` dir) + TypeScript (strict), Tailwind v4
+- Next.js 16 (App Router, Turbopack, `src/proxy.ts`, `src/` dir) + TypeScript (strict), Tailwind v4
 - Supabase: Postgres, Auth, Row-Level Security. Migrations in `supabase/migrations/`
 - `next-intl` for i18n, locales in `src/i18n/routing.ts`, strings in `messages/<locale>.json`
 - Zod for validating all external data (APIs, LLM output, forms)
