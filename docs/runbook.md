@@ -53,7 +53,7 @@ Notes:
 
 ## 4. Pull backups to the DiskStation (DSM)
 
-The Actions artifact lives only 30 days. The NAS script keeps 30 daily + 12 monthly copies.
+The Actions artifact lives only 30 days. The NAS script saves each new backup as `travel-planner-db-backup-<timestamp>.zip` in the shared backup folder and never deletes anything there: the NAS's own scripts archive and rotate those files.
 
 ### 4a. Create a read-only GitHub token
 GitHub -> your avatar -> **Settings** -> **Developer settings** -> **Personal access tokens** -> **Fine-grained tokens** -> **Generate new token**:
@@ -73,10 +73,10 @@ GitHub -> your avatar -> **Settings** -> **Developer settings** -> **Personal ac
    ```
    GITHUB_TOKEN=github_pat_xxxxxxxx
    GITHUB_REPO=AlexanderKranz/travel-planner
-   BACKUP_DIR=/volume1/backups/travel-planner
+   BACKUP_DIR=/volume1/backups
    ```
    Then `chmod 600 ~/.config/travel-planner-backup.env` (the script refuses a config others can read).
-3. Test once by hand: `sh /volume1/scripts/travel-planner/pull-to-nas.sh --help`, then run it without `--help`. You should see `saved .../daily/...zip`. Running it again says "already downloaded, nothing to do".
+3. Test once by hand: `sh /volume1/scripts/travel-planner/pull-to-nas.sh --help`, then run it without `--help`. You should see `saved .../travel-planner-db-backup-...zip`. Running it again says "already downloaded, nothing to do".
 
 ### 4c. Schedule it
 DSM -> **Control Panel** -> **Task Scheduler** -> **Create** -> **Scheduled Task** -> **User-defined script**:
@@ -84,8 +84,6 @@ DSM -> **Control Panel** -> **Task Scheduler** -> **Create** -> **Scheduled Task
 - Schedule: Daily, at 06:00 (the backup runs about 02:00-03:00 Berlin).
 - Task Settings: Run command `sh /volume1/scripts/travel-planner/pull-to-nas.sh`; tick "Send run details by email" (and "only when the script terminates abnormally") so errors reach you.
 - OK, then select the task and **Run** once to test.
-
-Optionally add `/volume1/backups/travel-planner` to your existing Hyper Backup job.
 
 The script needs `curl`; `unzip` is used for an integrity test when present (the script prints a note when not). It does not need `jq`.
 

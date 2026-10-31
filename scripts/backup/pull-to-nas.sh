@@ -1,25 +1,26 @@
 #!/bin/sh
-# pull-to-nas.sh - download the newest encrypted database backup from GitHub Actions
-# and keep 30 daily + 12 monthly copies. POSIX sh; runs on Synology DSM and macOS.
+# pull-to-nas.sh - download the newest encrypted database backup from GitHub Actions into one
+# shared backup folder as travel-planner-*.zip. The NAS's own scripts archive and rotate the files.
+# POSIX sh; runs on Synology DSM and macOS.
 set -eu
 
 CONFIG_DEFAULT="${HOME:-/root}/.config/travel-planner-backup.env"
-KEEP_DAILY=30
-KEEP_MONTHLY=12
 
 usage() {
   cat <<USAGE
 Usage: pull-to-nas.sh [--config FILE] [--dest DIR] [--help]
 
-Downloads the newest "db-backup-*" artifact from GitHub Actions into DIR/daily,
-copies the first backup of each month into DIR/monthly, and deletes older copies
-(keeps $KEEP_DAILY daily and $KEEP_MONTHLY monthly). Already downloaded artifacts are skipped.
+Downloads the newest "db-backup-*" artifact from GitHub Actions into DIR as
+travel-planner-db-backup-<timestamp>.zip. It never deletes or moves anything in DIR.
+Already downloaded artifacts are skipped: the last artifact id is kept in <config file>.last-artifact,
+so a file that was archived or removed from DIR is not fetched again.
 
 Config file (default: $CONFIG_DEFAULT, or env TP_BACKUP_CONFIG), KEY=VALUE lines:
   GITHUB_TOKEN=...            fine-grained token, repo access: this repo only, permission Actions: Read-only
   GITHUB_REPO=owner/name      e.g. AlexanderKranz/travel-planner
-  BACKUP_DIR=/volume1/backups/travel-planner     (optional; --dest overrides)
+  BACKUP_DIR=/volume1/backups     (optional; --dest overrides)
 The file must not be readable by others (chmod 600). The token is never printed.
+The folder of the config file must be writable (state and lock live next to it, not in DIR).
 
 Needs: curl, standard tools (sed, awk, sort, tr). Optional: unzip (to verify the download).
 Exit code 0 = ok (including "nothing new"), non-zero = failure (message on stderr).
@@ -57,10 +58,11 @@ GITHUB_REPO="$(getkey GITHUB_REPO)"
 [ -n "$DEST" ] || die "no target directory: set BACKUP_DIR in $CONFIG or pass --dest"
 case "$GITHUB_REPO" in */*) ;; *) die "GITHUB_REPO must look like owner/name" ;; esac
 
-mkdir -p "$DEST/daily" "$DEST/monthly" || die "cannot create $DEST"
+mkdir -p "$DEST" || die "cannot create $DEST"
+STATE="$CONFIG.last-artifact"
 
 # One run at a time (mkdir is atomic). A stale lock older than a day is ignored.
-LOCK="$DEST/.lock"
+LOCK="$CONFIG.lock"
 if ! mkdir "$LOCK" 2>/dev/null; then
   if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +1440 2>/dev/null)" ]; then
     rmdir "$LOCK" 2>/dev/null || true
@@ -103,12 +105,11 @@ NEWEST="$(sort -n -r "$TMP/backups.txt" | head -n 1)"
 ID="${NEWEST%% *}"; REST="${NEWEST#* }"
 NAME="${REST%% *}"; CREATED="${REST#* }"
 case "$ID" in ''|*[!0-9]*) die "could not parse artifact id from API response" ;; esac
-STAMP="$(echo "$CREATED" | tr -d ':-')"      # 20261027T010203Z
-MONTH="$(echo "$CREATED" | cut -c1-7)"       # 2026-10
-FILE="${STAMP}__${ID}__${NAME}.zip"
+case "$NAME" in *[!A-Za-z0-9._-]*) die "unexpected artifact name: $NAME" ;; esac
+FILE="travel-planner-${NAME}.zip"
 
-# Idempotent: skip if this artifact id is already stored.
-if ls "$DEST/daily" "$DEST/monthly" 2>/dev/null | grep -q "__${ID}__"; then
+# Idempotent: the state file survives the NAS moving or deleting the file.
+if [ "$(cat "$STATE" 2>/dev/null || true)" = "$ID" ] || [ -e "$DEST/$FILE" ]; then
   log "artifact $ID ($NAME) already downloaded, nothing to do"
 else
   log "downloading artifact $ID ($NAME, created $CREATED)"
@@ -120,23 +121,9 @@ else
   else
     log "note: unzip not installed, skipping integrity test"
   fi
-  mv "$TMP/dl.zip" "$DEST/daily/$FILE.part" && mv "$DEST/daily/$FILE.part" "$DEST/daily/$FILE"
-  log "saved $DEST/daily/$FILE"
-
-  # First backup of a month is also kept in monthly/.
-  if ! ls "$DEST/monthly" | grep -q "^${MONTH}__"; then
-    cp "$DEST/daily/$FILE" "$DEST/monthly/${MONTH}__${FILE}"
-    log "saved monthly copy for $MONTH"
-  fi
+  # Hidden while copying, so NAS scripts never pick up a half-written file; the rename is atomic.
+  mv "$TMP/dl.zip" "$DEST/.$FILE.part" && mv "$DEST/.$FILE.part" "$DEST/$FILE"
+  echo "$ID" > "$STATE"
+  log "saved $DEST/$FILE"
 fi
-
-# Rotation: delete everything but the newest N (names sort chronologically).
-rotate() { # $1=dir $2=keep
-  ls -1 "$1" | grep '\.zip$' | sort | awk -v keep="$2" -v dir="$1" '
-    { f[NR]=$0 } END { for (i=1;i<=NR-keep;i++) print dir "/" f[i] }' | while IFS= read -r old; do
-      log "removing old copy: $old"; rm -f "$old"
-    done
-}
-rotate "$DEST/daily" "$KEEP_DAILY"
-rotate "$DEST/monthly" "$KEEP_MONTHLY"
 log "done"

@@ -129,7 +129,7 @@ Supabase Free has **no downloadable automated backups** (Pro includes daily back
    - compress and encrypt with `gpg` (passphrase in GitHub secrets)
    - upload as a workflow artifact with 30-day retention
    - write the result to `app_events` so the admin page shows "last backup"
-2. **Off-site copy to your DiskStation:** a script `scripts/backup/pull-to-nas.sh` (fits next to your `diskstation-scripts`) downloads the latest encrypted artifact through the GitHub API once a day via DSM Task Scheduler. It keeps a longer history (e.g. 30 daily + 12 monthly), and Hyper Backup can include it in your existing NAS backup.
+2. **Off-site copy to your DiskStation:** a script `scripts/backup/pull-to-nas.sh` (fits next to your `diskstation-scripts`) downloads the newest artifact daily via the GitHub API into the shared backup folder as `travel-planner-db-backup-*.zip`. The NAS's own scripts archive and rotate those files.
 3. **Restore:** `scripts/backup/restore.sh <dump>` decrypts and restores into a target database (a fresh Supabase project or local Postgres). Documented in the runbook.
 4. **Restore test:** a quarterly manual (or scheduled) restore into a scratch Supabase project, with row counts checked against production.
 
