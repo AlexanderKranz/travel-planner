@@ -13,7 +13,7 @@ import { fixedItemsOf } from "@/lib/plan/fixed-items";
 import { DriveTimesScope } from "@/components/plan/drive-times-scope";
 
 /** Read-only plan for the public share page. Imports no owner server actions. */
-export function SharedPlanView({ doc, token, uiLocale }: { doc: PlanDocument; token: string; uiLocale: string }) {
+export function SharedPlanView({ doc, token, uiLocale, banner }: { doc: PlanDocument; token: string; uiLocale: string; banner?: React.ReactNode }) {
   const t = useTranslations("shared");
   const ti = useTranslations("items");
   const f = useFormatter();
@@ -33,6 +33,7 @@ export function SharedPlanView({ doc, token, uiLocale }: { doc: PlanDocument; to
         </div>
       </div>
       <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col gap-5 px-4 py-6 sm:py-10">
+        {banner}
         <header className="flex flex-col gap-3 border-b border-line pb-6">
           {eyebrow && <p className={eyebrowCls}>{eyebrow}</p>}
           <h1 className="break-words font-serif text-4xl font-bold leading-[1.05] sm:text-5xl">{h.title}</h1>

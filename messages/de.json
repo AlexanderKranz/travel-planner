@@ -746,6 +746,11 @@
         "provides": "Beschreibung des Reiseziels, wenn die Wikivoyage-Einleitung sehr kurz ist.",
         "license": "CC BY-SA 4.0. Gezeigt wird ein gekürzter Auszug mit Link zum Artikel."
       },
+      "wikimedia": {
+        "label": "Wikimedia Commons und Wikidata",
+        "provides": "Bild des Reiseziels (Seitenbanner oder Hauptbild des Ortes).",
+        "license": "Je nach Bild: CC0, gemeinfrei, CC BY oder CC BY-SA. Urheber und Lizenz stehen unter dem Bild."
+      },
       "rest_countries": {
         "label": "Länderdaten: mledoze/countries (ODbL)",
         "provides": "Länderinfos wie Währung, Sprache und Fahrseite aus einem mitgelieferten Datensatz (etwa jährlich neu erstellt).",
@@ -1123,6 +1128,13 @@
     "createdTitle": "Link erstellt",
     "pdfBusy": "PDF wird erstellt …",
     "pdfFailed": "Das PDF konnte nicht erstellt werden. Bitte versuche es später noch einmal."
+  },
+  "picture": {
+    "alt": "Foto von {place}",
+    "creditAuthor": "Foto: {author}, <lic>{license}</lic>.",
+    "creditLicense": "Foto: <lic>{license}</lic>.",
+    "source": "Quelle: Wikimedia Commons",
+    "cropped": "Bild zugeschnitten."
   },
   "shared": {
     "banner": "Geteilter Reiseplan",
