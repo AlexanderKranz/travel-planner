@@ -170,6 +170,8 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
    Usage logging (`ai_usage`, `api_calls`, `app_events`) is built from phase 2/3 onwards, so the admin page has data when it arrives.
 
 ### Open items / backlog
+- **TypeScript 7** (2026-10-31): blocked. `typescript-eslint` 8.72.1 throws "does not support TS 7.0" on load and `vite-tsconfig-paths` (tsconfck) wants TS 5, so lint cannot run. `tsc`, vitest and `next build` themselves worked with 7.0.2. Retry when typescript-eslint supports TS 7. Next 16, the `postcss` override removal and ESLint 10 are done (see runbook section 15).
+- **npm audit has moderate findings again** (2026-10-31): a new `minimatch` advisory (GHSA-g3hv-75wg-m249, fixed in 11.0.1) reaches the dev tooling (eslint plugins, typescript-eslint, `@sentry/bundler-plugins` via glob). It was already present before the Next 16 upgrade. Resolves when those packages update minimatch.
 - **Weekend check** (Alex, 2026-10-30):
   - **Password login setup** (PR #50): paste `docs/email-templates/reset-password.html` into Supabase (Authentication, Emails, Reset Password), set the minimum password length to 10, then test forgot password once. Steps: `docs/hosting-setup.md` section 6.
   - **Vercel Function Storage** (Alex, 2026-10-31): was about 8 GB; should drop after the deleted deployments leave the recovery period. If it stays above about 2 GB, look at function sizes per deployment.
