@@ -3,12 +3,20 @@ import { Link } from "@/i18n/navigation";
 import { linkCls } from "@/components/ui/styles";
 import { DeleteAccount } from "@/components/settings/delete-account";
 import { DemoDeleteNote } from "@/components/settings/demo-delete-note";
+import { PasswordForm } from "@/components/settings/password-form";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { getProfile } from "@/lib/server/profile";
 import { unwrap } from "@/lib/unwrap";
 
-export default async function SettingsPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function SettingsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ focus?: string }>;
+}) {
   const { locale } = await params;
+  const { focus } = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations("settings");
   const ts = await getTranslations("start");
@@ -26,6 +34,7 @@ export default async function SettingsPage({ params }: { params: Promise<{ local
           {ts("link.settings")}
         </Link>
       </section>
+      {!profile.isDemo && <PasswordForm autoFocus={focus === "password"} />}
       {profile.isDemo ?<DemoDeleteNote /> : <DeleteAccount />}
     </main>
   );

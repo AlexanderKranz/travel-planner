@@ -28,6 +28,10 @@ const STATUS: Record<ActionError, number> = {
   protected: 403,
   already_member: 409,
   email_failed: 502,
+  invalid_credentials: 401,
+  weak_password: 422,
+  same_password: 422,
+  reauth_required: 401,
   failed: 500,
 };
 

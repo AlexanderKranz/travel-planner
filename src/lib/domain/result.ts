@@ -23,6 +23,10 @@ export type ActionError =
   | "already_member" // invite: this address already has an account
   | "email_failed" // invite: allowlisted, but the mail could not be sent
   | "places_pending" // places with a source did not load yet; retry or generate anyway
+  | "invalid_credentials" // password login: wrong email, wrong password or no password (always the same)
+  | "weak_password" // rejected by Supabase (too short, leaked-password protection)
+  | "same_password" // new password equals the current one
+  | "reauth_required" // "secure password change": sign in again, then retry
   | "failed";
 
 export type ActionResult<T = void> =

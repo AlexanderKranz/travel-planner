@@ -350,6 +350,24 @@ Steps (Supabase dashboard; menu names move occasionally, search for "SMTP" if th
 6. Test: invite one of your own other addresses from the admin page, open the mail on your phone, check it is not in spam. If it is in spam: add SPF/DKIM/DMARC records at your DNS provider as the sender shows.
 7. Tick it off in `docs/architecture.md` (backlog "Custom SMTP sender") and `docs/specs/phase-1-dashboard-steps.md` step 7.
 
+### Optional password login
+
+Everybody still signs in with the email link by default. Under **Einstellungen -> Passwort** a person can set a password (at least 10 characters, at most 72 bytes), then use "Mit Passwort anmelden" on the login page. Password login never creates accounts (invite-only is unchanged). "Passwort vergessen?" sends the **Reset Password** email through the same mail limit as the sign-in link.
+
+Alex, one-off in the Supabase dashboard (details and the leaked-password / secure-password-change notes: `docs/hosting-setup.md` section 6, step 8):
+1. **Authentication -> Emails -> Templates -> Reset Password**: subject `Passwort zurücksetzen · Reset your password`, body = the contents of `docs/email-templates/reset-password.html`. The link is `{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=recovery`, so it needs custom SMTP like the other templates (with the built-in sender the default mail is sent instead and the link cannot sign in on another device).
+2. Minimum password length 10. Leaked-password protection only exists on the Pro plan (per the Supabase docs, checked 2026-10-31).
+
+Behaviour to know:
+- **`APP_URL` must be set** (or a resolvable production URL): "Passwort vergessen?" refuses to send a mail without it, because the reset link needs the `?locale=..&next=..` query that the template appends `&token_hash=` to.
+- Length is 10 characters minimum and 72 **bytes** maximum (bcrypt's limit; umlauts and symbols use 2 or more bytes).
+- Changing the password signs out all other devices (`signOut` scope "others"); the current device stays signed in.
+- The nightly/manual `demo:reset` (`scripts/demo/reset.mjs`) re-sets the demo user's password from `DEMO_PASSWORD` every run, so a visitor who calls `updateUser` directly on the demo session only holds the change until the next reset.
+- Wrong email, wrong password, an account without a password and a disabled (banned) account all show the same message. Limits: 5 attempts per address and 20 per IP per 10 minutes (in memory per instance).
+- The shared demo account has no password section, the action refuses it, and "Passwort vergessen?" for the demo address does nothing (it still answers neutrally). A direct `updateUser` with the demo session is not blocked, so a visitor could lock the demo until the next `demo:reset`.
+- Events in the admin log: `auth.login` with method `password`, `auth.login_failed` (status only, never an address), `auth.reset_requested`, `auth.password_set`, `auth.password_change_failed`, `auth.reset_blocked_demo`, `auth.password_blocked_demo`.
+- A person who forgot the password can also sign in with the email link; both need access to the mailbox. Without mailbox access there is no way in: there is no admin password reset.
+
 ### Common problems
 
 - "Added to the list, but the email could not be sent": the hourly mail limit (built-in sender) or an SMTP error. Wait, or tell the person to use the login page.

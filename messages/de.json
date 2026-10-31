@@ -44,6 +44,10 @@
     "ai_refused": "Die KI hat diese Anfrage abgelehnt. Bitte formuliere sie um.",
     "invalid_output": "Die KI-Antwort war unbrauchbar. Bitte erneut versuchen.",
     "demo_forbidden": "Im Demo-Konto lassen sich keine Links erstellen.",
+    "invalid_credentials": "E-Mail-Adresse oder Passwort stimmen nicht, oder für dieses Konto ist kein Passwort gesetzt. Du kannst dich auch mit dem Anmeldelink anmelden.",
+    "weak_password": "Dieses Passwort wurde abgelehnt, es ist zu schwach oder in Datenlecks aufgetaucht. Bitte wähle ein anderes.",
+    "same_password": "Das neue Passwort muss sich vom bisherigen unterscheiden.",
+    "reauth_required": "Aus Sicherheitsgründen musst du dich dafür neu anmelden. Melde dich ab, mit dem Anmeldelink wieder an und ändere das Passwort dann sofort.",
     "no_plan": "Erstelle zuerst einen Reiseplan.",
     "places_pending": "Orte werden noch geladen. Bitte in einer Minute erneut versuchen.",
     "forbidden": "Dafür fehlt dir die Berechtigung.",
@@ -69,6 +73,17 @@
       "button": "Demo ansehen",
       "hint": "Gemeinsames Demo-Konto – was du eingibst, ist für andere Demo-Besucher sichtbar und wird regelmäßig zurückgesetzt.",
       "heading": "Oder ausprobieren"
+    },
+    "password": {
+      "usePassword": "Mit Passwort anmelden",
+      "useLink": "Stattdessen Anmeldelink per E-Mail",
+      "label": "Passwort",
+      "submit": "Anmelden",
+      "forgot": "Passwort vergessen?",
+      "forgotIntro": "Wir schicken dir einen Link, mit dem du ein neues Passwort festlegen kannst.",
+      "forgotSubmit": "Link zum Zurücksetzen senden",
+      "resetSentBody": "Wenn zu dieser Adresse ein Konto besteht, haben wir dir einen Link zum Zurücksetzen des Passworts geschickt.",
+      "backToPassword": "Zurück zur Anmeldung"
     },
     "invited": "Einladung bestätigt. Gib jetzt deine E-Mail-Adresse ein, dann schicken wir dir den Anmeldelink."
   },
@@ -276,6 +291,18 @@
       "moveDown": "{code} nach unten",
       "remove": "{code} entfernen",
       "unknown": "Ein Flughafen ist unbekannt."
+    },
+    "password": {
+      "title": "Passwort",
+      "hint": "Optional. Mit einem Passwort kannst du dich zusätzlich zum Anmeldelink anmelden. Hier setzt oder änderst du es.",
+      "newLabel": "Neues Passwort",
+      "rules": "Mindestens {min} Zeichen, höchstens {max} Bytes (bei Sonderzeichen und Umlauten zählen mehr Bytes pro Zeichen).",
+      "tooShort": "Das Passwort muss mindestens {min} Zeichen lang sein.",
+      "tooManyBytes": "Das Passwort ist zu lang (höchstens {max} Bytes, Umlaute und Sonderzeichen zählen mehrfach). Bitte kürzen.",
+      "confirmLabel": "Passwort wiederholen",
+      "mismatch": "Die beiden Passwörter stimmen nicht überein.",
+      "save": "Passwort speichern",
+      "saved": "Passwort gespeichert."
     },
     "delete": {
       "title": "Konto löschen",

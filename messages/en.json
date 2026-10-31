@@ -44,6 +44,10 @@
     "ai_refused": "The AI declined this request. Please rephrase your input.",
     "invalid_output": "The AI answer was unusable. Please try again.",
     "demo_forbidden": "The demo account cannot create links.",
+    "invalid_credentials": "The email address or password is wrong, or this account has no password. You can also sign in with the email link.",
+    "weak_password": "This password was rejected: it is too weak or appeared in a data breach. Please choose another one.",
+    "same_password": "The new password must differ from the current one.",
+    "reauth_required": "For security you need to sign in again first. Sign out, sign in with the email link, then change the password right away.",
     "no_plan": "Create a travel plan first.",
     "places_pending": "Places are still loading. Please try again in a minute.",
     "forbidden": "You do not have permission to do that.",
@@ -69,6 +73,17 @@
       "button": "View demo",
       "hint": "Shared demo account – what you enter is visible to other demo visitors and is reset regularly.",
       "heading": "Or try it out"
+    },
+    "password": {
+      "usePassword": "Sign in with password",
+      "useLink": "Use the email link instead",
+      "label": "Password",
+      "submit": "Sign in",
+      "forgot": "Forgot password?",
+      "forgotIntro": "We will send you a link to set a new password.",
+      "forgotSubmit": "Send reset link",
+      "resetSentBody": "If this address has an account, we have sent you a link to reset the password.",
+      "backToPassword": "Back to sign in"
     },
     "invited": "Invitation confirmed. Now enter your email address and we will send you the sign-in link."
   },
@@ -276,6 +291,18 @@
       "moveDown": "Move {code} down",
       "remove": "Remove {code}",
       "unknown": "An airport is unknown."
+    },
+    "password": {
+      "title": "Password",
+      "hint": "Optional. A password lets you sign in in addition to the email link. Set or change it here.",
+      "newLabel": "New password",
+      "rules": "At least {min} characters, at most {max} bytes (accented letters and symbols use several bytes each).",
+      "tooShort": "The password must be at least {min} characters long.",
+      "tooManyBytes": "The password is too long (at most {max} bytes; accented letters and symbols count more than once). Please shorten it.",
+      "confirmLabel": "Repeat password",
+      "mismatch": "The two passwords do not match.",
+      "save": "Save password",
+      "saved": "Password saved."
     },
     "delete": {
       "title": "Delete account",

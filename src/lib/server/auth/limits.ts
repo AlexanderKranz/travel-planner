@@ -14,6 +14,7 @@ const WINDOW_MS = 600_000; // 10 minutes
 const LIMITS = {
   login: { ip: 10, email: 3 }, // sign-in mail requests per 10 min
   code: { ip: 30, email: 10 }, // code attempts per 10 min (1 in 10^6 per guess)
+  password: { ip: 20, email: 5 }, // password sign-in attempts per 10 min
   demo: { ip: 20, email: 0 },
 } as const;
 

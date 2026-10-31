@@ -14,10 +14,35 @@ export const VerifyCodeInput = z.object({
 });
 export type VerifyCodeInput = z.input<typeof VerifyCodeInput>;
 
-/** Query of /auth/confirm (magic link, token-hash flow). */
+/** Password bounds. 72 is bcrypt's limit (longer input is silently truncated). */
+export const PASSWORD_MIN = 10;
+export const PASSWORD_MAX = 72; // BYTES (UTF-8), not characters
+export const passwordBytes = (p: string) => new TextEncoder().encode(p).length;
+
+/** Login: only a sanity bound, so passwords set before a stricter rule still work. */
+export const PasswordLoginInput = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+  password: z.string().min(1).max(200),
+  locale: Locale,
+});
+export type PasswordLoginInput = z.input<typeof PasswordLoginInput>;
+
+/** Setting / changing the password (Settings, and after a reset link). */
+export const SetPasswordInput = z
+  .object({
+    password: z
+      .string()
+      .min(PASSWORD_MIN)
+      .refine((p) => passwordBytes(p) <= PASSWORD_MAX, { message: "too_many_bytes" }),
+    confirm: z.string(),
+  })
+  .refine((v) => v.password === v.confirm, { path: ["confirm"], message: "mismatch" });
+export type SetPasswordInput = z.input<typeof SetPasswordInput>;
+
+/** Query of /auth/confirm (magic link, token-hash flow; `recovery` = password reset link). */
 export const ConfirmQuery = z.object({
   token_hash: z.string().min(10).max(200),
-  type: z.enum(["email", "magiclink", "signup", "invite"]),
+  type: z.enum(["email", "magiclink", "signup", "invite", "recovery"]),
   locale: Locale.optional().catch(undefined),
   next: z.string().optional(),
 });
