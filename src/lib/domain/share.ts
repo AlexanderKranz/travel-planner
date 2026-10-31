@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Plan } from "./plan";
+import type { PlanTimeDifference } from "@/lib/facts/plan-time-difference";
 import type { CostSummary, SharedItem } from "./items";
 
 export const SHARE_EXPIRY_DAYS = [7, 30, 90] as const;
@@ -34,6 +35,8 @@ export type PlanDocument = {
   openDone: string[];
   items: SharedItem[] | null; // null = not shared / no items section; notes already null-ed when not shared
   costs: CostSummary | null;
+  /** Computed on the server, relative to the plan owner's home (default Germany). null = nothing to show. */
+  timeDifference?: PlanTimeDifference | null;
   /** Owner view only: a timed item changed after this plan version (soft "regenerate?" hint). */
   itemsChanged?: boolean;
 };

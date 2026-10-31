@@ -77,6 +77,13 @@ describe("renderPlanPdf", () => {
     }
   }, 30_000);
 
+  it("renders with a time difference in the facts block", async () => {
+    const doc = structuredClone(golf) as unknown as PlanDocument;
+    doc.timeDifference = { kind: "behind", hours: "6", home: null, notes: ["changes"] };
+    const buf = await renderPlanPdf(doc, t);
+    expect(asBuf(buf)).toBe("%PDF-");
+  }, 30_000);
+
   it("writes the Atlas sample PDFs when PDF_SAMPLE_DIR is set", async () => {
     const dir = process.env.PDF_SAMPLE_DIR;
     if (!dir) return;

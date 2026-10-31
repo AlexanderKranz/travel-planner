@@ -4,6 +4,7 @@ import { windowKind } from "@/components/plan/helpers";
 import type { SharedItem } from "@/lib/domain/items";
 import { isUserBest, type PlanDay, type PlanFlights } from "@/lib/domain/plan";
 import type { PlanDocument } from "@/lib/domain/share";
+import { planTimeDifferenceText } from "@/lib/facts/plan-time-difference";
 import { flightGroups } from "@/lib/flights/groups";
 import { fittingLegs } from "@/lib/flights/ui";
 import { fixedItemsOf, mergeDayRows, timeRange, type FixedItem } from "@/lib/plan/fixed-items";
@@ -361,7 +362,8 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
   const dusks = daylight?.map((d) => d.dusk).filter((x): x is string => !!x) ?? [];
   const month = (m: number) => new Intl.DateTimeFormat(plan.locale, { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2000, m - 1, 15)));
   const num = (n: number) => new Intl.NumberFormat(plan.locale, { maximumFractionDigits: 1 }).format(n);
-  const hasFacts = !!facts.climate || (rises.length > 0 && dusks.length > 0) || !!facts.airports?.length;
+  const timeDiff = doc.timeDifference ?? null;
+  const hasFacts = !!facts.climate || (rises.length > 0 && dusks.length > 0) || !!facts.airports?.length || !!timeDiff;
   const flights = plan.flights;
 
   return (
@@ -501,6 +503,12 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
               <Text style={{ marginBottom: 2 }}>
                 <Text style={{ fontWeight: 700 }}>{t("facts.airports")}: </Text>
                 {facts.airports.map((a) => `${a.name} (${a.iata}, ${t("facts.km", { km: num(a.km) })})`).join("; ")}
+              </Text>
+            )}
+            {timeDiff && (
+              <Text style={{ marginBottom: 2 }}>
+                <Text style={{ fontWeight: 700 }}>{t("facts.timeDifference")}: </Text>
+                {planTimeDifferenceText(timeDiff, (k, v) => t(`facts.${k}`, v))}
               </Text>
             )}
             <Text style={{ ...s.small, marginTop: 3 }}>{t("sources")}</Text>
