@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { cache } from "react";
+import { cache, Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { SharedPicture } from "@/components/picture/shared-picture";
 import { SharedPlanView } from "@/components/share/shared-plan-view";
 import { mutedCls } from "@/components/ui/styles";
 import { clientIp } from "@/lib/server/client-ip";
@@ -54,7 +55,16 @@ export default async function SharedPlanPage({ params }: Props) {
   }
   return (
     <main>
-      <SharedPlanView doc={res.doc} token={token} uiLocale={locale} />
+      <SharedPlanView
+        doc={res.doc}
+        token={token}
+        uiLocale={locale}
+        banner={
+          <Suspense fallback={null}>
+            <SharedPicture token={token} placeName={res.doc.plan.header.destination} />
+          </Suspense>
+        }
+      />
     </main>
   );
 }

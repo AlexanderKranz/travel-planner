@@ -6,10 +6,12 @@ import { referenceDates } from "@/lib/facts/trip-timing";
 import { getCountryFacts } from "./country";
 import { getDaylightFacts } from "./daylight";
 import { getFlightsFacts } from "./flights";
+import { getDestinationPicture, getSharedDestinationPicture } from "./picture";
 import { getPlacesFacts } from "./places";
 import { getSummaryFacts } from "./summary";
 import { getWeatherFacts } from "./weather";
 
+export { getDestinationPicture, getSharedDestinationPicture };
 export { getCountryFacts, getDaylightFacts, getFlightsFacts, getPlacesFacts, getSummaryFacts, getWeatherFacts };
 
 /** Flights lookups inside plan generation (spec 3). */
@@ -68,7 +70,10 @@ export async function warmTripFacts(
   options: { budgetMs?: number } = {},
 ): Promise<void> {
   try {
-    await collect(trip, purpose, ctx, options.budgetMs ?? WARM_BUDGET_MS);
+    await Promise.all([
+      collect(trip, purpose, ctx, options.budgetMs ?? WARM_BUDGET_MS),
+      getDestinationPicture(trip, ctx), // fills api_cache so the share page (cache-only) can show it
+    ]);
   } catch {
     // warming is best effort
   }
