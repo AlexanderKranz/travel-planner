@@ -269,6 +269,10 @@ export async function loadTripItems(sb: SupabaseClient, tripId: string): Promise
  * `force`: "generate anyway": skip the places step (cache only) and generate even when places are missing.
  * `fresh`: always call the model, even when the input equals an earlier version (the user's "Regenerate plan").
  *
+ * `clientGone`: evaluated only when places turn out pending. True = nobody is left to see the retry prompt, so the
+ * run generates with what is cached (like `force`). If the signal behind it is unreliable it stays false and the
+ * run returns `places_pending` as before.
+ *
  * Lock: the generation lock is taken right after the cheap guards (before Haiku tags and places), so a run is
  * visible as busy from its first second and a second request returns `busy` instead of spending budget twice.
  * It is released in `finally` on every exit. A crashed run cannot block the trip: the lock expires after LOCK_MS.
@@ -276,7 +280,7 @@ export async function loadTripItems(sb: SupabaseClient, tripId: string): Promise
 export async function generatePlan(
   tripId: string,
   locale: Locale,
-  opts: { force?: boolean; fresh?: boolean } = {},
+  opts: { force?: boolean; fresh?: boolean; clientGone?: () => boolean } = {},
 ): Promise<PipelineResult> {
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
@@ -320,8 +324,14 @@ export async function generatePlan(
     const pending = placesPending(facts.places);
     // `fresh` (regenerate) never blocks on places: an earlier version exists and the user wants a new one.
     if (pending && !opts.force && !opts.fresh) {
-      await logEvent({ event: "plan.places_pending", level: "warn", userId: c.session.userId, props: { tripId: c.trip.id, interests: pending.join(",") } });
-      return err("places_pending", { retryAfter: PLACES_RETRY_AFTER_S });
+      const gone = opts.clientGone?.() === true;
+      await logEvent({
+        event: gone ? "plan.places_pending_generated" : "plan.places_pending",
+        level: "warn",
+        userId: c.session.userId,
+        props: { tripId: c.trip.id, interests: pending.join(","), clientGone: gone },
+      });
+      if (!gone) return err("places_pending", { retryAfter: PLACES_RETRY_AFTER_S });
     }
     // Drive times from the destination point to every place that goes into the input (one ORS matrix call).
     const dest = c.trip.destination;

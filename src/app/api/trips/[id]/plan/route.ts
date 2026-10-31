@@ -41,6 +41,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return loaded.ok ? badRequest() : respond(loaded);
   }
   const { locale, force, fresh } = body.data;
-  return respond(await generatePlan(id, locale, { force: force === true, fresh: fresh === true }));
+  return respond(await generatePlan(id, locale, {
+      force: force === true,
+      fresh: fresh === true,
+      // Only read (never forwarded as an abort) when places are pending: a gone client cannot see the retry prompt.
+      clientGone: () => request.signal.aborted,
+    }));
 }
 

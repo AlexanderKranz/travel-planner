@@ -59,12 +59,22 @@ describe("plan routes", () => {
     const res = await POST(post({ locale: "de" }), params);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ state: {}, unchanged: true });
-    expect(h.generate).toHaveBeenCalledWith("t1", "de", { force: false, fresh: false });
+    expect(h.generate).toHaveBeenCalledWith("t1", "de", { force: false, fresh: false, clientGone: expect.any(Function) });
+  });
+  it("POST: clientGone reflects the request signal without aborting the run", async () => {
+    h.generate.mockResolvedValue({ ok: true, data: { state: {} } });
+    const ac = new AbortController();
+    const req = new Request("http://x/api/trips/t1/plan", { method: "POST", body: JSON.stringify({ locale: "de" }), signal: ac.signal });
+    await POST(req, params);
+    const opts = h.generate.mock.calls[0][2] as { clientGone: () => boolean };
+    expect(opts.clientGone()).toBe(false);
+    ac.abort();
+    expect(opts.clientGone()).toBe(true);
   });
   it("POST: force passes through; places_pending is 503 with Retry-After", async () => {
     h.generate.mockResolvedValue({ ok: false, error: "places_pending", retryAfter: 60 });
     const res = await POST(post({ locale: "en", force: true }), params);
-    expect(h.generate).toHaveBeenCalledWith("t1", "en", { force: true, fresh: false });
+    expect(h.generate).toHaveBeenCalledWith("t1", "en", { force: true, fresh: false, clientGone: expect.any(Function) });
     expect(res.status).toBe(503);
     expect(res.headers.get("Retry-After")).toBe("60");
     expect(await res.json()).toEqual({ error: "places_pending", retryAfter: 60 });
@@ -72,7 +82,7 @@ describe("plan routes", () => {
   it("POST: placesLoaded from an old client is ignored", async () => {
     h.generate.mockResolvedValue({ ok: true, data: { state: {} } });
     await POST(post({ locale: "de", placesLoaded: true }), params);
-    expect(h.generate).toHaveBeenCalledWith("t1", "de", { force: false, fresh: false });
+    expect(h.generate).toHaveBeenCalledWith("t1", "de", { force: false, fresh: false, clientGone: expect.any(Function) });
   });
   it.each([
     ["busy", 409],

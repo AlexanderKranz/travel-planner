@@ -219,6 +219,26 @@ describe("one request does places and plan (server start)", () => {
     expect(await generatePlan(TRIP, "en", { force: true })).toMatchObject({ ok: true });
     expect(h.compose).toHaveBeenCalledTimes(1);
   });
+  it("pending + client gone: generates with what is cached, logs the path, releases the lock", async () => {
+    h.facts = errorGroup;
+    const clientGone = vi.fn(() => true);
+    expect(await generatePlan(TRIP, "en", { clientGone })).toMatchObject({ ok: true });
+    expect(clientGone).toHaveBeenCalledTimes(1);
+    expect(h.compose).toHaveBeenCalledTimes(1);
+    expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "plan.places_pending_generated", props: expect.objectContaining({ clientGone: true }) }));
+    expect(h.release).toHaveBeenCalledTimes(1);
+  });
+  it("pending + client connected: places_pending, lock released", async () => {
+    h.facts = errorGroup;
+    expect(await generatePlan(TRIP, "en", { clientGone: () => false })).toMatchObject({ ok: false, error: "places_pending" });
+    expect(h.compose).not.toHaveBeenCalled();
+    expect(h.release).toHaveBeenCalledTimes(1);
+  });
+  it("the client check is not spent when nothing is pending", async () => {
+    const clientGone = vi.fn(() => true);
+    await generatePlan(TRIP, "en", { clientGone });
+    expect(clientGone).not.toHaveBeenCalled();
+  });
   it("regenerate (fresh) is not blocked by places that failed to load", async () => {
     h.facts = errorGroup;
     expect(await generatePlan(TRIP, "en", { fresh: true })).toMatchObject({ ok: true });
