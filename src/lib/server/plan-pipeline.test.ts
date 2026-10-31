@@ -82,9 +82,10 @@ h.session.supabase = {
 };
 
 import { resetRateLimits } from "./rate-limit";
-import { generatePlan, iteratePlan } from "./plan-pipeline";
+import { generatePlan, iteratePlan, loadPlanContext, loadPlanState } from "./plan-pipeline";
 import { applyPatch } from "@/lib/plan/patch";
 
+const insertArg = () => h.insert.mock.calls[0] as unknown as [unknown, unknown, { input: Record<string, unknown>; inputHash: string }];
 const TRIP = "11111111-1111-4111-8111-111111111111";
 
 beforeEach(() => {
@@ -99,7 +100,7 @@ beforeEach(() => {
   });
   h.acquire.mockImplementation(async () => {
     h.order.push("lock");
-    return h.lock;
+    return h.lock ? "tok" : null;
   });
   h.ensure.mockImplementation(async () => h.planRow);
   h.inFlight = false;
@@ -201,7 +202,7 @@ describe("one request does places and plan (server start)", () => {
     await generatePlan(TRIP, "en");
     expect(h.ensure).toHaveBeenCalled();
     expect(h.acquire).toHaveBeenCalledWith(expect.anything(), "new-plan");
-    expect(h.release).toHaveBeenCalledWith(expect.anything(), "new-plan");
+    expect(h.release).toHaveBeenCalledWith(expect.anything(), "new-plan", "tok");
     expect(h.compose).toHaveBeenCalledTimes(1);
   });
   it("loads places with the network budget; force reads the cache only", async () => {
@@ -239,6 +240,29 @@ describe("one request does places and plan (server start)", () => {
     await generatePlan(TRIP, "en", { clientGone });
     expect(clientGone).not.toHaveBeenCalled();
   });
+  it("records the pending interests beside the input, never in it (hash and LLM input unchanged)", async () => {
+    h.facts = errorGroup;
+    await generatePlan(TRIP, "en", { force: true });
+    const [, , v] = insertArg();
+    const input = v.input;
+    expect(input.pendingPlaces).toEqual(["golf"]);
+    expect(input.llm).toEqual({ v: 1 });
+    expect(v.inputHash).toBe("hash-new");
+  });
+  it("a version written without pending interests carries no note (later regenerate is clean)", async () => {
+    await generatePlan(TRIP, "en", { fresh: true });
+    expect(insertArg()[2].input).not.toHaveProperty("pendingPlaces");
+  });
+  it("the state flags an incomplete latest version only", async () => {
+    const loaded = await loadPlanContext(TRIP);
+    if (!loaded.ok) throw new Error("ctx");
+    h.latest = { ...stored("h", 1), input: { llm: { v: 1 }, index: {}, pendingPlaces: ["golf"] } };
+    const weak = await loadPlanState(loaded.ctx);
+    expect(weak.ok && weak.state.placesIncomplete).toBe(true);
+    h.latest = stored("h", 1);
+    const clean = await loadPlanState(loaded.ctx);
+    expect(clean.ok && clean.state.placesIncomplete).toBeUndefined();
+  });
   it("regenerate (fresh) is not blocked by places that failed to load", async () => {
     h.facts = errorGroup;
     expect(await generatePlan(TRIP, "en", { fresh: true })).toMatchObject({ ok: true });
@@ -246,7 +270,7 @@ describe("one request does places and plan (server start)", () => {
   it("lock released when facts throw", async () => {
     h.getFacts.mockRejectedValue(new Error("boom"));
     expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "failed" });
-    expect(h.release).toHaveBeenCalledWith(expect.anything(), "plan1");
+    expect(h.release).toHaveBeenCalledWith(expect.anything(), "plan1", "tok");
   });
   it("lock released on the unchanged (dedupe) exit", async () => {
     h.latest = stored("hash-new", 1);
@@ -288,7 +312,7 @@ describe("generatePlan", () => {
     h.budgetOk = false;
     expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "budget_exceeded", resetAt: "r" });
     expect(h.compose).not.toHaveBeenCalled();
-    expect(h.release).toHaveBeenCalledWith(expect.anything(), "plan1");
+    expect(h.release).toHaveBeenCalledWith(expect.anything(), "plan1", "tok");
   });
   it("busy when the lock is held", async () => {
     h.lock = false;
@@ -299,7 +323,7 @@ describe("generatePlan", () => {
   it("lock is released when composing throws", async () => {
     h.compose.mockRejectedValue(new Error("x"));
     expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "failed" });
-    expect(h.release).toHaveBeenCalledWith(expect.anything(), "plan1");
+    expect(h.release).toHaveBeenCalledWith(expect.anything(), "plan1", "tok");
   });
   it("AI failure maps to its error and still releases the lock", async () => {
     h.compose.mockResolvedValue({ ok: false, error: "ai_refused" });

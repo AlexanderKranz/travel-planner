@@ -798,6 +798,7 @@
       "body": "Regenerate to take the changes into account.",
       "regenerate": "Regenerate plan"
     },
+    "placesIncomplete": "Some places could not be loaded for this plan. Create it again?",
     "viewingOld": "You are viewing version {n} (read-only).",
     "backToLatest": "Back to the latest version",
     "daysLabel": "Days",
@@ -877,13 +878,14 @@
       "writing": "Writing your itinerary, usually under a minute…",
       "long": "Still writing, this can take a little longer…",
       "busyElsewhere": "A plan is being generated. This page updates when it is done.",
+      "incomplete": "The plan was not finished. Please try again.",
       "timedOut": "This is taking unusually long.",
       "reload": "Check again",
       "retry": "Try again",
       "generateAnyway": "Generate anyway"
     },
     "errors": {
-      "busy": "A plan is already being generated for this trip. Please wait a moment.",
+      "busy": "Another plan is being created right now. Please try again in a few minutes.",
       "conflict": "The plan was changed in the meantime. The latest version is shown now; please try again.",
       "budget_exceeded": "The daily AI budget is used up. It resets at midnight (Berlin time).",
       "rate_limited": "Too many requests. Please wait a minute and try again.",

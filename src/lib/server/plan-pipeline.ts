@@ -212,6 +212,7 @@ export async function loadPlanState(
           purposeUpdatedAt: c.purpose?.updatedAt ?? null,
         }),
         canIterate: computeCanIterate(stored.plan, c.trip, isLatest, aiEnabled),
+        ...(isLatest && (stored.input.pendingPlaces?.length ?? 0) > 0 ? { placesIncomplete: true } : {}),
       },
     };
   } catch {
@@ -292,14 +293,14 @@ export async function generatePlan(
   const started = Date.now();
   const ai = makeAiCtx(c);
   let plan: PlanRow | null = null;
-  let locked = false;
+  let lock: string | null = null;
   try {
     // Per-user in-flight guard: parallel requests could otherwise all pass the budget check (spend is recorded late).
     if (await hasBusyPlan(c.sb)) return err("busy");
     // Lock first (creates the plan row for a trip without one). The budget check below returns through `finally`.
     plan = await ensurePlan(c.sb, c.trip.id);
-    if (!(await acquireLock(c.sb, plan.id))) return err("busy");
-    locked = true;
+    lock = await acquireLock(c.sb, plan.id);
+    if (!lock) return err("busy");
     // A run that finished between ensurePlan and the lock may have added a version: read latestVersion under the lock.
     plan = (await getPlanRow(c.sb, c.trip.id)) ?? plan;
     // 3. Haiku tags (once per purpose content, cached in parsed_*)
@@ -410,7 +411,8 @@ export async function generatePlan(
     const no = await insertVersion(c.sb, plan.id, {
       kind: "generate",
       plan: parsed.data,
-      input: built.stored,
+      // `pendingPlaces` sits beside llm/index: the hash is computed from `llm` only.
+      input: pending ? { ...built.stored, pendingPlaces: pending } : built.stored,
       inputHash,
       model: MODEL_PLAN,
       costMicroUsd: ai.cost(),
@@ -425,7 +427,7 @@ export async function generatePlan(
   } catch {
     return failed(c, "exception", "failed");
   } finally {
-    if (locked && plan) await releaseLock(c.sb, plan.id);
+    if (lock && plan) await releaseLock(c.sb, plan.id, lock);
   }
 }
 
@@ -450,7 +452,7 @@ export async function iteratePlan(
   const started = Date.now();
   const ai = makeAiCtx(c);
   let plan: PlanRow | null = null;
-  let locked = false;
+  let lock: string | null = null;
   try {
     if (await hasBusyPlan(c.sb)) return err("busy");
     plan = await getPlanRow(c.sb, c.trip.id);
@@ -463,8 +465,8 @@ export async function iteratePlan(
 
     const blocked = await checkBudget(c, RESERVE_PATCH);
     if (blocked) return blocked;
-    if (!(await acquireLock(c.sb, plan.id))) return err("busy");
-    locked = true;
+    lock = await acquireLock(c.sb, plan.id);
+    if (!lock) return err("busy");
     // Re-read under the lock: another request may have added a version since the check above.
     const fresh = await getPlanRow(c.sb, c.trip.id);
     if (!fresh || fresh.latestVersion !== plan.latestVersion) return err("conflict");
@@ -529,7 +531,7 @@ export async function iteratePlan(
   } catch {
     return failed(c, "exception", "failed");
   } finally {
-    if (locked && plan) await releaseLock(c.sb, plan.id);
+    if (lock && plan) await releaseLock(c.sb, plan.id, lock);
   }
 }
 
