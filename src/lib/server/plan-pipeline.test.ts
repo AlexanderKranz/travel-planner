@@ -387,3 +387,22 @@ describe("iteratePlan", () => {
     expect(h.patch).not.toHaveBeenCalled();
   });
 });
+
+describe("review: money and lock edges of the early lock", () => {
+  it("tag budget blocked: no Haiku call, no facts, lock released", async () => {
+    h.needsTags.mockReturnValue(true);
+    h.budgetOk = false;
+    expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "budget_exceeded" });
+    expect(h.tag).not.toHaveBeenCalled();
+    expect(h.getFacts).not.toHaveBeenCalled();
+    expect(h.release).toHaveBeenCalledTimes(1);
+  });
+  it("identical input after pending + client gone is still a hash hit: no model call", async () => {
+    h.facts = { places: { status: "ok", data: { radiusKm: 40, groups: [{ interest: "golf", status: "error" }], customInterests: [] } } };
+    h.latest = stored("hash-new", 1);
+    const res = await generatePlan(TRIP, "en", { clientGone: () => true });
+    expect(res).toMatchObject({ ok: true });
+    expect(h.compose).not.toHaveBeenCalled();
+    expect(h.release).toHaveBeenCalledTimes(1);
+  });
+});
