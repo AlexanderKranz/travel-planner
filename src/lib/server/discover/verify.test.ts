@@ -272,7 +272,7 @@ describe("verifyIdeas: cold search limits (D9)", () => {
     const ideas = Array.from({ length: 8 }, (_, i) => idea("Passau", { name: `X${i}` }));
     const places: GeoPlace[] = ideas.map((_, i) => ({ ...PLACES.Passau, geoId: 7000 + i, lat: 10 + i * 5, lon: 10 }));
     const d = deps({
-      geocode: vi.fn(async (_a: string) => ok([places.shift()!])),
+      geocode: vi.fn(async () => ok([places.shift()!])),
       climate,
     });
     // geocode is called once per idea in order, each gets its own place
