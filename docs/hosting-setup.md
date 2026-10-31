@@ -161,7 +161,7 @@ The code is in the repo and does nothing until the DSN is set. Docs checked 2026
 9. Alerts: the default rule emails you about high-priority issues, plus the budget alert rule from section 7. If the emails land in spam, add a filter rule for Sentry's sender.
 
 ## 8. DiskStation backup copy (optional, not set up yet)
-The nightly backup lives only as a GitHub artifact for 30 days. `scripts/backup/pull-to-nas.sh` copies each new backup to the DiskStation as `travel-planner-db-backup-*.zip`, where the NAS's own scripts archive and rotate it. Steps: `docs/runbook.md` section 4.
+The nightly backup lives only as a GitHub artifact for 30 days. `scripts/backup/travel-planner-pull-to-nas.sh` copies each new backup to the DiskStation as `travel-planner-db-backup-*.zip`, where the NAS's own scripts archive and rotate it. Steps: `docs/runbook.md` section 4.
 
 ## 9. Local development
 ```bash

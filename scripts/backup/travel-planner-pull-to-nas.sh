@@ -1,14 +1,15 @@
 #!/bin/sh
-# pull-to-nas.sh - download the newest encrypted database backup from GitHub Actions into one
+# travel-planner-pull-to-nas.sh - download the newest encrypted database backup from GitHub Actions into one
 # shared backup folder as travel-planner-*.zip. The NAS's own scripts archive and rotate the files.
 # POSIX sh; runs on Synology DSM and macOS.
 set -eu
 
-CONFIG_DEFAULT="${HOME:-/root}/.config/travel-planner-backup.env"
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+CONFIG_DEFAULT="$SCRIPT_DIR/travel-planner-backup.env"
 
 usage() {
   cat <<USAGE
-Usage: pull-to-nas.sh [--config FILE] [--dest DIR] [--help]
+Usage: travel-planner-pull-to-nas.sh [--config FILE] [--dest DIR] [--help]
 
 Downloads the newest "db-backup-*" artifact from GitHub Actions into DIR as
 travel-planner-db-backup-<timestamp>.zip. It never deletes or moves anything in DIR.
@@ -26,8 +27,8 @@ Exit code 0 = ok (including "nothing new"), non-zero = failure (message on stder
 USAGE
 }
 
-die() { echo "pull-to-nas: ERROR: $*" >&2; exit 1; }
-log() { echo "pull-to-nas: $*"; }
+die() { echo "travel-planner-pull-to-nas: ERROR: $*" >&2; exit 1; }
+log() { echo "travel-planner-pull-to-nas: $*"; }
 
 CONFIG="${TP_BACKUP_CONFIG:-$CONFIG_DEFAULT}"
 DEST=""

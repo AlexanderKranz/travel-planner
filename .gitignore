@@ -40,6 +40,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# NAS backup config (holds a token), sits next to the script
+travel-planner-backup.env
+
 # env template is committed
 !.env.example
 

@@ -63,11 +63,10 @@ GitHub -> your avatar -> **Settings** -> **Developer settings** -> **Personal ac
 - Generate and copy the token (`github_pat_...`).
 
 ### 4b. Put script and config on the NAS
-1. Copy `scripts/backup/pull-to-nas.sh` to the NAS, e.g. `/volume1/scripts/travel-planner/pull-to-nas.sh` (File Station upload, or `scp`). Make it executable: `chmod +x pull-to-nas.sh`.
-2. Create the config file outside any shared repo, with the NAS user that will run the task (via SSH, enable SSH in Control Panel -> Terminal & SNMP):
+1. Copy `scripts/backup/travel-planner-pull-to-nas.sh` into your scripts folder on the NAS, e.g. `/volume1/scripts/` (File Station upload, or `scp`). Make it executable: `chmod +x travel-planner-pull-to-nas.sh`.
+2. Create the config file next to the script, which is where the script looks for it, as the NAS user that will run the task (via SSH, enable SSH in Control Panel -> Terminal & SNMP):
    ```
-   mkdir -p ~/.config
-   vi ~/.config/travel-planner-backup.env
+   vi /volume1/scripts/travel-planner-backup.env
    ```
    Content (use your values):
    ```
@@ -75,14 +74,14 @@ GitHub -> your avatar -> **Settings** -> **Developer settings** -> **Personal ac
    GITHUB_REPO=AlexanderKranz/travel-planner
    BACKUP_DIR=/volume1/backups
    ```
-   Then `chmod 600 ~/.config/travel-planner-backup.env` (the script refuses a config others can read).
-3. Test once by hand: `sh /volume1/scripts/travel-planner/pull-to-nas.sh --help`, then run it without `--help`. You should see `saved .../travel-planner-db-backup-...zip`. Running it again says "already downloaded, nothing to do".
+   Then `chmod 600 /volume1/scripts/travel-planner-backup.env` (the script refuses a config others can read).
+3. Test once by hand: `sh /volume1/scripts/travel-planner-pull-to-nas.sh --help`, then run it without `--help`. You should see `saved .../travel-planner-db-backup-...zip`. Running it again says "already downloaded, nothing to do".
 
 ### 4c. Schedule it
 DSM -> **Control Panel** -> **Task Scheduler** -> **Create** -> **Scheduled Task** -> **User-defined script**:
 - General: name `Travel Planner backup pull`, User: the user who owns the config file.
 - Schedule: Daily, at 06:00 (the backup runs about 02:00-03:00 Berlin).
-- Task Settings: Run command `sh /volume1/scripts/travel-planner/pull-to-nas.sh`; tick "Send run details by email" (and "only when the script terminates abnormally") so errors reach you.
+- Task Settings: Run command `sh /volume1/scripts/travel-planner-pull-to-nas.sh`; tick "Send run details by email" (and "only when the script terminates abnormally") so errors reach you.
 - OK, then select the task and **Run** once to test.
 
 The script needs `curl`; `unzip` is used for an integrity test when present (the script prints a note when not). It does not need `jq`.
