@@ -1391,8 +1391,8 @@
         "failed": "Das hat nicht geklappt. Bitte versuche es später noch einmal."
       }
     },
-    "users": {
-      "title": "Nutzer",
+    "userAccounts": {
+      "title": "Nutzerkonten",
       "intro": "Sperren blockiert eine Person, ohne etwas zu löschen; du kannst sie später wieder freigeben. Löschen entfernt das Konto und alle Daten endgültig. Dich selbst, andere Admins und das Demo-Konto kannst du nicht ändern.",
       "empty": "Noch keine Nutzer.",
       "active": "Aktiv",
