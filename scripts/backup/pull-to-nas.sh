@@ -20,7 +20,7 @@ Config file (default: $CONFIG_DEFAULT, or env TP_BACKUP_CONFIG), KEY=VALUE lines
   GITHUB_REPO=owner/name      e.g. AlexanderKranz/travel-planner
   BACKUP_DIR=/volume1/backups     (optional; --dest overrides)
 The file must not be readable by others (chmod 600). The token is never printed.
-The folder of the config file must be writable (state and lock live next to it, not in DIR).
+The folder of the config file must be writable (the state file lives next to it, not in DIR).
 
 Needs: curl, standard tools (sed, awk, sort, tr). Optional: unzip (to verify the download).
 Exit code 0 = ok (including "nothing new"), non-zero = failure (message on stderr).
@@ -61,18 +61,8 @@ case "$GITHUB_REPO" in */*) ;; *) die "GITHUB_REPO must look like owner/name" ;;
 mkdir -p "$DEST" || die "cannot create $DEST"
 STATE="$CONFIG.last-artifact"
 
-# One run at a time (mkdir is atomic). A stale lock older than a day is ignored.
-LOCK="$CONFIG.lock"
-if ! mkdir "$LOCK" 2>/dev/null; then
-  if [ -n "$(find "$LOCK" -maxdepth 0 -mmin +1440 2>/dev/null)" ]; then
-    rmdir "$LOCK" 2>/dev/null || true
-    mkdir "$LOCK" 2>/dev/null || die "another run holds the lock: $LOCK"
-  else
-    die "another run seems active (lock $LOCK). If not, delete that folder."
-  fi
-fi
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/tp-backup.XXXXXX")"
-trap 'rm -rf "$TMP"; rmdir "$LOCK" 2>/dev/null || true' EXIT INT TERM
+trap 'rm -rf "$TMP"' EXIT INT TERM
 
 # curl with the token passed via stdin config, so it never shows in the process list.
 api() { # $1=url $2=output file
