@@ -12,6 +12,7 @@ import type { ActionError, Profile } from "@/lib/domain";
 import { updateProfile } from "@/lib/server/profile";
 import { AirportPicker } from "./airport-picker";
 import { HomeLocationPicker, type HomeLocation } from "./home-location-picker";
+import { HomeSuggestionButton } from "./home-suggestion";
 
 export function SettingsForm({ profile }: { profile: Profile }) {
   const t = useTranslations("settings");
@@ -100,6 +101,7 @@ export function SettingsForm({ profile }: { profile: Profile }) {
             : errorAt(issues, "homeAirports", bad)
         }
       />
+      <HomeSuggestionButton airports={airports} home={home} onAccept={setHome} />
       <HomeLocationPicker value={home} onChange={setHome} error={errorAt(issues, "homeLocation", bad)} />
       <ErrorBanner error={error === "unknown_airport" ? null : error} />
       {saved && (
