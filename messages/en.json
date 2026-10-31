@@ -1391,8 +1391,8 @@
         "failed": "That did not work. Please try again later."
       }
     },
-    "users": {
-      "title": "Users",
+    "userAccounts": {
+      "title": "User accounts",
       "intro": "Disable blocks a person without deleting anything; you can enable them again later. Delete removes the account and all its data permanently. You cannot change yourself, other admins or the demo account.",
       "empty": "No users yet.",
       "active": "Active",

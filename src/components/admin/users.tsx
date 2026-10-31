@@ -14,7 +14,7 @@ type Pending = { kind: "disable" | "delete"; user: AdminUserEntry };
 
 /** Admin-only user list. Account facts only (email, status, last sign-in); never trips, groups or plans. */
 export function UsersSection({ entries }: { entries: AdminUserEntry[] }) {
-  const t = useTranslations("admin.users");
+  const t = useTranslations("admin.userAccounts");
   const f = useFormatter();
   const router = useRouter();
   const [confirm, setConfirm] = useState<Pending | null>(null);
@@ -34,7 +34,7 @@ export function UsersSection({ entries }: { entries: AdminUserEntry[] }) {
   }
 
   return (
-    <Section id="admin-users" title={t("title")}>
+    <Section id="admin-user-accounts" title={t("title")}>
       <p className={mutedCls}>{t("intro")}</p>
       <div aria-live="polite">
         {error && (
