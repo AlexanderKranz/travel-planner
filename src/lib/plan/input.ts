@@ -68,7 +68,11 @@ export type PlanInput = {
 type Dow = "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su";
 
 /** Stored per version: exact LLM input + place index (`p1` → OSM key and place). */
-export type PlanInputStored = { llm: PlanInput; index: Record<string /* p1 */, { key: OsmKey; place: PlanPlace }> };
+export type PlanInputStored = {
+  /** Set by the pipeline when the plan was written although these interests had no places (not hashed, not sent to the model). */
+  pendingPlaces?: string[];
+  llm: PlanInput; index: Record<string /* p1 */, { key: OsmKey; place: PlanPlace }>;
+};
 
 /**
  * What the plan needs to know about the travellers: a saved group (TravelGroup fits), or the one-off group of a trip

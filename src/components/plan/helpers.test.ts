@@ -23,11 +23,11 @@ describe("plan helpers", () => {
     expect(asPlanError(undefined)).toBe("failed");
   });
   it("stages progress by elapsed time", () => {
-    expect(progressStage("places", 0)).toBe("places");
-    expect(progressStage("places", 500)).toBe("places");
-    expect(progressStage("plan", 0)).toBe("writing");
-    expect(progressStage("plan", 99)).toBe("writing");
-    expect(progressStage("plan", 100)).toBe("long");
+    expect(progressStage(0)).toBe("places");
+    expect(progressStage(14)).toBe("places");
+    expect(progressStage(15)).toBe("writing");
+    expect(progressStage(99)).toBe("writing");
+    expect(progressStage(100)).toBe("long");
   });
 
   it("formatElapsed shows m:ss", () => {
@@ -36,9 +36,9 @@ describe("plan helpers", () => {
     expect(formatElapsed(100)).toBe("1:40");
     expect(formatElapsed(-3)).toBe("0:00");
   });
-  it("stops polling after 4 minutes", () => {
-    expect(shouldKeepPolling(239_999)).toBe(true);
-    expect(shouldKeepPolling(240_000)).toBe(false);
+  it("stops polling after 6 minutes", () => {
+    expect(shouldKeepPolling(359_999)).toBe(true);
+    expect(shouldKeepPolling(360_000)).toBe(false);
   });
   it("computes the budget percentage", () => {
     expect(budgetPercent(budget(212_000, 500_000))).toBe(42);

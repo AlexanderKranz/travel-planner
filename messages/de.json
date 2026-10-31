@@ -800,6 +800,7 @@
       "body": "Neu erstellen, um die Änderungen zu berücksichtigen.",
       "regenerate": "Plan neu erstellen"
     },
+    "placesIncomplete": "Einige Orte konnten nicht geladen werden. Plan neu erstellen?",
     "viewingOld": "Du siehst Version {n} (nur lesen).",
     "backToLatest": "Zurück zur neuesten Version",
     "daysLabel": "Tage",
@@ -875,17 +876,18 @@
     "runner": {
       "start": "Plan erstellen",
       "working": "Läuft…",
-      "places": "Orte werden gesucht (bei neuen Zielen bis zu 4 Minuten)…",
+      "places": "Fakten und Orte werden gesammelt (bei neuen Zielen ein bis zwei Minuten)…",
       "writing": "Dein Reiseplan wird geschrieben, meist unter einer Minute…",
       "long": "Schreibt noch, das kann etwas länger dauern…",
       "busyElsewhere": "Ein Plan wird erstellt. Diese Seite aktualisiert sich, sobald er fertig ist.",
+      "incomplete": "Der Plan wurde nicht fertig. Bitte erneut versuchen.",
       "timedOut": "Das dauert ungewöhnlich lange.",
       "reload": "Erneut prüfen",
       "retry": "Erneut versuchen",
       "generateAnyway": "Trotzdem erstellen"
     },
     "errors": {
-      "busy": "Für diese Reise wird gerade ein Plan erstellt. Bitte einen Moment warten.",
+      "busy": "Gerade wird ein anderer Plan erstellt. Bitte in ein paar Minuten erneut versuchen.",
       "conflict": "Der Plan wurde zwischenzeitlich geändert. Die neueste Version wird jetzt angezeigt, bitte erneut versuchen.",
       "budget_exceeded": "Das tägliche KI-Budget ist aufgebraucht. Es wird um Mitternacht (Berliner Zeit) zurückgesetzt.",
       "rate_limited": "Zu viele Anfragen. Bitte eine Minute warten und erneut versuchen.",
