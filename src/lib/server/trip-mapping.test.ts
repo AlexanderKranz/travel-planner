@@ -30,7 +30,7 @@ describe("buildTripWrite", () => {
       start_date: null,
       months: [],
       group_id: null,
-      wants_flights: true,
+      wants_flights: false,
       origin_airports: [],
       title: null,
       notes: null,

@@ -40,7 +40,7 @@ describe("TripInput", () => {
     const t = TripInput.parse({ destination: city, lengthDays: 7 });
     expect(t.timing).toEqual({ kind: "none" });
     expect(t.groupId).toBeNull();
-    expect(t.wantsFlights).toBe(true);
+    expect(t.wantsFlights).toBe(false);
     expect(t.originAirports).toEqual([]);
   });
   it("enforces length bounds", () => {

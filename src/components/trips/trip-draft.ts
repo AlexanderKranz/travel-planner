@@ -43,7 +43,7 @@ export type TripDraft = {
   notes: string;
 };
 
-export const emptyTripDraft = (wantsFlights = true): TripDraft => ({
+export const emptyTripDraft = (): TripDraft => ({
   title: "",
   destination: { mode: "none" },
   lengthDays: 7,
@@ -52,7 +52,7 @@ export const emptyTripDraft = (wantsFlights = true): TripDraft => ({
   groupText: "",
   groupStructure: [],
   purposeId: "",
-  wantsFlights,
+  wantsFlights: false,
   useHomeAirports: true,
   originAirports: [],
   notes: "",

@@ -30,15 +30,12 @@ export function TripForm({
   trip,
   groups,
   purposes,
-  hasHomeAirports,
   countryCodes,
   profileBirthdate,
 }: {
   trip?: Trip;
   groups: Option[];
   purposes: Option[];
-  /** Profile has home airports; if not, "show flights" starts unchecked for new trips. */
-  hasHomeAirports: boolean;
   /** ISO country codes for the free-text destination picker (from the server dataset). */
   countryCodes: string[];
   /** For "about your age" in the recognised one-off group. */
@@ -48,7 +45,7 @@ export function TripForm({
   const tg = useTranslations("groups");
   const router = useRouter();
   const [draft, setDraft] = useState<TripDraft>(() =>
-    trip ? draftFromTrip(trip) : emptyTripDraft(hasHomeAirports),
+    trip ? draftFromTrip(trip) : emptyTripDraft(),
   );
   const [error, setError] = useState<ActionError | null>(null);
   const [issues, setIssues] = useState<Issue[]>();

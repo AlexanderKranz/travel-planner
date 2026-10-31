@@ -46,7 +46,7 @@ No RPCs: every write is a single-row insert/update/upsert.
 | `months` | smallint[] | no | `'{}'` | candidate travel months (alternatives, not a span) **[D4]**; `check (cardinality(months) <= 12 and months <@ array[1,2,3,4,5,6,7,8,9,10,11,12]::smallint[])`; sorted + unique enforced in Zod |
 | `group_id` | uuid | yes | — | composite FK below |
 | `purpose_id` | uuid | yes | — | composite FK below |
-| `wants_flights` | boolean | no | `true` | used in phase 4 **[D6]** |
+| `wants_flights` | boolean | no | `false` | used in phase 4 **[D6]** |
 | `origin_airports` | text[] | no | `'{}'` | override; empty = profile `home_airports`. Same check as `profiles.home_airports` (≤ 5, `^[A-Z]{3}$`) |
 | `notes` | text | yes | — | trip-specific free text (ship name, port list, …), `<= 2000` **[D7]** |
 | `created_at`, `updated_at` | timestamptz | no | `now()` | `private.set_updated_at()` trigger |
@@ -382,7 +382,7 @@ export const TripInput = z.object({
   timing: TripTimingInput.default({ kind: "none" }),
   groupId: z.string().uuid().nullable().default(null),
   purposeId: z.string().uuid().nullable().default(null),
-  wantsFlights: z.boolean().default(true),
+  wantsFlights: z.boolean().default(false),
   originAirports: HomeAirports.default([]),   // reuse the profile schema; isKnownIata checked server-side
   notes: optionalText(2000),
 });
@@ -623,7 +623,7 @@ Each item is implemented as described unless Alex changes it.
 - **[D3] Free-text fallback** when geocoding finds nothing: stores only the name and an optional country (so country facts still work). Weather, daylight, summary and places are "unavailable: no location" for free text.
 - **[D4] Months are alternatives** ("March or April"), stored without a year; they always mean the next occurrence (15th of the month, on or after the current month). A trip for "December" viewed in January then refers to next December. *Confirmed by Alex 2026-10-28.*
 - **[D5] Trip length 1–60 days.**
-- **[D6] `wants_flights` defaults to true**; the form unchecks it when the profile has no home airports.
+- **[D6] `wants_flights` defaults to false** (Alex, 2026-10-31; was true): the new-trip form starts with flights unchecked, whether or not the profile has home airports. Existing trips keep their value.
 - **[D7] Extra `notes` field on trips** (not in the brief): trip-specific context like ship name or port list; optional, ≤ 2000 chars, for phase 3.
 - **[D8] Cap of 30 trips per user** (server check), also bounds the shared demo account. *Confirmed by Alex 2026-10-28 (changed from 100).*
 - **[D19] Retention 18 months** after the later of last update and trip end; nightly pg_cron purge. *Requested by Alex 2026-10-28.*
