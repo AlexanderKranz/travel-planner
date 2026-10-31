@@ -24,6 +24,26 @@ const fraunces = localFont({
   display: "swap",
 });
 
+// Latin Extended (Ł, ź, ő ...) for destination names, as a second family: the browser downloads it only when a page
+// uses such a character, so normal pages stay as light as before.
+const interExt = localFont({
+  src: "../../assets/web-fonts/Inter-latin-ext-variable.woff2",
+  variable: "--font-inter-ext",
+  weight: "100 900",
+  style: "normal",
+  display: "swap",
+  preload: false,
+});
+
+const frauncesExt = localFont({
+  src: "../../assets/web-fonts/Fraunces-latin-ext-variable.woff2",
+  variable: "--font-fraunces-ext",
+  weight: "500 700",
+  style: "normal",
+  display: "swap",
+  preload: false,
+});
+
 type Props = {
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
@@ -46,7 +66,7 @@ export default async function LocaleLayout({ children, params }: Props) {
 
   return (
     <html lang={locale}>
-      <body className={`${inter.variable} ${fraunces.variable} antialiased`}>
+      <body className={`${inter.variable} ${fraunces.variable} ${interExt.variable} ${frauncesExt.variable} antialiased`}>
         <NextIntlClientProvider>{children}</NextIntlClientProvider>
       </body>
     </html>
