@@ -85,6 +85,12 @@ export function PlanView({
           <PlanRunner tripId={state.tripId} locale={locale} label={t("outdated.regenerate")} secondary disabled={!state.aiEnabled} />
         </div>
       )}
+      {state.placesIncomplete && state.isLatest && !state.outdated && (
+        <div role="note" className="flex flex-col gap-2 rounded-lg border border-warn-line bg-warn-bg p-3 text-sm text-warn-fg">
+          <p>{t("placesIncomplete")}</p>
+          <PlanRunner tripId={state.tripId} locale={locale} label={t("outdated.regenerate")} secondary disabled={!state.aiEnabled} />
+        </div>
+      )}
       {items.changed && state.isLatest && !state.outdated && (
         <p role="note" className="rounded-md border border-line-strong px-3 py-2 text-sm">
           {t("itemsChanged")}
