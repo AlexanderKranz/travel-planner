@@ -27,12 +27,12 @@ export function asPlanError(code: unknown): ActionError {
 export type ProgressStage = "places" | "writing" | "long";
 
 /**
- * Status text: "places" while the client's places request runs (Overpass, up to ~4.5 min for new destinations),
- * then by time since the plan request started (Sonnet takes 30-90 s; the server gives no progress).
+ * Status text by time since the request started. The server does places and the plan in one request and gives no
+ * progress, so the stages are honest guesses: first facts and places (instant when cached), then Sonnet (30-90 s).
  */
-export function progressStage(step: "places" | "plan", planElapsedSec: number): ProgressStage {
-  if (step === "places") return "places";
-  return planElapsedSec < 100 ? "writing" : "long";
+export function progressStage(elapsedSec: number): ProgressStage {
+  if (elapsedSec < 15) return "places";
+  return elapsedSec < 100 ? "writing" : "long";
 }
 
 /** "m:ss" for the running timer next to the status text. */
@@ -42,7 +42,7 @@ export function formatElapsed(sec: number): string {
 }
 
 export const POLL_INTERVAL_MS = 5_000;
-export const POLL_MAX_MS = 4 * 60_000;
+export const POLL_MAX_MS = 6 * 60_000;
 
 export function shouldKeepPolling(elapsedMs: number): boolean {
   return elapsedMs < POLL_MAX_MS;

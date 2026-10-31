@@ -58,8 +58,11 @@ import { getTrip } from "./trips";
 import { getEffectiveEnv } from "./settings";
 
 /**
- * Generation waits for places [D1]: up to 110 s Overpass + ~10 s drive times + 140 s Sonnet stays inside the
- * route's 300 s. Cached interests are served instantly, whatever the budget.
+ * The server loads places itself before composing (one request does everything, so leaving the page cannot stop
+ * a run): up to 110 s of network queries (Geoapify has a 25 s client timeout; Overpass queries are cut at the
+ * deadline) + ~10 s drive times + 140 s Sonnet stays inside the route's 300 s. Cached interests are served
+ * instantly, whatever the budget. Interests that did not load in time make the run answer `places_pending`
+ * (retry or "generate anyway") exactly as before.
  */
 export const PLACES_BUDGET_MS = 110_000;
 /** Seconds the client should wait before retrying when places are still loading. */
@@ -262,14 +265,18 @@ export async function loadTripItems(sb: SupabaseClient, tripId: string): Promise
 }
 
 /**
- * `force`: generate even when places are still loading (the user chose "generate anyway").
+ * One call does everything (places, facts, compose), so the browser may leave at any time.
+ * `force`: "generate anyway": skip the places step (cache only) and generate even when places are missing.
  * `fresh`: always call the model, even when the input equals an earlier version (the user's "Regenerate plan").
- * `placesLoaded`: the client just ran GET /places, so read places from the cache only instead of waiting again.
+ *
+ * Lock: the generation lock is taken right after the cheap guards (before Haiku tags and places), so a run is
+ * visible as busy from its first second and a second request returns `busy` instead of spending budget twice.
+ * It is released in `finally` on every exit. A crashed run cannot block the trip: the lock expires after LOCK_MS.
  */
 export async function generatePlan(
   tripId: string,
   locale: Locale,
-  opts: { force?: boolean; fresh?: boolean; placesLoaded?: boolean } = {},
+  opts: { force?: boolean; fresh?: boolean } = {},
 ): Promise<PipelineResult> {
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
@@ -285,6 +292,12 @@ export async function generatePlan(
   try {
     // Per-user in-flight guard: parallel requests could otherwise all pass the budget check (spend is recorded late).
     if (await hasBusyPlan(c.sb)) return err("busy");
+    // Lock first (creates the plan row for a trip without one). The budget check below returns through `finally`.
+    plan = await ensurePlan(c.sb, c.trip.id);
+    if (!(await acquireLock(c.sb, plan.id))) return err("busy");
+    locked = true;
+    // A run that finished between ensurePlan and the lock may have added a version: read latestVersion under the lock.
+    plan = (await getPlanRow(c.sb, c.trip.id)) ?? plan;
     // 3. Haiku tags (once per purpose content, cached in parsed_*)
     let purpose = c.purpose;
     if (wantsTags(purpose)) {
@@ -299,12 +312,14 @@ export async function generatePlan(
       purpose,
       { userId: c.session.userId, locale, today: berlinToday() },
       {
-        placesBudgetMs: opts.placesLoaded ? PLACES_CACHE_ONLY : PLACES_BUDGET_MS,
+        // `force` is "generate anyway": the user chose not to wait, so only cached places are read.
+        placesBudgetMs: opts.force ? PLACES_CACHE_ONLY : PLACES_BUDGET_MS,
         withFlights: c.trip.wantsFlights ? { homeAirports: c.homeAirports } : undefined,
       },
     );
     const pending = placesPending(facts.places);
-    if (pending && !opts.force) {
+    // `fresh` (regenerate) never blocks on places: an earlier version exists and the user wants a new one.
+    if (pending && !opts.force && !opts.fresh) {
       await logEvent({ event: "plan.places_pending", level: "warn", userId: c.session.userId, props: { tripId: c.trip.id, interests: pending.join(",") } });
       return err("places_pending", { retryAfter: PLACES_RETRY_AFTER_S });
     }
@@ -333,9 +348,7 @@ export async function generatePlan(
     const inputHash = planInputHash(built.stored.llm);
 
     // 5. dedupe (D13)
-    plan = await ensurePlan(c.sb, c.trip.id);
     const latest = plan.latestVersion > 0 ? await getVersion(c.sb, plan.id, plan.latestVersion) : null;
-    if (isBusy(plan)) return err("busy");
     const hit = opts.fresh
       ? null
       : latest?.inputHash === inputHash
@@ -369,11 +382,7 @@ export async function generatePlan(
     const blocked = await checkBudget(c, RESERVE_GENERATE);
     if (blocked) return blocked;
 
-    // 7. lock
-    if (!(await acquireLock(c.sb, plan.id))) return err("busy");
-    locked = true;
-
-    // 8. compose
+    // 7. compose (lock already held since the start)
     const res = await composePlan(built.stored.llm, ai.ctx);
     if (!res.ok) return failed(c, res.error, res.error);
     const assembled = assemblePlan({

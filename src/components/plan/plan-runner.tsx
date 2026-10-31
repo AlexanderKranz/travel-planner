@@ -8,14 +8,13 @@ import { useRouter } from "@/i18n/navigation";
 import type { ActionError } from "@/lib/domain";
 import { asPlanError, formatElapsed, POLL_INTERVAL_MS, progressStage, shouldKeepPolling } from "./helpers";
 
-type Phase = "idle" | "places" | "running" | "polling";
+type Phase = "idle" | "running" | "polling";
 
 /**
- * Starts plan generation in two visible steps with a running timer:
- * 1. GET /places (Overpass; instant when cached, minutes for a new destination),
- * 2. POST /plan with `placesLoaded`, so the server reads places from the cache instead of waiting again.
- * If the plan request dies (network, proxy timeout) or the server says "busy", it polls GET /plan until the lock
- * is released. With `watchOnly` it only polls (plan generated elsewhere, e.g. another tab).
+ * Starts plan generation with one POST /plan; the server loads places and writes the plan, so leaving the page
+ * cannot stop it. A running timer and an elapsed-based status text give feedback. If the request dies (network,
+ * proxy timeout) or the server says "busy", it polls GET /plan until the lock is released. With `watchOnly` or
+ * `initialBusy` (a return visit during a run) it only polls.
  */
 export function PlanRunner({
   tripId,
@@ -35,7 +34,7 @@ export function PlanRunner({
   watchOnly?: boolean;
   disabled?: boolean;
   secondary?: boolean;
-  /** Regenerate: a new AI version even when the input is unchanged (sent with force, so pending places don't block). */
+  /** Regenerate: a new AI version even when the input is unchanged (places still loading never block it). */
   fresh?: boolean;
   /** Ask before starting: inline confirmation with this text and button labels. */
   confirm?: { text: string; yes: string; no: string };
@@ -49,9 +48,7 @@ export function PlanRunner({
   const [asking, setAsking] = useState(false);
   const [refreshing, startRefresh] = useTransition();
   const startedAt = useRef(Date.now());
-  const planStartedAt = useRef(Date.now());
   const url = `/api/trips/${encodeURIComponent(tripId)}/plan`;
-  const placesUrl = `/api/trips/${encodeURIComponent(tripId)}/places?locale=${encodeURIComponent(locale)}`;
 
   const done = useCallback(() => {
     startRefresh(() => router.refresh());
@@ -71,7 +68,7 @@ export function PlanRunner({
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     const tick = async () => {
-      if (!shouldKeepPolling(Date.now() - planStartedAt.current)) {
+      if (!shouldKeepPolling(Date.now() - startedAt.current)) {
         setTimedOut(true);
         setPhase("idle");
         return;
@@ -95,34 +92,17 @@ export function PlanRunner({
     };
   }, [phase, url, done, watchOnly]);
 
-  /** Step 1: let the server fetch places (cached interests answer instantly). False when the request failed. */
-  async function loadPlaces(): Promise<boolean> {
-    try {
-      const res = await fetch(placesUrl, { cache: "no-store" });
-      return res.ok;
-    } catch {
-      return false;
-    }
-  }
-
   async function run(force = false) {
     setError(null);
     setTimedOut(false);
     startedAt.current = Date.now();
     setElapsed(0);
-    // "Generate anyway" skips the places step: the user chose not to wait.
-    let placesLoaded = force;
-    if (!force) {
-      setPhase("places");
-      placesLoaded = await loadPlaces();
-    }
-    planStartedAt.current = Date.now();
     setPhase("running");
     try {
       const res = await fetch(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locale, ...(fresh || force ? { force: true } : {}), ...(fresh ? { fresh: true } : {}), placesLoaded }),
+        body: JSON.stringify({ locale, ...(force ? { force: true } : {}), ...(fresh ? { fresh: true } : {}) }),
       });
       if (res.ok) return done();
       const json = (await res.json().catch(() => ({}))) as { error?: string };
@@ -137,8 +117,7 @@ export function PlanRunner({
   }
 
   const working = phase !== "idle" || refreshing;
-  const planElapsed = Math.max(0, elapsed - Math.floor((planStartedAt.current - startedAt.current) / 1000));
-  const stage = progressStage(phase === "places" ? "places" : "plan", planElapsed);
+  const stage = progressStage(elapsed);
 
   return (
     <div className="flex flex-col gap-3">

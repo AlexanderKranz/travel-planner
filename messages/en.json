@@ -873,7 +873,7 @@
     "runner": {
       "start": "Create plan",
       "working": "Working…",
-      "places": "Finding places (up to 4 minutes for a new destination)…",
+      "places": "Collecting facts and places (a new destination can take a minute or two)…",
       "writing": "Writing your itinerary, usually under a minute…",
       "long": "Still writing, this can take a little longer…",
       "busyElsewhere": "A plan is being generated. This page updates when it is done.",
