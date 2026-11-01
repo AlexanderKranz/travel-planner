@@ -2,6 +2,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { cardCls, focusCls, mutedCls } from "@/components/ui/styles";
 import type { TripSummary } from "@/lib/domain";
+import { TripCardPending } from "./trip-card-pending";
 import { timingLabel, tripTitle } from "./trip-title";
 
 const chip =
@@ -14,8 +15,9 @@ export function TripCard({ trip }: { trip: TripSummary }) {
   return (
     <Link
       href={`/app/trips/${trip.id}`}
-      className={`${cardCls} block hover:bg-hover ${focusCls}`}
+      className={`${cardCls} relative block hover:bg-hover has-[[data-pending=true]]:bg-hover ${focusCls}`}
     >
+      <TripCardPending />
       <span className="block break-words font-serif text-xl font-bold text-heading">{title}</span>
       {trip.title && <span className={`block text-sm ${mutedCls}`}>{trip.destination.name}</span>}
       <span className={`block text-sm ${mutedCls}`}>
