@@ -313,13 +313,14 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
     .sort((a, b) => a.index - b.index)
     .slice(0, MAX_CARDS_PER_ROUND)
     .map((b) => b.card);
-  if (driveDown()) return { cards: [], drops, reasonsRemoved: 0, geocodeDown: false, driveDown: true, stoppedBy: null, climateMisses: misses, driveLookups, uncheckedAnchors };
-  // Too many failures in a row after an earlier success: the places not reached count as failed lookups, not as negatives.
-  if (driveStopped()) {
+  // Survivors no lookup reached (5 cards found, time up, or the lookups were stopped) were never checked: "Show others"
+  // may propose them again. They count as drive_failed only when too many lookups failed.
+  if (i.drive) {
     for (const s of survivors.slice(next)) {
-      bump("drive_failed");
       uncheckedAnchors.push(s.idea.anchor);
+      if (driveStopped() && !driveDown()) bump("drive_failed");
     }
   }
+  if (driveDown()) return { cards: [], drops, reasonsRemoved: 0, geocodeDown: false, driveDown: true, stoppedBy: null, climateMisses: misses, driveLookups, uncheckedAnchors };
   return { cards, drops, reasonsRemoved, geocodeDown: false, driveDown: false, stoppedBy, climateMisses: misses, driveLookups, uncheckedAnchors };
 }

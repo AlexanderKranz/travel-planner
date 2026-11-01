@@ -388,6 +388,10 @@ describe("verifyIdeas: drive mode (find-destinations-drive T1 to T9)", () => {
     Stuttgart: geo(2825297, "Stuttgart", 48.78, 9.18),
     Cologne: geo(2886242, "Cologne", 50.94, 6.96),
     Bonn: geo(2946447, "Bonn", 50.73, 7.1),
+    Hamburg: geo(2911298, "Hamburg", 53.55, 9.99),
+    Berlin: geo(2950159, "Berlin", 52.52, 13.4),
+    Dresden: geo(2935022, "Dresden", 51.05, 13.74),
+    Leipzig: geo(2879139, "Leipzig", 51.34, 12.37),
   };
   const FRANKFURT = { lat: 50.11, lon: 8.68 };
   const route = (min: number, km = min): CachedResult<{ road: true; min: number; km: number }> => ok({ road: true as const, min, km });
@@ -504,6 +508,15 @@ describe("verifyIdeas: drive mode (find-destinations-drive T1 to T9)", () => {
     expect(driveRoute.mock.calls.length).toBeLessThanOrEqual(5);
     expect(out.drops).toEqual({ drive_failed: 5 });
     expect(out.uncheckedAnchors).toHaveLength(5);
+    expect(out.uncheckedAnchors).not.toContain("Munich");
+  });
+
+  it("places no lookup reached because 5 cards were found stay unchecked (eligible for 'Show others') without a drop count", async () => {
+    const names = ["Munich", "Freiburg", "Kassel", "Nuremberg", "Stuttgart", "Cologne", "Hamburg", "Berlin", "Dresden", "Leipzig"];
+    const out = await verifyIdeas(driveBase({ ideas: names.map(ideaIn), drive: { home: FRANKFURT, maxHours: 12 } }), driveDeps());
+    expect(out.cards.length).toBeGreaterThanOrEqual(5);
+    expect(out.drops.drive_failed).toBeUndefined();
+    expect(out.uncheckedAnchors.length).toBeGreaterThan(0);
     expect(out.uncheckedAnchors).not.toContain("Munich");
   });
 
