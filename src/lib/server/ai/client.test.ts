@@ -49,7 +49,7 @@ const msg = (text: string | null, stop = "end_turn") => ({
   content: [{ type: "thinking", thinking: "", signature: "" }, ...(text === null ? [] : [{ type: "text", text }])],
 });
 
-function setup(result: unknown) {
+function setup(result: unknown, extra: { noThinking?: boolean } = {}) {
   const create = vi.fn(async () => {
     if (result instanceof Error) throw result;
     return result;
@@ -57,11 +57,18 @@ function setup(result: unknown) {
   const records: AiUsageRecord[] = [];
   const ctx = { client: { messages: { create } } as unknown as Anthropic, onUsage: async (u: AiUsageRecord) => void records.push(u) };
   const S = z.object({ a: z.number() });
-  const req = { task: "purpose_tags" as const, model: "claude-haiku-5-5" as const, schema: S, effort: "low" as const, maxTokens: 100, system: "SYS", blocks: [{ text: "INPUT", cache: true }, { text: "FB" }] };
+  const req = { task: "purpose_tags" as const, model: "claude-haiku-5-5" as const, schema: S, effort: "low" as const, maxTokens: 100, system: "SYS", blocks: [{ text: "INPUT", cache: true }, { text: "FB" }], ...extra };
   return { create, records, run: () => callStructured(req, ctx) };
 }
 
 describe("callStructured", () => {
+  it("sends thinking disabled when the request asks for it", async () => {
+    const t = setup(msg('{"a":1}'), { noThinking: true });
+    await t.run();
+    const params = (t.create.mock.calls[0] as unknown[])[0] as Record<string, unknown>;
+    expect(params.thinking).toEqual({ type: "disabled" });
+  });
+
   it("returns parsed data, one usage record with cost, and sends cached blocks", async () => {
     const t = setup(msg('{"a":1}'));
     const r = await t.run();
