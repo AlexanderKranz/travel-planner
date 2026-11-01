@@ -16,6 +16,8 @@ export type StructuredRequest<S extends z.ZodType> = {
   schema: S;
   effort: "low" | "medium";
   maxTokens: number;
+  /** Thinking shares `maxTokens` with the answer. Off for short lists, where it can use up the whole budget. */
+  noThinking?: boolean;
   /** Cached system block. */
   system: string;
   /** User content blocks in order; `cache: true` adds an ephemeral cache breakpoint. */
@@ -71,7 +73,7 @@ export function errorCode(e: unknown): string {
  * the text itself with `schema.safeParse`, so a Zod failure keeps the (billed) usage for `ai_usage`;
  * `messages.parse` would throw it away. Order: API error → ai_unavailable; stop_reason refusal → ai_refused;
  * max_tokens → invalid_output; JSON/Zod failure → invalid_output. Exactly one `ctx.onUsage` per call.
- * No prefill, no thinking parameter (adaptive by default), no abort signal (the server finishes and saves).
+ * No prefill, thinking adaptive by default unless `noThinking`, no abort signal (the server finishes and saves).
  */
 export async function callStructured<S extends z.ZodType>(
   req: StructuredRequest<S>,
@@ -126,6 +128,7 @@ export async function callStructured<S extends z.ZodType>(
           ),
         },
       ],
+      ...(req.noThinking ? { thinking: { type: "disabled" as const } } : {}),
       output_config: { format: { type: "json_schema", schema: jsonSchema }, effort: req.effort },
     });
   } catch (e) {
