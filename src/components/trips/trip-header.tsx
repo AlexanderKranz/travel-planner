@@ -37,7 +37,7 @@ export function TripHeader({
     start(async () => {
       const result = await deleteTrip(trip.id);
       if (result.ok) {
-        router.push("/app/trips");
+        router.push("/app");
         router.refresh();
       } else {
         setConfirm(false);
@@ -54,7 +54,7 @@ export function TripHeader({
     >
       <div className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap gap-x-6">
-          <Link href="/app/trips" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
+          <Link href="/app" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
             {t("back")}
           </Link>
           {trip.destinationSearchId && (

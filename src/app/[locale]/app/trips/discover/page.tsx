@@ -17,7 +17,7 @@ export default async function DiscoverPage({ params }: { params: Promise<{ local
   const [groups, purposes, profile] = await Promise.all([listGroups(), listPurposes(), getProfile()]);
   return (
     <main className="flex max-w-3xl flex-col gap-4">
-      <Link href="/app/trips" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
+      <Link href="/app" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
         {tt("back")}
       </Link>
       <h1 className="text-3xl font-bold sm:text-4xl">{t("title")}</h1>

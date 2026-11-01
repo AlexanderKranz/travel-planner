@@ -107,13 +107,6 @@
       }
     }
   },
-  "dashboard": {
-    "welcome": "Willkommen",
-    "welcomeNamed": "Willkommen, {name}",
-    "tripsTitle": "Reisen",
-    "tripsPlaceholder": "Plane Reisen mit deinen Reisegruppen und Reisezwecken.",
-    "tripsOpen": "Reisen öffnen"
-  },
   "groups": {
     "title": "Reisegruppen",
     "intro": "Wer reist mit? Beschreibe die Gruppe einfach in einem Satz. Alle Angaben sind freiwillig; bei oft genutzten Gruppen (z. B. Familie) kannst du die Personen auch genau angeben.",
@@ -376,7 +369,7 @@
   },
   "trips": {
     "title": "Reisen",
-    "intro": "Eine Reise braucht nur ein Ziel und eine Dauer. Alles andere ist optional.",
+    "showAll": "Alle anzeigen ({count})",
     "retention": "Bis zu {max} Reisen. Eine Reise wird 18 Monate nach ihrem Ende bzw. der letzten Bearbeitung automatisch gelöscht, je nachdem, was später ist.",
     "new": "Neue Reise",
     "discoverLink": "Reiseziele finden",
