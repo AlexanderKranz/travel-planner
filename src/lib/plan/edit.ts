@@ -1,4 +1,5 @@
-import { isUserBest, type Plan, type PlanActivity, type PlanDay, type PlanEdit } from "@/lib/domain/plan";
+import { MAX_OPEN_ITEMS, isUserBest, type Plan, type PlanActivity, type PlanDay, type PlanEdit } from "@/lib/domain/plan";
+import { openItemKey } from "./open-items";
 import { diffDays } from "./patch";
 
 /** Day content that moves with a swap; `n` and `date` stay in place. */
@@ -72,8 +73,25 @@ function prunePlaces(days: PlanDay[], places: Plan["places"]): Plan["places"] {
   return Object.fromEntries(Object.entries(places).filter(([k]) => used.has(k)));
 }
 
+type OpenEdit = Extract<PlanEdit, { kind: "open_add" | "open_set" | "open_remove" }>;
+
+/** The list after an edit; `items` itself when nothing changes (unknown index, full list, repeated text). */
+function editOpenItems(items: Plan["openItems"], edit: OpenEdit): Plan["openItems"] {
+  if (edit.kind === "open_remove") return edit.i < items.length ? items.filter((_, i) => i !== edit.i) : items;
+  const key = openItemKey(edit.text);
+  if (items.some((o, i) => openItemKey(o.text) === key && (edit.kind === "open_add" || i !== edit.i))) return items;
+  if (edit.kind === "open_add") return items.length < MAX_OPEN_ITEMS ? [...items, { text: edit.text }] : items;
+  const old = items[edit.i];
+  if (!old || old.text === edit.text) return items;
+  return items.map((o, i) => (i === edit.i ? { ...o, text: edit.text } : o));
+}
+
 /** Code-only edits, no LLM [D8]. Pure; out-of-range days or addresses leave the plan unchanged. */
 export function applyEdit(base: Plan, edit: PlanEdit): { plan: Plan; changedDays: number[] } {
+  if (edit.kind === "open_add" || edit.kind === "open_set" || edit.kind === "open_remove") {
+    const openItems = editOpenItems(base.openItems, edit);
+    return { plan: openItems === base.openItems ? base : { ...base, openItems }, changedDays: [] };
+  }
   const total = base.days.length;
   let days = base.days;
   if (edit.kind === "swap_days") {

@@ -834,7 +834,15 @@
       "markDone": "„{text}“ als erledigt markieren",
       "markOpen": "„{text}“ wieder öffnen",
       "saveError": "Speichern fehlgeschlagen",
-      "doneLabel": "erledigt"
+      "doneLabel": "erledigt",
+      "add": "Hinzufügen",
+      "addLabel": "Neuer Eintrag",
+      "edit": "Ändern",
+      "editLabel": "„{text}“ ändern",
+      "delete": "Löschen",
+      "deleteLabel": "„{text}“ löschen",
+      "save": "Speichern",
+      "cancel": "Abbrechen"
     },
     "packing": {
       "title": "Packliste"
@@ -938,7 +946,10 @@
       "bestNone": "bester Tag entfernt",
       "remove_alt": "Alternative entfernt",
       "promote_alt": "Alternative als Hauptort gesetzt",
-      "remove_act": "Aktivität entfernt"
+      "remove_act": "Aktivität entfernt",
+      "open_add": "Eintrag zu „Noch zu klären“ hinzugefügt",
+      "open_set": "Eintrag in „Noch zu klären“ geändert",
+      "open_remove": "Eintrag aus „Noch zu klären“ gelöscht"
     },
     "versionKinds": {
       "generate": "Erstellt",

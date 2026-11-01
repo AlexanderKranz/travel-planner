@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import golf from "@/lib/plan/__fixtures__/plan-golf.json";
 import copenhagen from "@/lib/plan/__fixtures__/copenhagen.json";
-import { Plan, isUserBest, type PlanDay } from "@/lib/domain/plan";
+import { MAX_OPEN_ITEMS, Plan, isUserBest, type PlanDay } from "@/lib/domain/plan";
 import { applyEdit, promoteAlt, removeActivity, removeAlt } from "./edit";
 
 const base = () => Plan.parse(golf);
@@ -108,5 +108,32 @@ describe("activity edits without AI (patch-safety [D7])", () => {
     expect(applyEdit(b, { kind: "remove_act", n: 9, s: 0, a: 0 })).toEqual({ plan: b, changedDays: [] });
     expect(applyEdit(b, { kind: "remove_act", n: 1, s: 3, a: 0 }).changedDays).toEqual([]);
     expect(applyEdit(b, { kind: "remove_alt", n: 1, s: 0, a: 1, alt: VERDENSUR }).changedDays).toEqual([]);
+  });
+});
+
+describe("open item edits", () => {
+  const plan = { days: [], places: {}, openItems: [{ text: "Tickets", day: 2 }, { text: "Tisch" }] } as unknown as Plan;
+  it("adds, keeps the day on a change, and removes", () => {
+    expect(applyEdit(plan, { kind: "open_add", text: "Mietwagen" }).plan.openItems).toHaveLength(3);
+    expect(applyEdit(plan, { kind: "open_set", i: 0, text: "Zoo-Tickets" }).plan.openItems[0]).toEqual({ text: "Zoo-Tickets", day: 2 });
+    expect(applyEdit(plan, { kind: "open_remove", i: 1 }).plan.openItems).toEqual([{ text: "Tickets", day: 2 }]);
+  });
+  it("returns the same plan for a repeat, an unknown index or no change", () => {
+    for (const e of [
+      { kind: "open_add", text: " tisch " },
+      { kind: "open_set", i: 0, text: "TISCH" },
+      { kind: "open_set", i: 0, text: "Tickets" },
+      { kind: "open_set", i: 9, text: "Neu" },
+      { kind: "open_remove", i: 9 },
+    ] as const) {
+      expect(applyEdit(plan, e).plan).toBe(plan);
+    }
+  });
+  it("allows changing only the case of an entry", () => {
+    expect(applyEdit(plan, { kind: "open_set", i: 0, text: "TICKETS" }).plan.openItems[0].text).toBe("TICKETS");
+  });
+  it("stops at the limit", () => {
+    const full = { ...plan, openItems: Array.from({ length: MAX_OPEN_ITEMS }, (_, i) => ({ text: `e${i}` })) };
+    expect(applyEdit(full, { kind: "open_add", text: "mehr" }).plan).toBe(full);
   });
 });

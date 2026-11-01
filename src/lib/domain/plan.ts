@@ -55,6 +55,8 @@ export const OpenItem = z.object({
   day: z.number().int().min(1).max(MAX_PLAN_DAYS).optional(),
 });
 export type OpenItem = z.infer<typeof OpenItem>;
+/** The LLM writes at most 12 (assemble.ts); the rest is room for the user's own entries. */
+export const MAX_OPEN_ITEMS = 30;
 
 /** Fact-derived place, copied by code from TripFacts. Rendered with "© OpenStreetMap" + check date. */
 export const PlanPlace = z.object({
@@ -185,7 +187,7 @@ export const Plan = z.looseObject({
   summary: z.string().max(600),
   days: z.array(PlanDay).min(1).max(MAX_PLAN_DAYS),
   notes: z.array(PlanNote).max(10),
-  openItems: z.array(OpenItem).max(12),
+  openItems: z.array(OpenItem).max(MAX_OPEN_ITEMS),
   packing: z.array(z.string().min(1).max(80)).max(15),
   places: z.record(OsmKey, PlanPlace), // only places referenced by an activity
   facts: PlanFactsDigest,
@@ -215,6 +217,8 @@ export type PlanFeedback = z.infer<typeof PlanFeedback>;
 export type PlanFeedbackInput = z.input<typeof PlanFeedback>;
 
 const ActIndex = z.number().int().min(0).max(11);
+const OpenIndex = z.number().int().min(0).max(MAX_OPEN_ITEMS - 1);
+const OpenText = z.string().trim().min(1).max(160);
 
 /** Code-only edits, no LLM [D8]. */
 export const PlanEdit = z.discriminatedUnion("kind", [
@@ -224,6 +228,10 @@ export const PlanEdit = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("remove_alt"), n: DayNo, s: ActIndex, a: ActIndex, alt: OsmKey }),
   z.object({ kind: z.literal("promote_alt"), n: DayNo, s: ActIndex, a: ActIndex, alt: OsmKey }),
   z.object({ kind: z.literal("remove_act"), n: DayNo, s: ActIndex, a: ActIndex }),
+  // "Noch zu klären" list; i = index in the base version.
+  z.object({ kind: z.literal("open_add"), text: OpenText }),
+  z.object({ kind: z.literal("open_set"), i: OpenIndex, text: OpenText }),
+  z.object({ kind: z.literal("open_remove"), i: OpenIndex }),
 ]);
 export type PlanEdit = z.infer<typeof PlanEdit>;
 

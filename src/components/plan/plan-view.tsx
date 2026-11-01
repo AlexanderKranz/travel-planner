@@ -112,7 +112,7 @@ export function PlanView({
       </ol>
       <PlanNotes notes={plan.notes} />
       {state.isLatest ? (
-        <OpenItemsEditor tripId={state.tripId} items={plan.openItems} done={openDone} />
+        <OpenItemsEditor tripId={state.tripId} items={plan.openItems} done={openDone} edit={editCtx} />
       ) : (
         <PlanOpenItems items={plan.openItems} done={openDone} />
       )}
