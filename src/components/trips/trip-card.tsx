@@ -18,7 +18,7 @@ export function TripCard({ trip }: { trip: TripSummary }) {
       className={`${cardCls} relative block hover:bg-hover has-[[data-pending=true]]:bg-hover ${focusCls}`}
     >
       <TripCardPending />
-      <span className="block break-words font-serif text-xl font-bold text-heading">{title}</span>
+      <span className="block break-words pr-7 font-serif text-xl font-bold text-heading">{title}</span>
       {trip.title && <span className={`block text-sm ${mutedCls}`}>{trip.destination.name}</span>}
       <span className={`block text-sm ${mutedCls}`}>
         {timingLabel(trip.timing, locale, t)} · {t("days", { count: trip.lengthDays })}
