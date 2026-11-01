@@ -49,7 +49,7 @@ Flights, weather, daylight, distances and destination facts come from APIs and a
 | Direct flights per month | AeroDataBox airport schedules, cached per airport and month | no |
 | Country facts (currency, language, plugs, time zone) | REST Countries + static dataset | no |
 | Points of interest / golf courses / candidate activities | OpenStreetMap (Overpass), Wikivoyage/Wikipedia extracts, cached | no |
-| Driving times between hotel and places | OpenRouteService (free tier) | no |
+| Driving times between hotel and places, and the destination search by driving time | OpenRouteService (free tier) | no |
 | Guided wizard for purpose and refinements | static form flows | no |
 | Rendering the plan page, share page and PDF | templates from structured JSON | no |
 | Turning free-text purpose into structured tags | **Haiku**, once per purpose, result cached | small |
@@ -170,7 +170,6 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
    Usage logging (`ai_usage`, `api_calls`, `app_events`) is built from phase 2/3 onwards, so the admin page has data when it arrives.
 
 ### Open items / backlog
-- **Find destinations by driving time** (Alex, 2026-11-01): the search can limit flight time only. Add a choice of either flight or drive, with a maximum driving time from the home town. Needs a short spec first: the profile stores the home place name and zone but no coordinates, and the driving time check goes through OpenRouteService (quota, ferries).
 - **Loading times** (Alex, 2026-11-01): analyse where the app is slow.
 - **TypeScript 7** (2026-10-31): blocked. `typescript-eslint` 8.72.1 throws "does not support TS 7.0" on load and `vite-tsconfig-paths` (tsconfck) wants TS 5, so lint cannot run. `tsc`, vitest and `next build` themselves worked with 7.0.2. Retry when typescript-eslint supports TS 7. Next 16, the `postcss` override removal and ESLint 10 are done (see runbook section 15).
 - **npm audit has moderate findings again** (2026-10-31; Dependabot alerts #5 `glob`, fixed in 14.0.2, and #6 `minimatch`, both labelled runtime, `glob` not traced yet): a new `minimatch` advisory (GHSA-g3hv-75wg-m249, fixed in 11.0.1) reaches the dev tooling (eslint plugins, typescript-eslint, `@sentry/bundler-plugins` via glob). It was already present before the Next 16 upgrade. Resolves when those packages update minimatch.
@@ -179,6 +178,7 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
 - **Bug reports and enhancement requests from users** (Alex, 2026-10-30): a "Feedback" form in the app (type bug/idea, text, optional screenshot, page URL and app version added automatically). Automation idea: the server route creates a GitHub issue (token server-side, fine-grained, issues only), labelled `bug` or `enhancement`. Alex triages and adds a label such as `claude`; that label starts the Claude Code GitHub Action (`anthropics/claude-code-action`), which implements the change on a branch and opens a PR; CI, CodeRabbit and CodeQL run as usual and Alex merges. Guard rails: the repo is public, so issues must not contain personal data (strip email, ask users not to paste trip details) or the report is stored in Supabase and Alex promotes it to an issue; user text is untrusted input to an agent (prompt injection), so the agent only starts after Alex's label, has no access to production secrets, and never merges. Needs a spec first.
 
 Done or closed:
+- ~~Find destinations by driving time~~ done 2026-11-01 (Alex): the search form has a Flight or Drive choice, the drive limit runs 1 to 12 h, and every drive card carries a ferry-free road time from OpenRouteService Directions, cached per place pair. Home coordinates are stored on the profile. Spec `docs/specs/find-destinations-drive.md`, ADR 0007. Open follow-up: confirm the real Directions daily limit (the headers say 200) and set `ORS_DAILY_REQUESTS` to match.
 - ~~Default page after login~~ done 2026-11-01 (Alex): `/app` is now the one trips page (trips on the left, travel groups and purposes compact on the right, collapsed on phones); `/app/trips` redirects to it.
 - ~~"Noch zu klären" list~~ done 2026-11-01 (Alex): entries can be added, changed and deleted on the latest version. Each saves a code-only plan version (`open_add`, `open_set`, `open_remove`), so AI patches carry them along; a full regeneration writes a new list. Up to 30 entries, 160 characters each.
 - ~~Trip page length~~ done 2026-11-01 (Alex): "Reisekontext" and "Fakten hinter dem Plan" removed (also from the share page and PDF), packing list collapsed on phones, "Buchungen und Kosten" collapsed until the first entry.

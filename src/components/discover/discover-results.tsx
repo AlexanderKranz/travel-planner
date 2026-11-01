@@ -111,12 +111,17 @@ export function DiscoverResults({ initial, tripsByGeo }: { initial: DestinationS
   const monthsText = search.months.map((m) => monthName(m, locale, "long")).join(", ");
   const done = search.status === "done";
   const failed = search.status === "failed";
+  const isDrive = search.travelMode === "drive";
 
   return (
     <div className="flex flex-col gap-6">
       <ul className="flex flex-wrap gap-2" aria-label={search.purposeName}>
         <li className={pillCls}>{search.purposeName}</li>
         {monthsText && <li className={pillCls}>{monthsText}</li>}
+        {search.travelMode === "drive" && search.homeName && <li className={pillCls}>{t("list.pillStart", { place: search.homeName })}</li>}
+        {search.travelMode === "drive" && search.maxDriveHours !== null && (
+          <li className={pillCls}>{t("list.pillDriveLimit", { hours: f.number(search.maxDriveHours, { maximumFractionDigits: 1 }) })}</li>
+        )}
         {search.origins.length > 0 && <li className={pillCls}>{t("list.pillOrigins", { airports: search.origins.join(", ") })}</li>}
         {search.origins.length > 0 && search.maxFlightHours !== null && (
           <li className={pillCls}>{t("list.pillLimit", { hours: f.number(search.maxFlightHours, { maximumFractionDigits: 1 }) })}</li>
@@ -177,7 +182,7 @@ export function DiscoverResults({ initial, tripsByGeo }: { initial: DestinationS
           <ul className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {cards.map((card) => (
               <li key={card.id} className="min-w-0">
-                <SuggestionCardView card={card} searchId={search.id} tripId={hasTrip(card, tripsByGeo)} />
+                <SuggestionCardView card={card} searchId={search.id} tripId={hasTrip(card, tripsByGeo)} driveFrom={search.homeName} />
               </li>
             ))}
           </ul>
@@ -187,7 +192,7 @@ export function DiscoverResults({ initial, tripsByGeo }: { initial: DestinationS
       {done && cards.length === 0 && (
         <div className={`${cardCls} flex flex-col gap-2`}>
           <p className="font-medium">{t("list.empty")}</p>
-          <p className={`text-sm ${mutedCls}`}>{t("list.widen")}</p>
+          <p className={`text-sm ${mutedCls}`}>{t(isDrive ? "list.widenDrive" : "list.widen")}</p>
         </div>
       )}
 
@@ -198,7 +203,7 @@ export function DiscoverResults({ initial, tripsByGeo }: { initial: DestinationS
           </h2>
           <ul className={`text-sm ${mutedCls}`}>
             {drops.map(([reason, count]) => (
-              <li key={reason}>{td(reason, { count })}</li>
+              <li key={reason}>{td(isDrive && reason === "too_far" ? "too_far_drive" : reason, { count })}</li>
             ))}
           </ul>
         </section>
@@ -226,7 +231,7 @@ export function DiscoverResults({ initial, tripsByGeo }: { initial: DestinationS
           {t("list.footer")}
         </h2>
         <ul className={`list-disc pl-5 text-sm ${mutedCls}`}>
-          <li>{t("list.footerFlights")}</li>
+          <li>{t(isDrive ? "list.footerDrive" : "list.footerFlights")}</li>
           <li>{t("list.footerWishes")}</li>
           <li>{t("list.footerReasons")}</li>
         </ul>

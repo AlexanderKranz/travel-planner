@@ -6,7 +6,8 @@ import { btnSecondary, errorCls, inputCls, mutedCls } from "@/components/ui/styl
 import type { GeoPlace } from "@/lib/domain";
 import { geocode, placeLabel } from "@/lib/geocode-client";
 
-export type HomeLocation = { name: string; timezone: string };
+/** `geoId` is the GeoNames id of the picked place; the server resolves the coordinates from it. Absent on a home saved before drive searches. */
+export type HomeLocation = { name: string; timezone: string; geoId?: number };
 
 const MIN_CHARS = 2;
 const DEBOUNCE_MS = 300;
@@ -16,10 +17,21 @@ export function HomeLocationPicker({
   value,
   onChange,
   error,
+  label,
+  emptyLabel,
+  emptyNote,
+  clearLabel,
+  hint,
 }: {
   value: HomeLocation | null;
   onChange: (v: HomeLocation | null) => void;
   error?: string;
+  /** Overrides for the drive search form (an empty `hint` hides the hint line). Without `emptyLabel` the settings texts apply, including the "Germany" default (about time zones). */
+  label?: string;
+  emptyLabel?: string;
+  emptyNote?: string;
+  clearLabel?: string;
+  hint?: string;
 }) {
   const t = useTranslations("settings.home");
   const locale = useLocale();
@@ -57,7 +69,7 @@ export function HomeLocationPicker({
 
   function pick(p: GeoPlace) {
     if (!p.timezone) return;
-    onChange({ name: placeLabel(p, locale), timezone: p.timezone });
+    onChange({ name: placeLabel(p, locale), timezone: p.timezone, geoId: p.geoId });
     setQuery("");
     setResults([]);
     setState("idle");
@@ -80,6 +92,7 @@ export function HomeLocationPicker({
     }
   }
 
+  const hintText = hint ?? t("hint");
   const status =
     state === "loading"
       ? t("searching")
@@ -91,15 +104,15 @@ export function HomeLocationPicker({
 
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="mb-1 text-sm font-medium">{t("label")}</legend>
+      <legend className="mb-1 text-sm font-medium">{label ?? t("label")}</legend>
       <div className="flex items-center justify-between gap-2 rounded-md border border-line p-2 pl-3">
         <p className="min-w-0 break-words text-sm">
-          <strong>{value ? value.name : t("default")}</strong>
-          {!value && <span className={`block ${mutedCls}`}>{t("defaultNote")}</span>}
+          <strong>{value ? value.name : (emptyLabel ?? t("default"))}</strong>
+          {!value && (emptyLabel === undefined || emptyNote) && <span className={`block ${mutedCls}`}>{emptyNote ?? t("defaultNote")}</span>}
         </p>
         {value && (
           <button type="button" className={btnSecondary} onClick={() => onChange(null)}>
-            {t("clear")}
+            {clearLabel ?? t("clear")}
           </button>
         )}
       </div>
@@ -115,7 +128,7 @@ export function HomeLocationPicker({
           aria-controls={`${id}-list`}
           aria-autocomplete="list"
           aria-activedescendant={open && active >= 0 ? `${id}-opt-${active}` : undefined}
-          aria-describedby={error ? `${id}-hint ${id}-error` : `${id}-hint`}
+          aria-describedby={[hintText ? `${id}-hint` : null, error ? `${id}-error` : null].filter(Boolean).join(" ") || undefined}
           aria-invalid={error ? true : undefined}
           autoComplete="off"
           maxLength={80}
@@ -156,9 +169,11 @@ export function HomeLocationPicker({
           </ul>
         )}
       </div>
-      <p id={`${id}-hint`} className={`text-sm ${mutedCls}`}>
-        {t("hint")}
-      </p>
+      {hintText && (
+        <p id={`${id}-hint`} className={`text-sm ${mutedCls}`}>
+          {hintText}
+        </p>
+      )}
       <p role="status" className={`text-sm ${mutedCls}`}>
         {status}
       </p>

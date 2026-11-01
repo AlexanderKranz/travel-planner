@@ -40,7 +40,7 @@ Strato ── DNS for alexanderkranz.de (email sender records)
 | **Strato** | DNS for `alexanderkranz.de` | Existing domain contract | Brevo TXT + DKIM records | Keep the existing DMARC record (`p=reject`) |
 | **Anthropic** | Claude API | Pay per use | `ANTHROPIC_API_KEY` | Monthly spend limit in the console + daily budgets on the admin page |
 | **AeroDataBox** (via RapidAPI) | Direct flights per airport and day | Free/basic plan | `AERODATABOX_API_KEY` | Monthly unit quota; app guard `AERODATABOX_DAILY_UNITS` |
-| **OpenRouteService** (HeiGIT) | Driving times (matrix) | Free Standard key | `OPENROUTESERVICE_API_KEY` | ~500 matrix requests/day; app guard `ORS_DAILY_REQUESTS` |
+| **OpenRouteService** (HeiGIT) | Driving times (matrix, directions) | Free Standard key | `OPENROUTESERVICE_API_KEY` | ~500 matrix and 200 directions requests/day; app guard `ORS_DAILY_REQUESTS` (default 200) |
 | **Open-Meteo** | Geocoding, climate history | No account | none | Fair use; cached |
 | **Geoapify** | Places and golf courses (OpenStreetMap data), primary source | Free (3,000 credits/day) | `GEOAPIFY_API_KEY` | 1 credit per 20 places; app guard `GEOAPIFY_DAILY_CREDITS` (default 2,000); cached 30 days |
 | **Overpass (OpenStreetMap)** | Places: fallback when Geoapify fails, has no key, or for interests without a Geoapify category | No account | optional `OVERPASS_URL`; contact in `INTEGRATIONS_CONTACT` | Slow (25–60 s per query, often 5xx); mirrors maps.mail.ru and overpass.private.coffee; cached 30 days |

@@ -18,4 +18,4 @@ export const flightRadiusKm = (maxHours: number): number =>
   Math.round((60 * maxHours - BLOCK_OVERHEAD_MIN + LIMIT_TOLERANCE_MIN) * KM_PER_MIN);
 
 /** Nearest half hour, shown as "ca. 2 h". */
-export const roundedFlightMin = (min: number): number => Math.round(min / 30) * 30;
+export const roundedHalfHourMin = (min: number): number => Math.round(min / 30) * 30;

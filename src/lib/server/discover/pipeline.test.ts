@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const h = vi.hoisted(() => ({
@@ -24,6 +24,9 @@ const h = vi.hoisted(() => ({
   logEvent: vi.fn(async () => {}),
   logUsage: vi.fn(async () => {}),
   budgetReserve: [] as number[],
+  orsLeft: 400,
+  placeById: vi.fn(),
+  profileUpdate: vi.fn(async () => ({ error: null })),
 }));
 
 vi.mock("../session", () => ({ getUserSession: async () => h.session }));
@@ -32,6 +35,8 @@ vi.mock("../purposes", () => ({ getPurpose: async () => (h.purpose ? { ok: true,
 vi.mock("../groups", () => ({ getGroup: async () => (h.group ? { ok: true, data: h.group } : { ok: false, error: "not_found" }) }));
 vi.mock("../settings", () => ({ getEffectiveEnv: async () => h.env }));
 vi.mock("../events", () => ({ logEvent: h.logEvent }));
+vi.mock("../facts/ors-quota", () => ({ orsRequestsLeft: async () => h.orsLeft }));
+vi.mock("@/lib/integrations/open-meteo-geocoding", () => ({ getPlaceById: h.placeById }));
 vi.mock("../purpose-tagging", () => ({ wantsTags: () => h.wantsTags, tagAndSave: h.tagAndSave }));
 vi.mock("../ai/destination-ideas", () => ({ proposeIdeas: h.propose }));
 vi.mock("./verify", () => ({ verifyIdeas: h.verify }));
@@ -80,7 +85,10 @@ const stored = (o: Partial<StoredSearch> = {}): StoredSearch => ({
   locale: "de",
   months: [3],
   origins: ["FRA", "MUC"],
+  travelMode: "flight",
   maxFlightHours: null,
+  maxDriveHours: null,
+  homeName: null,
   radiusKm: null,
   status: "done",
   rounds: 1,
@@ -93,6 +101,8 @@ const stored = (o: Partial<StoredSearch> = {}): StoredSearch => ({
   input: { v: 1, lang: "de", purpose: { interests: ["golf"], custom: [], hard: [], soft: [] }, count: 8, exclude: ["Marbella", "Palma"] },
   busyUntil: null,
   costMicroUsd: 400,
+  homeLat: null,
+  homeLon: null,
   ...o,
 });
 const card = (geoId: number) => ({ id: `g${geoId}`, round: 1 as const, name: "X", reason: null, kind: "city" as const, geoId, placeName: "X", countryCode: "ES", admin1: null, place: { source: "geonames" as const, fetchedAt: "t", stale: false }, flight: null, nearAirport: false, climate: null, pois: [] });
@@ -462,5 +472,189 @@ describe("GET state", () => {
     expect(await getDestinationSearch(SEARCH)).toMatchObject({ data: { canShowOthers: false } });
     h.byId.mockResolvedValue(stored({ status: "failed", error: "ai_unavailable" }));
     expect(await getDestinationSearch(SEARCH)).toMatchObject({ data: { canShowOthers: false, error: "ai_unavailable" } });
+  });
+});
+
+describe("drive mode (find-destinations-drive)", () => {
+  const FRANKFURT = { geoId: 2925533, name: "Frankfurt am Main", featureCode: "PPLA", countryCode: "DE", admin1: "Hesse", lat: 50.11, lon: 8.68, timezone: "Europe/Berlin", population: 750000, suggestedKind: "city" };
+  const drive = { ...body, travelMode: "drive", maxDriveHours: 4 };
+  const withHome = () => {
+    h.profile = { ...h.profile, homeLocation: "Frankfurt am Main, Hesse, Germany", homeTimezone: "Europe/Berlin", homeGeoId: 2925533, homeLat: 50.11, homeLon: 8.68 };
+  };
+
+  beforeEach(() => {
+    vi.stubEnv("OPENROUTESERVICE_API_KEY", "k");
+    h.orsLeft = 400;
+    h.placeById.mockReset();
+    h.profileUpdate.mockClear();
+    h.session = { userId: "u1", supabase: { from: () => ({ update: () => ({ eq: async () => h.profileUpdate() }) }) } };
+    h.claim1.mockImplementation(async (_sb: unknown, n: Record<string, unknown>) => ({
+      ok: true,
+      search: stored({
+        status: "running",
+        travelMode: n.travelMode as "flight" | "drive",
+        maxDriveHours: n.maxDriveHours as number | null,
+        origins: n.origins as string[],
+        homeName: (n.home as { name: string } | null)?.name ?? null,
+        homeLat: (n.home as { lat: number } | null)?.lat ?? null,
+        homeLon: (n.home as { lon: number } | null)?.lon ?? null,
+      }),
+    }));
+    h.verify.mockResolvedValue({ cards: [card(1)], drops: {}, reasonsRemoved: 0, geocodeDown: false, driveDown: false, stoppedBy: null, climateMisses: 0, driveLookups: 6 });
+    withHome();
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("the model gets the home name, a drive travel and a 90 km/h radius hint; coordinates and cell stay out", async () => {
+    const r = await runDestinationSearch(drive);
+    expect(r).toMatchObject({ ok: true });
+    const sent = h.propose.mock.calls[0][0];
+    expect(sent).toMatchObject({ from: ["Frankfurt am Main, Hesse, Germany"], travel: "drive", radiusKm: 360, homeCell: "50.11,8.68" });
+    expect(sent.fromIata).toBeUndefined();
+    const claim = h.claim1.mock.calls[0][1];
+    expect(claim).toMatchObject({
+      travelMode: "drive", maxDriveHours: 4, origins: [], maxFlightHours: null, radiusKm: 360,
+      home: { name: "Frankfurt am Main, Hesse, Germany", lat: 50.11, lon: 8.68 },
+    });
+    expect(h.verify.mock.calls[0][0]).toMatchObject({ origins: [], maxHours: null, drive: { home: { lat: 50.11, lon: 8.68 }, maxHours: 4 } });
+    expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "destination.searched", props: expect.objectContaining({ travelMode: "drive", driveLookups: 6 }) }));
+    expect(JSON.stringify(h.logEvent.mock.calls)).not.toMatch(/Frankfurt/);
+  });
+
+  it("the view never carries coordinates", async () => {
+    const r = await runDestinationSearch(drive);
+    expect(JSON.stringify(r)).not.toMatch(/homeLat|homeLon|50\.11/);
+  });
+
+  it("a flight limit in the purpose is ignored in drive mode, profile airports are not used", async () => {
+    h.purpose = { ...h.purpose, constraints: ["max 3 h flight from FRA"] };
+    await runDestinationSearch(drive);
+    expect(h.claim1.mock.calls[0][1]).toMatchObject({ origins: [], maxFlightHours: null });
+    expect(h.verify.mock.calls[0][0]).toMatchObject({ origins: [], maxHours: null });
+    expect(h.propose.mock.calls[0][0].purpose.hard).toEqual([]);
+  });
+
+  it("the form's mixes are refused: drive without a limit, with airports or a flight limit; flight with a drive limit", async () => {
+    for (const bad of [
+      { ...body, travelMode: "drive" },
+      { ...drive, origins: [] },
+      { ...drive, maxFlightHours: null },
+      { ...body, maxDriveHours: 4 },
+      { ...body, homeGeoId: 1 },
+      { ...body, saveHome: true },
+      { ...drive, maxDriveHours: 13 },
+      { ...drive, maxDriveHours: 4.2 },
+    ]) {
+      expect(await runDestinationSearch(bad)).toMatchObject({ ok: false, error: "invalid" });
+    }
+    expect(h.propose).not.toHaveBeenCalled();
+  });
+
+  it("no start: no home, or a home saved before coordinates existed -> home_required, no AI call", async () => {
+    h.profile = { ...h.profile, homeLocation: null, homeTimezone: null, homeGeoId: null, homeLat: null, homeLon: null };
+    expect(await runDestinationSearch(drive)).toMatchObject({ ok: false, error: "home_required" });
+    h.profile = { ...h.profile, homeLocation: "Berlin", homeTimezone: "Europe/Berlin" }; // legacy: name without coordinates
+    expect(await runDestinationSearch(drive)).toMatchObject({ ok: false, error: "home_required" });
+    expect(h.propose).not.toHaveBeenCalled();
+  });
+
+  it("a start picked in the form is resolved by the server from its id; the profile home is not touched", async () => {
+    h.placeById.mockResolvedValue({ ...FRANKFURT, geoId: 2867714, name: "München", lat: 48.14, lon: 11.58 });
+    await runDestinationSearch({ ...drive, homeGeoId: 2867714 });
+    expect(h.placeById).toHaveBeenCalledWith(2867714, "de");
+    expect(h.claim1.mock.calls[0][1].home).toMatchObject({ lat: 48.14, lon: 11.58 });
+    expect(h.propose.mock.calls[0][0].homeCell).toBe("48.14,11.58");
+    expect(h.profileUpdate).not.toHaveBeenCalled();
+  });
+
+  it("'Save as my home' writes the profile home, only with a time zone", async () => {
+    h.placeById.mockResolvedValue(FRANKFURT);
+    await runDestinationSearch({ ...drive, homeGeoId: 2925533, saveHome: true });
+    expect(h.profileUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed or empty place lookup is places_unavailable", async () => {
+    h.placeById.mockRejectedValue(new Error("down"));
+    expect(await runDestinationSearch({ ...drive, homeGeoId: 5 })).toMatchObject({ ok: false, error: "places_unavailable" });
+    h.placeById.mockResolvedValue(null);
+    expect(await runDestinationSearch({ ...drive, homeGeoId: 5 })).toMatchObject({ ok: false, error: "places_unavailable" });
+    expect(h.propose).not.toHaveBeenCalled();
+  });
+
+  it("two towns of the same name differ by the hash (homeCell)", async () => {
+    h.placeById.mockResolvedValueOnce({ ...FRANKFURT, name: "Neustadt", lat: 49.35, lon: 8.14 }).mockResolvedValueOnce({ ...FRANKFURT, name: "Neustadt", lat: 54.1, lon: 10.8 });
+    await runDestinationSearch({ ...drive, homeGeoId: 1 });
+    resetRateLimits();
+    await runDestinationSearch({ ...drive, homeGeoId: 2 });
+    expect(h.claim1.mock.calls[0][1].inputHash).not.toBe(h.claim1.mock.calls[1][1].inputHash);
+  });
+
+  it("ORS gate before the LLM call: key missing, or fewer than 8 + 50 requests left -> drive_unavailable, no Haiku call (tags included)", async () => {
+    h.wantsTags = true;
+    vi.stubEnv("OPENROUTESERVICE_API_KEY", "");
+    expect(await runDestinationSearch(drive)).toMatchObject({ ok: false, error: "drive_unavailable" });
+    vi.stubEnv("OPENROUTESERVICE_API_KEY", "k");
+    h.orsLeft = 57;
+    expect(await runDestinationSearch(drive)).toMatchObject({ ok: false, error: "drive_unavailable" });
+    expect(h.propose).not.toHaveBeenCalled();
+    expect(h.tagAndSave).not.toHaveBeenCalled();
+    expect(h.claim1).not.toHaveBeenCalled();
+    h.wantsTags = false;
+    h.orsLeft = 58;
+    expect(await runDestinationSearch(drive)).toMatchObject({ ok: true });
+  });
+
+  it("a saved list for the same input is served with ORS down and the key gone", async () => {
+    vi.stubEnv("OPENROUTESERVICE_API_KEY", "");
+    h.orsLeft = 0;
+    h.byHash.mockResolvedValue(stored({ travelMode: "drive", cards: [card(1)] }));
+    expect(await runDestinationSearch(drive)).toMatchObject({ ok: true, data: { cached: true } });
+    expect(h.propose).not.toHaveBeenCalled();
+  });
+
+  it("flight searches do not need ORS", async () => {
+    vi.stubEnv("OPENROUTESERVICE_API_KEY", "");
+    h.orsLeft = 0;
+    expect(await runDestinationSearch(body)).toMatchObject({ ok: true });
+  });
+
+  it("ORS failed on the first places: the row is failed with drive_unavailable, no card is saved", async () => {
+    h.verify.mockResolvedValue({ cards: [], drops: { drive_failed: 2 }, reasonsRemoved: 0, geocodeDown: false, driveDown: true, stoppedBy: null, climateMisses: 0, driveLookups: 2 });
+    expect(await runDestinationSearch(drive)).toMatchObject({ ok: false, error: "drive_unavailable" });
+    expect(h.failRound).toHaveBeenCalledWith(expect.anything(), SEARCH, expect.objectContaining({ error: "drive_unavailable" }));
+    expect(h.finish).not.toHaveBeenCalled();
+  });
+
+  it("round 2 uses the start saved on the row after the profile home changed, and has the same ORS gate", async () => {
+    h.profile = { ...h.profile, homeLocation: "Berlin", homeTimezone: "Europe/Berlin", homeGeoId: 2950159, homeLat: 52.52, homeLon: 13.4 };
+    const row = stored({ travelMode: "drive", maxDriveHours: 3, homeName: "Frankfurt", homeLat: 50.11, homeLon: 8.68, origins: [], cards: [card(1)] });
+    h.byId.mockResolvedValue(row);
+    h.claim2.mockResolvedValue({ ok: true, search: { ...row, status: "running" } });
+    h.orsLeft = 10;
+    expect(await showOtherDestinations(SEARCH)).toMatchObject({ ok: false, error: "drive_unavailable" });
+    expect(h.propose).not.toHaveBeenCalled();
+    expect(h.claim2).not.toHaveBeenCalled();
+    h.orsLeft = 400;
+    await showOtherDestinations(SEARCH);
+    expect(h.verify.mock.calls[0][0]).toMatchObject({ round: 2, drive: { home: { lat: 50.11, lon: 8.68 }, maxHours: 3 } });
+  });
+
+  it("anchors whose drive was never verified are not excluded from 'Show others'", async () => {
+    h.verify.mockResolvedValue({ cards: [card(1)], drops: { drive_failed: 1 }, reasonsRemoved: 0, geocodeDown: false, driveDown: false, stoppedBy: null, climateMisses: 0, driveLookups: 2, uncheckedAnchors: ["Palma"] });
+    await runDestinationSearch(drive);
+    expect(h.finish.mock.calls[0][2].input.exclude).toEqual(["Marbella"]);
+  });
+
+  it("round 2 of an old flight list runs as flight", async () => {
+    h.byId.mockResolvedValue(stored({ cards: [card(1)] }));
+    await showOtherDestinations(SEARCH);
+    expect(h.verify.mock.calls[0][0].drive).toBeUndefined();
+  });
+});
+
+describe("resolveSearchParams in drive mode", () => {
+  it("origins [] and no flight limit, whatever the profile or the purpose says", () => {
+    const purpose = { guided: { maxFlightHours: 2 }, constraints: [] } as never;
+    expect(resolveSearchParams({ travelMode: "drive" }, purpose, ["FRA", "MUC"])).toEqual({ ok: true, origins: [], maxHours: null });
   });
 });

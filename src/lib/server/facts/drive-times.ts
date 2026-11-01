@@ -4,43 +4,15 @@ import { z } from "zod";
 import type { FactsCtx } from "@/lib/domain/facts";
 import { ORS_MAX_DESTINATIONS, fetchDriveMatrix, type LonLat } from "@/lib/integrations/openrouteservice";
 import { cacheKey, cached } from "../api-cache";
-import { berlinMidnightUtc, QuotaGuardError } from "../flights-quota";
-import { createSupabaseAdminClient } from "../supabase/admin";
-import { getEffectiveEnv } from "../settings";
+import { assertOrsQuota } from "./ors-quota";
 
 /** Drive time and road distance from the destination point, per OSM key. Only reachable places are present. */
 export type DriveTimes = { byKey: Record<string, { min: number; km: number }>; fetchedAt: string };
 
 export const DRIVE_TTL_SECONDS = 90 * 86400;
-/** Default daily request cap (free Standard key allows ~500 matrix requests/day). */
-export const ORS_DAILY_REQUESTS_DEFAULT = 400;
+export { orsDailyCap, ORS_DAILY_REQUESTS_DEFAULT } from "./ors-quota";
 
 const Payload = z.record(z.string(), z.object({ min: z.number().int().min(0), km: z.number().min(0) }));
-
-export function orsDailyCap(env: Record<string, string | undefined> = process.env): number {
-  const n = Number.parseInt(env.ORS_DAILY_REQUESTS ?? "", 10);
-  return Number.isFinite(n) && n >= 0 ? n : ORS_DAILY_REQUESTS_DEFAULT;
-}
-
-/** Throws QuotaGuardError when today's network requests (Berlin day) reached the cap. Fails closed. */
-async function assertOrsQuota(): Promise<void> {
-  const cap = orsDailyCap(await getEffectiveEnv());
-  let used: number;
-  try {
-    const admin = createSupabaseAdminClient();
-    const { count, error } = await admin
-      .from("api_calls")
-      .select("id", { count: "exact", head: true })
-      .eq("provider", "openrouteservice")
-      .neq("cache", "hit")
-      .gte("created_at", berlinMidnightUtc().toISOString());
-    if (error) throw new Error("quota read failed");
-    used = count ?? 0;
-  } catch {
-    throw new QuotaGuardError("ORS quota state unavailable");
-  }
-  if (used >= cap) throw new QuotaGuardError("ORS daily cap reached");
-}
 
 /** Stable key: origin (3 decimals, ~100 m) + hash of the sorted destination keys and their coordinates. */
 export function driveCacheKey(origin: LonLat, places: readonly { key: string; lat: number; lon: number }[]): string {

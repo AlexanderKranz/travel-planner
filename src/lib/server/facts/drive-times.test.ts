@@ -73,11 +73,11 @@ describe("getDriveTimes", () => {
     expect(r).toEqual({ byKey: { "way/2": { min: 30, km: 25 } }, fetchedAt: "2026-10-28T10:00:00.000Z" });
   });
 
-  it("quota guard: no request at the daily cap (ORS_DAILY_REQUESTS, default 400) or when the count fails", async () => {
+  it("quota guard: no request at the daily cap (ORS_DAILY_REQUESTS, default 200) or when the count fails", async () => {
     missThrough();
-    expect(orsDailyCap({})).toBe(400);
+    expect(orsDailyCap({})).toBe(200);
     expect(orsDailyCap({ ORS_DAILY_REQUESTS: "25" })).toBe(25);
-    h.count = 400;
+    h.count = 200;
     expect(await getDriveTimes(origin, places, ctx)).toBeNull();
     h.count = null;
     h.countError = { code: "x" };

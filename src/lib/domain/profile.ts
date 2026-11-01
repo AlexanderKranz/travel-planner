@@ -30,6 +30,13 @@ export const Profile = z.object({
   /** Both lenient on read: one odd stored value must not fail every page; the strict check is in ProfileUpdate. */
   homeLocation: z.string().nullable(),
   homeTimezone: z.string().nullable(),
+  /**
+   * GeoNames id and coordinates of the home, resolved by the server (never supplied by the browser). Used for drive
+   * times only; null for a home saved before drive searches existed (it is picked once more).
+   */
+  homeGeoId: z.number().int().nullable(),
+  homeLat: z.number().nullable(),
+  homeLon: z.number().nullable(),
   /** Shared demo account: cannot delete the account or change the email. */
   isDemo: z.boolean(),
   /** When the getting-started guide was finished or skipped; null = not yet. */
@@ -50,6 +57,8 @@ export const ProfileUpdate = z
     birthdate: BirthDate.nullable(),
     homeLocation: HomeLocationName.nullable(),
     homeTimezone: IanaTimeZone.nullable(),
+    /** GeoNames id of the picked home place; the server resolves the coordinates from it. */
+    homeGeoId: z.number().int().positive().nullable(),
   })
   .partial()
   // Name and zone belong together: send both, and either set both or clear both (null).
@@ -60,5 +69,14 @@ export const ProfileUpdate = z
   .refine((v) => (v.homeLocation == null) === (v.homeTimezone == null), {
     path: ["homeLocation"],
     message: "Home location and time zone go together",
+  })
+  // A place id only makes sense together with its name.
+  .refine((v) => v.homeGeoId == null || v.homeLocation != null, {
+    path: ["homeGeoId"],
+    message: "A home place id needs a home location",
   });
 export type ProfileUpdate = z.infer<typeof ProfileUpdate>;
+
+/** A home with coordinates, usable as the start of a drive search. */
+export const hasHomeCoords = (p: Pick<Profile, "homeLocation" | "homeGeoId" | "homeLat" | "homeLon">): boolean =>
+  p.homeLocation != null && p.homeGeoId != null && p.homeLat != null && p.homeLon != null;

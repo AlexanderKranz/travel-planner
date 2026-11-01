@@ -22,6 +22,7 @@ describe("pickHomeSuggestion", () => {
     expect(pickHomeSuggestion(fra, [place({})], "de")).toEqual({
       name: "Frankfurt am Main, Hessen, Deutschland",
       timezone: "Europe/Berlin",
+      geoId: 1, // the server resolves the coordinates from it
     });
   });
   it("prefers the most populous populated place, not the closest", () => {

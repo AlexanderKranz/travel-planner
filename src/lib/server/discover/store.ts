@@ -25,7 +25,7 @@ export const SEARCH_LOCK_MS = 150_000;
 const UNIQUE_VIOLATION = "23505";
 
 export const SEARCH_COLUMNS =
-  "id, purpose_id, group_id, purpose_name, locale, months, origins, max_flight_hours, radius_km, input_hash, input, status, busy_until, rounds, cards, drops, error_code, model, cost_micro_usd, created_at, updated_at";
+  "id, purpose_id, group_id, purpose_name, locale, months, origins, max_flight_hours, radius_km, travel_mode, max_drive_hours, home_name, home_lat, home_lon, input_hash, input, status, busy_until, rounds, cards, drops, error_code, model, cost_micro_usd, created_at, updated_at";
 
 export type SearchRow = {
   id: string;
@@ -37,6 +37,11 @@ export type SearchRow = {
   origins: string[];
   max_flight_hours: number | string | null;
   radius_km: number | null;
+  travel_mode: "flight" | "drive";
+  max_drive_hours: number | string | null;
+  home_name: string | null;
+  home_lat: number | null;
+  home_lon: number | null;
   input_hash: string;
   input: unknown;
   status: "running" | "done" | "failed";
@@ -52,9 +57,17 @@ export type SearchRow = {
 };
 
 /** A stored search with the internals the pipeline needs (`input`, `inputHash`, lock). */
-export type StoredSearch = DestinationSearch & { inputHash: string; input: IdeaInput | null; busyUntil: string | null; costMicroUsd: number };
+export type StoredSearch = DestinationSearch & {
+  inputHash: string;
+  input: IdeaInput | null;
+  busyUntil: string | null;
+  costMicroUsd: number;
+  /** Drive mode: the start coordinates snapshot. Server only: never part of the view. */
+  homeLat: number | null;
+  homeLon: number | null;
+};
 
-const ERROR_CODES: readonly ActionError[] = ["ai_unavailable", "ai_refused", "invalid_output", "places_unavailable", "failed"];
+const ERROR_CODES: readonly ActionError[] = ["ai_unavailable", "ai_refused", "invalid_output", "places_unavailable", "drive_unavailable", "failed"];
 
 export function rowToSearch(r: SearchRow): StoredSearch {
   const cards = SuggestionCards.safeParse(r.cards);
@@ -72,7 +85,10 @@ export function rowToSearch(r: SearchRow): StoredSearch {
     locale: r.locale,
     months: r.months,
     origins: r.origins,
+    travelMode: r.travel_mode === "drive" ? "drive" : "flight",
     maxFlightHours: r.max_flight_hours === null ? null : Number(r.max_flight_hours),
+    maxDriveHours: r.max_drive_hours === null || r.max_drive_hours === undefined ? null : Number(r.max_drive_hours),
+    homeName: r.home_name ?? null,
     radiusKm: r.radius_km,
     // A lock that ran out means the server died mid-run: report it as failed, never as running forever.
     status: restored ? "done" : lockLost ? "failed" : r.status,
@@ -86,6 +102,8 @@ export function rowToSearch(r: SearchRow): StoredSearch {
     input,
     busyUntil: r.busy_until,
     costMicroUsd: r.cost_micro_usd,
+    homeLat: r.home_lat ?? null,
+    homeLon: r.home_lon ?? null,
   };
 }
 
@@ -97,9 +115,17 @@ export function isExpired(busyUntil: string | null, now: number = Date.now()): b
  * True when a saved list may be served for the same input (done, younger than 30 days). Measured from updated_at:
  * a failed or old list is reused in place, so created_at would keep it old forever.
  */
-export function isFresh(s: Pick<StoredSearch, "status" | "updatedAt">, now: number = Date.now()): boolean {
-  return s.status === "done" && now - Date.parse(s.updatedAt) < SEARCH_CACHE_DAYS * 86_400_000;
+export function isFresh(s: Pick<StoredSearch, "status" | "updatedAt"> & { drops?: DestinationSearch["drops"] }, now: number = Date.now()): boolean {
+  if (s.status !== "done") return false;
+  // Places whose drive could not be verified never return on their own: an identical search runs again after an hour.
+  const ttl = hasDriveGap(s.drops ?? {}) ? DRIVE_GAP_RETRY_MS : SEARCH_CACHE_DAYS * 86_400_000;
+  return now - Date.parse(s.updatedAt) < ttl;
 }
+
+/** A list with unverified drives is served for this long only (ORS was down or limited). */
+export const DRIVE_GAP_RETRY_MS = 60 * 60_000;
+export const hasDriveGap = (drops: DestinationSearch["drops"]): boolean =>
+  (["1", "2"] as const).some((k) => (drops[k]?.drive_failed ?? 0) > 0);
 
 export async function getSearchById(sb: SupabaseClient, id: string): Promise<StoredSearch | null> {
   const { data, error } = await sb.from("destination_searches").select(SEARCH_COLUMNS).eq("id", id).maybeSingle<SearchRow>();
@@ -152,6 +178,10 @@ export type NewSearch = {
   origins: string[];
   maxFlightHours: number | null;
   radiusKm: number | null;
+  travelMode: "flight" | "drive";
+  maxDriveHours: number | null;
+  /** Drive mode: snapshot of the start, so "Show others" uses the same one even if the profile home changes. */
+  home: { name: string; lat: number; lon: number } | null;
   inputHash: string;
   input: IdeaInput;
   model: string;
@@ -166,6 +196,11 @@ const startedColumns = (n: NewSearch, now: number) => ({
   origins: n.origins,
   max_flight_hours: n.maxFlightHours,
   radius_km: n.radiusKm,
+  travel_mode: n.travelMode,
+  max_drive_hours: n.maxDriveHours,
+  home_name: n.home?.name.slice(0, 120) ?? null,
+  home_lat: n.home?.lat ?? null,
+  home_lon: n.home?.lon ?? null,
   input: n.input,
   model: n.model,
   status: "running" as const,

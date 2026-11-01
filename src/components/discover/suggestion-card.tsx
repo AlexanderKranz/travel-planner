@@ -5,9 +5,9 @@ import { btnPrimary, btnSecondary, labelCls, linkCls, mutedCls, pillAccentCls } 
 import { Link } from "@/i18n/navigation";
 import type { SuggestionCard } from "@/lib/domain/destination-search";
 import { SOURCES } from "@/lib/facts/sources";
-import { climateSummary, flightHours } from "./helpers";
+import { climateSummary, driveHours, flightHours } from "./helpers";
 
-type SourceKey = "geonames" | "open_meteo" | "osm";
+type SourceKey = "geonames" | "open_meteo" | "osm" | "openrouteservice";
 
 /** "Source: X · checked 1 Nov 2026" for one verified fact. Every checked line carries one. */
 function Source({ source, fetchedAt, stale }: { source: SourceKey; fetchedAt: string; stale: boolean }) {
@@ -45,9 +45,12 @@ export function SuggestionCardView({
   card,
   searchId,
   tripId,
+  driveFrom,
 }: {
   card: SuggestionCard;
   searchId: string;
+  /** Drive searches: the start place the drive was measured from. */
+  driveFrom?: string | null;
   /** Id of a trip already made from this card, if any. */
   tripId: string | null;
 }) {
@@ -79,6 +82,20 @@ export function SuggestionCardView({
             {t("place", { place })}
             <Source {...card.place} />
           </li>
+          {card.drive && (
+            <li>
+              <span className="font-medium">
+                {card.drive.min < 30
+                  ? t("driveUnder30", { place: driveFrom ?? "", km: f.number(card.drive.km, { maximumFractionDigits: 0 }) })
+                  : t("driveFacts", {
+                      hours: f.number(driveHours(card.drive.min), { maximumFractionDigits: 1 }),
+                      place: driveFrom ?? "",
+                      km: f.number(card.drive.km, { maximumFractionDigits: 0 }),
+                    })}
+              </span>
+              <Source source={card.drive.source} fetchedAt={card.drive.fetchedAt} stale={card.drive.stale} />
+            </li>
+          )}
           {climate?.status === "ok" && sum && (
             <li>
               <span className="font-medium">
@@ -107,6 +124,7 @@ export function SuggestionCardView({
         </ul>
       </Block>
 
+      {!card.drive && (
       <Block title={t("estimate")} labelledBy={`${base}-estimate`}>
         {card.flight ? (
           <p className="text-sm">
@@ -120,6 +138,7 @@ export function SuggestionCardView({
           <p className={`text-sm ${mutedCls}`}>{card.nearAirport ? t("closeToAirport") : t("noEstimate")}</p>
         )}
       </Block>
+      )}
 
       {card.reason && (
         <Block title={t("suggestion")} labelledBy={`${base}-reason`}>

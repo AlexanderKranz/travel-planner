@@ -19,21 +19,28 @@ export type IdeaInput = {
     summary?: string;
   };
   months?: number[]; // 1..12, up to 3
-  from?: string[]; // airport cities, e.g. ["Frankfurt am Main"]
+  from?: string[]; // where the trip starts: airport cities, e.g. ["Frankfurt am Main"], or the home place (drive)
   /** Airport codes. In the cache hash only (LHR and LGW both say "London"); never sent to the model. */
   fromIata?: string[];
+  /** "drive": the group goes by car from `from`. Absent in flight searches (their input stays unchanged). */
+  travel?: "drive";
+  /** "50.11,8.68": the start place at ~1 km. In the cache hash only (two towns named Neustadt); never sent to the model. */
+  homeCell?: string;
   radiusKm?: number; // hint only
   group?: { adults: number; children: number; toddlers: number };
   count: 8;
   exclude?: string[]; // anchors of round 1, "Show others" only
 };
 
-/** A flight limit never reaches the model as a task: code applies it as a radius. */
+/** A flight or drive limit never reaches the model as a task: code applies it as a radius. */
 const FLIGHT_WORD = /flug|flieg|flight|fly|airline|airport|in the air|anreise/i;
+/** "4 Stunden Autofahrt", "max. 3 h Fahrt", "4 h drive": a drive limit. "Scenic drives" and "Fahrradtour" stay. */
+const DRIVE_LIMIT =
+  /\d[\d.,]*[\s-]*(?:h|std\.?|stunden?|hours?|hrs?|min(?:uten|utes?)?)[\s-]*(?:(?:auto|pkw)[\s-]*)?(?:fahrt|fahrzeit|drive|driving|by car|mit dem auto|im auto)(?![\p{L}])/iu;
 /** "weniger als 1500 km entfernt", "within 3 hours", "unter 2 Stunden Fahrt": a distance or travel time limit. */
 const TRAVEL_LIMIT =
   /(?:weniger als|unter|max(?:imal|\.)?|h[öo]chstens|bis zu|innerhalb|nicht (?:mehr|weiter|l[äa]nger) als|within|under|less than|up to|at most|no more than|not more than)\s*\d[\d.,]*\s*(?:km|kilometer|meilen|miles?|mi\b|h\b|std|stunden?|hours?|hrs?|min)|\d[\d.,]*\s*(?:km|kilometer|meilen|miles?)\s*(?:entfernt|weit|away|radius|from)/i;
-export const mentionsFlight = (s: string): boolean => parseMaxFlightHours(s) !== null || FLIGHT_WORD.test(s) || TRAVEL_LIMIT.test(s);
+export const mentionsFlight = (s: string): boolean => parseMaxFlightHours(s) !== null || FLIGHT_WORD.test(s) || TRAVEL_LIMIT.test(s) || DRIVE_LIMIT.test(s);
 
 /** Sentences of a free text without the ones that mention a flight. */
 export function withoutFlightSentences(text: string): string {
@@ -106,8 +113,10 @@ export type IdeaInputSource = {
   months: readonly number[];
   /** Origin IATA codes (airports that exist). */
   origins: readonly string[];
-  /** Radius of the active flight limit; undefined = no limit. */
+  /** Radius of the active flight limit (or the drive hint); undefined = no limit. */
   radiusKm?: number;
+  /** Drive search: the start place instead of airports (`origins` is empty then). */
+  drive?: { homeName: string; homeCell: string };
   group: GroupSource | null;
   profileBirthdate: string | null;
   today: string;
@@ -129,8 +138,12 @@ export function buildIdeaInput(s: IdeaInputSource): IdeaInput {
     lang: s.lang,
     purpose: purposePart(s.purpose),
     ...(months.length ? { months } : {}),
-    ...(from.length ? { from, fromIata } : {}),
-    ...(s.radiusKm !== undefined && from.length ? { radiusKm: s.radiusKm } : {}),
+    ...(s.drive
+      ? { from: [s.drive.homeName], travel: "drive" as const, homeCell: s.drive.homeCell, ...(s.radiusKm !== undefined ? { radiusKm: s.radiusKm } : {}) }
+      : {
+          ...(from.length ? { from, fromIata } : {}),
+          ...(s.radiusKm !== undefined && from.length ? { radiusKm: s.radiusKm } : {}),
+        }),
     ...(group ? { group } : {}),
     count: 8,
     ...(s.exclude?.length ? { exclude: [...s.exclude] } : {}),

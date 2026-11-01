@@ -6,14 +6,18 @@ import type { GeoPlace } from "@/lib/domain/geo";
 import type { InterestKey } from "@/lib/domain/interests";
 import { DEFAULT_RADIUS_KM } from "@/lib/domain/trip";
 import { climateMean, passesAllClimate } from "@/lib/discover/climate-rules";
+import { assessDrive } from "@/lib/discover/drive";
 import { assessFlight } from "@/lib/discover/flight";
 import { isDuplicate, kindOf, pickAnchorPlace } from "@/lib/discover/names";
 import { cleanReason } from "@/lib/discover/reason";
 import { selectSearchInterests, VERIFIABILITY } from "@/lib/discover/verifiability";
+import { driveMaxMin } from "@/lib/drive/estimate";
 import { CLIMATE_PERIOD } from "@/lib/facts/climate";
+import type { DriveRoute } from "@/lib/integrations/openrouteservice";
 import { getPlaceById, searchPlacesCached } from "@/lib/integrations/open-meteo-geocoding";
 import type { CachedResult } from "../api-cache";
 import type { Idea } from "../ai/destination-ideas";
+import { getDriveRoute } from "../facts/drive-route";
 import { getClimateAt } from "../facts/weather";
 import { getPlacesAt } from "../facts/places";
 
@@ -22,6 +26,8 @@ export const VERIFY_BUDGET_MS = 45_000;
 /** Cold climate lookups per search: Open-Meteo's per-minute limit (spec [D9]). */
 export const MAX_CLIMATE_MISSES = 5;
 export const VERIFY_CONCURRENCY = 2;
+/** Drive mode: this many failed lookups in a row stop the search, even after an earlier success (each costs up to 20 s). */
+export const DRIVE_MAX_CONSECUTIVE_FAILURES = 3;
 
 /** The external lookups, injectable for tests. Every default goes through `cached()` and so reaches `api_calls`. */
 export type VerifyDeps = {
@@ -34,6 +40,12 @@ export type VerifyDeps = {
     ctx: FactsCtx,
     networkAllowed: boolean,
   ) => Promise<{ radiusKm: number; result: CachedResult<PlaceCandidate[]> } | null>;
+  /** One ferry-free road route from the start to a place (cached per place pair). A failure is `ok: false`, never "no road". */
+  driveRoute: (
+    origin: { lat: number; lon: number },
+    place: { geoId: number; lat: number; lon: number },
+    ctx: FactsCtx,
+  ) => Promise<CachedResult<DriveRoute>>;
   /** A place by id in the user's language (cached 365 days); null on any failure, the English name is used then. */
   placeById: (geoId: number, lang: "de" | "en") => Promise<GeoPlace | null>;
   now: () => number;
@@ -43,6 +55,7 @@ export const defaultVerifyDeps: VerifyDeps = {
   geocode: (anchor, lang, userId) => searchPlacesCached(anchor, lang, { userId }),
   climate: (point, ctx, fetchAllowed) => getClimateAt(point, ctx, { fetchAllowed }),
   pois: (interest, point, baseRadiusKm, ctx, networkAllowed) => getPlacesAt(interest, point, baseRadiusKm, ctx, { networkAllowed }),
+  driveRoute: (origin, place, ctx) => getDriveRoute(origin, place, ctx),
   placeById: async (geoId, lang) => {
     try {
       return await getPlaceById(geoId, lang);
@@ -90,8 +103,10 @@ export type VerifyInput = {
   months: number[];
   /** Origin airports (at most 2); empty = no estimate and no radius. */
   origins: string[];
-  /** Active flight limit in hours; null = no radius filter. */
+  /** Active flight limit in hours; null = no radius filter. Null in drive mode. */
   maxHours: number | null;
+  /** Drive mode: the start and the limit. Absent = flight mode. Every card then carries a verified drive (D10). */
+  drive?: { home: { lat: number; lon: number }; maxHours: number };
   /** All interest keys of the purpose; at most 2 are searched. */
   interests: InterestKey[];
   /** Cards of an earlier round: their places are not proposed again. */
@@ -105,9 +120,15 @@ export type VerifyOutcome = {
   reasonsRemoved: number;
   /** Every geocoding lookup failed: nothing can be verified, nothing may be shown. */
   geocodeDown: boolean;
+  /** Drive mode: ORS failed twice with no success yet. Nothing was verified, nothing may be shown (D10). */
+  driveDown: boolean;
   /** Why verification ended early; null = every idea was handled or 5 cards were found. */
   stoppedBy: "time" | "climate_cap" | null;
   climateMisses: number;
+  /** Drive mode: ORS lookups started (cache hits included), for the event. */
+  driveLookups: number;
+  /** Drive mode: anchors of ideas whose drive was never verified (a failed or skipped lookup). "Show others" may propose them again. */
+  uncheckedAnchors: string[];
 };
 
 type Resolved = { idea: Idea; place: GeoPlace; fetchedAt: string; stale: boolean; flight: ReturnType<typeof flightOf> };
@@ -115,8 +136,8 @@ const flightOf = (a: ReturnType<typeof assessFlight>) => (a.pass ? { flight: a.f
 
 /**
  * Verifies the ideas, cheapest step first (spec section 5). Only a real negative result drops a card; a provider
- * failure shows "not checked" and the card stays. The one exception is geocoding: without it nothing can be shown.
- * No AeroDataBox call, no Overpass network query.
+ * failure shows "not checked" and the card stays. The exceptions are geocoding and, in drive mode, the drive itself:
+ * without them nothing can be shown (spec find-destinations-drive [D10]). No AeroDataBox call, no Overpass network query.
  */
 export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVerifyDeps): Promise<VerifyOutcome> {
   const drops: DropCounts = {};
@@ -138,20 +159,25 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
   );
   const geocodeDown = lookups.length > 0 && lookups.every((l) => l.failed);
   if (geocodeDown) {
-    return { cards: [], drops, reasonsRemoved: 0, geocodeDown: true, stoppedBy: null, climateMisses: 0 };
+    return { cards: [], drops, reasonsRemoved: 0, geocodeDown: true, driveDown: false, stoppedBy: null, climateMisses: 0, driveLookups: 0, uncheckedAnchors: [] };
   }
 
   const survivors: Resolved[] = [];
+  const geocodeUnchecked: string[] = [];
   for (const l of lookups) {
     if (l.failed) {
       bump("geocode_failed"); // a provider failure for this one idea: it cannot be shown, but it is not "not found"
+      if (i.drive) geocodeUnchecked.push(l.idea.anchor); // never checked: "Show others" may propose it again
       continue;
     }
     if (!l.place) {
       bump("not_found");
       continue;
     }
-    const assessed = assessFlight(l.place, { origins: i.origins, maxHours: i.maxHours });
+    // Drive mode: only the straight-line cutoff here (no network); ORS decides in `verifyOne`.
+    const assessed = i.drive
+      ? assessDrive(l.place, i.drive.home, i.drive.maxHours)
+      : assessFlight(l.place, { origins: i.origins, maxHours: i.maxHours });
     if (!assessed.pass) {
       bump("too_far");
       continue;
@@ -160,7 +186,7 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
       bump("duplicate");
       continue;
     }
-    survivors.push({ idea: l.idea, place: l.place, fetchedAt: l.fetchedAt, stale: l.stale, flight: flightOf(assessed) });
+    survivors.push({ idea: l.idea, place: l.place, fetchedAt: l.fetchedAt, stale: l.stale, flight: i.drive ? null : flightOf(assessed as ReturnType<typeof assessFlight>) });
   }
 
   // Steps 3 and 4 in idea order, two at a time, until 5 cards or the time budget.
@@ -175,10 +201,36 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
     return true;
   };
 
+  /** Drive lookups: two failures with no success yet mean ORS is down, so asking more only burns requests. */
+  let driveLookups = 0;
+  let driveFailures = 0;
+  let driveSuccesses = 0;
+  let driveConsecutiveFailures = 0;
+  const uncheckedAnchors: string[] = [...geocodeUnchecked];
+  const driveDown = () => driveSuccesses === 0 && driveFailures >= 2;
+  const driveStopped = () => driveDown() || driveConsecutiveFailures >= DRIVE_MAX_CONSECUTIVE_FAILURES;
+
   const built: { index: number; card: SuggestionCard }[] = [];
   let next = 0;
 
   async function verifyOne(s: Resolved): Promise<SuggestionCard | DropReason | "skipped"> {
+    // First step in drive mode, before climate: a place out of range must not use one of the climate misses (D9).
+    let drive: SuggestionCard["drive"] = null;
+    if (i.drive) {
+      driveLookups += 1;
+      const res = await deps.driveRoute(i.drive.home, s.place, ctx);
+      if (!res.ok) {
+        driveFailures += 1;
+        driveConsecutiveFailures += 1;
+        uncheckedAnchors.push(s.idea.anchor);
+        return "drive_failed"; // a provider failure, never a real negative; the pipeline stops if all fail
+      }
+      driveSuccesses += 1;
+      driveConsecutiveFailures = 0;
+      if (!res.data.road) return "no_road";
+      if (res.data.min > driveMaxMin(i.drive.maxHours)) return "too_far";
+      drive = { min: res.data.min, km: res.data.km, source: "openrouteservice", fetchedAt: res.fetchedAt, stale: res.stale };
+    }
     let climate: SuggestionCard["climate"] = null;
     if (i.months.length > 0) {
       let refused = false;
@@ -237,13 +289,14 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
       place: { source: "geonames", fetchedAt: s.fetchedAt, stale: s.stale },
       flight: s.flight?.flight ?? null,
       nearAirport: s.flight?.nearAirport ?? false,
+      ...(drive ? { drive } : {}),
       climate,
       pois: pois.filter((p): p is Exclude<typeof p, "no_poi"> => p !== "no_poi"),
     };
   }
 
   async function worker() {
-    while (next < survivors.length && built.length < MAX_CARDS_PER_ROUND && !timeUp) {
+    while (next < survivors.length && built.length < MAX_CARDS_PER_ROUND && !timeUp && !driveStopped()) {
       if (deps.now() >= deadline) {
         timeUp = true;
         stoppedBy = "time";
@@ -262,5 +315,14 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
     .sort((a, b) => a.index - b.index)
     .slice(0, MAX_CARDS_PER_ROUND)
     .map((b) => b.card);
-  return { cards, drops, reasonsRemoved, geocodeDown: false, stoppedBy, climateMisses: misses };
+  // Survivors no lookup reached (5 cards found, time up, or the lookups were stopped) were never checked: "Show others"
+  // may propose them again. They count as drive_failed only when too many lookups failed.
+  if (i.drive) {
+    for (const s of survivors.slice(next)) {
+      uncheckedAnchors.push(s.idea.anchor);
+      if (driveStopped() && !driveDown()) bump("drive_failed");
+    }
+  }
+  if (driveDown()) return { cards: [], drops, reasonsRemoved: 0, geocodeDown: false, driveDown: true, stoppedBy: null, climateMisses: misses, driveLookups, uncheckedAnchors };
+  return { cards, drops, reasonsRemoved, geocodeDown: false, driveDown: false, stoppedBy, climateMisses: misses, driveLookups, uncheckedAnchors };
 }

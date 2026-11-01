@@ -26,6 +26,8 @@ export const STATUS: Record<ActionError, number> = {
   places_pending: 503,
   search_limit: 429,
   places_unavailable: 502,
+  drive_unavailable: 503,
+  home_required: 422,
   forbidden: 403,
   protected: 403,
   already_member: 409,

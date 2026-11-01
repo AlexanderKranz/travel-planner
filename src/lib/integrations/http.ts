@@ -7,10 +7,13 @@ import "server-only";
 
 export class HttpError extends Error {
   readonly status: number;
-  constructor(status: number, message?: string) {
+  /** Parsed JSON body of the error response, when there was one (ORS reports "no route" as an error body). */
+  readonly body: unknown;
+  constructor(status: number, message?: string, body?: unknown) {
     super(message ?? `HTTP ${status}`);
     this.name = "HttpError";
     this.status = status;
+    this.body = body;
   }
 }
 
@@ -50,7 +53,15 @@ async function run(url: string, init: RequestInit, timeoutMs: number): Promise<H
   }
   const text = await res.text();
   const latencyMs = Date.now() - started;
-  if (!res.ok) throw new HttpError(res.status);
+  if (!res.ok) {
+    let errorBody: unknown;
+    try {
+      errorBody = JSON.parse(text);
+    } catch {
+      errorBody = undefined;
+    }
+    throw new HttpError(res.status, undefined, errorBody);
+  }
   let body: unknown;
   try {
     body = JSON.parse(text);

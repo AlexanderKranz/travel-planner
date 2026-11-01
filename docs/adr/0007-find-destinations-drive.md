@@ -17,5 +17,5 @@ Without airports a destination search has no distance filter, so places within d
 - Ferry-only islands disappear from drive results, and Britain and Ireland probably do too. Bridged islands pass.
 - `IDEAS_PROMPT_VERSION` moves to `ideas-3`, so each same-input flight search misses the cache once. Saved lists stay valid.
 - Users with a saved home pick it once more before their first drive search.
-- The ORS Directions request and its "no route" error are unverified until the spike, because the ORS docs were down when the client was written.
+- The ORS Directions request and its "no route" error (HTTP 404, code 2009) were verified live on 2026-11-01, see the spike result in the spec. The matrix endpoint cannot exclude ferries for a batch with an unreachable pair (error 6020), so Directions stays. Directions reports a daily limit of 200, lower than the default 400 of the shared cap.
 - Drive times exclude traffic and breaks, and the UI says so.

@@ -9,17 +9,22 @@ import {
   type DropCounts,
 } from "@/lib/domain/destination-search";
 import type { TripPurpose } from "@/lib/domain/purpose";
+import { hasHomeCoords } from "@/lib/domain/profile";
 import { zodIssues, type ActionError } from "@/lib/domain/result";
 import { ideasInputHash } from "@/lib/discover/hash";
 import { buildIdeaInput, type IdeaInput } from "@/lib/discover/input";
 import { interestKeysOf } from "@/lib/discover/verifiability";
+import { driveHintRadiusKm, homeCell } from "@/lib/drive/estimate";
 import { maxBlockMinutes } from "@/lib/flights/constraint";
 import { flightRadiusKm, MAX_ORIGINS } from "@/lib/flights/estimate";
 import type { GroupSource } from "@/lib/group-text";
+import { placeLabel } from "@/lib/geocode-client";
 import { isKnownIata } from "@/lib/integrations/airports";
+import { getPlaceById } from "@/lib/integrations/open-meteo-geocoding";
 import { berlinMidnight, budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage, userCapMicroUsd, type BudgetInfo, type Role } from "../ai-usage";
 import { proposeIdeas } from "../ai/destination-ideas";
 import { logEvent } from "../events";
+import { orsRequestsLeft } from "../facts/ors-quota";
 import { getGroup } from "../groups";
 import { getProfile } from "../profile";
 import { tagAndSave, wantsTags } from "../purpose-tagging";
@@ -45,6 +50,10 @@ import { verifyIdeas } from "./verify";
 /** Budget held back for one Haiku ideas call, in micro-USD (est. $0.0004; spec section 9). */
 export const RESERVE_IDEAS = 20_000;
 const RESERVE_TAGS = 2_000;
+/** ORS requests one cold drive round may need (at most 8: 5 cards plus the places that drop; spec section 5). */
+export const DRIVE_ROUND_REQUESTS = 8;
+/** ORS requests kept for plans (drive times of a plan are a matrix call): a drive search never uses the last 50. */
+export const ORS_PLAN_RESERVE = 50;
 /** Real runs per Berlin day, counted from ai_usage (spec [D14]). */
 export const DAILY_RUNS = { user: 10, admin: 30, demo: 5 } as const;
 /** One real run per minute and user protects Open-Meteo's per-minute limit. */
@@ -66,6 +75,8 @@ type Ctx = {
   locale: "de" | "en";
   birthdate: string | null;
   homeAirports: string[];
+  /** The profile home with coordinates, or null (none, or saved before drive searches existed). */
+  home: { name: string; geoId: number; lat: number; lon: number } | null;
 };
 
 async function loadCtx(): Promise<{ ok: true; ctx: Ctx } | SearchError> {
@@ -85,6 +96,7 @@ async function loadCtx(): Promise<{ ok: true; ctx: Ctx } | SearchError> {
       locale: p.locale,
       birthdate: p.birthdate,
       homeAirports: p.homeAirports,
+      home: hasHomeCoords(p) ? { name: p.homeLocation!, geoId: p.homeGeoId!, lat: p.homeLat!, lon: p.homeLon! } : null,
     },
   };
 }
@@ -99,7 +111,10 @@ export function toView(s: StoredSearch, aiEnabled: boolean, cached = false): Des
     locale: s.locale,
     months: s.months,
     origins: s.origins,
+    travelMode: s.travelMode,
     maxFlightHours: s.maxFlightHours,
+    maxDriveHours: s.maxDriveHours,
+    homeName: s.homeName,
     radiusKm: s.radiusKm,
     status: s.status,
     rounds: s.rounds,
@@ -149,6 +164,42 @@ async function checkBudget(c: Ctx, reserve: number): Promise<SearchError | null>
   return budgetAllows(info, reserve) ? null : err("budget_exceeded", { resetAt: info.resetsAt });
 }
 
+/**
+ * The ORS gate of a drive search, right before the first LLM call (spec section 7): the key is set and one cold round
+ * plus the plan reserve fit into today's cap. Otherwise no Haiku call is spent on a search that cannot be verified.
+ * An unreadable count fails closed.
+ */
+async function gateDrive(): Promise<SearchError | null> {
+  if (!process.env.OPENROUTESERVICE_API_KEY?.trim()) return err("drive_unavailable");
+  return (await orsRequestsLeft()) >= DRIVE_ROUND_REQUESTS + ORS_PLAN_RESERVE ? null : err("drive_unavailable");
+}
+
+type Start = { name: string; lat: number; lon: number };
+
+/**
+ * Start place of a drive search: the one picked in the form (resolved here from its id, never from the browser) or the
+ * profile home. Saving it as the profile home is best effort and never fails the search.
+ */
+async function resolveStart(c: Ctx, input: { homeGeoId?: number; saveHome: boolean }): Promise<{ ok: true; start: Start } | SearchError> {
+  if (input.homeGeoId === undefined) return c.home ? { ok: true, start: c.home } : err("home_required");
+  let place;
+  try {
+    place = await getPlaceById(input.homeGeoId, c.locale);
+  } catch {
+    return err("places_unavailable");
+  }
+  if (!place) return err("places_unavailable");
+  const start = { name: placeLabel(place, c.locale).slice(0, 120), lat: place.lat, lon: place.lon };
+  if (input.saveHome && place.timezone) {
+    const { error } = await c.sb
+      .from("profiles")
+      .update({ home_location: start.name, home_timezone: place.timezone, home_geo_id: place.geoId, home_lat: place.lat, home_lon: place.lon })
+      .eq("id", c.userId);
+    if (error) await logEvent({ event: "destination.search_failed", level: "warn", userId: c.userId, props: { reason: "save_home" } });
+  }
+  return { ok: true, start };
+}
+
 function makeAiCtx(c: Ctx) {
   let cost = 0;
   const ctx: AiCtx = {
@@ -168,10 +219,12 @@ const dropDetail = (d: DropCounts) =>
 
 /** Defaults of spec section 2: airports = first two of the profile, limit = the purpose's. A limit without airports is ignored. */
 export function resolveSearchParams(
-  input: { origins?: string[]; maxFlightHours?: number | null },
+  input: { travelMode?: "flight" | "drive"; origins?: string[]; maxFlightHours?: number | null },
   purpose: TripPurpose,
   homeAirports: readonly string[],
 ): { ok: true; origins: string[]; maxHours: number | null } | { ok: false; error: "unknown_airport" } {
+  // Drive mode: no airports and no flight limit, whatever the profile or the purpose says.
+  if (input.travelMode === "drive") return { ok: true, origins: [], maxHours: null };
   const requested = input.origins ?? homeAirports.slice(0, MAX_ORIGINS);
   const origins = [...new Set(requested.map((o) => o.toUpperCase()))].slice(0, MAX_ORIGINS);
   if (origins.some((o) => !isKnownIata(o))) return { ok: false, error: "unknown_airport" };
@@ -205,7 +258,15 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
   const params = resolveSearchParams(input, purpose, c.homeAirports);
   if (!params.ok) return err(params.error);
   const months = [...new Set(input.months)].sort((a, b) => a - b);
-  const radiusKm = params.maxHours !== null ? flightRadiusKm(params.maxHours) : null;
+  const isDrive = input.travelMode === "drive";
+  let start: Start | null = null;
+  if (isDrive) {
+    const s = await resolveStart(c, input);
+    if (!s.ok) return s;
+    start = s.start;
+  }
+  const maxDriveHours = isDrive ? input.maxDriveHours! : null; // the schema requires it in drive mode
+  const radiusKm = isDrive ? driveHintRadiusKm(maxDriveHours!) : params.maxHours !== null ? flightRadiusKm(params.maxHours) : null;
   const aiEnabled = isAiEnabled(await getEffectiveEnv());
 
   const build = (p: TripPurpose): { input: IdeaInput; hash: string } => {
@@ -215,6 +276,7 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
       months,
       origins: params.origins,
       radiusKm: radiusKm ?? undefined,
+      ...(start ? { drive: { homeName: start.name, homeCell: homeCell(start) } } : {}),
       group,
       profileBirthdate: c.birthdate,
       today: berlinToday(),
@@ -241,6 +303,10 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
     const needTags = wantsTags(purpose);
     const blocked = await checkBudget(c, RESERVE_IDEAS + (needTags ? RESERVE_TAGS : 0));
     if (blocked) return blocked;
+    if (isDrive) {
+      const noDrive = await gateDrive(); // before any Haiku call, tags included
+      if (noDrive) return noDrive;
+    }
 
     const ai = makeAiCtx(c);
     if (needTags) {
@@ -266,6 +332,9 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
         origins: params.origins,
         maxFlightHours: params.maxHours,
         radiusKm,
+        travelMode: input.travelMode,
+        maxDriveHours,
+        home: start,
         inputHash: built.hash,
         input: built.input,
         model: MODEL_IDEAS,
@@ -301,6 +370,10 @@ export async function showOtherDestinations(id: string): Promise<SearchResult> {
     if (gated) return gated;
     const blocked = await checkBudget(c, RESERVE_IDEAS);
     if (blocked) return blocked;
+    if (row.travelMode === "drive") {
+      const noDrive = await gateDrive();
+      if (noDrive) return noDrive;
+    }
     const claim = await claimRound2(c.sb, id);
     if (!claim.ok) return err(claim.reason === "busy" ? "busy" : "conflict");
     takeRunSlot(c);
@@ -356,15 +429,23 @@ async function executeRound(
           months: claimed.months,
           origins: claimed.origins,
           maxHours: claimed.maxFlightHours,
+          // Drive mode uses the start saved on the row, so round 2 is unchanged by a new profile home.
+          ...(claimed.travelMode === "drive" && claimed.maxDriveHours !== null && claimed.homeLat !== null && claimed.homeLon !== null
+            ? { drive: { home: { lat: claimed.homeLat, lon: claimed.homeLon }, maxHours: claimed.maxDriveHours } }
+            : {}),
           interests: interestKeysOf(ideaInput.purpose.interests),
           existing: previous?.cards ?? [],
         })
-      : { cards: [], drops: {} as DropCounts, reasonsRemoved: 0, geocodeDown: false, stoppedBy: null, climateMisses: 0 };
+      : { cards: [], drops: {} as DropCounts, reasonsRemoved: 0, geocodeDown: false, driveDown: false, stoppedBy: null, climateMisses: 0, driveLookups: 0, uncheckedAnchors: [] };
     // Geocoding down: nothing was verified, so nothing may be shown (spec section 9).
     if (out.geocodeDown) return await giveUp("places_unavailable", "geocoding_down");
+    // Drive mode: ORS failed on the first two places, so no drive can be verified (D10, same exception as geocoding).
+    if (out.driveDown) return await giveUp("drive_unavailable", "drive_down");
 
     // The anchors of every idea (also dropped ones) are what "Show others" must not propose again.
-    const exclude = [...new Set([...(ideaInput.exclude ?? []), ...ideas.map((i) => i.anchor)])];
+    // Places whose drive was never verified are not excluded: "Show others" may propose them again.
+    const unchecked = new Set(out.uncheckedAnchors ?? []);
+    const exclude = [...new Set([...(ideaInput.exclude ?? []), ...ideas.map((i) => i.anchor).filter((a) => !unchecked.has(a))])];
     const saved = await finishRound(c.sb, claimed.id, {
       round,
       cards: out.cards,
@@ -388,6 +469,8 @@ async function executeRound(
         reasonsRemoved: out.reasonsRemoved,
         climateMisses: out.climateMisses,
         stoppedBy: out.stoppedBy,
+        travelMode: claimed.travelMode,
+        driveLookups: out.driveLookups,
       },
     });
     return { ok: true, data: toView(saved, true) }; // the AI gate passed for this run

@@ -28,7 +28,7 @@ describe("getSetting precedence", () => {
     invalidateSettingsCache();
     select.mockResolvedValue({ data: [{ key: "ai_user_daily_usd", value: 1.5 }], error: null });
     expect(await getSetting("ai_user_daily_usd")).toMatchObject({ value: 1.5, source: "admin" });
-    expect(await getSetting("ors_daily_requests")).toMatchObject({ value: 400, source: "default" });
+    expect(await getSetting("ors_daily_requests")).toMatchObject({ value: 200, source: "default" });
   });
 
   it("env AI_ENABLED=false is a hard off, the DB cannot turn it on", async () => {

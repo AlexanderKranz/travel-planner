@@ -67,7 +67,7 @@ export const roundedFlightMin = (min: number) => Math.round(min / 30) * 30;
 
 ## 4. LLM call **[D3]** **[D4]**
 
-Task `destination_ideas`, `src/lib/server/ai/destination-ideas.ts`, through `callStructured`. System block `IDEAS_RULES` (cached), prompt version `IDEAS_PROMPT_VERSION = "ideas-2"`, `effort: "low"`, `maxTokens: 1500`, thinking off (with thinking on, 2 of 3 live golf searches used the whole budget on thinking and failed; off, 8 of 8 passed at about 670 tokens). Model constant `MODEL_IDEAS`, default `claude-haiku-5-5` until the section 10 eval decides.
+Task `destination_ideas`, `src/lib/server/ai/destination-ideas.ts`, through `callStructured`. System block `IDEAS_RULES` (cached), prompt version `IDEAS_PROMPT_VERSION = "ideas-3"` (ideas-2 until the drive option, `docs/specs/find-destinations-drive.md`), `effort: "low"`, `maxTokens: 1500`, thinking off (with thinking on, 2 of 3 live golf searches used the whole budget on thinking and failed; off, 8 of 8 passed at about 670 tokens). Model constant `MODEL_IDEAS`, default `claude-haiku-5-5` until the section 10 eval decides.
 
 ```ts
 // Input: canonicalJson, no timestamps

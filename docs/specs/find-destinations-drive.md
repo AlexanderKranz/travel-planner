@@ -131,6 +131,25 @@ type DriveRoute = { road: true; min: number; km: number } | { road: false };
 | S6 | Matrix with `options.avoid_features` | Accepted and honoured, or refused |
 | S7 | 2 or 3 further pairs | Times fit the constants in section 4 |
 
+**Spike result (2026-11-01, 7 calls to the live API, ORS engine 9.10.0, key valid).** The first run returned 403 for every call because the script cut the key at its own `=`; the repeat below is the real result. Recorded bodies: `src/lib/integrations/__fixtures__/openrouteservice/`.
+
+| # | Result |
+|---|---|
+| S1 | Frankfurt to Marbella: HTTP 200, 1314 min, 2343 km. No server distance limit with `avoid_features`. |
+| S2 | Marbella to Palma: HTTP 404, `error.code` **2009** ("Route could not be found"). This is the `no_road` code. Answered in 0.16 s. |
+| S3 | Hamburg to Copenhagen: HTTP 200, 284 min, 472 km, a road route (the Puttgarden ferry is not used). |
+| S4 | Frankfurt to London: HTTP 404, code 2009. The Channel Tunnel is not routed, so Britain and Ireland drop as `no_road`, as expected. **It took 9.8 s**, against 0.1 to 0.2 s for every other call. |
+| S5 | Stralsund to Sassnitz: HTTP 200, 57 min, 52 km (Rügen has a bridge). |
+| S6 | Matrix with `options.avoid_features`: the option is accepted, but the request fails as a whole with HTTP 500, code 6020 ("Search exceeds the limit of visited nodes"), for a batch with an unreachable pair. A batch cannot be used, so Directions stays. |
+| S7 | Frankfurt to Munich 209 min, 392 km (straight line 87 km/h); Frankfurt to Marseille 551 min, 1007 km (86 km/h); Hamburg to Berlin 163 min, 288 km (94 km/h). |
+
+Consequences:
+- S1 works and S6 does not help, so the build is as written: one Directions request per place.
+- The constants fit: the fastest straight-line progress seen is 94 km/h (hint 90, cutoff 120). Hamburg to Copenhagen is 61 km/h because the ferry-free road goes around, which the cutoff tolerates.
+- Only code 2009 on HTTP 404 is `no_road`. Other errors (2010 "no routable point", 429, 5xx, timeout) are `drive_failed`.
+- **Deviation: the Directions timeout is 20 s, not the matrix's 10 s,** because a long no-route answer took 9.8 s (S4). At 10 s such a place would count as a failure, and two of them in a row stop the search with `drive_unavailable`.
+- **Quota differs from the spec's assumption.** The Directions response headers say `x-ratelimit-limit: 200` with a 24-hour window, not a bucket larger than the matrix's roughly 500. `ORS_DAILY_REQUESTS` (default 400) counts matrix and Directions calls together, so it can allow more Directions calls than ORS does. Over the real limit ORS answers 429, which is `drive_failed` and, after two in a row, `drive_unavailable`: the search degrades safely, but the gate before the LLM call may let a search start that cannot finish. The default of `ORS_DAILY_REQUESTS` is therefore 200. The gate (8 + 50 left) leaves 142 requests for searches and at least 50 for plans.
+
 Two outcomes change the build, and nothing else does:
 - **S6 works:** use one matrix request per round instead of Directions, with a `maxMin` parameter on `parseMatrix` (default 180) and the existing `driveCacheKey`. Everything else in this spec stays. `getDriveRoute` hides the difference from `verify.ts`. I do not expect this: as far as I remember, the matrix API has no such option.
 - **S1 fails:** drop `avoid_features` and request `extra_info: ["waytype"]`. A route with a ferry segment becomes `no_road`. Cost: a mainland place whose fastest route uses a ferry is dropped.
@@ -164,7 +183,7 @@ Drive cards have `flight: null`, `nearAirport: false`.
 | ORS | up to 8 requests, usually 5 or 6; a list with 2 rounds at most 16 |
 | Others | As FD D9, AeroDataBox still 0 |
 
-`assertOrsQuota` counts every ORS call in `api_calls`, so the Directions requests share `ORS_DAILY_REQUESTS` (default 400) with plans. It moves to a shared place and gains `orsRequestsLeft()`. The cap is deliberately kept as the one guard, although the Directions tier is a separate, larger bucket (limit to be confirmed in the spike).
+`assertOrsQuota` counts every ORS call in `api_calls`, so the Directions requests share `ORS_DAILY_REQUESTS` (default 200, the Directions limit measured in the spike) with plans. It moves to a shared place and gains `orsRequestsLeft()`. The cap is deliberately kept as the one guard. With the gate below, searches can use 142 of the 200 requests and plans keep at least 50.
 
 **New gate before the LLM call, rounds 1 and 2:** the key is set and `orsRequestsLeft() >= 8 + ORS_PLAN_RESERVE` (50). Otherwise `drive_unavailable`, so no Haiku call is spent on a search that cannot be verified. Plans keep a reserve, and an unreadable count fails closed.
 
@@ -174,6 +193,8 @@ Drive cards have `flight: null`, `nearAirport: false`.
 | Key missing, quota nearly used | `drive_unavailable` before the LLM call. Flight remains usable. |
 | ORS fails during verification (2 failures with no success yet) | Stop asking. `failed` with `drive_unavailable`, the same exception as geocoding in FD section 9. |
 | One place fails, others work | That place is not shown, counted `drive_failed` |
+| 3 failures in a row after an earlier success | Stop asking. The places not reached count as `drive_failed`; cards found so far stay. |
+| Any `drive_failed` in the list | The list is served for one hour only (not 30 days), so an identical search runs again. Anchors never checked stay out of the "Show others" exclusions. |
 | ORS down, cached value exists | `cached()` serves it with `stale: true`, and the card shows the stale pill |
 | All places drop | `done` with 0 cards, counts, "Show others" |
 

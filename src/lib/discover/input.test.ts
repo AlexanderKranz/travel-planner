@@ -163,7 +163,7 @@ describe("ideasInputHash (D6, E9)", () => {
     expect(ideasInputHash(buildIdeaInput(src({ purpose: purpose({ guided: { interests: ["beach"] } }) })))).not.toBe(base);
   });
   it("includes the prompt version and the model (changing either invalidates saved lists)", () => {
-    expect(IDEAS_PROMPT_VERSION).toBe("ideas-2");
+    expect(IDEAS_PROMPT_VERSION).toBe("ideas-3");
     expect(MODEL_IDEAS).toBe("claude-haiku-5-5");
   });
 });
@@ -184,5 +184,34 @@ describe("flight and distance limits never reach the model (review round)", () =
     const b = buildIdeaInput(src({ origins: ["LGW"] }));
     expect(a.from).toEqual(b.from);
     expect(ideasInputHash(a)).not.toBe(ideasInputHash(b));
+  });
+});
+
+describe("drive searches (find-destinations-drive section 4)", () => {
+  const drive = { homeName: "Frankfurt am Main, Hesse, Germany", homeCell: "50.11,8.68" };
+  it("from = the home place, travel = drive, the hint radius, a home cell, no airport codes", () => {
+    const i = buildIdeaInput(src({ origins: [], radiusKm: 360, drive }));
+    expect(i).toMatchObject({ from: ["Frankfurt am Main, Hesse, Germany"], travel: "drive", radiusKm: 360, homeCell: "50.11,8.68" });
+    expect(i.fromIata).toBeUndefined();
+  });
+  it("a flight input stays byte-identical: none of the new keys appear", () => {
+    const i = buildIdeaInput(src());
+    expect(Object.keys(i)).not.toContain("travel");
+    expect(Object.keys(i)).not.toContain("homeCell");
+    expect(JSON.stringify(i)).toBe(JSON.stringify(buildIdeaInput(src({ drive: undefined }))));
+  });
+  it("the hash differs by mode, limit (through the radius) and home cell", () => {
+    const d = (o: Partial<IdeaInputSource> = {}) => ideasInputHash(buildIdeaInput(src({ origins: [], radiusKm: 360, drive, ...o })));
+    const base = d();
+    expect(d({ radiusKm: 720 })).not.toBe(base);
+    expect(d({ drive: { ...drive, homeCell: "54.10,10.80" } })).not.toBe(base);
+    expect(ideasInputHash(buildIdeaInput(src({ origins: [], radiusKm: 360 })))).not.toBe(base); // no airports, no drive
+    expect(ideasInputHash(buildIdeaInput(src()))).not.toBe(base);
+  });
+  it("a drive limit in the purpose is stripped like a flight limit; scenic drives stay", () => {
+    for (const s of ["4 Stunden Autofahrt", "max. 3 h Fahrt", "4 h drive", "höchstens 2 Stunden Fahrzeit", "3 hours by car", "4-hour drive"]) expect(mentionsFlight(s)).toBe(true);
+    for (const s of ["scenic drives", "schöne Fahrten am Meer", "Fahrradtour", "Golf spielen, 4 Plätze"]) expect(mentionsFlight(s)).toBe(false);
+    const i = buildIdeaInput(src({ purpose: purpose({ constraints: ["4 Stunden Autofahrt", "scenic drives"] }) }));
+    expect(i.purpose.hard).toEqual(["scenic drives"]);
   });
 });

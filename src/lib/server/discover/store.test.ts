@@ -15,6 +15,7 @@ vi.mock("../supabase/admin", () => ({
 }));
 
 import {
+  DRIVE_GAP_RETRY_MS,
   claimRound1,
   claimRound2,
   countRunsToday,
@@ -62,6 +63,11 @@ const row = (o: Partial<SearchRow> = {}): SearchRow => ({
   origins: ["FRA"],
   max_flight_hours: "3.0",
   radius_km: 2128,
+  travel_mode: "flight",
+  max_drive_hours: null,
+  home_name: null,
+  home_lat: null,
+  home_lon: null,
   input_hash: "a".repeat(64),
   input: { v: 1, lang: "de" },
   status: "done",
@@ -85,6 +91,9 @@ const NEW: NewSearch = {
   origins: ["FRA"],
   maxFlightHours: 3,
   radiusKm: 2128,
+  travelMode: "flight",
+  maxDriveHours: null,
+  home: null,
   inputHash: "b".repeat(64),
   input: { v: 1, lang: "de", purpose: { interests: [], custom: [], hard: [], soft: [] }, count: 8 },
   model: "claude-haiku-5-5",
@@ -191,6 +200,66 @@ describe("claimRound1", () => {
   it("any other database error throws", async () => {
     const { sb } = fakeSb([{ error: null }, { data: null, error: { code: "XX000" } }]);
     await expect(claimRound1(sb, NEW, null, NOW)).rejects.toThrow();
+  });
+});
+
+describe("drive rows (find-destinations-drive section 8)", () => {
+  const DRIVE_NEW: NewSearch = { ...NEW, origins: [], maxFlightHours: null, radiusKm: 360, travelMode: "drive", maxDriveHours: 4, home: { name: "Frankfurt am Main, Hesse, Germany", lat: 50.11, lon: 8.68 } };
+  const driveRow = (o: Partial<SearchRow> = {}) =>
+    row({ origins: [], max_flight_hours: null, radius_km: 360, travel_mode: "drive", max_drive_hours: "4.0", home_name: "Frankfurt", home_lat: 50.11, home_lon: 8.68, ...o });
+
+  it("the new columns are inserted with the row, and written again when a row is reused (update grant)", async () => {
+    const a = fakeSb([{ error: null }, { data: driveRow(), error: null }]);
+    await claimRound1(a.sb, DRIVE_NEW, null, NOW);
+    const insert = a.calls[1].ops.find(([m]) => m === "insert")![1][0] as Record<string, unknown>;
+    expect(insert).toMatchObject({ travel_mode: "drive", max_drive_hours: 4, home_name: "Frankfurt am Main, Hesse, Germany", home_lat: 50.11, home_lon: 8.68, origins: [], max_flight_hours: null, radius_km: 360 });
+    const b = fakeSb([{ error: null }, { data: driveRow(), error: null }]);
+    await claimRound1(b.sb, DRIVE_NEW, "s1", NOW);
+    expect(b.calls[1].ops.find(([m]) => m === "update")![1][0]).toMatchObject({ travel_mode: "drive", max_drive_hours: 4, home_lat: 50.11 });
+  });
+
+  it("a flight claim writes null drive columns (the mode_shape check)", async () => {
+    const { sb, calls } = fakeSb([{ error: null }, { data: row(), error: null }]);
+    await claimRound1(sb, NEW, null, NOW);
+    expect(calls[1].ops.find(([m]) => m === "insert")![1][0]).toMatchObject({ travel_mode: "flight", max_drive_hours: null, home_name: null, home_lat: null, home_lon: null });
+  });
+
+  it("reads back: numeric hours as a number, the name in the view, the coordinates only on the server object", () => {
+    const s = rowToSearch(driveRow());
+    expect(s).toMatchObject({ travelMode: "drive", maxDriveHours: 4, homeName: "Frankfurt", homeLat: 50.11, homeLon: 8.68, maxFlightHours: null });
+  });
+
+  it("a row from before the migration (no drive columns) reads as a flight search", () => {
+    const legacy = row() as Partial<SearchRow>;
+    delete legacy.travel_mode;
+    delete legacy.max_drive_hours;
+    delete legacy.home_name;
+    delete legacy.home_lat;
+    delete legacy.home_lon;
+    expect(rowToSearch(legacy as SearchRow)).toMatchObject({ travelMode: "flight", maxDriveHours: null, homeName: null, homeLat: null, homeLon: null });
+  });
+
+  it("drive_unavailable reads back as itself, not as failed", () => {
+    expect(rowToSearch(driveRow({ status: "failed", error_code: "drive_unavailable" })).error).toBe("drive_unavailable");
+  });
+
+  it("saved flight cards without a drive key still load", () => {
+    const flightCard = { id: "g1", round: 1, name: "X", reason: null, kind: "city", geoId: 1, placeName: "X", countryCode: "ES", admin1: null, place: { source: "geonames", fetchedAt: "t", stale: false }, flight: null, nearAirport: false, climate: null, pois: [] };
+    expect(rowToSearch(row({ cards: [flightCard] })).cards).toHaveLength(1);
+  });
+});
+
+describe("isFresh with unverified drives", () => {
+  const at = (ms: number) => new Date(NOW - ms).toISOString();
+  it("a list with drive_failed (either round) is served for an hour only, so the identical search runs again", () => {
+    const gap = { status: "done" as const, drops: { "1": { drive_failed: 2 } } };
+    expect(isFresh({ ...gap, updatedAt: at(DRIVE_GAP_RETRY_MS - 1000) }, NOW)).toBe(true);
+    expect(isFresh({ ...gap, updatedAt: at(DRIVE_GAP_RETRY_MS + 1000) }, NOW)).toBe(false);
+    expect(isFresh({ status: "done", drops: { "2": { drive_failed: 1 } }, updatedAt: at(2 * DRIVE_GAP_RETRY_MS) }, NOW)).toBe(false);
+  });
+  it("other drops and no drops keep the 30 days", () => {
+    expect(isFresh({ status: "done", drops: { "1": { no_road: 3, too_far: 2 } }, updatedAt: at(10 * 86_400_000) }, NOW)).toBe(true);
+    expect(isFresh({ status: "done", drops: {}, updatedAt: at(10 * 86_400_000) }, NOW)).toBe(true);
   });
 });
 

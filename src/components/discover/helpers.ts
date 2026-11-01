@@ -1,5 +1,6 @@
-import { DROP_REASONS, type DropCounts, type SearchDrops, type SuggestionCard } from "@/lib/domain/destination-search";
-import { roundedFlightMin } from "@/lib/flights/estimate";
+import { DROP_REASONS, type DropCounts, type SearchDrops, type SuggestionCard, type TravelMode } from "@/lib/domain/destination-search";
+import { roundedDriveMin } from "@/lib/drive/estimate";
+import { roundedHalfHourMin } from "@/lib/flights/estimate";
 
 /** Poll the running search this often, and give up (with a "check again" button) after this long. */
 export const POLL_INTERVAL_MS = 2_000;
@@ -23,7 +24,15 @@ export function defaultLimitHours(maxBlockMin: number | null): number | null {
 }
 
 /** Hours of a rounded flight estimate for the card: 90 min -> 1.5, 120 min -> 2. */
-export const flightHours = (minutes: number): number => roundedFlightMin(minutes) / 60;
+export const flightHours = (minutes: number): number => roundedHalfHourMin(minutes) / 60;
+
+/** Hours of a rounded drive for the card: 210 min -> 3.5; a card never shows more than the limit (limit + 10 min rounds down). */
+export const driveHours = (minutes: number): number => roundedDriveMin(minutes) / 60;
+
+/** Default mode of the form (spec section 2): flight when the profile has airports, else drive when a usable home exists, else flight. */
+export function defaultTravelMode(homeAirports: readonly string[], usableHome: unknown): TravelMode {
+  return homeAirports.length > 0 ? "flight" : usableHome ? "drive" : "flight";
+}
 
 const mean = (xs: number[]): number => xs.reduce((a, b) => a + b, 0) / xs.length;
 

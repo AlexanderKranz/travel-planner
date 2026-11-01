@@ -46,6 +46,24 @@ describe("ideasRequest", () => {
   });
 });
 
+describe("ideasRequest: drive input", () => {
+  const driveInput: IdeaInput = { ...input, from: ["Frankfurt am Main, Hesse, Germany"], fromIata: ["FRA"], travel: "drive", homeCell: "50.11,8.68", radiusKm: 360 };
+  it("the home cell and airport codes never reach the model; the home name, travel and the hint do", () => {
+    const text = ideasRequest(driveInput).blocks[0].text;
+    expect(text).not.toMatch(/homeCell|50\.11|fromIata|FRA/);
+    expect(text).toContain('"travel":"drive"');
+    expect(text).toContain("Frankfurt am Main, Hesse, Germany");
+    expect(text).toContain('"radiusKm":360');
+  });
+  it("the rules tell the model to propose places reachable by road without a ferry", () => {
+    expect(IDEAS_RULES).toMatch(/If travel is drive, the group goes by car from from\. Propose only places reachable by road without a ferry, and no islands without a road link\./);
+  });
+  it("the wire schema is unchanged: still no field for routes, times or distances", () => {
+    const f = outputFormat(WireIdeas);
+    expect(JSON.stringify(f.schema)).not.toMatch(/drive|road|ferry|minutes|km/i);
+  });
+});
+
 describe("normalizeIdeas", () => {
   const w = (name: string, anchor: string, cc = "ES", reason = "r") => ({ name, anchor, cc, reason });
   it("trims, uppercases the country and keeps the order", () => {
