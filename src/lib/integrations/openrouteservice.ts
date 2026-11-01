@@ -1,5 +1,5 @@
 /**
- * OpenRouteService v2 matrix and directions API (driving-car), keyed, on api.heigit.org (api.openrouteservice.org is deprecated, 10 % quota, announced shut-off 2026-09-28). The docs site was down
+ * OpenRouteService v2 matrix and directions API (driving-car), keyed, on api.heigit.org (api.openrouteservice.org is deprecated, 10 % quota, being shut off). The docs site was down
  * on 2026-10-28; request/response shape verified with one live call, recorded in
  * __fixtures__/openrouteservice/matrix-marbella.json). Free Standard plan: matrix 500 and directions 2000 requests/day, 40/minute,
  * <= 3500 elements per request; the response carries `x-ratelimit-*` headers.
