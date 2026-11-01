@@ -1,8 +1,8 @@
 /**
- * OpenRouteService v2 matrix and directions API (driving-car), keyed. https://api.openrouteservice.org (the docs site was down
+ * OpenRouteService v2 matrix and directions API (driving-car), keyed, on api.heigit.org (api.openrouteservice.org is deprecated, 10 % quota, being shut off). The docs site was down
  * on 2026-10-28; request/response shape verified with one live call, recorded in
- * __fixtures__/openrouteservice/matrix-marbella.json). Free Standard plan: matrix ~500 requests/day,
- * <= 3500 elements per request; the response carries `x-ratelimit-*` headers (limit 50 seen).
+ * __fixtures__/openrouteservice/matrix-marbella.json). Free Standard plan: matrix 500 and directions 2000 requests/day, 40/minute,
+ * <= 3500 elements per request; the response carries `x-ratelimit-*` headers.
  * Data: © openrouteservice.org, © OpenStreetMap contributors (ODbL).
  * The key is read from `OPENROUTESERVICE_API_KEY` only here and never logged.
  */
@@ -10,8 +10,8 @@ import "server-only";
 import { z } from "zod";
 import { HttpError, postJson } from "./http";
 
-export const ORS_MATRIX_URL = "https://api.openrouteservice.org/v2/matrix/driving-car";
-export const ORS_DIRECTIONS_URL = "https://api.openrouteservice.org/v2/directions/driving-car/json";
+export const ORS_MATRIX_URL = "https://api.heigit.org/openrouteservice/v2/matrix/driving-car";
+export const ORS_DIRECTIONS_URL = "https://api.heigit.org/openrouteservice/v2/directions/driving-car/json";
 /**
  * ORS error code for "no route between the two points" (HTTP 404, recorded live 2026-11-01 for Marbella → Palma
  * with ferries excluded, and for Frankfurt → London). Every other error is a failure of the lookup, not an answer.

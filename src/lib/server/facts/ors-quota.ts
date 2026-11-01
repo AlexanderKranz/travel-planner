@@ -4,8 +4,8 @@ import { createSupabaseAdminClient } from "../supabase/admin";
 import { getEffectiveEnv } from "../settings";
 
 /**
- * Default daily request cap for matrix and Directions calls together. 200 is the Directions limit measured on
- * 2026-11-01 (`x-ratelimit-limit`, 24 h window); the matrix allows about 500. A drive search is refused below
+ * Default daily request cap for matrix and Directions calls together. The plan allows 500 matrix and 2000 Directions
+ * requests a day (dashboard, 2026-11-01); 200 is a cautious shared cap, raise it in the admin settings if needed. A drive search is refused below
  * 8 + 50 requests left, so 142 are usable for searches and plans keep at least their reserve.
  */
 export const ORS_DAILY_REQUESTS_DEFAULT = 200;
