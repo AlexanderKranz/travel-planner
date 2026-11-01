@@ -2,7 +2,7 @@
 
 Multi-user web app: users save reusable travel context (optional travel groups, trip purposes, home airports) and get an iterable travel plan with destination info, weather, verified direct flights and a daily itinerary. Plans can be shared by link and exported as PDF.
 
-Full plan: `docs/architecture.md`. Hosting walkthrough: `docs/hosting-setup.md`. Operations (deploy, rollback, backup/restore): `docs/runbook.md`. Decisions: `docs/adr/`.
+Full plan: `docs/architecture.md`. Hosting walkthrough: `docs/hosting-setup.md`. Operations (deploy, rollback, backup/restore): `docs/runbook.md`. Decisions: `docs/adr/`. Open work: GitHub Issues (public repo: no personal data or real travel dates there; `Closes #n` in the PR closes one).
 
 ## Stack
 - Next.js 16 (App Router, Turbopack, `src/proxy.ts`, `src/` dir) + TypeScript (strict), Tailwind v4
