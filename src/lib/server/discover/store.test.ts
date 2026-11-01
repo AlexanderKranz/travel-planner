@@ -15,6 +15,7 @@ vi.mock("../supabase/admin", () => ({
 }));
 
 import {
+  DRIVE_GAP_RETRY_MS,
   claimRound1,
   claimRound2,
   countRunsToday,
@@ -245,6 +246,20 @@ describe("drive rows (find-destinations-drive section 8)", () => {
   it("saved flight cards without a drive key still load", () => {
     const flightCard = { id: "g1", round: 1, name: "X", reason: null, kind: "city", geoId: 1, placeName: "X", countryCode: "ES", admin1: null, place: { source: "geonames", fetchedAt: "t", stale: false }, flight: null, nearAirport: false, climate: null, pois: [] };
     expect(rowToSearch(row({ cards: [flightCard] })).cards).toHaveLength(1);
+  });
+});
+
+describe("isFresh with unverified drives", () => {
+  const at = (ms: number) => new Date(NOW - ms).toISOString();
+  it("a list with drive_failed (either round) is served for an hour only, so the identical search runs again", () => {
+    const gap = { status: "done" as const, drops: { "1": { drive_failed: 2 } } };
+    expect(isFresh({ ...gap, updatedAt: at(DRIVE_GAP_RETRY_MS - 1000) }, NOW)).toBe(true);
+    expect(isFresh({ ...gap, updatedAt: at(DRIVE_GAP_RETRY_MS + 1000) }, NOW)).toBe(false);
+    expect(isFresh({ status: "done", drops: { "2": { drive_failed: 1 } }, updatedAt: at(2 * DRIVE_GAP_RETRY_MS) }, NOW)).toBe(false);
+  });
+  it("other drops and no drops keep the 30 days", () => {
+    expect(isFresh({ status: "done", drops: { "1": { no_road: 3, too_far: 2 } }, updatedAt: at(10 * 86_400_000) }, NOW)).toBe(true);
+    expect(isFresh({ status: "done", drops: {}, updatedAt: at(10 * 86_400_000) }, NOW)).toBe(true);
   });
 });
 

@@ -95,7 +95,7 @@ describe("getDriveRoute", () => {
   });
 
   it("the daily cap is checked before the request (the cap is shared with plans); an unreadable count fails closed", async () => {
-    h.count = 400;
+    h.count = 200;
     expect(await getDriveRoute(frankfurt, munich, ctx)).toEqual({ ok: false, error: "quota_exhausted" });
     h.count = null;
     h.countError = { code: "x" };
@@ -115,9 +115,9 @@ describe("orsRequestsLeft", () => {
     h.count = 0;
     h.countError = null;
   });
-  it("cap (default 400) minus today's network requests, never below 0", async () => {
+  it("cap (default 200) minus today's network requests, never below 0", async () => {
     h.count = 120;
-    expect(await orsRequestsLeft()).toBe(280);
+    expect(await orsRequestsLeft()).toBe(80);
     h.count = 999;
     expect(await orsRequestsLeft()).toBe(0);
   });

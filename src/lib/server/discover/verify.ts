@@ -26,6 +26,8 @@ export const VERIFY_BUDGET_MS = 45_000;
 /** Cold climate lookups per search: Open-Meteo's per-minute limit (spec [D9]). */
 export const MAX_CLIMATE_MISSES = 5;
 export const VERIFY_CONCURRENCY = 2;
+/** Drive mode: this many failed lookups in a row stop the search, even after an earlier success (each costs up to 20 s). */
+export const DRIVE_MAX_CONSECUTIVE_FAILURES = 3;
 
 /** The external lookups, injectable for tests. Every default goes through `cached()` and so reaches `api_calls`. */
 export type VerifyDeps = {
@@ -125,6 +127,8 @@ export type VerifyOutcome = {
   climateMisses: number;
   /** Drive mode: ORS lookups started (cache hits included), for the event. */
   driveLookups: number;
+  /** Drive mode: anchors of ideas whose drive was never verified (a failed or skipped lookup). "Show others" may propose them again. */
+  uncheckedAnchors: string[];
 };
 
 type Resolved = { idea: Idea; place: GeoPlace; fetchedAt: string; stale: boolean; flight: ReturnType<typeof flightOf> };
@@ -155,7 +159,7 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
   );
   const geocodeDown = lookups.length > 0 && lookups.every((l) => l.failed);
   if (geocodeDown) {
-    return { cards: [], drops, reasonsRemoved: 0, geocodeDown: true, driveDown: false, stoppedBy: null, climateMisses: 0, driveLookups: 0 };
+    return { cards: [], drops, reasonsRemoved: 0, geocodeDown: true, driveDown: false, stoppedBy: null, climateMisses: 0, driveLookups: 0, uncheckedAnchors: [] };
   }
 
   const survivors: Resolved[] = [];
@@ -199,7 +203,10 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
   let driveLookups = 0;
   let driveFailures = 0;
   let driveSuccesses = 0;
+  let driveConsecutiveFailures = 0;
+  const uncheckedAnchors: string[] = [];
   const driveDown = () => driveSuccesses === 0 && driveFailures >= 2;
+  const driveStopped = () => driveDown() || driveConsecutiveFailures >= DRIVE_MAX_CONSECUTIVE_FAILURES;
 
   const built: { index: number; card: SuggestionCard }[] = [];
   let next = 0;
@@ -212,9 +219,12 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
       const res = await deps.driveRoute(i.drive.home, s.place, ctx);
       if (!res.ok) {
         driveFailures += 1;
+        driveConsecutiveFailures += 1;
+        uncheckedAnchors.push(s.idea.anchor);
         return "drive_failed"; // a provider failure, never a real negative; the pipeline stops if all fail
       }
       driveSuccesses += 1;
+      driveConsecutiveFailures = 0;
       if (!res.data.road) return "no_road";
       if (res.data.min > driveMaxMin(i.drive.maxHours)) return "too_far";
       drive = { min: res.data.min, km: res.data.km, source: "openrouteservice", fetchedAt: res.fetchedAt, stale: res.stale };
@@ -284,7 +294,7 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
   }
 
   async function worker() {
-    while (next < survivors.length && built.length < MAX_CARDS_PER_ROUND && !timeUp && !driveDown()) {
+    while (next < survivors.length && built.length < MAX_CARDS_PER_ROUND && !timeUp && !driveStopped()) {
       if (deps.now() >= deadline) {
         timeUp = true;
         stoppedBy = "time";
@@ -303,6 +313,13 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
     .sort((a, b) => a.index - b.index)
     .slice(0, MAX_CARDS_PER_ROUND)
     .map((b) => b.card);
-  if (driveDown()) return { cards: [], drops, reasonsRemoved: 0, geocodeDown: false, driveDown: true, stoppedBy: null, climateMisses: misses, driveLookups };
-  return { cards, drops, reasonsRemoved, geocodeDown: false, driveDown: false, stoppedBy, climateMisses: misses, driveLookups };
+  if (driveDown()) return { cards: [], drops, reasonsRemoved: 0, geocodeDown: false, driveDown: true, stoppedBy: null, climateMisses: misses, driveLookups, uncheckedAnchors };
+  // Too many failures in a row after an earlier success: the places not reached count as failed lookups, not as negatives.
+  if (driveStopped()) {
+    for (const s of survivors.slice(next)) {
+      bump("drive_failed");
+      uncheckedAnchors.push(s.idea.anchor);
+    }
+  }
+  return { cards, drops, reasonsRemoved, geocodeDown: false, driveDown: false, stoppedBy, climateMisses: misses, driveLookups, uncheckedAnchors };
 }

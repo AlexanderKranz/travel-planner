@@ -639,6 +639,12 @@ describe("drive mode (find-destinations-drive)", () => {
     expect(h.verify.mock.calls[0][0]).toMatchObject({ round: 2, drive: { home: { lat: 50.11, lon: 8.68 }, maxHours: 3 } });
   });
 
+  it("anchors whose drive was never verified are not excluded from 'Show others'", async () => {
+    h.verify.mockResolvedValue({ cards: [card(1)], drops: { drive_failed: 1 }, reasonsRemoved: 0, geocodeDown: false, driveDown: false, stoppedBy: null, climateMisses: 0, driveLookups: 2, uncheckedAnchors: ["Palma"] });
+    await runDestinationSearch(drive);
+    expect(h.finish.mock.calls[0][2].input.exclude).toEqual(["Marbella"]);
+  });
+
   it("round 2 of an old flight list runs as flight", async () => {
     h.byId.mockResolvedValue(stored({ cards: [card(1)] }));
     await showOtherDestinations(SEARCH);

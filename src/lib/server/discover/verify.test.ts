@@ -492,6 +492,31 @@ describe("verifyIdeas: drive mode (find-destinations-drive T1 to T9)", () => {
     expect(d.driveRoute).not.toHaveBeenCalled();
   });
 
+  it("stops after 3 failed lookups in a row even after a success; the places not reached count as drive_failed and stay unchecked", async () => {
+    const names = ["Munich", "Freiburg", "Kassel", "Nuremberg", "Stuttgart", "Cologne"];
+    let n = 0;
+    const driveRoute = vi.fn(async () => (++n === 1 ? route(150) : bad("timeout")));
+    const d = driveDeps({ driveRoute });
+    const out = await verifyIdeas(driveBase({ ideas: names.map(ideaIn), drive: { home: FRANKFURT, maxHours: 8 } }), d);
+    expect(out.driveDown).toBe(false);
+    expect(out.cards.map((c) => c.placeName)).toEqual(["Munich"]);
+    // 1 success + 3 failures in a row, then no more lookups (concurrency may have one extra in flight)
+    expect(driveRoute.mock.calls.length).toBeLessThanOrEqual(5);
+    expect(out.drops).toEqual({ drive_failed: 5 });
+    expect(out.uncheckedAnchors).toHaveLength(5);
+    expect(out.uncheckedAnchors).not.toContain("Munich");
+  });
+
+  it("a success in between resets the run of failures", async () => {
+    const names = ["Munich", "Freiburg", "Kassel", "Nuremberg", "Stuttgart", "Cologne"];
+    const seq = [true, false, false, true, false, false];
+    let n = 0;
+    const driveRoute = vi.fn(async () => (seq[n++] ? route(150) : bad()));
+    const out = await verifyIdeas(driveBase({ ideas: names.map(ideaIn), drive: { home: FRANKFURT, maxHours: 8 } }), driveDeps({ driveRoute }));
+    expect(driveRoute).toHaveBeenCalledTimes(6);
+    expect(out.drops).toEqual({ drive_failed: 4 });
+  });
+
   it("T9: the drive path imports no AeroDataBox module", async () => {
     const { readFileSync } = await import("node:fs");
     for (const f of ["verify.ts", "../facts/drive-route.ts", "../facts/ors-quota.ts", "../../discover/drive.ts"]) {

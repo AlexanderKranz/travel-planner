@@ -6,7 +6,7 @@ describe("resolveSetting precedence: DB > env > default", () => {
     expect(resolveSetting("ai_user_daily_usd", 1.25, "0.80")).toEqual({ value: 1.25, source: "admin", locked: false });
     expect(resolveSetting("ai_user_daily_usd", undefined, "0.80")).toEqual({ value: 0.8, source: "env", locked: false });
     expect(resolveSetting("ai_user_daily_usd", undefined, undefined)).toEqual({ value: 0.5, source: "default", locked: false });
-    expect(resolveSetting("ors_daily_requests", undefined, "")).toEqual({ value: 400, source: "default", locked: false });
+    expect(resolveSetting("ors_daily_requests", undefined, "")).toEqual({ value: 200, source: "default", locked: false });
   });
   it("an invalid DB value is ignored (wrong type, out of range, too many decimals)", () => {
     expect(resolveSetting("ors_daily_requests", "lots", "300").source).toBe("env");
@@ -77,7 +77,7 @@ describe("overlayEnv", () => {
     expect(out.AI_ENABLED).toBe("false");
     expect(out.ANTHROPIC_API_KEY).toBe("sk-x");
     expect(out.OTHER).toBe("1");
-    expect(out.ORS_DAILY_REQUESTS).toBe("400");
+    expect(out.ORS_DAILY_REQUESTS).toBe("200");
     expect(env.AI_ENABLED).toBe("true"); // input not mutated
   });
 });

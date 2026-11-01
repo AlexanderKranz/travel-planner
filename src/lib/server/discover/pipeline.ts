@@ -436,14 +436,16 @@ async function executeRound(
           interests: interestKeysOf(ideaInput.purpose.interests),
           existing: previous?.cards ?? [],
         })
-      : { cards: [], drops: {} as DropCounts, reasonsRemoved: 0, geocodeDown: false, driveDown: false, stoppedBy: null, climateMisses: 0, driveLookups: 0 };
+      : { cards: [], drops: {} as DropCounts, reasonsRemoved: 0, geocodeDown: false, driveDown: false, stoppedBy: null, climateMisses: 0, driveLookups: 0, uncheckedAnchors: [] };
     // Geocoding down: nothing was verified, so nothing may be shown (spec section 9).
     if (out.geocodeDown) return await giveUp("places_unavailable", "geocoding_down");
     // Drive mode: ORS failed on the first two places, so no drive can be verified (D10, same exception as geocoding).
     if (out.driveDown) return await giveUp("drive_unavailable", "drive_down");
 
     // The anchors of every idea (also dropped ones) are what "Show others" must not propose again.
-    const exclude = [...new Set([...(ideaInput.exclude ?? []), ...ideas.map((i) => i.anchor)])];
+    // Places whose drive was never verified are not excluded: "Show others" may propose them again.
+    const unchecked = new Set(out.uncheckedAnchors ?? []);
+    const exclude = [...new Set([...(ideaInput.exclude ?? []), ...ideas.map((i) => i.anchor).filter((a) => !unchecked.has(a))])];
     const saved = await finishRound(c.sb, claimed.id, {
       round,
       cards: out.cards,

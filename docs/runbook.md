@@ -237,7 +237,7 @@ Nearby days ("±1 day" button in the flights panel, spec phase 4 section 12): ea
 
 ### OpenRouteService quota
 
-Free Standard key: about 500 matrix requests per day. One plan generation makes at most one request (`src/lib/server/facts/drive-times.ts`), cached 90 days per destination point and place set. Every request is logged in `api_calls` (provider `openrouteservice`). The guard counts today's non-hit rows (Europe/Berlin day) before each request and refuses at `ORS_DAILY_REQUESTS` (default 400); it fails closed. When it refuses or ORS is down, plans generate without drive times. Check usage with `select count(*) from api_calls where provider='openrouteservice' and cache <> 'hit' and created_at >= date_trunc('day', now())`.
+Free Standard key: about 500 matrix requests per day. One plan generation makes at most one request (`src/lib/server/facts/drive-times.ts`), cached 90 days per destination point and place set. Every request is logged in `api_calls` (provider `openrouteservice`). The guard counts today's non-hit rows (Europe/Berlin day) before each request and refuses at `ORS_DAILY_REQUESTS` (default 200, the measured Directions limit; destination searches by driving time share it and are refused below 58 requests left, so plans keep a reserve of 50); it fails closed. When it refuses or ORS is down, plans generate without drive times. Check usage with `select count(*) from api_calls where provider='openrouteservice' and cache <> 'hit' and created_at >= date_trunc('day', now())`.
 
 ### Geoapify quota
 

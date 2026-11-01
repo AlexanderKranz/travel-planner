@@ -115,9 +115,17 @@ export function isExpired(busyUntil: string | null, now: number = Date.now()): b
  * True when a saved list may be served for the same input (done, younger than 30 days). Measured from updated_at:
  * a failed or old list is reused in place, so created_at would keep it old forever.
  */
-export function isFresh(s: Pick<StoredSearch, "status" | "updatedAt">, now: number = Date.now()): boolean {
-  return s.status === "done" && now - Date.parse(s.updatedAt) < SEARCH_CACHE_DAYS * 86_400_000;
+export function isFresh(s: Pick<StoredSearch, "status" | "updatedAt"> & { drops?: DestinationSearch["drops"] }, now: number = Date.now()): boolean {
+  if (s.status !== "done") return false;
+  // Places whose drive could not be verified never return on their own: an identical search runs again after an hour.
+  const ttl = hasDriveGap(s.drops ?? {}) ? DRIVE_GAP_RETRY_MS : SEARCH_CACHE_DAYS * 86_400_000;
+  return now - Date.parse(s.updatedAt) < ttl;
 }
+
+/** A list with unverified drives is served for this long only (ORS was down or limited). */
+export const DRIVE_GAP_RETRY_MS = 60 * 60_000;
+export const hasDriveGap = (drops: DestinationSearch["drops"]): boolean =>
+  (["1", "2"] as const).some((k) => (drops[k]?.drive_failed ?? 0) > 0);
 
 export async function getSearchById(sb: SupabaseClient, id: string): Promise<StoredSearch | null> {
   const { data, error } = await sb.from("destination_searches").select(SEARCH_COLUMNS).eq("id", id).maybeSingle<SearchRow>();
