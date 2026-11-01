@@ -57,6 +57,11 @@ vi.mock("./plan-store", () => ({
   ensurePlan: h.ensure,
   listVersionMetas: async () => [{ versionNo: 1 }],
   getVersion: async () => h.latest,
+  // Mirrors getVersionLight: the stored version without its input, plus the one input field the state reads.
+  getVersionLight: async () => {
+    const v = h.latest as { meta: unknown; plan: unknown; input?: { pendingPlaces?: string[] } } | null;
+    return v ? { meta: v.meta, plan: v.plan, pendingPlaces: v.input?.pendingPlaces ?? [] } : null;
+  },
   findVersionByHash: async () => h.byHash,
   insertVersion: h.insert,
   pruneVersions: async () => {},

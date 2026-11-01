@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { getProfile } from "@/lib/server/profile";
+import { getProfileOnce } from "@/lib/server/request-reads";
 import { signOut } from "@/lib/server/auth/actions";
 import { btnGhost } from "@/components/ui/styles";
 import { NavLinks } from "./nav-links";
@@ -13,7 +13,7 @@ export async function AppShell({
   children: React.ReactNode;
 }) {
   const t = await getTranslations("nav");
-  const profile = await getProfile();
+  const profile = await getProfileOnce();
   const isDemo = profile.ok && profile.data.isDemo;
   const isAdmin = profile.ok && profile.data.role === "admin";
   return (

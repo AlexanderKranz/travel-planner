@@ -76,18 +76,13 @@ async function loadGroup(
   supabase: NonNullable<Awaited<ReturnType<typeof getUserSession>>>["supabase"],
   id: string,
 ): Promise<ActionResult<TravelGroup>> {
-  const { data: group, error } = await supabase
-    .from("travel_groups")
-    .select(GROUP_COLUMNS)
-    .eq("id", id)
-    .maybeSingle();
+  // Both reads only need the id: one round. A missing group still answers not_found whatever the entries read did.
+  const [{ data: group, error }, { data: entries, error: entriesError }] = await Promise.all([
+    supabase.from("travel_groups").select(GROUP_COLUMNS).eq("id", id).maybeSingle(),
+    supabase.from("group_entries").select(ENTRY_COLUMNS).eq("group_id", id).order("position", { ascending: true }),
+  ]);
   if (error) return fail("failed");
   if (!group) return fail("not_found");
-  const { data: entries, error: entriesError } = await supabase
-    .from("group_entries")
-    .select(ENTRY_COLUMNS)
-    .eq("group_id", id)
-    .order("position", { ascending: true });
   if (entriesError) return fail("failed");
   return { ok: true, data: toGroup(group, entries as GroupEntryRow[]) };
 }

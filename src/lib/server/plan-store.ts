@@ -156,6 +156,36 @@ export async function getVersion(sb: SupabaseClient, planId: string, versionNo: 
   return data ? rowToVersion(data) : null;
 }
 
+/** A version without its stored input (the big `input` column stays in the database). */
+export type ViewVersion = {
+  meta: PlanVersionMeta;
+  plan: Plan;
+  /** Interests whose places did not load when the plan was written (`input.pendingPlaces`). */
+  pendingPlaces: string[];
+};
+
+const LIGHT_COLUMNS = `${META_COLUMNS}, plan, pending_places:input->pendingPlaces`;
+const PendingPlaces = z.array(z.string()).nullish();
+
+/**
+ * Read-only view of one version for pages and state checks: plan + meta + the one input field they use
+ * (`pendingPlaces`), not the whole `input` (index of places, LLM input). Null when the plan or that field is invalid.
+ */
+export async function getVersionLight(sb: SupabaseClient, planId: string, versionNo: number): Promise<ViewVersion | null> {
+  const { data, error } = await sb
+    .from("plan_versions")
+    .select(LIGHT_COLUMNS)
+    .eq("plan_id", planId)
+    .eq("version_no", versionNo)
+    .maybeSingle<MetaRow & { plan: unknown; pending_places: unknown }>();
+  if (error) throw new Error("version read failed");
+  if (!data) return null;
+  const plan = Plan.safeParse(data.plan);
+  const pending = PendingPlaces.safeParse(data.pending_places);
+  if (!plan.success || !pending.success) return null;
+  return { meta: rowToMeta(data), plan: plan.data, pendingPlaces: pending.data ?? [] };
+}
+
 /** Newest version with this input hash, if any. */
 export async function findVersionByHash(sb: SupabaseClient, planId: string, hash: string): Promise<StoredVersion | null> {
   const { data, error } = await sb
