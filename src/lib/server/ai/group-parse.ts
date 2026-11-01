@@ -15,6 +15,7 @@ export function groupParseRequest(text: string): StructuredRequest<typeof WireGr
     schema: WireGroupParse,
     effort: "low",
     maxTokens: GROUP_MAX_TOKENS,
+    noThinking: true, // with thinking on, 3 of 6 live parses of a long group text ran out of tokens (2026-11-01)
     system: GROUP_RULES,
     blocks: [{ text: "TEXT\n" + canonicalJson({ text: text.trim() }) }],
   };

@@ -57,6 +57,7 @@ export function ideasRequest(input: IdeaInput): StructuredRequest<typeof WireIde
     schema: WireIdeas,
     effort: "low",
     maxTokens: IDEAS_MAX_TOKENS,
+    noThinking: true, // with thinking on, 2 of 3 live golf searches ran out of tokens (2026-11-01)
     system: IDEAS_RULES,
     blocks: [{ text: "INPUT\n" + canonicalJson(forModel) }],
   };
