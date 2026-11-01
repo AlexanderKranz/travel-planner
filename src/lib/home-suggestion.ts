@@ -6,7 +6,7 @@ import { placeLabel } from "@/lib/geocode-client";
 /** A geocoding hit must lie this close to the airport to count as "its" place (airports sit outside the city). */
 export const MAX_SUGGESTION_KM = 150;
 
-export type HomeSuggestion = { name: string; timezone: string };
+export type HomeSuggestion = { name: string; timezone: string; geoId: number };
 export type SuggestionAirport = { city: string; country: string; lat: number; lon: number };
 
 /** "Frankfurt am Main (Lautzenhausen)" -> "Frankfurt am Main", "Bâle / Mulhouse" -> "Bâle". Search term for the geocoder. */
@@ -32,7 +32,7 @@ export function pickHomeSuggestion(airport: SuggestionAirport, places: GeoPlace[
     )
     .sort((a, b) => (b.population ?? 0) - (a.population ?? 0) || haversineKm(airport, a) - haversineKm(airport, b));
   const best = ranked[0];
-  return best?.timezone ? { name: placeLabel(best, locale), timezone: best.timezone } : null;
+  return best?.timezone ? { name: placeLabel(best, locale), timezone: best.timezone, geoId: best.geoId } : null;
 }
 
 /** Whether the form should offer a suggestion at all: nothing saved or picked as home, at least one airport. */

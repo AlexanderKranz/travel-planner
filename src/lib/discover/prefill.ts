@@ -8,16 +8,18 @@ import { cleanReason } from "./reason";
  *   as the user's own facts, so it is never copied into the trip.
  * - coordinates are not part of the draft; `createTrip` resolves them from `geoId`.
  * - `lengthDays` stays at the form default.
+ * - a drive search gives `wantsFlights: false` and no airports, explicitly (the search has none; the guard keeps it
+ *   so if that ever changes). The drive itself is not copied into the trip; the user can still switch flights on.
  */
 export function buildTripDraft(
-  search: Pick<DestinationSearch, "id" | "months" | "origins" | "purposeId" | "groupId">,
+  search: Pick<DestinationSearch, "id" | "months" | "origins" | "purposeId" | "groupId"> & { travelMode?: DestinationSearch["travelMode"] },
   card: Pick<SuggestionCard, "kind" | "geoId" | "placeName" | "name" | "admin1">,
   profileHomeAirports: readonly string[],
 ): TripDraft {
   const base = emptyTripDraft();
   const profileFirstTwo = profileHomeAirports.slice(0, 2);
   const sameAsProfile = search.origins.length === profileFirstTwo.length && search.origins.every((o, i) => o === profileFirstTwo[i]);
-  const hasOrigins = search.origins.length > 0;
+  const hasOrigins = search.travelMode !== "drive" && search.origins.length > 0;
   return {
     ...base,
     destination: {

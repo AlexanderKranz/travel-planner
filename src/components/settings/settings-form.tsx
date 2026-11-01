@@ -24,7 +24,9 @@ export function SettingsForm({ profile }: { profile: Profile }) {
   const [birthdate, setBirthdate] = useState(profile.birthdate ?? "");
   const [airports, setAirports] = useState(profile.homeAirports);
   const [home, setHome] = useState<HomeLocation | null>(
-    profile.homeLocation && profile.homeTimezone ? { name: profile.homeLocation, timezone: profile.homeTimezone } : null,
+    profile.homeLocation && profile.homeTimezone
+      ? { name: profile.homeLocation, timezone: profile.homeTimezone, ...(profile.homeGeoId !== null ? { geoId: profile.homeGeoId } : {}) }
+      : null,
   );
   const [error, setError] = useState<ActionError | null>(null);
   const [issues, setIssues] = useState<Issue[]>();
@@ -45,6 +47,7 @@ export function SettingsForm({ profile }: { profile: Profile }) {
         birthdate: birthdate === "" ? null : birthdate,
         homeLocation: home?.name ?? null,
         homeTimezone: home?.timezone ?? null,
+        homeGeoId: home?.geoId ?? null,
       });
       if (!result.ok) {
         setError(result.error);

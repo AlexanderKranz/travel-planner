@@ -1,0 +1,54 @@
+{
+  "bbox": [
+    13.081681,
+    54.29908,
+    13.642818,
+    54.523541
+  ],
+  "routes": [
+    {
+      "summary": {
+        "distance": 51.803,
+        "duration": 3405.7
+      },
+      "bbox": [
+        13.081681,
+        54.29908,
+        13.642818,
+        54.523541
+      ]
+    }
+  ],
+  "metadata": {
+    "attribution": "openrouteservice.org | OpenStreetMap contributors",
+    "service": "routing",
+    "timestamp": 1793564767959,
+    "query": {
+      "coordinates": [
+        [
+          13.0817,
+          54.3091
+        ],
+        [
+          13.6428,
+          54.5133
+        ]
+      ],
+      "profile": "driving-car",
+      "profileName": "driving-car",
+      "format": "json",
+      "units": "km",
+      "options": {
+        "avoid_features": [
+          "ferries"
+        ]
+      }
+    },
+    "engine": {
+      "version": "9.10.0",
+      "build_date": "2026-08-13T11:53:14Z",
+      "graph_date": "2026-09-21T10:31:27Z",
+      "osm_date": "2026-09-13T23:59:59Z"
+    }
+  }
+}

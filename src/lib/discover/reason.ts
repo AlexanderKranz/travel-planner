@@ -9,7 +9,7 @@ import { REASON_MAX_CHARS } from "@/lib/domain/destination-search";
  */
 const PARTS = [
   // number + unit: distances, durations, prices ("2 h", "45 mins", "3-hour", "10 Autominuten", "99,- Euro", "80 Dollar")
-  String.raw`\d[\d.,]*[\s-]{0,2}(?:km|kilometers?|kilometer|meilen|miles?|mi|h|hrs?|std|stunden?|hours?|mins?|minuten?|\p{L}+minuten|minutes?|euro|eur|usd|dollar|chf|gbp|franken|pfund)(?!\p{L})`,
+  String.raw`\d[\d.,]*[\s-]{0,2}(?:km|kilometers?|kilometer|meilen|miles?|mi|h|hrs?|std|stunden?|hours?|mins?|minuten?|\p{L}+minuten|\p{L}+stunden|minutes?|euro|eur|usd|dollar|chf|gbp|franken|pfund)(?!\p{L})`,
   String.raw`[€$£¥]`,
   String.raw`(?<!\p{L})(?:chf|eur|usd|gbp)\s?\d`,
   // number words with a duration or distance ("zwei Stunden", "two hours", "half an hour")
@@ -18,6 +18,8 @@ const PARTS = [
   String.raw`(?<!aus)fl[uü]g`,
   String.raw`flieg|flight|(?<!\p{L})fly(?!\p{L})|airline|airport|non[-\s]?stop|direktverbindung`,
   String.raw`(?<!\p{L})(?:ryanair|lufthansa|easyjet|eurowings|condor|tuifly|wizz|vueling|transavia|aegean)(?!\p{L})`,
+  // ferries: a drive search proposes places reachable by road, and a crossing is a route fact (whole words: "ungefähr" stays)
+  String.raw`(?<!\p{L})(?:ferry|ferries|(?:auto)?f(?:ä|ae)hren?)(?!\p{L})`,
   // opening hours
   String.raw`geöffnet|öffnungszeit|opening\s(?:hours|times)|open\s(?:daily|24)|\d\s?uhr|(?<!\d)24\s?/\s?7|rund um die uhr|(?<!\p{L})(?:mo|mon)\s?[-–]\s?(?:fr|fri|so|sun|sa|sat)(?!\p{L})|\d\s?(?:am|pm)(?!\p{L})`,
 ];

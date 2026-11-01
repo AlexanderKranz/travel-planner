@@ -1,0 +1,7 @@
+{
+  "error": { "code": 6020, "message": "Unable to compute a distance/duration matrix: Search exceeds the limit of visited nodes." },
+  "info": {
+    "engine": { "build_date": "2026-08-13T11:53:14Z", "graph_version": "5", "graph_date": "2026-09-21T10:31:27Z", "osm_date": "2026-09-13T23:59:59Z", "version": "9.10.0" },
+    "timestamp": 1793564474078
+  }
+}

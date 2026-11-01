@@ -86,3 +86,15 @@ describe("more evasions and non-matches (review round)", () => {
     expect(cleanReason(s)).toEqual({ reason: s, removed: false }),
   );
 });
+
+describe("ferries are a route fact (find-destinations-drive section 4)", () => {
+  it.each(["Mit der Fähre erreichbar", "Erreichbar per Autofähre", "Mehrere Fähren pro Tag", "Reached by ferry", "Two ferries a day"])("removes: %s", (reason) => {
+    expect(cleanReason(reason)).toEqual({ reason: null, removed: true });
+  });
+  it.each(["Ungefähr so schön wie die Toskana", "Eine ungefähre Vorstellung", "Ferrari-Museum", "Schöne Fahrten am Meer"])("keeps: %s", (reason) => {
+    expect(cleanReason(reason).removed).toBe(false);
+  });
+  it("a number with a compound hours unit (3 Autostunden) is removed", () => {
+    expect(cleanReason("Nur 3 Autostunden entfernt").removed).toBe(true);
+  });
+});

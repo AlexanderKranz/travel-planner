@@ -5,7 +5,7 @@ import { respond } from "./respond";
 export const maxDuration = 120;
 
 /**
- * POST /api/destination-search { purposeId, months?, groupId?, origins?, maxFlightHours? } -> { search }
+ * POST /api/destination-search { purposeId, months?, groupId?, travelMode?, origins?, maxFlightHours?, maxDriveHours?, homeGeoId?, saveHome? } -> { search }
  * Returns the saved list when one exists for the same input (no AI call, works with AI off). The client abort
  * signal is deliberately NOT forwarded: the server finishes and saves the list even if the browser leaves
  * (the page then polls GET /api/destination-search/[id]).

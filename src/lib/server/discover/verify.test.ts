@@ -34,6 +34,7 @@ function deps(over: Partial<VerifyDeps> = {}): Mocks {
     }),
     climate: vi.fn(async () => ok(climateYear(20, 10, 5))),
     pois: vi.fn(async (interest) => ({ radiusKm: 40, result: ok(candidates(interest === "golf" ? 6 : 3)) })),
+    driveRoute: vi.fn(async () => bad()),
     placeById: vi.fn(async () => null),
     now: () => 0,
     ...over,
@@ -370,5 +371,131 @@ describe("anchor resolution (step 1)", () => {
   it("the card name is filtered like the reason: a banned name becomes the verified place", async () => {
     const out = await verifyIdeas(base({ ideas: [idea("Marbella", { name: "Marbella ab 49 € Direktflug" })], interests: [], months: [] }), deps());
     expect(out.cards[0]).toMatchObject({ name: "Marbella", kind: "city" });
+  });
+});
+
+describe("verifyIdeas: drive mode (find-destinations-drive T1 to T9)", () => {
+  const geo = (geoId: number, name: string, lat: number, lon: number, countryCode = "DE"): GeoPlace => ({ geoId, name, featureCode: "PPL", countryCode, admin1: null, lat, lon, timezone: "Europe/Berlin", population: 100000, suggestedKind: "city" });
+  const WORLD: Record<string, GeoPlace> = {
+    Munich: geo(2867714, "Munich", 48.14, 11.58),
+    Marseille: geo(2995469, "Marseille", 43.3, 5.37, "FR"),
+    Palma: PLACES.Palma,
+    Sassnitz: geo(2842647, "Sassnitz", 54.51, 13.64),
+    Freiburg: geo(2925177, "Freiburg", 47.99, 7.85),
+    Wuerzburg: geo(2805615, "Würzburg", 49.79, 9.94),
+    Kassel: geo(2892518, "Kassel", 51.32, 9.5),
+    Nuremberg: geo(2861650, "Nuremberg", 49.45, 11.08),
+    Stuttgart: geo(2825297, "Stuttgart", 48.78, 9.18),
+    Cologne: geo(2886242, "Cologne", 50.94, 6.96),
+    Bonn: geo(2946447, "Bonn", 50.73, 7.1),
+  };
+  const FRANKFURT = { lat: 50.11, lon: 8.68 };
+  const route = (min: number, km = min): CachedResult<{ road: true; min: number; km: number }> => ok({ road: true as const, min, km });
+  const noRoad = ok({ road: false as const });
+  const driveDeps = (over: Partial<VerifyDeps> = {}) =>
+    deps({
+      geocode: vi.fn(async (a: string) => ok(WORLD[a] ? [WORLD[a]] : [])),
+      driveRoute: vi.fn(async () => route(200)),
+      ...over,
+    });
+  const driveBase = (over: Partial<VerifyInput> = {}) => base({ origins: [], maxHours: null, months: [], drive: { home: FRANKFURT, maxHours: 4 }, ...over });
+  const ideaIn = (anchor: string) => idea(anchor, { cc: WORLD[anchor]?.countryCode ?? "DE" });
+
+  it("T1: Frankfurt, 4 h: Munich gets a card with a verified drive, Marseille is cut by the straight line with no ORS call", async () => {
+    const d = driveDeps({ driveRoute: vi.fn(async () => route(210, 392.3)) });
+    const out = await verifyIdeas(driveBase({ ideas: [ideaIn("Munich"), ideaIn("Marseille")] }), d);
+    expect(out.cards.map((c) => c.placeName)).toEqual(["Munich"]);
+    expect(out.cards[0].drive).toEqual({ min: 210, km: 392.3, source: "openrouteservice", fetchedAt: "2026-11-01T10:00:00.000Z", stale: false });
+    expect(out.cards[0]).toMatchObject({ flight: null, nearAirport: false });
+    expect(out.drops).toEqual({ too_far: 1 });
+    expect(d.driveRoute).toHaveBeenCalledTimes(1);
+    expect(d.driveRoute).toHaveBeenCalledWith(FRANKFURT, expect.objectContaining({ geoId: 2867714 }), expect.anything());
+    expect(out.driveLookups).toBe(1);
+  });
+
+  it("the limit is checked by ORS time + 10 min: 250 min passes a 4 h limit, 251 does not", async () => {
+    const pass = await verifyIdeas(driveBase({ ideas: [ideaIn("Munich")] }), driveDeps({ driveRoute: vi.fn(async () => route(250)) }));
+    expect(pass.cards).toHaveLength(1);
+    const fail = await verifyIdeas(driveBase({ ideas: [ideaIn("Munich")] }), driveDeps({ driveRoute: vi.fn(async () => route(251)) }));
+    expect(fail.cards).toEqual([]);
+    expect(fail.drops).toEqual({ too_far: 1 });
+  });
+
+  it("T2: a Mallorca idea has no road: no_road (not too_far), and no climate miss is used", async () => {
+    const d = driveDeps({ driveRoute: vi.fn(async () => noRoad) });
+    const out = await verifyIdeas(driveBase({ ideas: [ideaIn("Palma")], months: [3], drive: { home: FRANKFURT, maxHours: 12 } }), d);
+    expect(out.drops).toEqual({ no_road: 1 });
+    expect(out.cards).toEqual([]);
+    expect(d.climate).not.toHaveBeenCalled();
+    expect(out.climateMisses).toBe(0);
+    expect(out.driveDown).toBe(false);
+  });
+
+  it("T3: a bridged island (Rügen) keeps its card", async () => {
+    const out = await verifyIdeas(driveBase({ ideas: [ideaIn("Sassnitz")], drive: { home: { lat: 54.3, lon: 13.1 }, maxHours: 2 } }), driveDeps({ driveRoute: vi.fn(async () => route(57, 51.8)) }));
+    expect(out.cards.map((c) => c.placeName)).toEqual(["Sassnitz"]);
+  });
+
+  it("T4: 12 h limit, an 11 h 50 route passes although it is over MAX_DRIVE_MIN (180)", async () => {
+    const out = await verifyIdeas(driveBase({ ideas: [ideaIn("Munich")], drive: { home: FRANKFURT, maxHours: 12 } }), driveDeps({ driveRoute: vi.fn(async () => route(710, 1000)) }));
+    expect(out.cards[0].drive).toMatchObject({ min: 710 });
+  });
+
+  it("T5: ORS fails for every lookup: it stops after 2, driveDown, nothing is shown", async () => {
+    const d = driveDeps({ driveRoute: vi.fn(async () => bad("timeout")) });
+    const out = await verifyIdeas(driveBase({ ideas: [ideaIn("Munich"), ideaIn("Freiburg"), ideaIn("Kassel"), ideaIn("Wuerzburg"), ideaIn("Cologne")] }), d);
+    expect(out.driveDown).toBe(true);
+    expect(out.cards).toEqual([]);
+    expect(d.driveRoute).toHaveBeenCalledTimes(2);
+  });
+
+  it("T6: one lookup fails, the others stay and the failure is counted drive_failed (never no_road)", async () => {
+    const driveRoute = vi.fn(async (_o: unknown, p: { geoId: number }) => (p.geoId === WORLD.Freiburg.geoId ? bad("provider_error") : route(150)));
+    const out = await verifyIdeas(driveBase({ ideas: [ideaIn("Munich"), ideaIn("Freiburg"), ideaIn("Kassel")] }), driveDeps({ driveRoute }));
+    expect(out.driveDown).toBe(false);
+    expect(out.cards.map((c) => c.placeName).sort()).toEqual(["Kassel", "Munich"]);
+    expect(out.drops).toEqual({ drive_failed: 1 });
+  });
+
+  it("T7: a cached route is a stale fact, not a failure: the card carries stale: true", async () => {
+    const out = await verifyIdeas(driveBase({ ideas: [ideaIn("Munich")] }), driveDeps({ driveRoute: vi.fn(async () => ({ ...route(200), stale: true, cache: "stale" as const })) }));
+    expect(out.cards[0].drive).toMatchObject({ stale: true });
+  });
+
+  it("T8: once 5 cards are found no further ORS call is made", async () => {
+    const ideas = ["Munich", "Freiburg", "Kassel", "Wuerzburg", "Nuremberg", "Stuttgart", "Cologne", "Bonn"].map(ideaIn);
+    const d = driveDeps();
+    const out = await verifyIdeas(driveBase({ ideas, drive: { home: FRANKFURT, maxHours: 8 } }), d);
+    expect(out.cards.length).toBeLessThanOrEqual(5);
+    // concurrency 2 may start one extra lookup, never the whole tail
+    expect((d.driveRoute as ReturnType<typeof vi.fn>).mock.calls.length).toBeLessThanOrEqual(6);
+  });
+
+  it("drive is the first step: a place that is out of range uses no climate lookup, one in range checks climate afterwards", async () => {
+    const order: string[] = [];
+    const d = driveDeps({
+      driveRoute: vi.fn(async () => (order.push("drive"), route(120))),
+      climate: vi.fn(async () => (order.push("climate"), ok(climateYear(20, 10, 5)))),
+    });
+    await verifyIdeas(driveBase({ ideas: [ideaIn("Kassel")], months: [6], interests: [] }), d);
+    expect(order).toEqual(["drive", "climate"]);
+  });
+
+  it("the Estimate inputs are empty in drive mode: no flight line, whatever airports the caller passed", async () => {
+    const out = await verifyIdeas(driveBase({ ideas: [ideaIn("Munich")], origins: ["FRA"] }), driveDeps());
+    expect(out.cards[0]).toMatchObject({ flight: null, nearAirport: false });
+  });
+
+  it("a flight search never touches ORS", async () => {
+    const d = deps();
+    await verifyIdeas(base(), d);
+    expect(d.driveRoute).not.toHaveBeenCalled();
+  });
+
+  it("T9: the drive path imports no AeroDataBox module", async () => {
+    const { readFileSync } = await import("node:fs");
+    for (const f of ["verify.ts", "../facts/drive-route.ts", "../facts/ors-quota.ts", "../../discover/drive.ts"]) {
+      expect(readFileSync(new URL(f, import.meta.url), "utf8")).not.toMatch(/from\s+["'][^"']*aerodatabox/i);
+    }
   });
 });

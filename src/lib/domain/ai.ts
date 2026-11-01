@@ -11,7 +11,7 @@ export const MODEL_IDEAS: AiModel = MODEL_TAGS;
 export const PLAN_PROMPT_VERSION = "plan-5";
 export const TAGS_PROMPT_VERSION = "tags-1";
 export const GROUP_PROMPT_VERSION = "group-1";
-export const IDEAS_PROMPT_VERSION = "ideas-2";
+export const IDEAS_PROMPT_VERSION = "ideas-3";
 
 /**
  * USD per 1M tokens (spec 4.4). tokens × price = micro-USD.

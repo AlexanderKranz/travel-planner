@@ -68,3 +68,18 @@ describe("buildTripDraft: only a clean name (review round)", () => {
     expect(d.destination).toMatchObject({ mode: "geo", name: "Marbella" });
   });
 });
+
+describe("buildTripDraft: drive searches (D9)", () => {
+  it("flights off, no airports, empty title and notes; the drive is not copied", () => {
+    const d = buildTripDraft({ ...search, origins: [], travelMode: "drive" }, card, ["FRA", "MUC"]);
+    expect(d).toMatchObject({ wantsFlights: false, originAirports: [], title: "", notes: "" });
+    expect(JSON.stringify(d)).not.toContain("openrouteservice");
+  });
+  it("even with origins on the row, a drive search never switches flights on", () => {
+    const d = buildTripDraft({ ...search, origins: ["FRA"], travelMode: "drive" }, card, ["HAM"]);
+    expect(d).toMatchObject({ wantsFlights: false, originAirports: [] });
+  });
+  it("a flight search is unchanged", () => {
+    expect(buildTripDraft({ ...search, travelMode: "flight" }, card, ["HAM"])).toMatchObject({ wantsFlights: true, originAirports: ["FRA"] });
+  });
+});

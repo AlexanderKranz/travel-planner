@@ -82,11 +82,17 @@ const userId = user.id;
       display_name: "Demo",
       locale: "de",
       home_airports: ["FRA", "MUC"],
+      // A home with coordinates, so the demo can try "Drive" in the destination search (GeoNames 2925533).
+      home_location: "Frankfurt am Main, Hessen, Deutschland",
+      home_timezone: "Europe/Berlin",
+      home_geo_id: 2925533,
+      home_lat: 50.11552,
+      home_lon: 8.68417,
       birthdate: "1985-06-15",
     })
     .eq("id", userId);
   check(error, "profile update");
-  log("profile set (is_demo, de, FRA/MUC)");
+  log("profile set (is_demo, de, FRA/MUC, home Frankfurt)");
 }
 
 // 4. Example data: wipe, then insert.

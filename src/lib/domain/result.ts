@@ -24,6 +24,8 @@ export type ActionError =
   | "email_failed" // invite: allowlisted, but the mail could not be sent
   | "search_limit" // destination search: daily runs used up (resetAt = next Berlin midnight)
   | "places_unavailable" // destination search: the geocoder is down, no place can be checked
+  | "drive_unavailable" // drive search: no verified drive times (key missing, quota nearly used, ORS down)
+  | "home_required" // drive search: no start place (none given, none saved with coordinates)
   | "places_pending" // places with a source did not load yet; retry or generate anyway
   | "invalid_credentials" // password login: wrong email, wrong password or no password (always the same)
   | "weak_password" // rejected by Supabase (too short, leaked-password protection)

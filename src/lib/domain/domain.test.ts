@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { GroupEntry, TravelGroupInput } from "./group";
 import { IsoDate } from "./common";
-import { Profile, ProfileUpdate } from "./profile";
+import { hasHomeCoords, Profile, ProfileUpdate } from "./profile";
 import { TripPurposeInput } from "./purpose";
 
 describe("IsoDate", () => {
@@ -48,8 +48,33 @@ describe("Profile", () => {
       onboardingDoneAt: null,
       homeLocation: "Mars",
       homeTimezone: "Mars/Base",
+      homeGeoId: null,
+      homeLat: null,
+      homeLon: null,
     };
     expect(Profile.safeParse(row).success).toBe(true);
+  });
+});
+
+describe("ProfileUpdate home place id", () => {
+  it("a place id goes with a home name and zone; null clears", () => {
+    expect(ProfileUpdate.safeParse({ homeLocation: "Frankfurt", homeTimezone: "Europe/Berlin", homeGeoId: 2925533 }).success).toBe(true);
+    expect(ProfileUpdate.safeParse({ homeLocation: null, homeTimezone: null, homeGeoId: null }).success).toBe(true);
+    expect(ProfileUpdate.safeParse({ homeLocation: "Frankfurt", homeTimezone: "Europe/Berlin" }).success).toBe(true); // legacy: no id
+  });
+  it("a place id without a home is refused, and so are bad ids; coordinates are never accepted from the browser", () => {
+    expect(ProfileUpdate.safeParse({ homeLocation: null, homeTimezone: null, homeGeoId: 5 }).success).toBe(false);
+    expect(ProfileUpdate.safeParse({ homeLocation: "X", homeTimezone: "Europe/Berlin", homeGeoId: 0 }).success).toBe(false);
+    const parsed = ProfileUpdate.parse({ homeLocation: "X", homeTimezone: "Europe/Berlin", homeGeoId: 5, homeLat: 1, homeLon: 2 });
+    expect(parsed).not.toHaveProperty("homeLat");
+    expect(parsed).not.toHaveProperty("homeLon");
+  });
+  it("hasHomeCoords needs all four", () => {
+    const home = { homeLocation: "F", homeGeoId: 1, homeLat: 50, homeLon: 8 };
+    expect(hasHomeCoords(home)).toBe(true);
+    expect(hasHomeCoords({ ...home, homeLat: null })).toBe(false);
+    expect(hasHomeCoords({ ...home, homeGeoId: null })).toBe(false);
+    expect(hasHomeCoords({ ...home, homeLocation: null })).toBe(false);
   });
 });
 

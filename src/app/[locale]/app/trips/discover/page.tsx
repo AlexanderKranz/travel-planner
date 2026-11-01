@@ -3,6 +3,7 @@ import { DiscoverForm } from "@/components/discover/discover-form";
 import { defaultLimitHours } from "@/components/discover/helpers";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import { Link } from "@/i18n/navigation";
+import { hasHomeCoords } from "@/lib/domain/profile";
 import { maxBlockMinutes } from "@/lib/flights/constraint";
 import { listGroups } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
@@ -15,6 +16,9 @@ export default async function DiscoverPage({ params }: { params: Promise<{ local
   const t = await getTranslations("discover");
   const tt = await getTranslations("trips");
   const [groups, purposes, profile] = await Promise.all([listGroups(), listPurposes(), getProfile()]);
+  const p = unwrap(profile, locale);
+  // A home saved before drive searches has a name but no coordinates: it is picked once more (spec section 3).
+  const home = hasHomeCoords(p) && p.homeTimezone ? { name: p.homeLocation!, timezone: p.homeTimezone, geoId: p.homeGeoId! } : null;
   return (
     <main className="flex max-w-3xl flex-col gap-4">
       <Link href="/app/trips" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
@@ -25,7 +29,9 @@ export default async function DiscoverPage({ params }: { params: Promise<{ local
       <DiscoverForm
         purposes={unwrap(purposes, locale).map((p) => ({ id: p.id, name: p.name, maxFlightHours: defaultLimitHours(maxBlockMinutes(p)) }))}
         groups={unwrap(groups, locale).map(({ id, name }) => ({ id, name }))}
-        homeAirports={unwrap(profile, locale).homeAirports}
+        homeAirports={p.homeAirports}
+        home={home}
+        legacyHome={home === null && p.homeLocation !== null}
       />
     </main>
   );
