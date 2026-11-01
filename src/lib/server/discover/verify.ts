@@ -14,7 +14,7 @@ import { selectSearchInterests, VERIFIABILITY } from "@/lib/discover/verifiabili
 import { driveMaxMin } from "@/lib/drive/estimate";
 import { CLIMATE_PERIOD } from "@/lib/facts/climate";
 import type { DriveRoute } from "@/lib/integrations/openrouteservice";
-import { getPlaceById, searchPlacesCached } from "@/lib/integrations/open-meteo-geocoding";
+import { getPlaceById, searchPlacesCached, type SearchLang } from "@/lib/integrations/open-meteo-geocoding";
 import type { CachedResult } from "../api-cache";
 import type { Idea } from "../ai/destination-ideas";
 import { getDriveRoute } from "../facts/drive-route";
@@ -31,7 +31,7 @@ export const DRIVE_MAX_CONSECUTIVE_FAILURES = 3;
 
 /** The external lookups, injectable for tests. Every default goes through `cached()` and so reaches `api_calls`. */
 export type VerifyDeps = {
-  geocode: (anchor: string, lang: "de" | "en", userId: string) => Promise<CachedResult<GeoPlace[]>>;
+  geocode: (anchor: string, lang: SearchLang, userId: string) => Promise<CachedResult<GeoPlace[]>>;
   climate: (point: { lat: number; lon: number }, ctx: FactsCtx, fetchAllowed: () => boolean) => Promise<CachedResult<MonthlyClimate[]>>;
   pois: (
     interest: InterestKey,
@@ -77,8 +77,13 @@ type Anchor =
  * spellings such as "Köln"). A hit in another language than the user's is read again by id for the localized name
  * (cached). At most 3 calls per idea, all through `cached()`. A failed call is a failure, never "not found".
  */
+/** Open-Meteo search languages for countries whose local names are not found in English or German (checked live 2026-11-02). */
+const ANCHOR_LANGUAGE: Record<string, SearchLang> = { PT: "pt", IT: "it", ES: "es", FR: "fr", TR: "tr" };
+
 export async function resolveAnchor(idea: Idea, lang: "de" | "en", userId: string, deps: VerifyDeps): Promise<Anchor> {
-  for (const searchLang of ["en", "de"] as const) {
+  // Local-only anchors (Lisboa, Firenze) are found in the country's language; the result must still match the anchor.
+  const local = ANCHOR_LANGUAGE[idea.cc.trim().toUpperCase()];
+  for (const searchLang of ["en", "de", ...(local ? [local] : [])] as SearchLang[]) {
     const res = await deps.geocode(idea.anchor, searchLang, userId);
     if (!res.ok) return { status: "failed" };
     const hit = pickAnchorPlace(res.data, idea.anchor, idea.cc);

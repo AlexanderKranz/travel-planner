@@ -70,9 +70,12 @@ const maybePlaceSchema = geoPlaceSchema.nullable();
 const normQuery = (q: string) => q.normalize("NFC").trim().toLowerCase().replace(/\s+/g, " ");
 
 /** Search with the cache result (fetch date, stale flag, failure kind). Never throws. */
+/** Also finds names that exist only in the local language (destination search anchors). */
+export type SearchLang = GeoLang | "pt" | "it" | "es" | "fr" | "tr";
+
 export function searchPlacesCached(
   q: string,
-  lang: GeoLang,
+  lang: SearchLang,
   ctx: { userId: string | null } = { userId: null },
 ): Promise<CachedResult<GeoPlace[]>> {
   const query = normQuery(q);
