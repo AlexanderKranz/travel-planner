@@ -3,7 +3,7 @@ import { berlinMidnightUtc, QuotaGuardError } from "../flights-quota";
 import { createSupabaseAdminClient } from "../supabase/admin";
 import { getEffectiveEnv } from "../settings";
 
-/** Default daily request cap (free Standard key allows ~500 matrix requests/day; Directions has its own bucket). */
+/** Default daily request cap for matrix and Directions calls together (free Standard key: ~500 matrix requests/day; the Directions headers report 200/day, so lower it until the real limit is confirmed). */
 export const ORS_DAILY_REQUESTS_DEFAULT = 400;
 
 export function orsDailyCap(env: Record<string, string | undefined> = process.env): number {
