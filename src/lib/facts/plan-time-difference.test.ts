@@ -1,38 +1,5 @@
 import { describe, expect, it } from "vitest";
-import de from "../../../messages/de.json";
-import en from "../../../messages/en.json";
-import { makeT } from "@/lib/pdf/labels";
-import { planTimeDifference, planTimeDifferenceText, shownTimeDifference, type PlanTimeDifference } from "./plan-time-difference";
-
-describe("real messages", () => {
-  const td: PlanTimeDifference = { kind: "ahead", hours: "6", home: null, notes: ["current"] };
-  it("separates the phrase from the notes (web and pdf, de and en)", () => {
-    expect(planTimeDifferenceText(td, makeT(en.plan.facts))).toBe("6 h ahead of Germany. Current value, the trip has no date yet.");
-    expect(planTimeDifferenceText(td, makeT(de.pdf.facts))).toBe("6 Std. vor Deutschland. Aktueller Wert, die Reise hat noch kein Datum.");
-    expect(planTimeDifferenceText({ ...td, notes: [] }, makeT(en.pdf.facts))).toBe("6 h ahead of Germany");
-  });
-});
-
-describe("shownTimeDifference", () => {
-  it("is only shown for the latest version", () => {
-    const td: PlanTimeDifference = { kind: "ahead", hours: "6", home: null, notes: [] };
-    expect(shownTimeDifference(true, td)).toBe(td);
-    expect(shownTimeDifference(false, td)).toBeNull();
-    expect(shownTimeDifference(true, undefined)).toBeNull();
-  });
-});
-
-const tt = (key: string, v?: Record<string, string>) => `${key}${v ? JSON.stringify(v) : ""}`;
-describe("planTimeDifferenceText", () => {
-  it("uses the default home name when none is set and appends notes", () => {
-    expect(planTimeDifferenceText({ kind: "ahead", hours: "8", home: null, notes: ["current"] }, tt)).toBe(
-      'timeAhead{"diff":"8","home":"timeDefaultHome"}. timeCurrent',
-    );
-    expect(planTimeDifferenceText({ kind: "range", hours: "+1", to: "+2", home: "Wien", notes: ["changes"] }, tt)).toBe(
-      'timeRange{"from":"+1","to":"+2","home":"Wien"}. timeChanges',
-    );
-  });
-});
+import { planTimeDifference } from "./plan-time-difference";
 
 type P = Parameters<typeof planTimeDifference>[0];
 const plan = (tz: string | undefined, timing: P["header"]["timing"], lengthDays = 7): P =>

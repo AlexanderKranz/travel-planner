@@ -79,7 +79,15 @@ describe("planGlanceTiles", () => {
     expect(tiles[1].value).toMatch(/^08:37–15:\d\d$/);
     expect(tiles[2]).toMatchObject({ value: "Vereinigtes Königreich", flag: "🇬🇧" });
     expect(tiles[2].chips.map((c) => c.text)).toContain("Linksverkehr");
-    expect(tiles[3]).toMatchObject({ value: "−1 Std.", lines: ["gegenüber Hochheim"] });
+    expect(tiles[3]).toMatchObject({ value: "−1 Std.", lines: ["gegenüber Hochheim", "Zeitzone: Europe/London · UTC+00:00"] });
+  });
+
+  it("shows the time zone in the time tile, also without a difference to home", () => {
+    const g = planGlance(plan, place, "2026-11-01");
+    const withDiff = planGlanceTiles({ glance: g, timeDifference: { kind: "behind", hours: "1", home: null, notes: [] } }, "de", t);
+    expect(withDiff[2].chips.map((c) => c.text).join()).not.toContain("Europe/London");
+    expect(withDiff[3].lines).toContain("Zeitzone: Europe/London · UTC+00:00");
+    expect(planGlanceTiles({ glance: g }, "de", t)[3]).toMatchObject({ value: "Keine", lines: ["Zeitzone: Europe/London · UTC+00:00"] });
   });
 
   it("uses the default home and keeps the range sign", () => {

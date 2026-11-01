@@ -389,8 +389,6 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
   const g = h.group && h.group.total > 0 ? h.group : null;
   // Booked/planned items with day + start time, merged into the day rows (same as the web views).
   const fixed = doc.items ? fixedItemsOf(doc.items, plan.days.length) : [];
-  const airports = plan.facts.airports ?? [];
-  const num = (n: number) => new Intl.NumberFormat(plan.locale, { maximumFractionDigits: 1 }).format(n);
   const flights = plan.flights;
 
   return (
@@ -508,18 +506,6 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
                 </View>
               ))}
             </View>
-          </Card>
-        )}
-
-        {/* Climate, daylight and time difference are in the tiles on page 1; only the airports stay here. */}
-        {airports.length > 0 && (
-          <Card wrap={false}>
-            <Text style={h2Style} minPresenceAhead={90}>{t("facts.title")}</Text>
-            <Text style={{ marginBottom: 2 }}>
-              <Text style={{ fontWeight: 700 }}>{t("facts.airports")}: </Text>
-              {airports.map((a) => `${a.name} (${a.iata}, ${t("facts.km", { km: num(a.km) })})`).join("; ")}
-            </Text>
-            <Text style={{ ...s.small, marginTop: 3 }}>{t("sources")}</Text>
           </Card>
         )}
 

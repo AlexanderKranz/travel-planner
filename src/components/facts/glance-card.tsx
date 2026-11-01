@@ -125,17 +125,10 @@ export function GlanceCard({
                 <span className="sr-only">{tc("driving")}: </span>
                 {tc(c.drivingSide)}
               </li>
-              {tzText && (
-                <li className={chipCls}>
-                  <span aria-hidden="true">🕒</span>
-                  <span className="sr-only">{tc("timezone")}: </span>
-                  {tzText}
-                </li>
-              )}
             </ul>
           </Tile>
         )}
-        {timeDifference && <TimeDifferenceTile diff={timeDifference} homeName={homeName} />}
+        {timeDifference && <TimeDifferenceTile diff={timeDifference} homeName={homeName} timezone={tzText} />}
       </div>
       {reasons.length > 0 && (
         <p className={`text-xs ${mutedCls}`}>

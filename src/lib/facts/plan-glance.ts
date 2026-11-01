@@ -21,7 +21,7 @@ export type PlanGlance = {
   } | null;
 };
 
-export type GlanceChip = { key: "currency" | "callingCode" | "driving" | "timezone"; id: string; text: string };
+export type GlanceChip = { key: "currency" | "callingCode" | "driving"; id: string; text: string };
 export type GlanceTile = {
   key: "climate" | "daylight" | "country" | "time";
   label: string;
@@ -70,7 +70,6 @@ export function planGlanceTiles(
       ...country.currencies.map((c) => ({ key: "currency" as const, id: c.code, text: currencyLabel(c) })),
       ...(country.callingCode ? [{ key: "callingCode" as const, id: "callingCode", text: country.callingCode }] : []),
       { key: "driving", id: "driving", text: t(country.drivingSide) },
-      ...(country.timezone ? [{ key: "timezone" as const, id: "timezone", text: country.timezone }] : []),
     ];
     tiles.push({
       key: "country",
@@ -81,6 +80,7 @@ export function planGlanceTiles(
       chips,
     });
   }
+  const zone = country?.timezone ? [t("timezoneLine", { zone: country.timezone })] : [];
   if (td) {
     const sign = td.kind === "behind" ? "−" : "+";
     tiles.push({
@@ -90,9 +90,13 @@ export function planGlanceTiles(
       lines: [
         t("timeVs", { home: td.home ?? t("timeDefaultHome") }),
         ...td.notes.map((n) => t(n === "current" ? "timeCurrent" : n === "changes" ? "timeChanges" : "timeByMonth")),
+        ...zone,
       ],
       chips: [],
     });
+  } else if (zone.length > 0) {
+    // No difference to home: the zone still needs its place.
+    tiles.push({ key: "time", label: t("timeTitle"), value: t("timeNone"), lines: zone, chips: [] });
   }
   return tiles;
 }

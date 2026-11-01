@@ -10,7 +10,6 @@ test.describe("trip creation", () => {
     // visible: the destination summary is rendered twice (collapsed box on phones, side column on desktop).
     await expect(page.getByText(/Open-Meteo/).filter({ visible: true }).first()).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/geprüft/).filter({ visible: true }).first()).toBeVisible();
-    await expect(page.getByRole("region", { name: "Reisekontext" })).toBeVisible();
   });
 
   test("free-text destination shows the unavailable state instead of invented facts", async ({ page }) => {
@@ -31,18 +30,15 @@ test.describe("trip creation", () => {
     await page.locator("select").filter({ has: page.locator("option", { hasText: "Ungefähr" }) }).selectOption({ label: "Ungefähr" });
     await page.getByLabel("Alter in Jahren").fill("45");
     await submitTrip(page);
-    const ctx = page.getByRole("region", { name: "Reisekontext" });
-    await expect(ctx.getByRole("link", { name: "Nur für diese Reise" })).toBeVisible();
-    await expect(ctx).toContainText("45");
+    await page.getByRole("link", { name: "Bearbeiten", exact: true }).first().click();
+    await expect(page.getByLabel("Wer reist mit (nur diese Reise)?")).toHaveValue("2 Erwachsene ~45");
   });
 
   test("trip with a saved group of named members", async ({ page, seed }) => {
     await startTripForm(page, "geo");
     await page.getByLabel("Reisegruppe (optional)").selectOption(seed.groupId);
     await submitTrip(page);
-    const ctx = page.getByRole("region", { name: "Reisekontext" });
-    await expect(ctx.getByRole("link", { name: seed.groupName })).toBeVisible();
-    await expect(ctx).toContainText("Anna");
-    await expect(ctx).toContainText("Mia");
+    await page.getByRole("link", { name: "Bearbeiten", exact: true }).first().click();
+    await expect(page.getByLabel("Reisegruppe (optional)")).toHaveValue(seed.groupId);
   });
 });

@@ -61,21 +61,31 @@ export function PlanOpenItems({ items, done = [] }: { items: Plan["openItems"]; 
   );
 }
 
+/** Collapsed on phones (Alex, 2026-11-01): two renderings, because <details> cannot start open by breakpoint. */
 export function PlanPacking({ items }: { items: Plan["packing"] }) {
   const t = useTranslations("plan");
   if (items.length === 0) return null;
+  const list = (
+    <ul className="flex flex-wrap gap-1.5 text-sm">
+      {items.map((it, i) => (
+        <li key={i} className="rounded-full border border-line-strong bg-card px-3 py-1">
+          {it}
+        </li>
+      ))}
+    </ul>
+  );
   return (
-    <section aria-labelledby="plan-packing" className={box}>
-      <h3 id="plan-packing" className="mb-3 text-lg font-bold">
-        {t("packing.title")}
-      </h3>
-      <ul className="flex flex-wrap gap-1.5 text-sm">
-        {items.map((it, i) => (
-          <li key={i} className="rounded-full border border-line-strong bg-card px-3 py-1">
-            {it}
-          </li>
-        ))}
-      </ul>
-    </section>
+    <>
+      <details className={`${box} md:hidden`}>
+        <summary className="flex min-h-11 cursor-pointer items-center text-lg font-bold">{t("packing.title")}</summary>
+        <div className="mt-3">{list}</div>
+      </details>
+      <section aria-labelledby="plan-packing" className={`${box} hidden md:block`}>
+        <h3 id="plan-packing" className="mb-3 text-lg font-bold">
+          {t("packing.title")}
+        </h3>
+        {list}
+      </section>
+    </>
   );
 }
