@@ -12,12 +12,8 @@ import { berlinToday } from "@/lib/date";
 import { Locale, type FactsCtx } from "@/lib/domain";
 import { ageReferenceDate } from "@/lib/facts/trip-timing";
 import { groupPartySize, resolveGroup, tripGroupSource } from "@/lib/group-text";
-import { getGroup } from "@/lib/server/groups";
-import { getProfile } from "@/lib/server/profile";
-import { getPurpose } from "@/lib/server/purposes";
-import { getPlanState } from "@/lib/server/plans";
+import { getGroupOnce, getPlanStateOnce, getProfileOnce, getPurposeOnce, getTripOnce } from "@/lib/server/request-reads";
 import { getUserSession } from "@/lib/server/session";
-import { getTrip } from "@/lib/server/trips";
 import { unwrap } from "@/lib/unwrap";
 import { adultsFromEntries } from "@/lib/flights/ui";
 import { FlightsPanelSection } from "./_panels/flights-panel";
@@ -51,12 +47,12 @@ export default async function TripDetailPage({
   const version = Number.isInteger(versionNo) && versionNo > 0 ? versionNo : undefined;
   setRequestLocale(locale);
   const t = await getTranslations("facts");
-  const trip = unwrap(await getTrip(id), locale);
+  const trip = unwrap(await getTripOnce(id), locale);
 
   const [groupRes, purposeRes, profileRes, session] = await Promise.all([
-    trip.groupId ? getGroup(trip.groupId) : null,
-    trip.purposeId ? getPurpose(trip.purposeId) : null,
-    getProfile(),
+    trip.groupId ? getGroupOnce(trip.groupId) : null,
+    trip.purposeId ? getPurposeOnce(trip.purposeId) : null,
+    getProfileOnce(),
     getUserSession(),
   ]);
   const profile = unwrap(profileRes, locale);
@@ -82,7 +78,10 @@ export default async function TripDetailPage({
 
   const partySize = groupPartySize(resolved);
   const startDate = trip.timing.kind === "date" ? trip.timing.startDate : null;
-  const planRes = await getPlanState(trip.id);
+  // One plan-state load per request: PlanSection asks for the same (trip, version) and gets this result. The share
+  // panel only needs to know whether any version exists, so a ?v= that does not exist falls back to the latest.
+  let planRes = await getPlanStateOnce(trip.id, version);
+  if (!planRes.ok && version !== undefined) planRes = await getPlanStateOnce(trip.id);
   const hasPlan = planRes.ok && planRes.data.versions.length > 0;
 
   const ctx: FactsCtx = {

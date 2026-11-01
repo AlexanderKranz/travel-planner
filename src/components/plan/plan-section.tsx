@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { MAX_PLAN_DAYS } from "@/lib/domain/plan";
 import { getOwnerPlanDocument } from "@/lib/server/plan-document";
-import { getPlanState } from "@/lib/server/plans";
+import { getProfileOnce, getPlanStateOnce } from "@/lib/server/request-reads";
 import { budgetExhausted } from "./helpers";
 import { BudgetLine } from "./budget-line";
 import { PlanEmpty } from "./plan-empty";
@@ -27,7 +27,7 @@ export async function PlanSection({
   partySize: number | null;
   startDate?: string | null;
 }) {
-  const res = await getPlanState(tripId, version);
+  const res = await getPlanStateOnce(tripId, version);
   if (!res.ok) {
     const t = await getTranslations("plan");
     return (
@@ -44,7 +44,12 @@ export async function PlanSection({
     return <PlanEmpty state={state} locale={locale} tooLong={lengthDays > MAX_PLAN_DAYS} />;
   }
   const shown = state.version;
-  const doc = await getOwnerPlanDocument(tripId);
+  // The page already loaded this version and the profile in this request: the document read reuses them.
+  const profile = await getProfileOnce();
+  const doc = await getOwnerPlanDocument(tripId, {
+    latest: state.isLatest ? { plan: shown.plan, versionNo: shown.meta.versionNo, versionAt: shown.meta.createdAt } : undefined,
+    home: profile.ok ? { name: profile.data.homeLocation, timezone: profile.data.homeTimezone } : undefined,
+  });
   const openDone = doc?.openDone ?? [];
 
   const aiBlock: IterateBlock = !state.isLatest

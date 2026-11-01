@@ -5,7 +5,7 @@ import type { PlanEdit, PlanState } from "@/lib/domain/plan";
 import { fail, type ActionResult } from "@/lib/domain/result";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { openItemKey } from "@/lib/plan/open-items";
-import { getVersion } from "./plan-store";
+import { getVersionLight } from "./plan-store";
 import { getUserSession } from "./session";
 import { editPlanVersion, loadPlanContext, loadPlanState, restoreVersion } from "./plan-pipeline";
 
@@ -53,7 +53,7 @@ export async function toggleOpenItem(tripId: string, key: string, done: boolean)
   if (row.latest_version < 1) return fail("no_plan");
   let version;
   try {
-    version = await getVersion(sb as SupabaseClient, row.id, row.latest_version);
+    version = await getVersionLight(sb as SupabaseClient, row.id, row.latest_version);
   } catch {
     return fail("failed");
   }
