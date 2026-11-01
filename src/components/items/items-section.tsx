@@ -26,6 +26,24 @@ export async function ItemsSection({
   const t = await getTranslations("items");
   const [res, planFlights] = await Promise.all([listItems(tripId), getOwnerPlanFlights(tripId)]);
   const ctx = { tripId, lengthDays, partySize, startDate, flights: planFlights ? fittingLegs(planFlights.legs) : [] };
+  // Collapsed until the first entry (Alex, 2026-11-01); a quick add from the plan brings the full block.
+  if (res.ok && res.data.length === 0) {
+    return (
+      <section aria-labelledby="items-title" className={`${cardCls} min-w-0 p-0`}>
+        <details>
+          <summary className="min-h-11 cursor-pointer px-4 py-2.5">
+            <h2 id="items-title" className="inline text-lg font-bold">
+              {t("title")}
+            </h2>
+          </summary>
+          <div className="flex flex-col items-start gap-3 px-4 pb-4">
+            <p className={`text-sm ${mutedCls}`}>{t("empty")}</p>
+            <AddItemButton ctx={ctx} />
+          </div>
+        </details>
+      </section>
+    );
+  }
   return (
     <section aria-labelledby="items-title" className={`${cardCls} flex min-w-0 flex-col gap-4`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -36,8 +54,6 @@ export async function ItemsSection({
       </div>
       {!res.ok ? (
         <ErrorBanner error={res.error} />
-      ) : res.data.length === 0 ? (
-        <p className={`text-sm ${mutedCls}`}>{t("empty")}</p>
       ) : (
         <>
           <CostSummaryView costs={computeCosts(res.data, partySize)} />

@@ -20,6 +20,18 @@ export type PlanTimeDifference = {
 
 export type PlanHome = { name: string | null; timezone: string | null };
 
+/** Reference dates of the plan's own timing, same rule as for a trip. */
+export function planReferenceDates(header: Plan["header"], today: string): string[] {
+  const { timing, lengthDays } = header;
+  const tripTiming: Trip["timing"] =
+    timing.kind === "date"
+      ? { kind: "date", startDate: timing.startDate }
+      : timing.kind === "months"
+        ? { kind: "months", months: timing.months }
+        : { kind: "none" };
+  return referenceDates({ timing: tripTiming, lengthDays }, today);
+}
+
 /**
  * Time difference destination vs. the plan owner's home, from the plan snapshot (destination zone =
  * facts.daylight.timezone, dates = header.timing). Null when there is no destination zone, a zone is invalid
@@ -33,14 +45,8 @@ export function planTimeDifference(
   const dest = plan.facts.daylight?.timezone;
   const homeZone = home?.timezone ?? DEFAULT_HOME_TIMEZONE;
   if (!dest || !isValidTimeZone(dest) || !isValidTimeZone(homeZone)) return null;
-  const { timing, lengthDays } = plan.header;
-  const tripTiming: Trip["timing"] =
-    timing.kind === "date"
-      ? { kind: "date", startDate: timing.startDate }
-      : timing.kind === "months"
-        ? { kind: "months", months: timing.months }
-        : { kind: "none" };
-  const refs = referenceDates({ timing: tripTiming, lengthDays }, today);
+  const { timing } = plan.header;
+  const refs = planReferenceDates(plan.header, today);
   const minutes = timeDifferenceMinutes(dest, homeZone, refs.length ? refs : [today]);
   if (minutes.length === 0) return null;
   const homeName = home?.timezone && home.name ? home.name : null;
@@ -59,26 +65,4 @@ export function planTimeDifference(
   const m = minutes[0];
   if (m === 0) return null;
   return { kind: m > 0 ? "ahead" : "behind", hours: formatHours(Math.abs(m)).slice(1), home: homeName, notes };
-}
-
-type Translate = (key: string, vars?: Record<string, string>) => string;
-
-/**
- * One line of text, identical on web and PDF: "8 h ahead of Germany. Changes during the trip (daylight saving)."
- * `t` resolves the `timeAhead`, `timeBehind`, `timeRange`, `timeCurrent`, `timeChanges`, `timeByMonth` and
- * `timeDefaultHome` keys of the web (`plan.facts`) or PDF (`pdf.facts`) namespace.
- */
-export function planTimeDifferenceText(td: PlanTimeDifference, t: Translate): string {
-  const home = td.home ?? t("timeDefaultHome");
-  const main =
-    td.kind === "range"
-      ? t("timeRange", { from: td.hours, to: td.to ?? td.hours, home })
-      : t(td.kind === "ahead" ? "timeAhead" : "timeBehind", { diff: td.hours, home });
-  const notes = td.notes.map((n) => t(n === "current" ? "timeCurrent" : n === "changes" ? "timeChanges" : "timeByMonth"));
-  return notes.length ? `${main}. ${notes.join(" ")}` : main;
-}
-
-/** The figure belongs to the latest plan version (the document's); older versions show none rather than a wrong one. */
-export function shownTimeDifference(isLatest: boolean, td: PlanTimeDifference | null | undefined): PlanTimeDifference | null {
-  return isLatest ? (td ?? null) : null;
 }

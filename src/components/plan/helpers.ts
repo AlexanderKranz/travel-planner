@@ -93,7 +93,7 @@ export type FeedbackSummary =
   | { type: "act_edit"; edit: ActEditKind; n: number }
   | { type: "none" };
 
-export const ACT_EDIT_KINDS = ["remove_alt", "promote_alt", "remove_act"] as const;
+export const ACT_EDIT_KINDS = ["remove_alt", "promote_alt", "remove_act", "open_add", "open_set", "open_remove"] as const;
 export type ActEditKind = (typeof ACT_EDIT_KINDS)[number];
 
 /** Normalises the stored feedback of a version (PlanFeedback or PlanEdit) for display. */

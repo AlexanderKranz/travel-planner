@@ -1,34 +1,11 @@
 import { useFormatter, useTranslations } from "next-intl";
 import type { CountryFacts, DaylightFacts, Fact, WeatherFacts } from "@/lib/domain";
-import { monthName } from "@/components/trips/trip-title";
 import { mutedCls } from "@/components/ui/styles";
 import { Tile } from "./glance-tile";
 import { TimeDifferenceTile } from "./time-difference-tile";
 import type { TimeDifference } from "@/lib/facts/time-difference";
-import { climateGlance, flagEmoji, glanceMonths, middleDay } from "@/lib/facts/glance";
+import { climateGlance, currencyLabel, flagEmoji, glanceMonths, middleDay, monthsLabel, regionName } from "@/lib/facts/glance";
 import { SourcesLine, sourceItem } from "./sources-line";
-
-function regionName(code: string, locale: string, fallback: string) {
-  try {
-    const n = new Intl.DisplayNames([locale], { type: "region", fallback: "none" }).of(code);
-    return n && n.toLowerCase() !== code.toLowerCase() ? n : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function currencyLabel(c: CountryFacts["currencies"][number]) {
-  return c.symbol && c.symbol !== c.code ? `${c.symbol} ${c.code}` : c.code;
-}
-
-function monthsLabel(months: number[], locale: string) {
-  if (months.length === 0) return "";
-  if (months.length === 1) return monthName(months[0], locale, "long");
-  const contiguous = months.every((m, i) => i === 0 || m === months[i - 1] + 1);
-  return contiguous
-    ? `${monthName(months[0], locale, "long")}–${monthName(months[months.length - 1], locale, "long")}`
-    : months.map((m) => monthName(m, locale)).join(", ");
-}
 
 const chipCls =
   "inline-flex items-center gap-1 rounded-full border border-line bg-page px-2.5 py-1 text-xs text-ink";
@@ -79,7 +56,7 @@ export function GlanceCard({
   const flag = c ? flagEmoji(c.code) : "";
   const tzInfo = c?.timezone;
   const tzText = tzInfo
-    ? [tzInfo.iana, tzInfo.utcOffsets.length ? `UTC${tzInfo.utcOffsets[0]}` : null].filter(Boolean).join(" · ") ||
+    ? [tzInfo.iana, tzInfo.utcOffsets.length ? tzInfo.utcOffsets.map((o) => `UTC${o}`).join(" / ") : null].filter(Boolean).join(" · ") ||
       tzInfo.countryZones[0]
     : null;
 
@@ -148,17 +125,10 @@ export function GlanceCard({
                 <span className="sr-only">{tc("driving")}: </span>
                 {tc(c.drivingSide)}
               </li>
-              {tzText && (
-                <li className={chipCls}>
-                  <span aria-hidden="true">🕒</span>
-                  <span className="sr-only">{tc("timezone")}: </span>
-                  {tzText}
-                </li>
-              )}
             </ul>
           </Tile>
         )}
-        {timeDifference && <TimeDifferenceTile diff={timeDifference} homeName={homeName} />}
+        {timeDifference && <TimeDifferenceTile diff={timeDifference} homeName={homeName} timezone={tzText} />}
       </div>
       {reasons.length > 0 && (
         <p className={`text-xs ${mutedCls}`}>
