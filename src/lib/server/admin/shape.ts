@@ -34,13 +34,13 @@ type Raw = {
   events: z.infer<typeof RecentEventsRaw>;
 };
 
-const AI_TASKS = ["purpose_tags", "group_parse", "plan_generate", "plan_patch"] as const;
+const AI_TASKS = ["purpose_tags", "group_parse", "destination_ideas", "plan_generate", "plan_patch"] as const;
 
 export function shapeDashboard(raw: Raw, cfg: BudgetConfig) {
   const maxDay = Math.max(1, ...raw.usage.perDay.map((d) => d.generated + d.patched));
   const perDay = raw.usage.perDay.map((d) => ({ ...d, total: d.generated + d.patched, widthPct: Math.round(((d.generated + d.patched) / maxDay) * 100) }));
 
-  // Always list the four known tasks (0 calls when unused), then any unknown ones.
+  // Always list the known tasks (0 calls when unused), then any unknown ones.
   const byTask = [
     ...AI_TASKS.map((key) => raw.ai.byTask.find((t) => t.key === key) ?? { key, calls: 0, microUsd: 0 }),
     ...raw.ai.byTask.filter((t) => !(AI_TASKS as readonly string[]).includes(t.key)),

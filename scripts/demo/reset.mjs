@@ -93,6 +93,9 @@ const userId = user.id;
 {
   const t = await sb.from("trips").delete().eq("owner_id", userId); // before groups/purposes: keeps FK actions quiet
   check(t.error, "deleting demo trips");
+  // Saved destination suggestions are not tied to a trip (nothing cascades from trips): delete them explicitly.
+  const ds = await sb.from("destination_searches").delete().eq("owner_id", userId);
+  check(ds.error, "deleting demo destination searches");
   const g = await sb.from("travel_groups").delete().eq("owner_id", userId);
   check(g.error, "deleting demo groups");
   const p = await sb.from("trip_purposes").delete().eq("owner_id", userId);

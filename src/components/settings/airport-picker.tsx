@@ -18,10 +18,18 @@ export function AirportPicker({
   value,
   onChange,
   error,
+  max = MAX_HOME_AIRPORTS,
+  label,
+  hint,
 }: {
   value: string[];
   onChange: (codes: string[]) => void;
   error?: string;
+  /** Most airports that can be picked (default: the home airport limit). */
+  max?: number;
+  /** Replaces the "Home airports" label and its hint (for example "Departure airports"). */
+  label?: string;
+  hint?: string;
 }) {
   const t = useTranslations("settings.airports");
   const id = useId();
@@ -29,7 +37,7 @@ export function AirportPicker({
   const [results, setResults] = useState<Airport[]>([]);
   const [active, setActive] = useState(-1);
   const [known, setKnown] = useState<Record<string, Airport>>({});
-  const full = value.length >= MAX_HOME_AIRPORTS;
+  const full = value.length >= max;
   const open = results.length > 0 && !full;
 
   // Debounced search while typing.
@@ -95,10 +103,10 @@ export function AirportPicker({
   return (
     <div className="flex flex-col gap-2">
       <label htmlFor={`${id}-input`} className="text-sm font-medium">
-        {t("label")}
+        {label ?? t("label")}
       </label>
       <p id={`${id}-hint`} className={`text-sm ${mutedCls}`}>
-        {full ? t("full", { max: MAX_HOME_AIRPORTS }) : t("hint", { max: MAX_HOME_AIRPORTS })}
+        {full ? t("full", { max }) : (hint ?? t("hint", { max }))}
       </p>
       <div className="relative">
         <input

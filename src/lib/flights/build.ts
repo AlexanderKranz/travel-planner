@@ -3,6 +3,7 @@ import type { FlightLeg, FlightPair, FlightsFacts, PairStatus } from "@/lib/doma
 import { haversineKm } from "@/lib/facts/places";
 import type { FidsLeg, RouteStat } from "@/lib/integrations/aerodatabox-normalize";
 import { AIRLINES } from "./airlines";
+import { blockMinFromKm } from "./estimate";
 import { daysBetween, daysInMonth, isoWeekday, type FlightDates } from "./lookups";
 
 /** A lookup result: `complete` = every window of the day was fetched; null = not checked (refused, failed, no budget). */
@@ -33,7 +34,7 @@ const round5 = (n: number) => Math.round(n / 5) * 5;
 export function approxBlockMin(from: string, to: string): number {
   const a = coords.get(from);
   const b = coords.get(to);
-  return a && b ? round5(30 + haversineKm(a, b) / 13.3) : 0;
+  return a && b ? round5(blockMinFromKm(haversineKm(a, b))) : 0;
 }
 
 const utcMs = (s: string) => Date.parse(s); // "YYYY-MM-DDTHH:MMZ"

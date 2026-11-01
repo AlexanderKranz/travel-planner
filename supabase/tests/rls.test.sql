@@ -786,7 +786,7 @@ select lives_ok($$insert into public.destination_searches (purpose_id, purpose_n
   'B can insert an own destination search');
 select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status) values ('x', 'en', repeat('d', 64), '{}', 'running')$$,
   '23505', null, 'only one running search per user (partial unique index)');
-select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input) values ('x', 'en', repeat('c', 64), '{}')$$,
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status) values ('x', 'en', repeat('c', 64), '{}', 'done')$$,
   '23505', null, 'one list per owner and input hash');
 select lives_ok($$update public.destination_searches set status = 'done', busy_until = null where input_hash = repeat('c', 64)$$, 'B can finish an own search');
 select throws_ok($$update public.destination_searches set input_hash = repeat('e', 64) where input_hash = repeat('c', 64)$$, '42501', null, 'input_hash cannot be changed afterwards');
@@ -802,6 +802,7 @@ select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, 
   '23503', null, 'a trip cannot reference the destination search of another owner');
 select lives_ok($$insert into public.trips (dest_kind, dest_name, length_days, destination_search_id) values ('freetext', 'From a list', 2, (select id from public.destination_searches where input_hash = repeat('c', 64)))$$,
   'a trip can reference an own destination search');
+select is((select destination_search_id from public.trips where dest_name = 'From a list'), (select id from public.destination_searches where input_hash = repeat('c', 64)), 'the trip is linked to the own search');
 delete from public.destination_searches where input_hash = repeat('c', 64);
 select is((select destination_search_id from public.trips where dest_name = 'From a list'), null, 'deleting the list clears the link, the trip stays');
 select is((select count(*)::int from public.trips where dest_name = 'From a list'), 1, 'the trip survives the deleted list');

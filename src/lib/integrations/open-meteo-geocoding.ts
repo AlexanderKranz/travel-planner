@@ -8,7 +8,7 @@
 import "server-only";
 import { z } from "zod";
 import type { GeoPlace } from "@/lib/domain/geo";
-import { cacheKey, cached } from "@/lib/server/api-cache";
+import { cacheKey, cached, type CachedResult } from "@/lib/server/api-cache";
 import { HttpError, fetchJson } from "./http";
 
 const BASE = "https://geocoding-api.open-meteo.com/v1";
@@ -69,14 +69,14 @@ const placesSchema = z.array(geoPlaceSchema);
 const maybePlaceSchema = geoPlaceSchema.nullable();
 const normQuery = (q: string) => q.normalize("NFC").trim().toLowerCase().replace(/\s+/g, " ");
 
-/** Search places. Throws on provider error (the route turns that into `unavailable`). */
-export async function searchPlaces(
+/** Search with the cache result (fetch date, stale flag, failure kind). Never throws. */
+export function searchPlacesCached(
   q: string,
   lang: GeoLang,
   ctx: { userId: string | null } = { userId: null },
-): Promise<GeoPlace[]> {
+): Promise<CachedResult<GeoPlace[]>> {
   const query = normQuery(q);
-  const res = await cached({
+  return cached({
     provider: "open_meteo_geocoding",
     endpoint: "search",
     key: cacheKey("search", 1, { q: query, lang }),
@@ -89,6 +89,15 @@ export async function searchPlaces(
       return { data: parseSearchResponse(r.body), status: r.status, latencyMs: r.latencyMs };
     },
   });
+}
+
+/** Search places. Throws on provider error (the route turns that into `unavailable`). */
+export async function searchPlaces(
+  q: string,
+  lang: GeoLang,
+  ctx: { userId: string | null } = { userId: null },
+): Promise<GeoPlace[]> {
+  const res = await searchPlacesCached(q, lang, ctx);
   if (!res.ok) throw new Error(`geocoding search failed: ${res.error}`);
   return res.data;
 }

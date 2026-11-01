@@ -17,6 +17,24 @@ const PASSAU = {
   dest_timezone: "Europe/Berlin",
 };
 
+/** One recorded suggestion (Passau is the place the stubbed geocoder knows). */
+const DISCOVER_CARD = {
+  id: "g2855328",
+  round: 1,
+  name: "Passau",
+  reason: "Drei Flüsse und schöne Ausflüge.",
+  kind: "city",
+  geoId: 2855328,
+  placeName: "Passau",
+  countryCode: "DE",
+  admin1: "Bayern",
+  place: { source: "geonames", fetchedAt: "2026-11-01T08:00:00Z", stale: false },
+  flight: null,
+  nearAirport: false,
+  climate: { status: "not_checked" },
+  pois: [{ status: "not_checked", interest: "christmas_markets" }],
+};
+
 const must = <T>(r: { data: T | null; error: { message: string } | null }, what: string): T => {
   if (r.error || r.data === null) throw new Error(`${what}: ${r.error?.message ?? "no data"}`);
   return r.data;
@@ -49,7 +67,7 @@ async function ensureUser(sb: SupabaseClient, key: string, role: "user" | "admin
     .eq("id", id);
   if (p.error) throw new Error(`profile: ${p.error.message}`);
   // Start from a clean slate on re-runs.
-  for (const t of ["trips", "travel_groups", "trip_purposes"]) {
+  for (const t of ["trips", "destination_searches", "travel_groups", "trip_purposes"]) {
     const d = await sb.from(t).delete().eq("owner_id", id);
     if (d.error) throw new Error(`wipe ${t}: ${d.error.message}`);
   }
@@ -113,6 +131,31 @@ export default async function globalSetup() {
     );
     if (entries.error) throw new Error(`insert entries: ${entries.error.message}`);
 
+    const purposeId = must(
+      await sb.from("trip_purposes").insert({ owner_id: a, name: "Golf im Frühling", text: "Golf spielen" }).select("id").single<{ id: string }>(),
+      "insert purpose",
+    ).id;
+    const searchId = must(
+      await sb
+        .from("destination_searches")
+        .insert({
+          owner_id: a,
+          purpose_id: purposeId,
+          purpose_name: "Golf im Frühling",
+          locale: "de",
+          months: [3],
+          origins: [],
+          input_hash: createHash("sha256").update(`e2e-${proj}`).digest("hex"),
+          input: { v: 1 },
+          status: "done",
+          cards: [DISCOVER_CARD],
+          drops: { "1": { too_far: 2 } },
+        })
+        .select("id")
+        .single<{ id: string }>(),
+      "insert destination search",
+    ).id;
+
     const tripId = await seedPlanTrip(sb, a, "E2E Plan", fixture.plan);
     const a11yTripId = await seedPlanTrip(sb, a, "E2E Share", fixture.plan);
     const token = randomBytes(32).toString("base64url");
@@ -124,7 +167,7 @@ export default async function globalSetup() {
       include_items: true,
     });
     if (sl.error) throw new Error(`insert share link: ${sl.error.message}`);
-    seed[proj] = { tripId, a11yTripId, a11yToken: token, groupId: g.id, groupName } satisfies Seed;
+    seed[proj] = { purposeId, searchId, tripId, a11yTripId, a11yToken: token, groupId: g.id, groupName } satisfies Seed;
 
     await ensureUser(sb, `s-${proj}`, "user", false);
     await writeStorageState(`s-${proj}`);

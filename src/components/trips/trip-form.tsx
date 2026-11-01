@@ -32,6 +32,7 @@ export function TripForm({
   purposes,
   countryCodes,
   profileBirthdate,
+  initialDraft,
 }: {
   trip?: Trip;
   groups: Option[];
@@ -40,12 +41,14 @@ export function TripForm({
   countryCodes: string[];
   /** For "about your age" in the recognised one-off group. */
   profileBirthdate: string | null;
+  /** Prefill for a new trip (from a destination suggestion). Ignored when editing. */
+  initialDraft?: TripDraft;
 }) {
   const t = useTranslations("trips.form");
   const tg = useTranslations("groups");
   const router = useRouter();
   const [draft, setDraft] = useState<TripDraft>(() =>
-    trip ? draftFromTrip(trip) : emptyTripDraft(),
+    trip ? draftFromTrip(trip) : (initialDraft ?? emptyTripDraft()),
   );
   const [error, setError] = useState<ActionError | null>(null);
   const [issues, setIssues] = useState<Issue[]>();

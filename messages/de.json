@@ -50,6 +50,8 @@
     "reauth_required": "Aus Sicherheitsgründen musst du dich dafür neu anmelden. Melde dich ab, mit dem Anmeldelink wieder an und ändere das Passwort dann sofort.",
     "no_plan": "Erstelle zuerst einen Reiseplan.",
     "places_pending": "Orte werden noch geladen. Bitte in einer Minute erneut versuchen.",
+    "search_limit": "Du hast heute alle Reiseziel-Suchen verbraucht. Sie werden um Mitternacht (Berliner Zeit) zurückgesetzt.",
+    "places_unavailable": "Orte konnten gerade nicht geprüft werden, deshalb werden keine Vorschläge gezeigt. Bitte später erneut versuchen.",
     "forbidden": "Dafür fehlt dir die Berechtigung.",
     "already_member": "Diese Adresse hat bereits ein Konto.",
     "email_failed": "Die Adresse steht auf der Einladungsliste, aber die E-Mail konnte nicht gesendet werden."
@@ -377,6 +379,9 @@
     "intro": "Eine Reise braucht nur ein Ziel und eine Dauer. Alles andere ist optional.",
     "retention": "Bis zu {max} Reisen. Eine Reise wird 18 Monate nach ihrem Ende bzw. der letzten Bearbeitung automatisch gelöscht, je nachdem, was später ist.",
     "new": "Neue Reise",
+    "discoverLink": "Reiseziele finden",
+    "discoverHint": "Unsicher, wohin? Lass dir passende Orte zu deinem Reisezweck vorschlagen.",
+    "backToSuggestions": "Zurück zu den Vorschlägen",
     "newTitle": "Neue Reise",
     "editTitle": "Reise bearbeiten",
     "empty": "Noch keine Reisen.",
@@ -409,6 +414,7 @@
       "groupOneOff": "Nur für diese Reise"
     },
     "form": {
+      "fromSuggestion": "Aus einem Vorschlag vorausgefüllt. Prüfe die Angaben; erst mit dem Speichern wird etwas angelegt. Die KI-Begründung wird nicht in die Reise übernommen.",
       "invalid": "Bitte dieses Feld prüfen.",
       "destination": {
         "legend": "Ziel",
@@ -721,6 +727,11 @@
     "licenseText": "Lizenztext",
     "note": "Wetterdaten sind für nicht-kommerzielle Nutzung frei.",
     "items": {
+      "ourairports": {
+        "label": "Flughafenpositionen: OurAirports",
+        "provides": "Flughafennamen und -positionen aus einem mitgelieferten Datensatz. Genutzt für die Flugzeit-Schätzung (Entfernung zum nächsten Flughafen) und die Flughafensuche; daraus wird kein Flug abgefragt.",
+        "license": "Gemeinfrei."
+      },
       "open_meteo": {
         "label": "Open-Meteo (ERA5 2016–2025)",
         "provides": "Monatliche Klimawerte.",
@@ -1300,6 +1311,7 @@
       "tasks": {
         "purpose_tags": "Reiseanlass-Tags (Haiku)",
         "group_parse": "Gruppentext (Haiku)",
+        "destination_ideas": "Reiseziel-Ideen (Haiku)",
         "plan_generate": "Plan (Sonnet)",
         "plan_patch": "Änderung (Sonnet)"
       }
@@ -1466,6 +1478,120 @@
       "changesEmpty": "Noch keine Änderungen.",
       "changeLine": "{key}: {old} → {new}",
       "noValue": "-"
+    }
+  },
+  "discover": {
+    "title": "Reiseziele finden",
+    "intro": "Wähle einen gespeicherten Reisezweck und erhalte eine kurze Liste passender Orte. Jeder Ort wird mit echten Daten geprüft. Flüge werden erst geprüft, wenn du eine Reise anlegst.",
+    "newSearch": "Neue Suche",
+    "backToForm": "Zurück zur Suche",
+    "form": {
+      "purpose": "Reisezweck",
+      "purposeHint": "Die Vorschläge basieren auf diesem Reisezweck.",
+      "noPurpose": "Du brauchst zuerst einen gespeicherten Reisezweck. Er sagt der Suche, wonach du suchst.",
+      "createPurpose": "Reisezweck anlegen",
+      "months": "Monate (optional)",
+      "monthsHint": "Bis zu drei Monate. Ohne Monat wird das Wetter nicht geprüft.",
+      "monthsLabel": "Monate",
+      "group": "Reisegruppe (optional)",
+      "groupNone": "Keine Gruppe",
+      "groupHint": "Verwendet wird nur die Zahl der Erwachsenen, Kinder und Kleinkinder, keine Namen.",
+      "airports": "Abflughäfen (optional)",
+      "airportsHint": "Bis zu zwei. Ohne Flughafen gibt es keine Flugzeit-Schätzung.",
+      "flightLimit": "Maximale Flugzeit (optional)",
+      "flightLimitNone": "Keine Grenze",
+      "flightLimitHours": "bis {hours} Std.",
+      "flightLimitHint": "Eine Grenze für die geschätzte Flugzeit. Es wird nicht geprüft, ob ein Direktflug existiert.",
+      "toSettings": "Einstellungen öffnen",
+    "noAirportForLimit": "Füge einen Flughafen hinzu, um deine Flugzeit-Grenze zu nutzen.",
+      "submit": "Reiseziele finden",
+      "submitting": "Suche läuft…"
+    },
+    "running": {
+      "ideas": "Ideen für deinen Reisezweck werden gesammelt…",
+      "checking": "Die Orte werden mit echten Daten geprüft…",
+      "leave": "Du kannst diese Seite verlassen. Die Liste wird gespeichert und liegt bereit, wenn du zurückkommst.",
+      "timedOut": "Das dauert länger als erwartet.",
+      "reload": "Erneut prüfen"
+    },
+    "card": {
+      "checked": "Geprüft",
+      "estimate": "Schätzung",
+      "suggestion": "KI-Vorschlag",
+      "suggestionHint": "Nicht geprüft. Ein Vorschlag, keine Tatsache.",
+      "around": "rund um {place}",
+      "place": "Ort: {place}",
+      "flightEstimate": "ca. {hours} Std. Flug (geschätzt)",
+      "flightFrom": "ab {origin}",
+      "flightNote": "Aus der Entfernung zum nächsten Flughafen geschätzt. Ein Direktflug ist nicht bestätigt.",
+      "closeToAirport": "Nah an deinem Flughafen, keine Flugzeit-Schätzung nötig.",
+      "noEstimate": "Für diesen Ort gibt es keine Flugzeit-Schätzung.",
+      "notChecked": "Nicht geprüft",
+      "climate": "Klima ({months})",
+      "climateValue": "{high} °C Höchsttemperatur, {low} °C Tiefsttemperatur, {wet} Regentage im Monat",
+      "climatePeriod": "Durchschnitt {from}–{to}",
+      "climateNotChecked": "Klima: nicht geprüft",
+      "poiCount": "{items} im Umkreis von {km} km",
+      "poiNotChecked": "{interest}: nicht geprüft",
+      "source": "Quelle",
+      "checkedOn": "geprüft am {date}",
+      "stale": "ältere Daten",
+      "select": "Hier eine Reise planen",
+      "selectLabel": "Reise nach {name} planen",
+      "openTrip": "Reise öffnen",
+      "openTripLabel": "Reise nach {name} öffnen",
+      "hasTrip": "Reise angelegt"
+    },
+    "poi": {
+      "golf": "{count, plural, one {# Golfplatz} other {# Golfplätze}}",
+      "beach": "{count, plural, one {# Strand} other {# Strände}}",
+      "hiking": "{count, plural, one {# Wanderziel} other {# Wanderziele}}",
+      "wellness": "{count, plural, one {# Wellnessort} other {# Wellnessorte}}",
+      "family_activities": "{count, plural, one {# Familienziel} other {# Familienziele}}",
+      "nature_wildlife": "{count, plural, one {# Naturziel} other {# Naturziele}}",
+      "cycling": "{count, plural, one {# Radziel} other {# Radziele}}",
+      "food_wine": "{count, plural, one {# Genussadresse} other {# Genussadressen}}",
+      "city_sightseeing": "{count, plural, one {# Sehenswürdigkeit} other {# Sehenswürdigkeiten}}",
+      "museums": "{count, plural, one {# Museum} other {# Museen}}",
+      "history": "{count, plural, one {# historischer Ort} other {# historische Orte}}",
+      "shopping": "{count, plural, one {# Einkaufsort} other {# Einkaufsorte}}",
+      "photography": "{count, plural, one {# Fotospot} other {# Fotospots}}",
+      "skiing": "{count, plural, one {# Skigebiet} other {# Skigebiete}}",
+      "architecture": "{count, plural, one {# bemerkenswertes Gebäude} other {# bemerkenswerte Gebäude}}",
+      "water_sports": "{count, plural, one {# Wassersportort} other {# Wassersportorte}}",
+      "christmas_markets": "{count, plural, one {# Weihnachtsmarkt} other {# Weihnachtsmärkte}}",
+      "nightlife": "{count, plural, one {# Ausgehort} other {# Ausgehorte}}",
+      "cruise": "{count, plural, one {# Kreuzfahrt-Eintrag} other {# Kreuzfahrt-Einträge}}",
+      "festivals_events": "{count, plural, one {# Veranstaltungsort} other {# Veranstaltungsorte}}"
+    },
+    "list": {
+      "footer": "Was diese Liste dir nicht sagt",
+      "footerFlights": "Flugzeiten sind aus der Entfernung geschätzt. Ein Direktflug ist nicht bestätigt; das wird geprüft, nachdem du eine Reise angelegt hast.",
+      "footerWishes": "Andere Wünsche aus deinem Reisezweck, etwa flache Plätze, wurden nicht geprüft.",
+      "footerReasons": "Die Begründungen sind KI-Vorschläge, keine Tatsachen.",
+      "created": "Liste vom {date}",
+        "pillOrigins": "ab {airports}",
+      "pillLimit": "bis {hours} Std. Flug (geschätzt)",
+      "cards": "Vorschläge",
+      "fewResults": "Nur {count, plural, one {# Ort hat} other {# Orte haben}} die Prüfung bestanden. Die Liste wurde nicht aufgefüllt.",
+      "empty": "Kein Ort hat die Prüfung bestanden.",
+      "widen": "Probiere eine längere Flugzeit-Grenze, andere Monate oder einen anderen Reisezweck.",
+        "showOthers": "Andere Orte zeigen",
+      "showingOthers": "Andere Orte werden gesucht…",
+      "roundsUsed": "Beide Runden sind verbraucht. Für neue Vorschläge ändere den Monat, die Flugzeit-Grenze oder den Reisezweck.",
+      "aiOff": "Weitere Vorschläge brauchen die KI, die gerade ausgeschaltet ist.",
+      "conflict": "Die Liste hat sich inzwischen geändert. Der neueste Stand wird angezeigt.",
+      "failed": "Diese Suche wurde nicht abgeschlossen.",
+      "tryAgain": "Noch einmal versuchen"
+    },
+    "drops": {
+      "title": "Bei der Prüfung aussortiert",
+      "not_found": "{count} als Ort nicht gefunden",
+      "duplicate": "{count} zu nah an einem anderen Vorschlag",
+      "too_far": "{count} zu weit für deine Flugzeit-Grenze",
+      "climate": "{count} passten nicht zum Wetter in deinen Monaten",
+      "no_poi": "{count} ohne genug Treffer für deine Interessen",
+      "geocode_failed": "{count} konnten nicht nachgeschlagen werden"
     }
   },
   "errorPage": {

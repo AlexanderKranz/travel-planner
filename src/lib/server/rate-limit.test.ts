@@ -27,3 +27,15 @@ describe("externalWriteAllowed", () => {
     expect(externalWriteAllowed("u2")).toBe(true);
   });
 });
+
+describe("rateLimitAvailable", () => {
+  it("only looks: nothing is counted", async () => {
+    const { rateLimit, rateLimitAvailable, resetRateLimits } = await import("./rate-limit");
+    resetRateLimits();
+    expect(rateLimitAvailable("k", 1, 0).ok).toBe(true);
+    expect(rateLimitAvailable("k", 1, 0).ok).toBe(true);
+    rateLimit("k", 1, 60_000, 0);
+    expect(rateLimitAvailable("k", 1, 1000)).toEqual({ ok: false, retryAfterSeconds: 59 });
+    expect(rateLimitAvailable("k", 1, 61_000).ok).toBe(true);
+  });
+});

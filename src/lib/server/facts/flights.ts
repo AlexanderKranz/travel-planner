@@ -15,13 +15,13 @@ import {
   type RouteStat,
 } from "@/lib/integrations/aerodatabox-normalize";
 import { UNITS, aeroDataBoxEnabled, fetchDepartures, fetchFlightDates, fetchRoutesDaily } from "@/lib/integrations/aerodatabox";
+import { MAX_ORIGINS } from "@/lib/flights/estimate";
 import { gatewayAirports } from "@/lib/plan/airports";
 import { cacheKey, cached, type CachedResult } from "../api-cache";
 import { geoDestination, unavailable } from "./common";
 
 const SOURCE = "aerodatabox" as const;
 const DEFAULT_BUDGET_MS = 25_000;
-const MAX_ORIGINS = 2;
 
 /** One trip's lookups: shared budget, unit cap and bookkeeping for the fact's fetchedAt/stale/quotaLimited. */
 export class Session {

@@ -50,6 +50,8 @@
     "reauth_required": "For security you need to sign in again first. Sign out, sign in with the email link, then change the password right away.",
     "no_plan": "Create a travel plan first.",
     "places_pending": "Places are still loading. Please try again in a minute.",
+    "search_limit": "You have used all destination searches for today. They reset at midnight (Berlin time).",
+    "places_unavailable": "Places could not be checked right now, so no suggestions are shown. Please try again later.",
     "forbidden": "You do not have permission to do that.",
     "already_member": "This address already has an account.",
     "email_failed": "The address is on the invite list, but the email could not be sent."
@@ -377,6 +379,9 @@
     "intro": "A trip needs only a destination and a length. Everything else is optional.",
     "retention": "Up to {max} trips. A trip is deleted automatically 18 months after it ends or was last edited, whichever is later.",
     "new": "New trip",
+    "discoverLink": "Find destinations",
+    "discoverHint": "Not sure where to go? Let your trip purpose suggest places.",
+    "backToSuggestions": "Back to suggestions",
     "newTitle": "New trip",
     "editTitle": "Edit trip",
     "empty": "No trips yet.",
@@ -409,6 +414,7 @@
       "groupOneOff": "This trip only"
     },
     "form": {
+      "fromSuggestion": "Prefilled from a suggestion. Check the details; nothing is created until you save. The AI reason is not copied into the trip.",
       "invalid": "Please check this field.",
       "destination": {
         "legend": "Destination",
@@ -721,6 +727,11 @@
     "licenseText": "Licence text",
     "note": "Weather data is free for non-commercial use.",
     "items": {
+      "ourairports": {
+        "label": "Airport positions: OurAirports",
+        "provides": "Airport names and positions from a bundled dataset. Used for flight time estimates (distance to the nearest airport) and for the airport search; no flight is looked up from it.",
+        "license": "Public domain."
+      },
       "open_meteo": {
         "label": "Open-Meteo (ERA5 2016–2025)",
         "provides": "Monthly climate averages.",
@@ -1300,6 +1311,7 @@
       "tasks": {
         "purpose_tags": "Purpose tags (Haiku)",
         "group_parse": "Group text (Haiku)",
+        "destination_ideas": "Destination ideas (Haiku)",
         "plan_generate": "Plan (Sonnet)",
         "plan_patch": "Patch (Sonnet)"
       }
@@ -1466,6 +1478,120 @@
       "changesEmpty": "No changes yet.",
       "changeLine": "{key}: {old} → {new}",
       "noValue": "-"
+    }
+  },
+  "discover": {
+    "title": "Find destinations",
+    "intro": "Choose a saved trip purpose and get a short list of places that fit it. Every place is checked against real data. Flights are checked only after you create a trip.",
+    "newSearch": "New search",
+    "backToForm": "Back to the search",
+    "form": {
+      "purpose": "Trip purpose",
+      "purposeHint": "The suggestions are based on this purpose.",
+      "noPurpose": "You need a saved trip purpose first. It tells the search what you are looking for.",
+      "createPurpose": "Create a trip purpose",
+      "months": "Months (optional)",
+      "monthsHint": "Up to three months. Without a month, the weather is not checked.",
+      "monthsLabel": "Months",
+      "group": "Travel group (optional)",
+      "groupNone": "No group",
+      "groupHint": "Only the number of adults, children and toddlers is used, no names.",
+      "airports": "Departure airports (optional)",
+      "airportsHint": "Up to two. Without an airport there is no flight estimate.",
+      "flightLimit": "Maximum flight time (optional)",
+      "flightLimitNone": "No limit",
+      "flightLimitHours": "up to {hours} h",
+      "flightLimitHint": "A limit on the estimated flight time. It does not check whether a direct flight exists.",
+      "toSettings": "Open settings",
+    "noAirportForLimit": "Add an airport to use your flight limit.",
+      "submit": "Find destinations",
+      "submitting": "Searching…"
+    },
+    "running": {
+      "ideas": "Collecting ideas for your purpose…",
+      "checking": "Checking the places against real data…",
+      "leave": "You can leave this page. The list is saved and waiting for you when you come back.",
+      "timedOut": "This is taking longer than expected.",
+      "reload": "Check again"
+    },
+    "card": {
+      "checked": "Checked",
+      "estimate": "Estimate",
+      "suggestion": "AI suggestion",
+      "suggestionHint": "Not checked. A suggestion, not a fact.",
+      "around": "around {place}",
+      "place": "Place: {place}",
+      "flightEstimate": "about {hours} h flight (estimate)",
+      "flightFrom": "from {origin}",
+      "flightNote": "Estimated from the distance to the nearest airport. No direct flight is confirmed.",
+      "closeToAirport": "Close to your airport, no flight estimate needed.",
+      "noEstimate": "No flight estimate for this place.",
+      "notChecked": "Not checked",
+      "climate": "Climate in {months}",
+      "climateValue": "{high} °C high, {low} °C low, {wet} rainy days a month",
+      "climatePeriod": "average {from}–{to}",
+      "climateNotChecked": "Climate: not checked",
+      "poiCount": "{items} within {km} km",
+      "poiNotChecked": "{interest}: not checked",
+      "source": "Source",
+      "checkedOn": "checked {date}",
+      "stale": "older data",
+      "select": "Plan a trip here",
+      "selectLabel": "Plan a trip to {name}",
+      "openTrip": "Open trip",
+      "openTripLabel": "Open the trip to {name}",
+      "hasTrip": "Trip created"
+    },
+    "poi": {
+      "golf": "{count, plural, one {# golf course} other {# golf courses}}",
+      "beach": "{count, plural, one {# beach} other {# beaches}}",
+      "hiking": "{count, plural, one {# hiking spot} other {# hiking spots}}",
+      "wellness": "{count, plural, one {# wellness place} other {# wellness places}}",
+      "family_activities": "{count, plural, one {# family attraction} other {# family attractions}}",
+      "nature_wildlife": "{count, plural, one {# nature spot} other {# nature spots}}",
+      "cycling": "{count, plural, one {# cycling spot} other {# cycling spots}}",
+      "food_wine": "{count, plural, one {# food and wine place} other {# food and wine places}}",
+      "city_sightseeing": "{count, plural, one {# sight} other {# sights}}",
+      "museums": "{count, plural, one {# museum} other {# museums}}",
+      "history": "{count, plural, one {# historic site} other {# historic sites}}",
+      "shopping": "{count, plural, one {# shopping place} other {# shopping places}}",
+      "photography": "{count, plural, one {# photo spot} other {# photo spots}}",
+      "skiing": "{count, plural, one {# ski area} other {# ski areas}}",
+      "architecture": "{count, plural, one {# notable building} other {# notable buildings}}",
+      "water_sports": "{count, plural, one {# water sports place} other {# water sports places}}",
+      "christmas_markets": "{count, plural, one {# Christmas market} other {# Christmas markets}}",
+      "nightlife": "{count, plural, one {# nightlife place} other {# nightlife places}}",
+      "cruise": "{count, plural, one {# cruise item} other {# cruise items}}",
+      "festivals_events": "{count, plural, one {# event place} other {# event places}}"
+    },
+    "list": {
+      "footer": "What this list does not tell you",
+      "footerFlights": "Flight times are estimates from the distance. No direct flight is confirmed; that is checked after you create a trip.",
+      "footerWishes": "Other wishes from your purpose, for example flat courses, were not checked.",
+      "footerReasons": "The reasons are AI suggestions, not facts.",
+      "created": "List from {date}",
+        "pillOrigins": "from {airports}",
+      "pillLimit": "up to {hours} h flight (estimate)",
+      "cards": "Suggestions",
+      "fewResults": "Only {count, plural, one {# place} other {# places}} passed the checks. Nothing was added to fill the list.",
+      "empty": "No place passed the checks.",
+      "widen": "Try a longer flight limit, other months or a different purpose.",
+        "showOthers": "Show other places",
+      "showingOthers": "Looking for other places…",
+      "roundsUsed": "Both rounds are used. For new suggestions, change the month, the flight limit or the purpose.",
+      "aiOff": "More suggestions need AI, which is switched off right now.",
+      "conflict": "This list changed in the meantime. The latest version is shown.",
+      "failed": "This search did not finish.",
+      "tryAgain": "Try again"
+    },
+    "drops": {
+      "title": "Left out during the checks",
+      "not_found": "{count} not found as a place",
+      "duplicate": "{count} too close to another suggestion",
+      "too_far": "{count} too far for your flight limit",
+      "climate": "{count} did not fit the weather in your months",
+      "no_poi": "{count} without enough matches for your interests",
+      "geocode_failed": "{count} could not be looked up"
     }
   },
   "errorPage": {

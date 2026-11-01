@@ -148,8 +148,9 @@ function PairCard({ pair, data, adults, locale, tripId }: { pair: FlightPair; da
 }
 
 /** Direct flights per origin x gateway pair; verified, last-year proxy, not checked and none are shown distinctly. */
-export function FlightsPanel({ fact, tripId, adults, locale }: { fact: Fact<FlightsFacts>; tripId: string; adults: number; locale: "de" | "en" }) {
+export function FlightsPanel({ fact, tripId, adults, locale, searchId }: { fact: Fact<FlightsFacts>; tripId: string; adults: number; locale: "de" | "en"; /** The suggestion list this trip came from: offered when no direct flight was found. */ searchId?: string }) {
   const t = useTranslations("facts.flights");
+  const tb = useTranslations("trips");
   const f = useFormatter();
   const title = t("title");
   const wrap = (children: React.ReactNode) => (
@@ -187,6 +188,7 @@ export function FlightsPanel({ fact, tripId, adults, locale }: { fact: Fact<Flig
     );
   }
   const d = fact.data;
+  const noneFound = d.pairs.length > 0 && !d.pairs.some((p) => p.status === "found");
   const date = (iso: string) => f.dateTime(new Date(`${iso}T12:00:00Z`), { timeZone: "UTC", dateStyle: "medium" });
   const basis =
     d.basis === "trip_dates"
@@ -207,6 +209,13 @@ export function FlightsPanel({ fact, tripId, adults, locale }: { fact: Fact<Flig
       {d.quotaLimited && (
         <p role="note" className="mt-3 rounded-lg border border-info-line bg-info-bg p-2 text-sm text-info-fg">
           {t("quotaLimited")}
+        </p>
+      )}
+      {searchId && noneFound && (
+        <p className="mt-3 text-sm">
+          <Link href={`/app/trips/discover/${searchId}`} className={`${linkCls} inline-flex min-h-11 items-center`}>
+            {tb("backToSuggestions")}
+          </Link>
         </p>
       )}
       <p className={`mt-3 text-xs ${mutedCls}`}>{t("change")}</p>

@@ -11,7 +11,7 @@ import { SourceNote } from "./source-note";
 type State = { kind: "loading" } | { kind: "done"; fact: Fact<FlightsFacts> } | { kind: "error"; limited: boolean };
 
 /** Loads /api/trips/[id]/flights on the client so the trip page never waits for the schedule lookups. */
-export function FlightsLoader({ tripId, locale, adults }: { tripId: string; locale: "de" | "en"; adults: number }) {
+export function FlightsLoader({ tripId, locale, adults, searchId }: { tripId: string; locale: "de" | "en"; adults: number; searchId?: string }) {
   const t = useTranslations("facts.flights");
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -42,7 +42,7 @@ export function FlightsLoader({ tripId, locale, adults }: { tripId: string; loca
     setAttempt((n) => n + 1);
   }, []);
 
-  if (state.kind === "done") return <FlightsPanel fact={state.fact} tripId={tripId} adults={adults} locale={locale} />;
+  if (state.kind === "done") return <FlightsPanel fact={state.fact} tripId={tripId} adults={adults} locale={locale} searchId={searchId} />;
 
   return (
     <section aria-label={t("title")} className={`${cardCls} min-w-0`}>

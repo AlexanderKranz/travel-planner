@@ -111,6 +111,35 @@ function fastCandidates(l: Lookup, networkAllowed: boolean): Promise<CachedResul
   });
 }
 
+/**
+ * One interest around a point for the destination search (spec find-destinations section 5): the same cache keys as
+ * `getPlacesFacts` (anchor rounded to 3 decimals, radius from `radiusForInterest` with the kind's default base), so
+ * the trip made from a card finds the result already cached. Cache first, then Geoapify (unless `networkAllowed` is
+ * false); Overpass is only ever read from its cache, never queried (25-60 s per query).
+ * Returns the result (ok or a failed lookup) or null when the interest has no source.
+ */
+export async function getPlacesAt(
+  interest: InterestOrGeneral,
+  point: { lat: number; lon: number },
+  baseRadiusKm: number,
+  ctx: FactsCtx,
+  opts: { networkAllowed: boolean },
+): Promise<{ radiusKm: number; result: CachedResult<PlaceCandidate[]> } | null> {
+  const src = sourceFor(interest);
+  if (src.source !== "osm") return null;
+  const l: Lookup = {
+    interest,
+    anchor: { lat: Number(point.lat.toFixed(3)), lon: Number(point.lon.toFixed(3)) },
+    radiusKm: radiusForInterest(interest, baseRadiusKm),
+    ctx,
+  };
+  const fast = await fastCandidates(l, opts.networkAllowed);
+  if (fast) return { radiusKm: l.radiusKm, result: fast };
+  // No Geoapify mapping or key: whatever Overpass result is cached, never a network query.
+  const cachedOnly = await shared(`overpass-cache:${overpassKey(l)}`, () => fromOverpass(l, src.filters, src.exclude, 0, () => false));
+  return { radiusKm: l.radiusKm, result: cachedOnly };
+}
+
 /** Slow path: Overpass over the network (25-60 s per query). Sequential callers only (2 slots per IP). */
 function overpassCandidates(l: Lookup, deadline: number, fetchAllowed: () => boolean): Promise<CachedResult<PlaceCandidate[]>> {
   const src = sourceFor(l.interest);

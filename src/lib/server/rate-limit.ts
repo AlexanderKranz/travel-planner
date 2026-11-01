@@ -30,6 +30,13 @@ export function rateLimit(
   return { ok: true, retryAfterSeconds: 0 };
 }
 
+/** Like `rateLimit` but only looks: nothing is counted. For gates that count a slot only once the work really starts. */
+export function rateLimitAvailable(key: string, limit: number, now: number = Date.now()): { ok: boolean; retryAfterSeconds: number } {
+  const b = buckets.get(key);
+  if (!b || b.resetAt <= now || b.count < limit) return { ok: true, retryAfterSeconds: 0 };
+  return { ok: false, retryAfterSeconds: Math.max(1, Math.ceil((b.resetAt - now) / 1000)) };
+}
+
 /** Test helper. */
 export function resetRateLimits(): void {
   buckets.clear();
