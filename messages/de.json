@@ -370,6 +370,7 @@
     "water_sports": "Wassersport"
   },
   "trips": {
+    "opening": "Reise wird geöffnet…",
     "title": "Reisen",
     "showAll": "Alle anzeigen ({count})",
     "retention": "Bis zu {max} Reisen. Eine Reise wird 18 Monate nach ihrem Ende bzw. der letzten Bearbeitung automatisch gelöscht, je nachdem, was später ist.",

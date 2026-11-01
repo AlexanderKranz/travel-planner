@@ -108,67 +108,127 @@ async function loadPartySize(sb: SupabaseClient, tripId: string): Promise<number
 
 type OwnerError = "unauthenticated" | "not_found" | "no_plan" | "failed";
 
-/** Owner read with the user session (RLS). Always the latest version, all item notes. */
+/** What the caller already holds from the same request, so the document read can skip those queries. */
+export type OwnerDocumentKnown = {
+  /** The latest plan version as already loaded for the page. Used only while the plan row still says it is the latest. */
+  latest?: { plan: Plan; versionNo: number; versionAt: string };
+  /** Owner's home place from this request's profile read; null = none set, undefined = read it here. */
+  home?: PlanHome | null;
+};
+
+/**
+ * Owner read with the user session (RLS). Always the latest version, all item notes.
+ * The independent reads (destination row, plan row, items, profile, party size) run in one parallel round. Their
+ * results are still checked in the original order, so a caller sees the same error as before.
+ */
 export async function getOwnerPlanDocumentResult(
   tripId: string,
+  known: OwnerDocumentKnown = {},
 ): Promise<{ ok: true; doc: PlanDocument } | { ok: false; error: OwnerError }> {
   const session = await getUserSession();
   if (!session) return { ok: false, error: "unauthenticated" };
   if (!Id_RE.test(tripId)) return { ok: false, error: "not_found" };
   const sb = session.supabase;
   try {
-    const { data: trip, error: tripErr } = await sb.from("trips").select(PLACE_COLUMNS).eq("id", tripId).maybeSingle<PlaceRow>();
-    if (tripErr) return { ok: false, error: "failed" };
+    // The wrapped promises never reject, so an early return cannot leave an unhandled rejection behind.
+    const settle = <T,>(p: PromiseLike<T>) =>
+      Promise.resolve(p).then(
+        (v) => ({ v, failed: false as const }),
+        () => ({ v: undefined, failed: true as const }),
+      );
+    const tripQ = settle(sb.from("trips").select(PLACE_COLUMNS).eq("id", tripId).maybeSingle<PlaceRow>());
+    const planQ = settle(
+      sb
+        .from("plans")
+        .select("id, latest_version, open_done")
+        .eq("trip_id", tripId)
+        .maybeSingle<{ id: string; latest_version: number; open_done: string[] }>(),
+    );
+    const itemsQ = settle(
+      sb
+        .from("trip_items")
+        .select(ITEM_COLUMNS)
+        .eq("trip_id", tripId)
+        .order("day", { ascending: true, nullsFirst: false })
+        .order("created_at", { ascending: true })
+        .returns<ItemRow[]>(),
+    );
+    const profQ =
+      known.home !== undefined
+        ? null
+        : settle(
+            sb
+              .from("profiles")
+              .select("home_location, home_timezone")
+              .eq("id", session.userId)
+              .maybeSingle<{ home_location: string | null; home_timezone: string | null }>(),
+          );
+    const partyQ = loadPartySize(sb, tripId).then(
+      (v) => ({ v, failed: false as const }),
+      () => ({ v: null, failed: true as const }),
+    );
+
+    const tripRes = await tripQ;
+    if (tripRes.failed || tripRes.v.error) return { ok: false, error: "failed" };
+    const trip = tripRes.v.data;
     if (!trip) return { ok: false, error: "not_found" };
-    const { data: planRow, error: planErr } = await sb
-      .from("plans")
-      .select("id, latest_version, open_done")
-      .eq("trip_id", tripId)
-      .maybeSingle<{ id: string; latest_version: number; open_done: string[] }>();
-    if (planErr) return { ok: false, error: "failed" };
+    const planRes = await planQ;
+    if (planRes.failed || planRes.v.error) return { ok: false, error: "failed" };
+    const planRow = planRes.v.data;
     if (!planRow || planRow.latest_version < 1) return { ok: false, error: "no_plan" };
-    const { data: ver, error: verErr } = await sb
-      .from("plan_versions")
-      .select("plan, version_no, created_at")
-      .eq("plan_id", planRow.id)
-      .eq("version_no", planRow.latest_version)
-      .maybeSingle<{ plan: unknown; version_no: number; created_at: string }>();
-    if (verErr) return { ok: false, error: "failed" };
-    const plan = Plan.safeParse(ver?.plan);
-    if (!ver || !plan.success) return { ok: false, error: "failed" };
-    const { data: rows, error: itemErr } = await sb
-      .from("trip_items")
-      .select(ITEM_COLUMNS)
-      .eq("trip_id", tripId)
-      .order("day", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true })
-      .returns<ItemRow[]>();
-    if (itemErr) return { ok: false, error: "failed" };
+
+    let versionPlan: Plan;
+    let versionNo: number;
+    let versionAt: string;
+    if (known.latest && known.latest.versionNo === planRow.latest_version) {
+      ({ plan: versionPlan, versionNo, versionAt } = known.latest);
+    } else {
+      const { data: ver, error: verErr } = await sb
+        .from("plan_versions")
+        .select("plan, version_no, created_at")
+        .eq("plan_id", planRow.id)
+        .eq("version_no", planRow.latest_version)
+        .maybeSingle<{ plan: unknown; version_no: number; created_at: string }>();
+      if (verErr) return { ok: false, error: "failed" };
+      const plan = Plan.safeParse(ver?.plan);
+      if (!ver || !plan.success) return { ok: false, error: "failed" };
+      versionPlan = plan.data;
+      versionNo = ver.version_no;
+      versionAt = ver.created_at;
+    }
+
+    const itemRes = await itemsQ;
+    if (itemRes.failed || itemRes.v.error) return { ok: false, error: "failed" };
+    const rows = itemRes.v.data;
     const items = rows.map((r) => rowToSharedItem(r, true));
-    const { data: prof, error: profErr } = await sb
-      .from("profiles")
-      .select("home_location, home_timezone")
-      .eq("id", session.userId)
-      .maybeSingle<{ home_location: string | null; home_timezone: string | null }>();
+    let home: PlanHome | null | undefined;
+    if (profQ) {
+      const prof = await profQ;
+      home = prof.failed || prof.v.error ? undefined : prof.v.data ? { name: prof.v.data.home_location, timezone: prof.v.data.home_timezone } : null;
+    } else {
+      home = known.home;
+    }
+    const party = await partyQ;
+    if (party.failed) return { ok: false, error: "failed" };
     const doc = buildPlanDocument({
-      home: profErr ? undefined : prof ? { name: prof.home_location, timezone: prof.home_timezone } : null,
+      home,
       place: rowToPlace(trip),
-      plan: plan.data,
-      versionNo: ver.version_no,
-      versionAt: ver.created_at,
+      plan: versionPlan,
+      versionNo,
+      versionAt,
       openDone: planRow.open_done ?? [],
       items,
-      partySize: await loadPartySize(sb, tripId),
+      partySize: party.v,
     });
     const timed = rows.map((r) => ({ day: r.day, startTime: r.start_time, updatedAt: r.updated_at }));
-    return { ok: true, doc: { ...doc, itemsChanged: itemsChangedSince(timed, ver.created_at) } };
+    return { ok: true, doc: { ...doc, itemsChanged: itemsChangedSince(timed, versionAt) } };
   } catch {
     return { ok: false, error: "failed" };
   }
 }
 
-export async function getOwnerPlanDocument(tripId: string): Promise<PlanDocument | null> {
-  const res = await getOwnerPlanDocumentResult(tripId);
+export async function getOwnerPlanDocument(tripId: string, known?: OwnerDocumentKnown): Promise<PlanDocument | null> {
+  const res = await getOwnerPlanDocumentResult(tripId, known);
   return res.ok ? res.doc : null;
 }
 

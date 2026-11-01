@@ -40,6 +40,7 @@ import {
   findVersionByHash,
   getPlanRow,
   getVersion,
+  getVersionLight,
   insertVersion,
   isBusy,
   hasBusyPlan,
@@ -98,29 +99,42 @@ export type PlanContext = {
 
 const err = (error: ActionError, extra: Partial<PipelineError> = {}): PipelineError => ({ ok: false, error, ...extra });
 
+/** The four reads that build a PlanContext. Write paths use the direct ones; the trip page passes request-cached ones. */
+export type ContextReaders = {
+  getProfile: typeof getProfile;
+  getTrip: typeof getTrip;
+  getGroup: typeof getGroup;
+  getPurpose: typeof getPurpose;
+};
+const DIRECT_READERS: ContextReaders = { getProfile, getTrip, getGroup, getPurpose };
+
 /** Session, profile, trip (RLS), group, purpose. */
-export async function loadPlanContext(tripId: string): Promise<{ ok: true; ctx: PlanContext } | PipelineError> {
+export async function loadPlanContext(
+  tripId: string,
+  readers: ContextReaders = DIRECT_READERS,
+): Promise<{ ok: true; ctx: PlanContext } | PipelineError> {
   const session = await getUserSession();
   if (!session) return err("unauthenticated");
   if (!Id.safeParse(tripId).success) return err("not_found");
-  const [profile, tripRes] = await Promise.all([getProfile(), getTrip(tripId)]);
+  const [profile, tripRes] = await Promise.all([readers.getProfile(), readers.getTrip(tripId)]);
   if (!tripRes.ok) return err(tripRes.error === "not_found" || tripRes.error === "invalid" ? "not_found" : "failed");
   if (!profile.ok) return err("failed");
   const trip = tripRes.data;
   let group: GroupContext | null = null;
   let purpose: TripPurpose | null = null;
+  // Group and purpose do not depend on each other.
+  const [g, p] = await Promise.all([
+    trip.groupId ? readers.getGroup(trip.groupId) : null,
+    trip.purposeId ? readers.getPurpose(trip.purposeId) : null,
+  ]);
   if (trip.groupId) {
-    const g = await getGroup(trip.groupId);
-    if (g.ok) group = g.data;
+    if (g?.ok) group = g.data;
   } else {
     // One-off group of the trip: free text, corrected structure and Haiku parse live on the trip itself.
     const src = tripGroupSource(trip);
     if (src) group = { ...src, updatedAt: trip.updatedAt };
   }
-  if (trip.purposeId) {
-    const p = await getPurpose(trip.purposeId);
-    if (p.ok) purpose = p.data;
-  }
+  if (p?.ok) purpose = p.data;
   return {
     ok: true,
     ctx: {
@@ -174,15 +188,21 @@ export async function loadPlanState(
   requested?: number,
 ): Promise<{ ok: true; state: PlanState } | PipelineError> {
   try {
-    const row = await getPlanRow(c.sb, c.trip.id);
-    const versions = row ? await listVersionMetas(c.sb, row.id) : [];
-    const env = await getEffectiveEnv();
+    // The settings read is independent of the plan row: one round for both.
+    const [row, env] = await Promise.all([getPlanRow(c.sb, c.trip.id), getEffectiveEnv()]);
     const aiEnabled = isAiEnabled(env);
     const busy = isBusy(row);
+    // Everything below needs only the row (and the session): one parallel round. The requested (or latest-by-row)
+    // version is fetched speculatively; a failure or a different newest version falls back to a normal read below.
+    const guess = row && row.latestVersion > 0 ? (requested ?? row.latestVersion) : requested;
+    const speculative = row && guess !== undefined ? getVersionLight(c.sb, row.id, guess).catch(() => undefined) : undefined;
     // While busy the client only polls for completion: skip the two admin aggregate queries (budget is static then).
-    const info = busy
-      ? { spentMicroUsd: 0, capMicroUsd: userCapMicroUsd(c.role, c.isDemo, env), resetsAt: berlinMidnight(new Date(), 1).toISOString(), globalSpentMicroUsd: 0, globalCapMicroUsd: 1 }
-      : await budgetInfo(c);
+    const [versions, info] = await Promise.all([
+      row ? listVersionMetas(c.sb, row.id) : [],
+      busy
+        ? { spentMicroUsd: 0, capMicroUsd: userCapMicroUsd(c.role, c.isDemo, env), resetsAt: berlinMidnight(new Date(), 1).toISOString(), globalSpentMicroUsd: 0, globalCapMicroUsd: 1 }
+        : budgetInfo(c),
+    ]);
     const exhausted = info.globalSpentMicroUsd >= info.globalCapMicroUsd;
     const budget = {
       spentMicroUsd: exhausted ? info.capMicroUsd : info.spentMicroUsd,
@@ -197,7 +217,7 @@ export async function loadPlanState(
     const wanted = requested ?? versions[0].versionNo;
     const meta = versions.find((m) => m.versionNo === wanted);
     if (!meta) return err("not_found");
-    const stored = await getVersion(c.sb, row.id, wanted);
+    const stored = (wanted === guess ? await speculative : undefined) ?? (await getVersionLight(c.sb, row.id, wanted));
     if (!stored) return err("failed");
     const isLatest = wanted === versions[0].versionNo;
     return {
@@ -212,7 +232,7 @@ export async function loadPlanState(
           purposeUpdatedAt: c.purpose?.updatedAt ?? null,
         }),
         canIterate: computeCanIterate(stored.plan, c.trip, isLatest, aiEnabled),
-        ...(isLatest && (stored.input.pendingPlaces?.length ?? 0) > 0 ? { placesIncomplete: true } : {}),
+        ...(isLatest && stored.pendingPlaces.length > 0 ? { placesIncomplete: true } : {}),
       },
     };
   } catch {

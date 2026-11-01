@@ -370,6 +370,7 @@
     "water_sports": "Water sports"
   },
   "trips": {
+    "opening": "Opening trip…",
     "title": "Trips",
     "showAll": "Show all ({count})",
     "retention": "Up to {max} trips. A trip is deleted automatically 18 months after it ends or was last edited, whichever is later.",
