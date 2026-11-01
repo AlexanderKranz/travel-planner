@@ -520,6 +520,13 @@ describe("verifyIdeas: drive mode (find-destinations-drive T1 to T9)", () => {
     expect(out.uncheckedAnchors).not.toContain("Munich");
   });
 
+  it("an idea whose geocoding failed is unchecked too (eligible for 'Show others'); a real not_found stays excluded", async () => {
+    const geocode = vi.fn(async (a: string) => (a === "Freiburg" ? bad("timeout") : ok(WORLD[a] ? [WORLD[a]] : [])));
+    const out = await verifyIdeas(driveBase({ ideas: [ideaIn("Munich"), ideaIn("Freiburg"), idea("Nowhereville", { cc: "DE" })] }), driveDeps({ geocode }));
+    expect(out.drops).toEqual({ geocode_failed: 1, not_found: 1 });
+    expect(out.uncheckedAnchors).toEqual(["Freiburg"]);
+  });
+
   it("a success in between resets the run of failures", async () => {
     const names = ["Munich", "Freiburg", "Kassel", "Nuremberg", "Stuttgart", "Cologne"];
     const seq = [true, false, false, true, false, false];

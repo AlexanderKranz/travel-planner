@@ -163,9 +163,11 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
   }
 
   const survivors: Resolved[] = [];
+  const geocodeUnchecked: string[] = [];
   for (const l of lookups) {
     if (l.failed) {
       bump("geocode_failed"); // a provider failure for this one idea: it cannot be shown, but it is not "not found"
+      if (i.drive) geocodeUnchecked.push(l.idea.anchor); // never checked: "Show others" may propose it again
       continue;
     }
     if (!l.place) {
@@ -204,7 +206,7 @@ export async function verifyIdeas(i: VerifyInput, deps: VerifyDeps = defaultVeri
   let driveFailures = 0;
   let driveSuccesses = 0;
   let driveConsecutiveFailures = 0;
-  const uncheckedAnchors: string[] = [];
+  const uncheckedAnchors: string[] = [...geocodeUnchecked];
   const driveDown = () => driveSuccesses === 0 && driveFailures >= 2;
   const driveStopped = () => driveDown() || driveConsecutiveFailures >= DRIVE_MAX_CONSECUTIVE_FAILURES;
 
