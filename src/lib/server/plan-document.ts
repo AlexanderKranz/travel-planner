@@ -39,11 +39,19 @@ export type PlanDocumentParts = {
   place?: PlanGlancePlace | null;
 };
 
-const PLACE_COLUMNS = "dest_name, dest_country_code, dest_lat, dest_lon";
-type PlaceRow = { dest_name: string; dest_country_code: string | null; dest_lat: number | null; dest_lon: number | null };
+const PLACE_COLUMNS = "dest_name, dest_country_code, dest_lat, dest_lon, dest_timezone";
+type PlaceRow = {
+  dest_name: string;
+  dest_country_code: string | null;
+  dest_lat: number | null;
+  dest_lon: number | null;
+  dest_timezone: string | null;
+};
 
 function rowToPlace(row: PlaceRow | null): PlanGlancePlace | null {
-  return row ? { name: row.dest_name, countryCode: row.dest_country_code, lat: row.dest_lat, lon: row.dest_lon } : null;
+  return row
+    ? { name: row.dest_name, countryCode: row.dest_country_code, lat: row.dest_lat, lon: row.dest_lon, timezone: row.dest_timezone }
+    : null;
 }
 
 /** Pure. Reserved plan keys `items`/`costs` are dropped (items live in trip_items); costs are computed here. */

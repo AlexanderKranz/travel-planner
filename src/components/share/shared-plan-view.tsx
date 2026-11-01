@@ -50,7 +50,7 @@ export function SharedPlanView({ doc, token, uiLocale, banner }: { doc: PlanDocu
         className="flex min-w-0 flex-col gap-4"
         header={<PlanHeader plan={plan} uiLocale={uiLocale} readOnly />}
       >
-        <PlanGlanceTiles doc={doc} locale={plan.locale} />
+        <PlanGlanceTiles doc={doc} locale={uiLocale} />
         <ol className="flex flex-col gap-3" aria-label={tp("daysLabel")}>
           {plan.days.map((d) => (
             <DayCard key={d.n} day={d} places={plan.places} fixed={fixed} />

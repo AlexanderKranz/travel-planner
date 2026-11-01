@@ -9,7 +9,7 @@ import { getCountry } from "@/lib/integrations/countries";
 import { localHhmm } from "@/lib/plan/input";
 
 /** The trip's current destination. */
-export type PlanGlancePlace = { name: string; countryCode: string | null; lat: number | null; lon: number | null };
+export type PlanGlancePlace = { name: string; countryCode: string | null; lat: number | null; lon: number | null; timezone: string | null };
 
 function glanceDaylight(plan: Pick<Plan, "facts">, place: PlanGlancePlace | null): PlanGlance["daylight"] {
   const facts = plan.facts.daylight;
@@ -44,7 +44,9 @@ function glanceCountry(plan: Pick<Plan, "header" | "facts">, code: string | null
 
 /** Pure. `place` only counts while it is still the plan's destination: after a change it would describe another place. */
 export function planGlance(plan: Pick<Plan, "header" | "facts">, place: PlanGlancePlace | null, today: string): PlanGlance {
-  const current = place && place.name.slice(0, 120) === plan.header.destination ? place : null;
+  // The plan stores no place id: name plus zone tells a changed destination apart, also one of the same name.
+  const zone = plan.facts.daylight?.timezone ?? null;
+  const current = place && place.name.slice(0, 120) === plan.header.destination && (place.timezone ?? null) === zone ? place : null;
   const months = [...(plan.facts.climate?.months ?? [])].sort((a, b) => a.month - b.month);
   const climate = climateGlance(months);
   return {

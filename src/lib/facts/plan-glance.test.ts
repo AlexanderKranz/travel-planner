@@ -26,7 +26,7 @@ const plan = {
   },
 } as unknown as Pick<Plan, "header" | "facts">;
 
-const place: PlanGlancePlace = { name: "Edinburgh", countryCode: "GB", lat: 55.95, lon: -3.19 };
+const place: PlanGlancePlace = { name: "Edinburgh", countryCode: "GB", lat: 55.95, lon: -3.19, timezone: "Europe/London" };
 const t = makeT(de.pdf.glance);
 
 describe("planGlance", () => {
@@ -43,9 +43,15 @@ describe("planGlance", () => {
   });
 
   it("ignores a destination changed after the plan was made", () => {
-    const g = planGlance(plan, { name: "Tokyo", countryCode: "JP", lat: 35.7, lon: 139.7 }, "2026-11-01");
+    const g = planGlance(plan, { name: "Tokyo", countryCode: "JP", lat: 35.7, lon: 139.7, timezone: "Asia/Tokyo" }, "2026-11-01");
     expect(g.country).toBeNull();
     expect(g.daylight).toMatchObject({ sunrise: "08:37", sunset: null });
+  });
+
+  it("ignores a different place of the same name", () => {
+    const g = planGlance(plan, { name: "Edinburgh", countryCode: "US", lat: 26.3, lon: -98.2, timezone: "America/Chicago" }, "2026-11-01");
+    expect(g.country).toBeNull();
+    expect(g.daylight?.sunset).toBeNull();
   });
 
   it("reports polar night instead of an empty tile", () => {

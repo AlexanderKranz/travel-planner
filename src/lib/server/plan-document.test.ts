@@ -61,7 +61,7 @@ beforeEach(() => {
     trip_items: itemRows,
     trips: {
       group_id: "G1", group_text: null, group_structure: null, group_parsed: null, group_parsed_hash: null,
-      dest_name: "Costa del Sol", dest_country_code: "ES", dest_lat: 36.7, dest_lon: -4.4,
+      dest_name: "Costa del Sol", dest_country_code: "ES", dest_lat: 36.7, dest_lon: -4.4, dest_timezone: "Europe/Madrid",
     },
     travel_groups: { description: null, parsed_structure: null, parsed_hash: null },
     group_entries: [{ kind: "composition", count: 2 }],
@@ -84,7 +84,7 @@ describe("getSharedPlanDocument", () => {
       { table: "trips", select: "group_id, group_text, group_structure, group_parsed, group_parsed_hash" },
       { table: "travel_groups", select: "description, parsed_structure, parsed_hash" },
       { table: "group_entries", select: "kind, count" },
-      { table: "trips", select: "dest_name, dest_country_code, dest_lat, dest_lon" },
+      { table: "trips", select: "dest_name, dest_country_code, dest_lat, dest_lon, dest_timezone" },
     ]);
     expect(calls.some((c) => c.select.includes("*"))).toBe(false);
   });
@@ -128,7 +128,7 @@ describe("getSharedPlanDocument", () => {
     expect(doc!.items).toBeNull();
     expect(doc!.costs).toBeNull();
     expect(calls.map((c) => c.table)).toEqual(["share_links", "profiles", "plans", "plan_versions", "trips"]);
-    expect(calls.at(-1)!.select).toBe("dest_name, dest_country_code, dest_lat, dest_lon");
+    expect(calls.at(-1)!.select).toBe("dest_name, dest_country_code, dest_lat, dest_lon, dest_timezone");
   });
   it("touches the link and logs a view without token, hash or IP", async () => {
     await getSharedPlanDocument(TOKEN, "pdf");
