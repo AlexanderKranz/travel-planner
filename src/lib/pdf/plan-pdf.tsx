@@ -239,6 +239,9 @@ function DayCard({ day, doc, fixed, t, fmt }: { day: PlanDay; doc: PlanDocument;
   );
 }
 
+/** The minus sign (U+2212) vanishes from the serif font on the second PDF of a process; the en dash does not. */
+const serifSafe = (text: string) => text.replaceAll("−", "–");
+
 /** Same tiles as the share page, without the emoji (not in the PDF fonts). */
 function GlanceTiles({ doc, t, fmt }: { doc: PlanDocument; t: PdfT; fmt: Fmt }) {
   const tiles = planGlanceTiles(doc, doc.plan.locale, (k, v) => t(`glance.${k}`, v));
@@ -251,7 +254,7 @@ function GlanceTiles({ doc, t, fmt }: { doc: PlanDocument; t: PdfT; fmt: Fmt }) 
         {tiles.map((tile) => (
           <View key={tile.key} style={{ flexBasis: 0, flexGrow: 1, minWidth: 0, backgroundColor: C.card, border: `0.75pt solid ${C.line}`, borderRadius: 9, padding: 8, marginHorizontal: 3 }}>
             <Text style={{ ...labelStyle, marginBottom: 3 }}>{tile.label}</Text>
-            <Text style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13, lineHeight: 1.2, color: C.navy, marginBottom: 2 }}>{tile.value}</Text>
+            <Text style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13, lineHeight: 1.2, color: C.navy, marginBottom: 2 }}>{serifSafe(tile.value)}</Text>
             {tile.lines.map((l, i) => (
               <Text key={i} style={{ fontSize: 7.5, color: C.muted, marginTop: 1 }}>{l}</Text>
             ))}
