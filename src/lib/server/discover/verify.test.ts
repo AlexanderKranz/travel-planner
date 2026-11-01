@@ -87,7 +87,7 @@ describe("verifyIdeas: cards", () => {
 
   it("falls back to the display name when a local-only anchor is not found", async () => {
     const lisbon = { ...PLACES.Faro, geoId: 2267057, name: "Lissabon", featureCode: "PPLC" };
-    const geocode = vi.fn(async (query: string, _lang: string) => ok(query === "Lissabon" ? [lisbon] : []));
+    const geocode = vi.fn<VerifyDeps["geocode"]>(async (query) => ok(query === "Lissabon" ? [lisbon] : []));
     const out = await verifyIdeas(base({ ideas: [idea("Lisboa", { name: "Lissabon", cc: "PT" })] }), deps({ geocode }));
     expect(out.cards.map((c) => [c.geoId, c.kind])).toEqual([[2267057, "city"]]);
     expect(geocode.mock.calls.map((c) => [c[0], c[1]])).toEqual([["Lisboa", "en"], ["Lisboa", "de"], ["Lissabon", "de"]]);
