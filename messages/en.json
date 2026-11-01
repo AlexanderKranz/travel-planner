@@ -398,20 +398,7 @@
     "deleteTitle": "Delete trip?",
     "deleteBody": "“{name}” will be deleted permanently. Groups and purposes are kept.",
     "detail": {
-      "radius": "radius {km} km",
-      "context": "Travel context",
-      "group": "Travel group",
-      "noGroup": "No group chosen.",
-      "purpose": "Trip purpose",
-      "noPurpose": "No purpose chosen. General sights are shown.",
-      "interests": "Interests",
-      "flights": "Flights",
-      "flightsOff": "Flights are not wanted for this trip.",
-      "originAirports": "Departure airports for this trip",
-      "homeAirports": "Your home airports",
-      "noAirports": "No airports set. Add home airports in the settings.",
-      "notes": "Notes",
-      "groupOneOff": "This trip only"
+      "radius": "radius {km} km"
     },
     "form": {
       "fromSuggestion": "Prefilled from a suggestion. Check the details; nothing is created until you save. The AI reason is not copied into the trip.",
@@ -847,30 +834,18 @@
       "markDone": "Mark “{text}” as done",
       "markOpen": "Reopen “{text}”",
       "saveError": "Could not save",
-      "doneLabel": "done"
+      "doneLabel": "done",
+      "add": "Add",
+      "addLabel": "New entry",
+      "edit": "Change",
+      "editLabel": "Change “{text}”",
+      "delete": "Delete",
+      "deleteLabel": "Delete “{text}”",
+      "save": "Save",
+      "cancel": "Cancel"
     },
     "packing": {
       "title": "Packing list"
-    },
-    "facts": {
-      "title": "Facts behind the plan",
-      "climate": "Climate",
-      "climateMonth": "{month} {tmax}°/{tmin}° C, {wet} wet days",
-      "daylight": "Daylight",
-      "daylightRange": "sunrise from {sunrise}, dusk until {dusk}",
-      "airports": "Airports nearby",
-      "km": "{km} km straight-line",
-      "timeDifference": "Time difference",
-      "timeAhead": "{diff} h ahead of {home}",
-      "timeBehind": "{diff} h behind {home}",
-      "timeRange": "{from} to {to} h vs. {home}",
-      "timeCurrent": "Current value, the trip has no date yet.",
-      "timeChanges": "Changes during the trip (daylight saving).",
-      "timeByMonth": "Depends on the travel month (daylight saving).",
-      "timeDefaultHome": "Germany",
-      "sources": "Open-Meteo (climate), suncalc (daylight), OpenStreetMap (places), IANA time zones (time difference)",
-      "checked": "checked {date}",
-      "sourcesLink": "All sources"
     },
     "empty": {
       "body": "Create a day-by-day itinerary from your trip, group and purpose. The AI writes the text; weather, places and daylight come from verified sources.",
@@ -971,7 +946,10 @@
       "bestNone": "best day removed",
       "remove_alt": "alternative removed",
       "promote_alt": "alternative made the main place",
-      "remove_act": "activity removed"
+      "remove_act": "activity removed",
+      "open_add": "Entry added to the open items",
+      "open_set": "Open item changed",
+      "open_remove": "Open item deleted"
     },
     "versionKinds": {
       "generate": "Generated",
@@ -1179,7 +1157,6 @@
       "driving": "Driving",
       "left": "Drives on the left",
       "right": "Drives on the right",
-      "timezone": "Time zone",
       "timeTitle": "Time difference",
       "timeHours": "{diff} h",
       "timeRange": "{from} to {to} h",
@@ -1189,7 +1166,9 @@
       "timeChanges": "Changes during the trip (daylight saving).",
       "timeByMonth": "Depends on the travel month (daylight saving).",
       "sources": "Sources: Open-Meteo (climate), suncalc (daylight), REST Countries (country), IANA time zones (time difference)",
-      "checked": "checked on {date}"
+      "checked": "checked on {date}",
+      "timezoneLine": "Time zone: {zone}",
+      "timeNone": "None"
     },
     "title": "Travel plan",
     "aiNote": "AI-written itinerary from verified facts",
@@ -1206,7 +1185,6 @@
     "openItems": "To clarify",
     "tips": "Tips and notes",
     "packing": "Packing list",
-    "sources": "Sources: OpenStreetMap, Open-Meteo, AeroDataBox, IANA time zones",
     "generated": "generated {date}",
     "page": "Page {n} of {total}",
     "statuses": {
@@ -1262,23 +1240,6 @@
         "one": "{count} person of unknown age",
         "other": "{count} people of unknown age"
       }
-    },
-    "facts": {
-      "title": "Facts behind the plan",
-      "climate": "Climate",
-      "climateMonth": "{month} {tmax}°/{tmin}° C, {wet} wet days",
-      "daylight": "Daylight",
-      "daylightRange": "sunrise from {sunrise}, dusk until {dusk}",
-      "airports": "Airports nearby",
-      "km": "{km} km straight-line",
-      "timeDifference": "Time difference",
-      "timeAhead": "{diff} h ahead of {home}",
-      "timeBehind": "{diff} h behind {home}",
-      "timeRange": "{from} to {to} h vs. {home}",
-      "timeCurrent": "Current value, the trip has no date yet.",
-      "timeChanges": "Changes during the trip (daylight saving).",
-      "timeByMonth": "Depends on the travel month (daylight saving).",
-      "timeDefaultHome": "Germany"
     },
     "dayShort": "DAY",
     "daysUnit": "days",
@@ -1530,7 +1491,7 @@
       "flightLimitHours": "up to {hours} h",
       "flightLimitHint": "A limit on the estimated flight time. It does not check whether a direct flight exists.",
       "toSettings": "Open settings",
-    "noAirportForLimit": "Add an airport to use your flight limit.",
+      "noAirportForLimit": "Add an airport to use your flight limit.",
       "submit": "Find destinations",
       "submitting": "Searching…"
     },
@@ -1597,13 +1558,13 @@
       "footerWishes": "Other wishes from your purpose, for example flat courses, were not checked.",
       "footerReasons": "The reasons are AI suggestions, not facts.",
       "created": "List from {date}",
-        "pillOrigins": "from {airports}",
+      "pillOrigins": "from {airports}",
       "pillLimit": "up to {hours} h flight (estimate)",
       "cards": "Suggestions",
       "fewResults": "Only {count, plural, one {# place} other {# places}} passed the checks. Nothing was added to fill the list.",
       "empty": "No place passed the checks.",
       "widen": "Try a longer flight limit, other months or a different purpose.",
-        "showOthers": "Show other places",
+      "showOthers": "Show other places",
       "showingOthers": "Looking for other places…",
       "roundsUsed": "Both rounds are used. For new suggestions, change the month, the flight limit or the purpose.",
       "aiOff": "More suggestions need AI, which is switched off right now.",

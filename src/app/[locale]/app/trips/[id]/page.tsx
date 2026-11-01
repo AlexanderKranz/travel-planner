@@ -5,9 +5,8 @@ import { cardCls, linkCls } from "@/components/ui/styles";
 import { ItemsSection } from "@/components/items/items-section";
 import { SharePanel } from "@/components/share/share-panel";
 import { PlanSection } from "@/components/plan/plan-section";
-import { TripContext, type ContextGroup } from "@/components/trips/trip-context";
 import { TripHeader } from "@/components/trips/trip-header";
-import { TripHeroPills } from "@/components/trips/trip-hero-pills";
+import { TripHeroPills, type ContextGroup } from "@/components/trips/trip-hero-pills";
 import { Link } from "@/i18n/navigation";
 import { berlinToday } from "@/lib/date";
 import { Locale, type FactsCtx } from "@/lib/domain";
@@ -120,13 +119,6 @@ export default async function TripDetailPage({
         <GlancePanel {...panel} home={{ name: profile.homeLocation, timezone: profile.homeTimezone }} />
       </Suspense>
       <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} partySize={partySize} startDate={startDate} />
-      <TripContext
-        trip={trip}
-        group={group}
-        ageDate={ageDate}
-        purpose={purpose}
-        profileAirports={profile.homeAirports}
-      />
       {/* Same 2/3 + 1/3 split as the plan at lg; stacked on phones. */}
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:items-start lg:gap-x-8">
         <ItemsSection tripId={trip.id} lengthDays={trip.lengthDays} startDate={startDate} partySize={partySize} />

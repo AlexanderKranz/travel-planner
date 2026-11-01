@@ -56,7 +56,7 @@ export function GlanceCard({
   const flag = c ? flagEmoji(c.code) : "";
   const tzInfo = c?.timezone;
   const tzText = tzInfo
-    ? [tzInfo.iana, tzInfo.utcOffsets.length ? `UTC${tzInfo.utcOffsets[0]}` : null].filter(Boolean).join(" · ") ||
+    ? [tzInfo.iana, tzInfo.utcOffsets.length ? tzInfo.utcOffsets.map((o) => `UTC${o}`).join(" / ") : null].filter(Boolean).join(" · ") ||
       tzInfo.countryZones[0]
     : null;
 
@@ -125,17 +125,10 @@ export function GlanceCard({
                 <span className="sr-only">{tc("driving")}: </span>
                 {tc(c.drivingSide)}
               </li>
-              {tzText && (
-                <li className={chipCls}>
-                  <span aria-hidden="true">🕒</span>
-                  <span className="sr-only">{tc("timezone")}: </span>
-                  {tzText}
-                </li>
-              )}
             </ul>
           </Tile>
         )}
-        {timeDifference && <TimeDifferenceTile diff={timeDifference} homeName={homeName} />}
+        {timeDifference && <TimeDifferenceTile diff={timeDifference} homeName={homeName} timezone={tzText} />}
       </div>
       {reasons.length > 0 && (
         <p className={`text-xs ${mutedCls}`}>

@@ -561,12 +561,18 @@ export async function editPlanVersion(tripId: string, baseVersion: number, edit:
     const n = cur.base.plan.days.length;
     const e = parsed.data;
     const inRange =
-      e.kind === "swap_days" ? e.a <= n && e.b <= n && e.a !== e.b : e.kind === "set_best" ? e.n === null || e.n <= n : e.n <= n;
+      e.kind === "swap_days"
+        ? e.a <= n && e.b <= n && e.a !== e.b
+        : e.kind === "set_best"
+          ? e.n === null || e.n <= n
+          : "n" in e
+            ? e.n <= n
+            : true; // the list checks its own bounds
     if (!inRange) return err("invalid");
     const out = applyEdit(cur.base.plan, e);
     const plan = Plan.safeParse(out.plan);
     if (!plan.success) return err("failed");
-    if (out.changedDays.length === 0) return await done(c, { unchanged: true });
+    if (out.plan === cur.base.plan) return await done(c, { unchanged: true });
     const no = await insertVersion(c.sb, cur.plan.id, {
       kind: "edit",
       plan: plan.data,

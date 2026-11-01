@@ -5,8 +5,9 @@ import { Tile } from "./glance-tile";
 const hours = (m: number) => formatHours(m);
 
 /** "+1 h vs. Germany", "no time difference", or both values when daylight saving differs. Computed, no source call. */
-export function TimeDifferenceTile({ diff, homeName }: { diff: TimeDifference; homeName: string }) {
+export function TimeDifferenceTile({ diff, homeName, timezone }: { diff: TimeDifference; homeName: string; timezone?: string | null }) {
   const t = useTranslations("facts.timeDifference");
+  const tc = useTranslations("facts.country");
   const [first, ...rest] = diff.minutes;
   const varies = rest.length > 0;
   const none = !varies && first === 0;
@@ -24,6 +25,11 @@ export function TimeDifferenceTile({ diff, homeName }: { diff: TimeDifference; h
       {varies && (
         <p className="text-sm text-muted">
           {diff.byMonth ? t("byMonth") : t("changes")}
+        </p>
+      )}
+      {timezone && (
+        <p className="break-words text-sm text-muted">
+          {tc("timezone")}: {timezone}
         </p>
       )}
     </Tile>

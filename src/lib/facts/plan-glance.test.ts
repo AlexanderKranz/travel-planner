@@ -35,7 +35,8 @@ describe("planGlance", () => {
     expect(g.climate).toMatchObject({ months: [12], tMaxC: 7.2 });
     expect(g.daylight).toMatchObject({ date: "2026-12-11", sunrise: "08:37", dusk: "16:24" });
     expect(g.daylight?.sunset).toMatch(/^15:\d\d$/);
-    expect(g.country).toMatchObject({ code: "GB", drivingSide: "left", timezone: "Europe/London · UTC+00:00" });
+    expect(g.country).toMatchObject({ code: "GB", drivingSide: "left" });
+    expect(g.timezone).toBe("Europe/London · UTC+00:00");
   });
 
   it("never carries coordinates", () => {
@@ -45,6 +46,7 @@ describe("planGlance", () => {
   it("ignores a destination changed after the plan was made", () => {
     const g = planGlance(plan, { name: "Tokyo", countryCode: "JP", lat: 35.7, lon: 139.7, timezone: "Asia/Tokyo" }, "2026-11-01");
     expect(g.country).toBeNull();
+    expect(g.timezone).toBe("Europe/London · UTC+00:00"); // the plan's own zone stays valid
     expect(g.daylight).toMatchObject({ sunrise: "08:37", sunset: null });
   });
 
@@ -56,14 +58,16 @@ describe("planGlance", () => {
 
   it("keeps the country tile of a plan without daylight facts", () => {
     const p = { header: plan.header, facts: {} } as typeof plan;
-    expect(planGlance(p, place, "2026-11-01").country).toMatchObject({ code: "GB" });
+    const g = planGlance(p, place, "2026-11-01");
+    expect(g.country).toMatchObject({ code: "GB" });
+    expect(g.timezone).toBe("Europe/London · UTC+00:00");
   });
 
   it("shows both offsets when the clocks change during the trip", () => {
     const p = structuredClone(plan);
     (p.header.timing as { startDate: string }).startDate = "2026-03-26";
     p.header.lengthDays = 7;
-    expect(planGlance(p, place, "2026-11-01").country?.timezone).toBe("Europe/London · UTC+00:00 / UTC+01:00");
+    expect(planGlance(p, place, "2026-11-01").timezone).toBe("Europe/London · UTC+00:00 / UTC+01:00");
   });
 
   it("reports polar night instead of an empty tile", () => {
@@ -91,7 +95,15 @@ describe("planGlanceTiles", () => {
     expect(tiles[1].value).toMatch(/^08:37–15:\d\d$/);
     expect(tiles[2]).toMatchObject({ value: "Vereinigtes Königreich", flag: "🇬🇧" });
     expect(tiles[2].chips.map((c) => c.text)).toContain("Linksverkehr");
-    expect(tiles[3]).toMatchObject({ value: "−1 Std.", lines: ["gegenüber Hochheim"] });
+    expect(tiles[3]).toMatchObject({ value: "−1 Std.", lines: ["gegenüber Hochheim", "Zeitzone: Europe/London · UTC+00:00"] });
+  });
+
+  it("shows the time zone in the time tile, also without a difference to home", () => {
+    const g = planGlance(plan, place, "2026-11-01");
+    const withDiff = planGlanceTiles({ glance: g, timeDifference: { kind: "behind", hours: "1", home: null, notes: [] } }, "de", t);
+    expect(withDiff[2].chips.map((c) => c.text).join()).not.toContain("Europe/London");
+    expect(withDiff[3].lines).toContain("Zeitzone: Europe/London · UTC+00:00");
+    expect(planGlanceTiles({ glance: g }, "de", t)[3]).toMatchObject({ value: "Keine", lines: ["Zeitzone: Europe/London · UTC+00:00"] });
   });
 
   it("uses the default home and keeps the range sign", () => {

@@ -26,20 +26,24 @@ function glanceDaylight(plan: Pick<Plan, "facts">, place: PlanGlancePlace | null
   };
 }
 
-function glanceCountry(plan: Pick<Plan, "header" | "facts">, code: string | null, today: string): PlanGlance["country"] {
+function glanceCountry(code: string | null): PlanGlance["country"] {
   const c = code ? getCountry(code) : undefined;
   if (!code || !c) return null;
-  const iana = plan.facts.daylight?.timezone;
-  const refs = planReferenceDates(plan.header, today);
-  const offsets = iana && isValidTimeZone(iana) ? utcOffsets(iana, refs.length ? refs : [today]) : [];
   return {
     code: code.toUpperCase(),
     nameEn: c.nameEn,
     currencies: c.currencies.slice(0, 2),
     callingCode: c.callingCodes[0] ?? null,
     drivingSide: c.drivingSide,
-    timezone: [iana, offsets.map((o) => `UTC${o}`).join(" / ")].filter(Boolean).join(" · ") || null,
   };
+}
+
+function glanceTimezone(plan: Pick<Plan, "header" | "facts">, place: PlanGlancePlace | null, today: string): string | null {
+  const iana = plan.facts.daylight?.timezone ?? place?.timezone;
+  if (!iana || !isValidTimeZone(iana)) return null;
+  const refs = planReferenceDates(plan.header, today);
+  const offsets = utcOffsets(iana, refs.length ? refs : [today]);
+  return [iana, offsets.map((o) => `UTC${o}`).join(" / ")].filter(Boolean).join(" · ");
 }
 
 /** Pure. `place` only counts while it is still the plan's destination: after a change it would describe another place. */
@@ -54,6 +58,7 @@ export function planGlance(plan: Pick<Plan, "header" | "facts">, place: PlanGlan
   return {
     climate: climate && { ...climate, months: months.map((m) => m.month) },
     daylight: glanceDaylight(plan, current),
-    country: glanceCountry(plan, current?.countryCode ?? null, today),
+    country: glanceCountry(current?.countryCode ?? null),
+    timezone: glanceTimezone(plan, current, today),
   };
 }

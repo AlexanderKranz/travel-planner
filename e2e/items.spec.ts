@@ -2,6 +2,8 @@ import { expect, test, withPageDump } from "./lib/fixtures";
 
 test("a booked cost item with times shows in the costs and as a fixed row in the day plan", async ({ page, seed }) => {
   await page.goto(`/de/app/trips/${seed.tripId}`);
+  // Collapsed until the first entry.
+  await page.locator("#items-title").click();
   await page.getByRole("button", { name: "Kostenpunkt hinzufügen", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Titel", { exact: true }).fill("Stadtführung E2E");
