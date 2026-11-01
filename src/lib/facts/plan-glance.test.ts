@@ -54,6 +54,18 @@ describe("planGlance", () => {
     expect(g.daylight?.sunset).toBeNull();
   });
 
+  it("keeps the country tile of a plan without daylight facts", () => {
+    const p = { header: plan.header, facts: {} } as typeof plan;
+    expect(planGlance(p, place, "2026-11-01").country).toMatchObject({ code: "GB" });
+  });
+
+  it("shows both offsets when the clocks change during the trip", () => {
+    const p = structuredClone(plan);
+    (p.header.timing as { startDate: string }).startDate = "2026-03-26";
+    p.header.lengthDays = 7;
+    expect(planGlance(p, place, "2026-11-01").country?.timezone).toBe("Europe/London · UTC+00:00 / UTC+01:00");
+  });
+
   it("reports polar night instead of an empty tile", () => {
     const p = structuredClone(plan);
     p.facts.daylight!.days = [{ date: "2026-12-21", sunrise: null, dusk: null }];
