@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261106120031. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261107120032. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -311,6 +311,28 @@ select ok(has_column_privilege('authenticated', 'public.profiles', 'home_timezon
 select ok(has_column_privilege('authenticated', 'public.profiles', 'onboarding_done_at', 'update'), 'authenticated: grant still includes onboarding_done_at');
 select ok(not has_column_privilege('authenticated', 'public.profiles', 'role', 'update'), 'authenticated: home grant did not open profiles.role');
 select ok(not has_column_privilege('authenticated', 'public.profiles', 'is_demo', 'update'), 'authenticated: home grant did not open profiles.is_demo');
+
+-- ---------- home coordinates (migration 20261107120032) ----------
+select ok(has_column_privilege('authenticated', 'public.profiles', 'home_geo_id', 'update'), 'authenticated: can update profiles.home_geo_id');
+select ok(has_column_privilege('authenticated', 'public.profiles', 'home_lat', 'update'), 'authenticated: can update profiles.home_lat');
+select ok(has_column_privilege('authenticated', 'public.profiles', 'home_lon', 'update'), 'authenticated: can update profiles.home_lon');
+select ok(not has_column_privilege('authenticated', 'public.profiles', 'role', 'update'), 'authenticated: coordinates grant did not open profiles.role');
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select throws_ok($$update public.profiles set home_lat = 50.11 where id = 'aaaaaaaa-0000-4000-8000-000000000001'$$, '23514', null, 'coordinates must be all set or all null');
+select throws_ok($$update public.profiles set home_geo_id = 2925533, home_lat = 50.11, home_lon = 8.68 where id = 'aaaaaaaa-0000-4000-8000-000000000001'$$, '23514', null, 'coordinates need a home name');
+select throws_ok($$update public.profiles set home_location = 'Frankfurt am Main', home_timezone = 'Europe/Berlin', home_geo_id = 2925533, home_lat = 91, home_lon = 8.68 where id = 'aaaaaaaa-0000-4000-8000-000000000001'$$, '23514', null, 'latitude is limited to -90..90');
+select throws_ok($$update public.profiles set home_location = 'Frankfurt am Main', home_timezone = 'Europe/Berlin', home_geo_id = 2925533, home_lat = 50.11, home_lon = 181 where id = 'aaaaaaaa-0000-4000-8000-000000000001'$$, '23514', null, 'longitude is limited to -180..180');
+select lives_ok($$update public.profiles set home_location = 'Frankfurt am Main', home_timezone = 'Europe/Berlin', home_geo_id = 2925533, home_lat = 50.11, home_lon = 8.68 where id = 'aaaaaaaa-0000-4000-8000-000000000001'$$, 'A can set an own home with coordinates');
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+select is((select count(*)::int from public.profiles where home_lat is not null), 0, 'B cannot read the home coordinates of A');
+select is((select count(*)::int from (select 1 from public.profiles where id = 'aaaaaaaa-0000-4000-8000-000000000001') x), 0, 'B cannot see the profile of A at all');
+with u as (update public.profiles set home_location = null, home_timezone = null, home_geo_id = null, home_lat = null, home_lon = null where id = 'aaaaaaaa-0000-4000-8000-000000000001' returning 1)
+select is((select count(*)::int from u), 0, 'B cannot clear the home of A (RLS)');
+reset role;
+select is((select home_lat from public.profiles where id = 'aaaaaaaa-0000-4000-8000-000000000001'), 50.11::double precision, 'the home of A is unchanged');
+-- leave A without a home for the tests below
+update public.profiles set home_location = null, home_timezone = null, home_geo_id = null, home_lat = null, home_lon = null where id = 'aaaaaaaa-0000-4000-8000-000000000001';
 
 -- ---------- -- anon sees nothing ----------
 reset role;
@@ -797,6 +819,47 @@ select throws_ok($$insert into public.destination_searches (purpose_name, locale
 select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, cards) values ('x', 'de', repeat('f', 64), '{}', '{}')$$, '23514', null, 'cards must be an array');
 select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, rounds) values ('x', 'de', repeat('f', 64), '{}', 3)$$, '23514', null, 'at most 2 rounds');
 
+-- travel mode (migration 20261107120032); user sessions never write id
+select ok(has_column_privilege('authenticated', 'public.destination_searches', 'travel_mode', 'insert'), 'authenticated: can insert destination_searches.travel_mode');
+select ok(has_column_privilege('authenticated', 'public.destination_searches', 'home_lat', 'insert'), 'authenticated: can insert destination_searches.home_lat');
+select ok(has_column_privilege('authenticated', 'public.destination_searches', 'travel_mode', 'update'), 'authenticated: can update destination_searches.travel_mode (reused row)');
+select ok(has_column_privilege('authenticated', 'public.destination_searches', 'max_drive_hours', 'update'), 'authenticated: can update destination_searches.max_drive_hours');
+select ok(has_column_privilege('authenticated', 'public.destination_searches', 'home_name', 'update'), 'authenticated: can update destination_searches.home_name');
+select ok(has_column_privilege('authenticated', 'public.destination_searches', 'home_lon', 'update'), 'authenticated: can update destination_searches.home_lon');
+select is((select travel_mode from public.destination_searches where input_hash = repeat('c', 64)), 'flight', 'an existing search defaults to flight');
+select lives_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, travel_mode, max_drive_hours, home_name, home_lat, home_lon, radius_km) values ('B drive', 'en', repeat('1', 64), '{"v":1}', 'done', 'drive', 4, 'Frankfurt am Main', 50.11, 8.68, 360)$$,
+  'B can insert a valid drive search');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, travel_mode, home_name, home_lat, home_lon) values ('x', 'en', repeat('2', 64), '{}', 'done', 'drive', 'Frankfurt', 50.11, 8.68)$$,
+  '23514', null, 'a drive search needs the limit');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, travel_mode, max_drive_hours, home_lat, home_lon) values ('x', 'en', repeat('2', 64), '{}', 'done', 'drive', 4, 50.11, 8.68)$$,
+  '23514', null, 'a drive search needs the start name');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, travel_mode, max_drive_hours, home_name) values ('x', 'en', repeat('2', 64), '{}', 'done', 'drive', 4, 'Frankfurt')$$,
+  '23514', null, 'a drive search needs the start coordinates');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, travel_mode, max_drive_hours, home_name, home_lat, home_lon, origins) values ('x', 'en', repeat('2', 64), '{}', 'done', 'drive', 4, 'Frankfurt', 50.11, 8.68, '{FRA}')$$,
+  '23514', null, 'a drive search has no airports');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, travel_mode, max_drive_hours, home_name, home_lat, home_lon, max_flight_hours) values ('x', 'en', repeat('2', 64), '{}', 'done', 'drive', 4, 'Frankfurt', 50.11, 8.68, 3)$$,
+  '23514', null, 'a drive search has no flight limit');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, max_drive_hours) values ('x', 'en', repeat('2', 64), '{}', 'done', 4)$$,
+  '23514', null, 'a flight search has no drive columns');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, travel_mode, max_drive_hours, home_name, home_lat, home_lon) values ('x', 'en', repeat('2', 64), '{}', 'done', 'drive', 13, 'Frankfurt', 50.11, 8.68)$$,
+  '23514', null, 'the drive limit is at most 12 h');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, travel_mode, max_drive_hours, home_name, home_lat, home_lon) values ('x', 'en', repeat('2', 64), '{}', 'done', 'drive', 0.5, 'Frankfurt', 50.11, 8.68)$$,
+  '23514', null, 'the drive limit is at least 1 h');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, travel_mode) values ('x', 'en', repeat('2', 64), '{}', 'done', 'train')$$,
+  '23514', null, 'travel_mode is flight or drive');
+select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status, travel_mode, max_drive_hours, home_name, home_lat, home_lon) values ('x', 'en', repeat('2', 64), '{}', 'done', 'drive', 4, 'Frankfurt', 91, 8.68)$$,
+  '23514', null, 'the start latitude is limited to -90..90');
+select throws_ok($$insert into public.destination_searches (id, purpose_name, locale, input_hash, input) values (gen_random_uuid(), 'x', 'en', repeat('2', 64), '{}')$$,
+  '42501', null, 'a user session still cannot insert id');
+-- a reused row is updated in place, also from flight to drive and back
+select lives_ok($$update public.destination_searches set max_drive_hours = 6, radius_km = 540 where input_hash = repeat('1', 64)$$, 'B can update the drive columns of a reused row');
+select lives_ok($$update public.destination_searches set travel_mode = 'flight', max_drive_hours = null, home_name = null, home_lat = null, home_lon = null, origins = '{FRA}', max_flight_hours = 3 where input_hash = repeat('1', 64)$$,
+  'B can reuse a row for a flight search');
+select lives_ok($$update public.destination_searches set travel_mode = 'drive', max_drive_hours = 2, home_name = 'Munich', home_lat = 48.14, home_lon = 11.58, origins = '{}', max_flight_hours = null where input_hash = repeat('1', 64)$$,
+  'B can reuse a row for a drive search');
+select throws_ok($$update public.destination_searches set max_drive_hours = null where input_hash = repeat('1', 64)$$, '23514', null, 'mode_shape rejects a drive row that loses its limit');
+select throws_ok($$update public.destination_searches set home_lat = null where input_hash = repeat('1', 64)$$, '23514', null, 'mode_shape rejects a drive row that loses its coordinates');
+
 -- trips.destination_search_id: same owner only
 select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, destination_search_id) values ('freetext', 'X', 2, 'a0000000-0000-4000-8000-000000003111')$$,
   '23503', null, 'a trip cannot reference the destination search of another owner');
@@ -814,6 +877,15 @@ delete from public.trip_purposes where id = 'a0000000-0000-4000-8000-00000000310
 select is((select purpose_id from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003111'), null, 'deleting the purpose clears purpose_id only');
 select is((select purpose_name from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003111'), 'A golf search', 'the list keeps its purpose_name snapshot');
 reset role;
+
+-- B cannot read the start coordinates of A's drive search
+insert into public.destination_searches (owner_id, purpose_name, locale, input_hash, input, status, travel_mode, max_drive_hours, home_name, home_lat, home_lon)
+  values ('aaaaaaaa-0000-4000-8000-000000000001', 'A drive', 'de', repeat('7', 64), '{"v":1}', 'done', 'drive', 4, 'Hamburg', 53.55, 9.99);
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
+select is((select count(*)::int from public.destination_searches where home_name = 'Hamburg' or home_lat = 53.55), 0, 'B cannot read the start coordinates of A');
+reset role;
+delete from public.destination_searches where input_hash = repeat('7', 64);
 
 -- ai_usage accepts the new task
 select lives_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'destination_ideas', 'claude-haiku-5-5', 'ok')$$, 'ai_usage accepts the destination_ideas task');
