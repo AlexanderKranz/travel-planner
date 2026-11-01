@@ -42,7 +42,6 @@ const plan = (golf as unknown as { plan: unknown }).plan;
 
 type Log = { who: "user" | "admin"; table: string; select: string; kind: "single" | "list" | "rpc" };
 const log: Log[] = [];
-let pending = 0;
 
 const versionRow = (no: number) => ({
   version_no: no, kind: "generated", created_at: `2026-10-0${no}T00:00:00Z`, feedback: null, restored_from: null,
@@ -90,10 +89,8 @@ function builder(who: Log["who"], table: string) {
   const eq: Record<string, unknown> = {};
   const run = (kind: "single" | "list") => {
     log.push({ who, table, select, kind });
-    pending++;
     return new Promise((resolve) =>
       setTimeout(() => {
-        pending--;
         const row =
           table === "plan_versions" && kind === "single" && eq.version_no !== undefined
             ? versionRow(Number(eq.version_no))
@@ -115,10 +112,8 @@ const client = (who: Log["who"]) => ({
   from: (t: string) => builder(who, t),
   rpc: (fn: string) => {
     log.push({ who, table: fn, select: "", kind: "rpc" });
-    pending++;
     return new Promise((resolve) =>
       setTimeout(() => {
-        pending--;
         resolve({ data: [{ user_spent: 0, global_spent: 0 }], error: null });
       }, 10),
     );
