@@ -180,10 +180,11 @@ async function request(searchParams: { v?: string } = {}) {
 beforeEach(() => vi.useRealTimers());
 
 describe("reads of one /app/trips/[id] request", () => {
-  it("needs about 12 rounds or fewer and reads shared rows once", async () => {
+  it("needs about 7 rounds (8 at most) and reads shared rows once", async () => {
     const { rounds, queries } = await request();
-    console.log(`trip page: ${rounds} rounds, ${queries} queries`, log.map((l) => `${l.who}:${l.table}`).join(" "));
-    expect(rounds).toBeLessThanOrEqual(12);
+    // Measured: 7 rounds, 20 queries (origin/main before this change: 28 rounds, 37 queries).
+    expect(rounds).toBeLessThanOrEqual(8);
+    expect(queries).toBeLessThanOrEqual(22);
     const count = (table: string, sel: string) => log.filter((l) => l.table === table && l.select.includes(sel)).length;
     expect(count("trips", "dest_kind")).toBe(1); // the trip itself
     expect(count("profiles", "role")).toBe(1); // the profile
@@ -200,7 +201,7 @@ describe("reads of one /app/trips/[id] request", () => {
   it("shows the requested version and keeps the cost the same", async () => {
     const latest = await request();
     const old = await request({ v: "1" });
-    expect(old.rounds).toBeLessThanOrEqual(12);
+    expect(old.rounds).toBeLessThanOrEqual(8);
     expect(JSON.stringify(old.planOut)).toContain('"versionNo":1');
     expect(JSON.stringify(latest.planOut)).toContain('"versionNo":2');
   });
