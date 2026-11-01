@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Plan } from "./plan";
+import type { PlanGlance } from "@/lib/facts/plan-glance";
 import type { PlanTimeDifference } from "@/lib/facts/plan-time-difference";
 import type { CostSummary, SharedItem } from "./items";
 
@@ -37,6 +38,8 @@ export type PlanDocument = {
   costs: CostSummary | null;
   /** Computed on the server, relative to the plan owner's home (default Germany). null = nothing to show. */
   timeDifference?: PlanTimeDifference | null;
+  /** "At a glance" tiles of share page and PDF: display values only, no coordinates. */
+  glance?: PlanGlance;
   /** Owner view only: a timed item changed after this plan version (soft "regenerate?" hint). */
   itemsChanged?: boolean;
 };

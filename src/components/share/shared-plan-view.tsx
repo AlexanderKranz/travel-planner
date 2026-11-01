@@ -3,6 +3,7 @@ import { CostSummaryView } from "@/components/items/cost-summary";
 import { ItemList } from "@/components/items/item-list";
 import { DayCard } from "@/components/plan/day-card";
 import { PlanFactsStrip } from "@/components/plan/plan-facts-strip";
+import { PlanGlanceTiles } from "@/components/plan/plan-glance-tiles";
 import { PlanFlights } from "@/components/plan/plan-flights";
 import { PlanHeader } from "@/components/plan/plan-header";
 import { PlanNotes, PlanOpenItems, PlanPacking } from "@/components/plan/plan-lists";
@@ -49,6 +50,7 @@ export function SharedPlanView({ doc, token, uiLocale, banner }: { doc: PlanDocu
         className="flex min-w-0 flex-col gap-4"
         header={<PlanHeader plan={plan} uiLocale={uiLocale} readOnly />}
       >
+        <PlanGlanceTiles doc={doc} locale={uiLocale} />
         <ol className="flex flex-col gap-3" aria-label={tp("daysLabel")}>
           {plan.days.map((d) => (
             <DayCard key={d.n} day={d} places={plan.places} fixed={fixed} />
@@ -59,7 +61,8 @@ export function SharedPlanView({ doc, token, uiLocale, banner }: { doc: PlanDocu
       <PlanNotes notes={plan.notes} />
       <PlanOpenItems items={plan.openItems} done={doc.openDone} />
       <PlanPacking items={plan.packing} />
-      <PlanFactsStrip facts={plan.facts} timeDifference={doc.timeDifference ?? null} />
+      {/* Climate, daylight and time difference are in the tiles above; only the airports stay here. */}
+      <PlanFactsStrip facts={{ airports: plan.facts.airports, placesFetchedAt: plan.facts.placesFetchedAt }} />
       {doc.items && (
         <section aria-labelledby="shared-items" className="flex min-w-0 flex-col gap-3">
           <h2 id="shared-items" className="text-2xl font-bold">

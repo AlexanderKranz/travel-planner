@@ -23,7 +23,7 @@ export async function GlancePanel({
     getDaylightFacts(trip, ctx),
     getCountryFacts(trip, ctx),
   ]);
-  // Home is the owner's setting: never part of the LLM input. Share page and PDF get only the computed line (plan-document.ts).
+  // Home is the owner's setting: never part of the LLM input. Share page and PDF get only computed display values (plan-document.ts).
   const timeDifference = tripTimeDifference(trip, home.timezone, ctx.today);
   const homeName = home.timezone && home.name ? home.name : t("timeDifference.defaultHome");
   const fallbackMonth = Number(ctx.today.slice(5, 7));

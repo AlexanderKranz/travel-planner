@@ -33,8 +33,8 @@ function bangkokDoc(home: { name: string | null; timezone: string | null } | nul
 
 describe("PDF with a real non-zero time difference", () => {
   for (const [loc, msgs, expected] of [
-    ["de", de, /Zeitverschiebung\s*:\s*6 Std\. vor Frankfurt am Main, Hessen, Deutschland/],
-    ["en", en, /Time difference\s*:\s*6 h ahead of Frankfurt am Main, Hessen, Deutschland/],
+    ["de", de, /\+6 Std\.\s*gegenüber Frankfurt am Main, Hessen,\s*Deutschland/],
+    ["en", en, /\+6 h\s*vs\. Frankfurt am Main, Hessen,\s*Deutschland/],
   ] as const) {
     it(`renders ${loc}`, async () => {
       const doc = bangkokDoc({ name: LONG, timezone: "Europe/Berlin" });
@@ -58,7 +58,15 @@ describe("PDF with a real non-zero time difference", () => {
     const d3 = bangkokDoc({ name: "Tokyo", timezone: "Asia/Tokyo" });
     expect(d3.timeDifference).toMatchObject({ kind: "behind", hours: "2" });
     const buf = await renderPlanPdf(d3, makeT(de.pdf));
-    expect((await text(buf)).replace(/\s+/g, " ")).toMatch(/2 Std\. hinter Tokyo/);
+    expect((await text(buf)).replace(/\s+/g, " ")).toMatch(/–\s*2 Std\.\s*gegenüber Tokyo/);
+  }, 60_000);
+
+  it("keeps the sign on every render of a warm process", async () => {
+    const doc = bangkokDoc({ name: "Tokyo", timezone: "Asia/Tokyo" });
+    for (let i = 0; i < 3; i++) {
+      const txt = (await text(await renderPlanPdf(doc, makeT(de.pdf)))).replace(/\s+/g, " ");
+      expect(txt).toMatch(/–\s*2 Std\.\s*gegenüber Tokyo/);
+    }
   }, 60_000);
 
   it("renders a negative range (daylight saving differs) with the minus sign in both locales", async () => {
@@ -71,7 +79,7 @@ describe("PDF with a real non-zero time difference", () => {
     for (const [loc, msgs] of [["de", de], ["en", en]] as const) {
       const buf = await renderPlanPdf(doc, makeT(msgs.pdf));
       const txt = (await text(buf)).replace(/\s+/g, " ");
-      expect(txt).toMatch(loc === "de" ? /−6 bis −5 Std\. gegenüber Deutschland/ : /−6 to −5 h vs\. Germany/);
+      expect(txt).toMatch(loc === "de" ? /–\s*6 bis\s+–\s*5 Std\.\s*gegenüber Deutschland/ : /–\s*6 to\s+–\s*5 h\s*vs\. Germany/);
       const dir = process.env.PDF_SAMPLE_DIR;
       if (dir) writeFileSync(path.join(dir, `range-${loc}.pdf`), buf);
     }
