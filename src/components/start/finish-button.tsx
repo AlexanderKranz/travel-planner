@@ -21,7 +21,7 @@ export function FinishButton({ variant }: { variant: "finish" | "skip" }) {
         setFailed(true);
         return;
       }
-      router.push("/app/trips");
+      router.push("/app");
     });
   }
 
