@@ -48,7 +48,6 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
       </div>
       <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_20rem]">
         <section aria-label={t("title")} className="flex flex-col gap-3">
-          <p className={`text-sm ${mutedCls}`}>{t("retention", { max: MAX_TRIPS_PER_USER })}</p>
           {trips.length === 0 ? (
             <div className={`${cardCls} flex flex-col gap-3`}>
               <p>{t("empty")}</p>
@@ -66,6 +65,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
               ))}
             </ul>
           )}
+          {/* Below the list, so the first card lines up with the side column. */}
+          <p className={`text-sm ${mutedCls}`}>{t("retention", { max: MAX_TRIPS_PER_USER })}</p>
         </section>
         <div className="flex flex-col gap-4">
           <SideList
