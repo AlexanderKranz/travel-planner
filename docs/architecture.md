@@ -170,6 +170,7 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
    Usage logging (`ai_usage`, `api_calls`, `app_events`) is built from phase 2/3 onwards, so the admin page has data when it arrives.
 
 ### Open items / backlog
+- **Find destinations by driving time** (Alex, 2026-11-01): the search can limit flight time only. Add a choice of either flight or drive, with a maximum driving time from the home town. Needs a short spec first: the profile stores the home place name and zone but no coordinates, and the driving time check goes through OpenRouteService (quota, ferries).
 - **"Noch zu klären" list** (Alex, 2026-11-01): today its entries can only be checked off. Specify what this section should do.
 - **Default page after login** (Alex, 2026-11-01): revisit whether this page is needed or should be removed.
 - **Loading times** (Alex, 2026-11-01): analyse where the app is slow.
