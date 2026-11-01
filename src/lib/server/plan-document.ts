@@ -8,6 +8,7 @@ import { planTimeDifference, type PlanHome } from "@/lib/facts/plan-time-differe
 import { groupPartySize, resolveGroup, tripGroupSource, type GroupSource } from "@/lib/group-text";
 import { computeCosts } from "@/lib/items/costs";
 import { cachedParse } from "./group-mapping";
+import { planGlance, type PlanGlancePlace } from "./plan-glance";
 import { rowToGroupStructure, type TripRow } from "./trip-mapping";
 import { logEvent } from "./events";
 import {
@@ -34,7 +35,16 @@ export type PlanDocumentParts = {
   partySize: number | null;
   /** Owner's home place, null = none set (Germany). `undefined` = unknown (read failed): no time difference at all. */
   home?: PlanHome | null;
+  /** Current destination of the trip, only to fill the tiles; null = unknown. Never part of the document. */
+  place?: PlanGlancePlace | null;
 };
+
+const PLACE_COLUMNS = "dest_name, dest_country_code, dest_lat, dest_lon";
+type PlaceRow = { dest_name: string; dest_country_code: string | null; dest_lat: number | null; dest_lon: number | null };
+
+function rowToPlace(row: PlaceRow | null): PlanGlancePlace | null {
+  return row ? { name: row.dest_name, countryCode: row.dest_country_code, lat: row.dest_lat, lon: row.dest_lon } : null;
+}
 
 /** Pure. Reserved plan keys `items`/`costs` are dropped (items live in trip_items); costs are computed here. */
 export function buildPlanDocument(parts: PlanDocumentParts): PlanDocument {
@@ -49,6 +59,7 @@ export function buildPlanDocument(parts: PlanDocumentParts): PlanDocument {
     items: parts.items,
     costs: parts.items ? computeCosts(parts.items, parts.partySize) : null,
     timeDifference: parts.home === undefined ? null : planTimeDifference(parts.plan, parts.home, berlinToday()),
+    glance: planGlance(parts.plan, parts.place ?? null, berlinToday()),
   };
 }
 
@@ -98,7 +109,7 @@ export async function getOwnerPlanDocumentResult(
   if (!Id_RE.test(tripId)) return { ok: false, error: "not_found" };
   const sb = session.supabase;
   try {
-    const { data: trip, error: tripErr } = await sb.from("trips").select("id").eq("id", tripId).maybeSingle();
+    const { data: trip, error: tripErr } = await sb.from("trips").select(PLACE_COLUMNS).eq("id", tripId).maybeSingle<PlaceRow>();
     if (tripErr) return { ok: false, error: "failed" };
     if (!trip) return { ok: false, error: "not_found" };
     const { data: planRow, error: planErr } = await sb
@@ -133,6 +144,7 @@ export async function getOwnerPlanDocumentResult(
       .maybeSingle<{ home_location: string | null; home_timezone: string | null }>();
     const doc = buildPlanDocument({
       home: profErr ? undefined : prof ? { name: prof.home_location, timezone: prof.home_timezone } : null,
+      place: rowToPlace(trip),
       plan: plan.data,
       versionNo: ver.version_no,
       versionAt: ver.created_at,
@@ -156,7 +168,7 @@ export async function getOwnerPlanDocument(tripId: string): Promise<PlanDocument
  * PUBLIC read path of share links. This is the ONE place that reads user content with the secret key (RLS bypass),
  * because the visitor has no session: access is granted by possession of the token (only its sha256 is stored).
  * Rules: explicit column lists (never `*`); no emails, names, birthdates, trip notes, group/purpose text, version
- * history or plan input; item notes only when the link has include_item_notes; every failure returns null so the
+ * history or plan input; the destination row only feeds the computed tiles; item notes only when the link has include_item_notes; every failure returns null so the
  * caller renders one identical 404 (no oracle between unknown, expired, revoked, no plan). No external API calls.
  * Unknown tokens are not logged. Tokens, hashes and IPs never go into events.
  */
@@ -226,6 +238,9 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
       party = await loadPartySize(admin, link.trip_id);
     }
 
+    // A failed read only costs the country tile and the sunset, not the page.
+    const { data: placeRow } = await admin.from("trips").select(PLACE_COLUMNS).eq("id", link.trip_id).maybeSingle<PlaceRow>();
+
     await Promise.allSettled([
       Promise.resolve(admin.rpc("share_link_touch", { p_id: link.id })),
       logEvent({ event: "share.viewed", userId: link.owner_id, props: { linkId: link.id, via } }),
@@ -240,6 +255,8 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
       partySize: party,
       // Only the computed display value leaves this function (planTimeDifference), never the raw zone.
       home: owner ? { name: owner.home_location, timezone: owner.home_timezone } : flagMissing ? undefined : null,
+      // Coordinates stay here too: the document gets the computed tiles only.
+      place: rowToPlace(placeRow),
     });
   } catch {
     return null;

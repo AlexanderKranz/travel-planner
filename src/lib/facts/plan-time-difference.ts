@@ -20,6 +20,18 @@ export type PlanTimeDifference = {
 
 export type PlanHome = { name: string | null; timezone: string | null };
 
+/** Reference dates of the plan's own timing, same rule as for a trip. */
+export function planReferenceDates(header: Plan["header"], today: string): string[] {
+  const { timing, lengthDays } = header;
+  const tripTiming: Trip["timing"] =
+    timing.kind === "date"
+      ? { kind: "date", startDate: timing.startDate }
+      : timing.kind === "months"
+        ? { kind: "months", months: timing.months }
+        : { kind: "none" };
+  return referenceDates({ timing: tripTiming, lengthDays }, today);
+}
+
 /**
  * Time difference destination vs. the plan owner's home, from the plan snapshot (destination zone =
  * facts.daylight.timezone, dates = header.timing). Null when there is no destination zone, a zone is invalid
@@ -33,14 +45,8 @@ export function planTimeDifference(
   const dest = plan.facts.daylight?.timezone;
   const homeZone = home?.timezone ?? DEFAULT_HOME_TIMEZONE;
   if (!dest || !isValidTimeZone(dest) || !isValidTimeZone(homeZone)) return null;
-  const { timing, lengthDays } = plan.header;
-  const tripTiming: Trip["timing"] =
-    timing.kind === "date"
-      ? { kind: "date", startDate: timing.startDate }
-      : timing.kind === "months"
-        ? { kind: "months", months: timing.months }
-        : { kind: "none" };
-  const refs = referenceDates({ timing: tripTiming, lengthDays }, today);
+  const { timing } = plan.header;
+  const refs = planReferenceDates(plan.header, today);
   const minutes = timeDifferenceMinutes(dest, homeZone, refs.length ? refs : [today]);
   if (minutes.length === 0) return null;
   const homeName = home?.timezone && home.name ? home.name : null;

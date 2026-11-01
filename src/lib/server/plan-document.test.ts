@@ -59,7 +59,10 @@ beforeEach(() => {
     plans: { id: "P1", latest_version: 3, open_done: ["abcd1234"] },
     plan_versions: { plan, version_no: 3, created_at: "2026-10-01T00:00:00Z" },
     trip_items: itemRows,
-    trips: { group_id: "G1", group_text: null, group_structure: null, group_parsed: null, group_parsed_hash: null },
+    trips: {
+      group_id: "G1", group_text: null, group_structure: null, group_parsed: null, group_parsed_hash: null,
+      dest_name: "Costa del Sol", dest_country_code: "ES", dest_lat: 36.7, dest_lon: -4.4,
+    },
     travel_groups: { description: null, parsed_structure: null, parsed_hash: null },
     group_entries: [{ kind: "composition", count: 2 }],
   };
@@ -81,6 +84,7 @@ describe("getSharedPlanDocument", () => {
       { table: "trips", select: "group_id, group_text, group_structure, group_parsed, group_parsed_hash" },
       { table: "travel_groups", select: "description, parsed_structure, parsed_hash" },
       { table: "group_entries", select: "kind, count" },
+      { table: "trips", select: "dest_name, dest_country_code, dest_lat, dest_lon" },
     ]);
     expect(calls.some((c) => c.select.includes("*"))).toBe(false);
   });
@@ -91,6 +95,13 @@ describe("getSharedPlanDocument", () => {
     const dump = JSON.stringify(doc);
     expect(dump).not.toContain("Asia/Bangkok");
     expect(dump).not.toContain("Secret");
+  });
+  it("keeps the trip's coordinates out of the document", async () => {
+    const doc = await getSharedPlanDocument(TOKEN, "page");
+    expect(doc!.glance!.climate).not.toBeNull();
+    const dump = JSON.stringify(doc!.glance);
+    expect(dump).not.toContain("36.7");
+    expect(dump).not.toContain("-4.4");
   });
   it("omits the time difference when it is zero (Madrid vs. default Germany)", async () => {
     const doc = await getSharedPlanDocument(TOKEN, "page");
@@ -111,12 +122,13 @@ describe("getSharedPlanDocument", () => {
     expect(doc!.costs!.partySize).toBe(2);
     expect(doc!.costs!.currencies[0]!.booked.perPersonCents).toBe(120964);
   });
-  it("include_items=false queries no items, trip or group", async () => {
+  it("include_items=false queries no items or group, of the trip only the destination", async () => {
     tables.share_links = link({ include_items: false });
     const doc = await getSharedPlanDocument(TOKEN, "page");
     expect(doc!.items).toBeNull();
     expect(doc!.costs).toBeNull();
-    expect(calls.map((c) => c.table)).toEqual(["share_links", "profiles", "plans", "plan_versions"]);
+    expect(calls.map((c) => c.table)).toEqual(["share_links", "profiles", "plans", "plan_versions", "trips"]);
+    expect(calls.at(-1)!.select).toBe("dest_name, dest_country_code, dest_lat, dest_lon");
   });
   it("touches the link and logs a view without token, hash or IP", async () => {
     await getSharedPlanDocument(TOKEN, "pdf");

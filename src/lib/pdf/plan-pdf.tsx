@@ -4,7 +4,7 @@ import { windowKind } from "@/components/plan/helpers";
 import type { SharedItem } from "@/lib/domain/items";
 import { isUserBest, type PlanDay, type PlanFlights } from "@/lib/domain/plan";
 import type { PlanDocument } from "@/lib/domain/share";
-import { planTimeDifferenceText } from "@/lib/facts/plan-time-difference";
+import { planGlanceChecked, planGlanceTiles } from "@/lib/facts/plan-glance";
 import { flightGroups } from "@/lib/flights/groups";
 import { fittingLegs } from "@/lib/flights/ui";
 import { fixedItemsOf, mergeDayRows, timeRange, type FixedItem } from "@/lib/plan/fixed-items";
@@ -239,6 +239,36 @@ function DayCard({ day, doc, fixed, t, fmt }: { day: PlanDay; doc: PlanDocument;
   );
 }
 
+/** Same tiles as the share page, without the emoji (not in the PDF fonts). */
+function GlanceTiles({ doc, t, fmt }: { doc: PlanDocument; t: PdfT; fmt: Fmt }) {
+  const tiles = planGlanceTiles(doc, doc.plan.locale, (k, v) => t(`glance.${k}`, v));
+  if (tiles.length === 0) return null;
+  const checked = planGlanceChecked(doc.plan);
+  return (
+    <View wrap={false} style={{ marginBottom: 6 }}>
+      <Text style={h2Style}>{t("glance.title")}</Text>
+      <View style={{ flexDirection: "row", marginHorizontal: -3 }}>
+        {tiles.map((tile) => (
+          <View key={tile.key} style={{ flexBasis: 0, flexGrow: 1, minWidth: 0, backgroundColor: C.card, border: `0.75pt solid ${C.line}`, borderRadius: 9, padding: 8, marginHorizontal: 3 }}>
+            <Text style={{ ...labelStyle, marginBottom: 3 }}>{tile.label}</Text>
+            <Text style={{ fontFamily: SERIF, fontWeight: 700, fontSize: 13, lineHeight: 1.2, color: C.navy, marginBottom: 2 }}>{tile.value}</Text>
+            {tile.lines.map((l, i) => (
+              <Text key={i} style={{ fontSize: 7.5, color: C.muted, marginTop: 1 }}>{l}</Text>
+            ))}
+            {tile.chips.map((c) => (
+              <Text key={c.id} style={{ fontSize: 7.5, color: C.muted, marginTop: 1 }}>{c.text}</Text>
+            ))}
+          </View>
+        ))}
+      </View>
+      <Text style={{ ...s.small, marginTop: 4 }}>
+        {t("glance.sources")}
+        {checked ? ` · ${t("glance.checked", { date: fmt.date(checked) })}` : ""}
+      </Text>
+    </View>
+  );
+}
+
 function FlightsCard({ flights, t, fmt }: { flights: PlanFlights; t: PdfT; fmt: Fmt }) {
   const legs = fittingLegs(flights.legs);
   if (legs.length === 0) return null;
@@ -356,14 +386,8 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
   const g = h.group && h.group.total > 0 ? h.group : null;
   // Booked/planned items with day + start time, merged into the day rows (same as the web views).
   const fixed = doc.items ? fixedItemsOf(doc.items, plan.days.length) : [];
-  const facts = plan.facts;
-  const daylight = facts.daylight?.days.length ? facts.daylight.days : null;
-  const rises = daylight?.map((d) => d.sunrise).filter((x): x is string => !!x) ?? [];
-  const dusks = daylight?.map((d) => d.dusk).filter((x): x is string => !!x) ?? [];
-  const month = (m: number) => new Intl.DateTimeFormat(plan.locale, { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(2000, m - 1, 15)));
+  const airports = plan.facts.airports ?? [];
   const num = (n: number) => new Intl.NumberFormat(plan.locale, { maximumFractionDigits: 1 }).format(n);
-  const timeDiff = doc.timeDifference ?? null;
-  const hasFacts = !!facts.climate || (rises.length > 0 && dusks.length > 0) || !!facts.airports?.length || !!timeDiff;
   const flights = plan.flights;
 
   return (
@@ -420,6 +444,8 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
             {t("aiDisclaimer", { date: generated })} · {t("version", { n: doc.versionNo })} · {fmt.date(doc.versionAt)}
           </Text>
         </View>
+
+        <GlanceTiles doc={doc} t={t} fmt={fmt} />
 
         <Heading>{t("days")}</Heading>
         {plan.days.map((d) => (
@@ -482,35 +508,14 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
           </Card>
         )}
 
-        {hasFacts && (
+        {/* Climate, daylight and time difference are in the tiles on page 1; only the airports stay here. */}
+        {airports.length > 0 && (
           <Card wrap={false}>
             <Text style={h2Style} minPresenceAhead={90}>{t("facts.title")}</Text>
-            {facts.climate && (
-              <Text style={{ marginBottom: 2 }}>
-                <Text style={{ fontWeight: 700 }}>{t("facts.climate")}: </Text>
-                {facts.climate.months
-                  .map((m) => t("facts.climateMonth", { month: month(m.month), tmax: Math.round(m.tMaxC), tmin: Math.round(m.tMinC), wet: num(m.wetDays) }))
-                  .join("; ")}
-              </Text>
-            )}
-            {rises.length > 0 && dusks.length > 0 && (
-              <Text style={{ marginBottom: 2 }}>
-                <Text style={{ fontWeight: 700 }}>{t("facts.daylight")}: </Text>
-                {t("facts.daylightRange", { sunrise: rises.reduce((a, b) => (a < b ? a : b)), dusk: dusks.reduce((a, b) => (a > b ? a : b)) })}
-              </Text>
-            )}
-            {facts.airports && facts.airports.length > 0 && (
-              <Text style={{ marginBottom: 2 }}>
-                <Text style={{ fontWeight: 700 }}>{t("facts.airports")}: </Text>
-                {facts.airports.map((a) => `${a.name} (${a.iata}, ${t("facts.km", { km: num(a.km) })})`).join("; ")}
-              </Text>
-            )}
-            {timeDiff && (
-              <Text style={{ marginBottom: 2 }}>
-                <Text style={{ fontWeight: 700 }}>{t("facts.timeDifference")}: </Text>
-                {planTimeDifferenceText(timeDiff, (k, v) => t(`facts.${k}`, v))}
-              </Text>
-            )}
+            <Text style={{ marginBottom: 2 }}>
+              <Text style={{ fontWeight: 700 }}>{t("facts.airports")}: </Text>
+              {airports.map((a) => `${a.name} (${a.iata}, ${t("facts.km", { km: num(a.km) })})`).join("; ")}
+            </Text>
             <Text style={{ ...s.small, marginTop: 3 }}>{t("sources")}</Text>
           </Card>
         )}

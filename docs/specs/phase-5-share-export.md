@@ -166,7 +166,7 @@ Admin client (secret key), explicit column lists only, never `*`:
 3. `plan_versions`: `plan, version_no, created_at` by `(plan_id, version_no = latest_version)`; `Plan.safeParse` fails → `null` + `share.invalid_plan` error event.
 4. If `include_items`: `trip_items` (`id, category, title, status, price_cents, price_basis, persons, currency, day, ref, url, notes`), `trips.group_id` (only this column), `group_entries.count` (only this column) → `partySize` → `computeCosts`.
 5. `rpc("share_link_touch", { p_id })` (not awaited for the response) + `logEvent("share.viewed", { userId: owner_id, props: { linkId, via } })`.
-Returns `PlanDocument | null`. Every `null` renders the same 404 (no oracle between unknown, expired, revoked, no plan). Always the **latest** version; no external API calls (facts come from the plan snapshot).
+Returns `PlanDocument | null`. Every `null` renders the same 404 (no oracle between unknown, expired, revoked, no plan). Always the **latest** version; no external API calls (facts come from the plan snapshot; the "At a glance" tiles add the local country dataset and suncalc, computed on the server, so only display values reach the document).
 A share shows: plan header (title, destination, dates, group counts, purpose name), summary, days, places, facts digest, flights, notes, open items with done state, packing; with `include_items` also items (title, status, price, day, link) and the cost summary; item notes only with `include_item_notes` (default off, since notes may hold booking codes). Never: emails, display name, member names/birthdates, trip notes, group/purpose text, version history, `input`.
 
 ### 3.5 Rate limits (in-memory `rateLimit`; IP used only as an in-memory key, never stored or logged) **[D8]**
