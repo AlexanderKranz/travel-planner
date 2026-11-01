@@ -131,6 +131,25 @@ type DriveRoute = { road: true; min: number; km: number } | { road: false };
 | S6 | Matrix with `options.avoid_features` | Accepted and honoured, or refused |
 | S7 | 2 or 3 further pairs | Times fit the constants in section 4 |
 
+**Spike result (2026-11-01, 7 calls to the live API, ORS engine 9.10.0, key valid).** The first run returned 403 for every call because the script cut the key at its own `=`; the repeat below is the real result. Recorded bodies: `src/lib/integrations/__fixtures__/openrouteservice/`.
+
+| # | Result |
+|---|---|
+| S1 | Frankfurt to Marbella: HTTP 200, 1314 min, 2343 km. No server distance limit with `avoid_features`. |
+| S2 | Marbella to Palma: HTTP 404, `error.code` **2009** ("Route could not be found"). This is the `no_road` code. Answered in 0.16 s. |
+| S3 | Hamburg to Copenhagen: HTTP 200, 284 min, 472 km, a road route (the Puttgarden ferry is not used). |
+| S4 | Frankfurt to London: HTTP 404, code 2009. The Channel Tunnel is not routed, so Britain and Ireland drop as `no_road`, as expected. **It took 9.8 s**, against 0.1 to 0.2 s for every other call. |
+| S5 | Stralsund to Sassnitz: HTTP 200, 57 min, 52 km (Rügen has a bridge). |
+| S6 | Matrix with `options.avoid_features`: the option is accepted, but the request fails as a whole with HTTP 500, code 6020 ("Search exceeds the limit of visited nodes"), for a batch with an unreachable pair. A batch cannot be used, so Directions stays. |
+| S7 | Frankfurt to Munich 209 min, 392 km (straight line 87 km/h); Frankfurt to Marseille 551 min, 1007 km (86 km/h); Hamburg to Berlin 163 min, 288 km (94 km/h). |
+
+Consequences:
+- S1 works and S6 does not help, so the build is as written: one Directions request per place.
+- The constants fit: the fastest straight-line progress seen is 94 km/h (hint 90, cutoff 120). Hamburg to Copenhagen is 61 km/h because the ferry-free road goes around, which the cutoff tolerates.
+- Only code 2009 on HTTP 404 is `no_road`. Other errors (2010 "no routable point", 429, 5xx, timeout) are `drive_failed`.
+- **Deviation: the Directions timeout is 20 s, not the matrix's 10 s,** because a long no-route answer took 9.8 s (S4). At 10 s such a place would count as a failure, and two of them in a row stop the search with `drive_unavailable`.
+- **Quota differs from the spec's assumption.** The Directions response headers say `x-ratelimit-limit: 200` with a 24 hour window, not a bucket larger than the matrix's roughly 500. `ORS_DAILY_REQUESTS` (default 400) counts matrix and Directions calls together, so it can allow more Directions calls than ORS does. Over the real limit ORS answers 429, which is `drive_failed` and, after two in a row, `drive_unavailable`: the search degrades safely, but the gate before the LLM call may let a search start that cannot finish. Set `ORS_DAILY_REQUESTS` to 200 or less in the admin settings until the real limit is confirmed on the ORS dashboard.
+
 Two outcomes change the build, and nothing else does:
 - **S6 works:** use one matrix request per round instead of Directions, with a `maxMin` parameter on `parseMatrix` (default 180) and the existing `driveCacheKey`. Everything else in this spec stays. `getDriveRoute` hides the difference from `verify.ts`. I do not expect this: as far as I remember, the matrix API has no such option.
 - **S1 fails:** drop `avoid_features` and request `extra_info: ["waytype"]`. A route with a ferry segment becomes `no_road`. Cost: a mainland place whose fastest route uses a ferry is dropped.

@@ -9,6 +9,7 @@ vi.mock("./http", async (orig) => ({ ...(await orig<typeof import("./http")>()),
 import { HttpError } from "./http";
 import {
   MAX_DRIVE_MIN,
+  ORS_DIRECTIONS_TIMEOUT_MS,
   ORS_DIRECTIONS_URL,
   ORS_MATRIX_URL,
   directionsBody,
@@ -148,6 +149,13 @@ describe("openrouteservice directions (ferries excluded)", () => {
     }
     expect(isNoRouteError(new HttpError(500, undefined, fixtureOf("directions-no-route.json")))).toBe(false);
     expect(isNoRouteError(new Error("x"))).toBe(false);
+  });
+
+  it("gives a slow 'no route' answer room: 20 s, because Frankfurt to London took 9.8 s live", async () => {
+    h.postJson.mockResolvedValue({ status: 200, latencyMs: 7, body: fixtureOf("directions-stralsund-sassnitz.json") });
+    await fetchDriveRoute(stralsund, sassnitz);
+    expect(h.postJson.mock.calls[0][2].timeoutMs).toBe(ORS_DIRECTIONS_TIMEOUT_MS);
+    expect(ORS_DIRECTIONS_TIMEOUT_MS).toBe(20_000);
   });
 
   it("missing key fails without a request", async () => {
