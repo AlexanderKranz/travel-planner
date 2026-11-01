@@ -8,7 +8,7 @@ import { DEFAULT_RADIUS_KM } from "@/lib/domain/trip";
 import { climateMean, passesAllClimate } from "@/lib/discover/climate-rules";
 import { assessDrive } from "@/lib/discover/drive";
 import { assessFlight } from "@/lib/discover/flight";
-import { isDuplicate, kindOf, pickAnchorPlace } from "@/lib/discover/names";
+import { foldName, isDuplicate, kindOf, pickAnchorPlace } from "@/lib/discover/names";
 import { cleanReason } from "@/lib/discover/reason";
 import { selectSearchInterests, VERIFIABILITY } from "@/lib/discover/verifiability";
 import { driveMaxMin } from "@/lib/drive/estimate";
@@ -78,10 +78,13 @@ type Anchor =
  * (cached). At most 3 calls per idea, all through `cached()`. A failed call is a failure, never "not found".
  */
 export async function resolveAnchor(idea: Idea, lang: "de" | "en", userId: string, deps: VerifyDeps): Promise<Anchor> {
-  for (const searchLang of ["en", "de"] as const) {
-    const res = await deps.geocode(idea.anchor, searchLang, userId);
+  const attempts: [query: string, searchLang: "en" | "de"][] = [[idea.anchor, "en"], [idea.anchor, "de"]];
+  // A local-only anchor ("Lisboa") often has a findable display name ("Lissabon"); the country check still applies.
+  if (foldName(idea.name) !== foldName(idea.anchor)) attempts.push([idea.name, lang]);
+  for (const [query, searchLang] of attempts) {
+    const res = await deps.geocode(query, searchLang, userId);
     if (!res.ok) return { status: "failed" };
-    const hit = pickAnchorPlace(res.data, idea.anchor, idea.cc);
+    const hit = pickAnchorPlace(res.data, query, idea.cc);
     if (!hit) continue;
     let place = hit;
     if (searchLang !== lang) {

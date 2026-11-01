@@ -85,6 +85,28 @@ describe("verifyIdeas: cards", () => {
     expect(out.cards[0].flight).toMatchObject({ origin: "FRA", gateway: "PMI", minutes: 124 });
   });
 
+  it("falls back to the display name when a local-only anchor is not found", async () => {
+    const lisbon = { ...PLACES.Faro, geoId: 2267057, name: "Lissabon", featureCode: "PPLC" };
+    const geocode = vi.fn(async (query: string, _lang: string) => ok(query === "Lissabon" ? [lisbon] : []));
+    const out = await verifyIdeas(base({ ideas: [idea("Lisboa", { name: "Lissabon", cc: "PT" })] }), deps({ geocode }));
+    expect(out.cards.map((c) => [c.geoId, c.kind])).toEqual([[2267057, "city"]]);
+    expect(geocode.mock.calls.map((c) => [c[0], c[1]])).toEqual([["Lisboa", "en"], ["Lisboa", "de"], ["Lissabon", "de"]]);
+  });
+
+  it("makes no third lookup when the name equals the anchor, and the fallback keeps the country check", async () => {
+    const geocode = vi.fn(async () => ok([]));
+    const same = await verifyIdeas(base({ ideas: [idea("Nirgendwo")] }), deps({ geocode }));
+    expect(same.drops).toEqual({ not_found: 1 });
+    expect(geocode).toHaveBeenCalledTimes(2);
+    const elsewhere = { ...PLACES.Faro, name: "Lissabon", countryCode: "US" };
+    const wrong = await verifyIdeas(
+      base({ ideas: [idea("Lisboa", { name: "Lissabon", cc: "PT" })] }),
+      deps({ geocode: vi.fn(async (q: string) => ok(q === "Lissabon" ? [elsewhere] : [])) }),
+    );
+    expect(wrong.cards).toEqual([]);
+    expect(wrong.drops).toEqual({ not_found: 1 });
+  });
+
   it("E5: a wrong country code drops the idea as not_found", async () => {
     const out = await verifyIdeas(base({ ideas: [idea("Lisboa", { cc: "ES" })] }), deps());
     expect(out.cards).toEqual([]);
