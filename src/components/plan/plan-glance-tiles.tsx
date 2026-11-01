@@ -4,7 +4,7 @@ import { mutedCls } from "@/components/ui/styles";
 import type { PlanDocument } from "@/lib/domain/share";
 import { planGlanceChecked, planGlanceTiles, type GlanceChip } from "@/lib/facts/plan-glance";
 
-const ICON: Record<GlanceChip["key"], string> = { currency: "💱", callingCode: "📞", driving: "🚗", timezone: "🕒" };
+const ICON: Record<GlanceChip["key"], string> = { currency: "💱", callingCode: "📞", driving: "🚗" };
 
 const chipCls =
   "inline-flex max-w-full items-center gap-1 break-all rounded-full border border-line bg-page px-2.5 py-1 text-xs text-ink";

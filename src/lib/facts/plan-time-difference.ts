@@ -66,25 +66,3 @@ export function planTimeDifference(
   if (m === 0) return null;
   return { kind: m > 0 ? "ahead" : "behind", hours: formatHours(Math.abs(m)).slice(1), home: homeName, notes };
 }
-
-type Translate = (key: string, vars?: Record<string, string>) => string;
-
-/**
- * One line of text, identical on web and PDF: "8 h ahead of Germany. Changes during the trip (daylight saving)."
- * `t` resolves the `timeAhead`, `timeBehind`, `timeRange`, `timeCurrent`, `timeChanges`, `timeByMonth` and
- * `timeDefaultHome` keys of the web (`plan.facts`) or PDF (`pdf.facts`) namespace.
- */
-export function planTimeDifferenceText(td: PlanTimeDifference, t: Translate): string {
-  const home = td.home ?? t("timeDefaultHome");
-  const main =
-    td.kind === "range"
-      ? t("timeRange", { from: td.hours, to: td.to ?? td.hours, home })
-      : t(td.kind === "ahead" ? "timeAhead" : "timeBehind", { diff: td.hours, home });
-  const notes = td.notes.map((n) => t(n === "current" ? "timeCurrent" : n === "changes" ? "timeChanges" : "timeByMonth"));
-  return notes.length ? `${main}. ${notes.join(" ")}` : main;
-}
-
-/** The figure belongs to the latest plan version (the document's); older versions show none rather than a wrong one. */
-export function shownTimeDifference(isLatest: boolean, td: PlanTimeDifference | null | undefined): PlanTimeDifference | null {
-  return isLatest ? (td ?? null) : null;
-}

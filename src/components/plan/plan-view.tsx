@@ -12,8 +12,6 @@ import type { SharedItem } from "@/lib/domain/items";
 import { fittingLegs } from "@/lib/flights/ui";
 import { fixedItemsOf, flightPrefill, flightTitle, itemForLeg } from "@/lib/plan/fixed-items";
 import { PlanFlights } from "./plan-flights";
-import type { PlanTimeDifference } from "@/lib/facts/plan-time-difference";
-import { PlanFactsStrip } from "./plan-facts-strip";
 import { PlanHeader } from "./plan-header";
 import { PlanNotes, PlanOpenItems, PlanPacking } from "./plan-lists";
 import { OpenItemsEditor } from "./open-items-editor";
@@ -28,13 +26,11 @@ export function PlanView({
   locale,
   openDone,
   items,
-  timeDifference = null,
 }: {
   state: PlanState;
   shown: Shown;
   locale: string;
   openDone: string[];
-  timeDifference?: PlanTimeDifference | null;
   /**
    * Trip items and the context for the code-only "+ item" quick add (latest version only). `list` feeds the fixed
    * rows of the day cards; `changed` = a timed item changed after this version.
@@ -116,7 +112,7 @@ export function PlanView({
       </ol>
       <PlanNotes notes={plan.notes} />
       {state.isLatest ? (
-        <OpenItemsEditor tripId={state.tripId} items={plan.openItems} done={openDone} />
+        <OpenItemsEditor tripId={state.tripId} items={plan.openItems} done={openDone} edit={editCtx} />
       ) : (
         <PlanOpenItems items={plan.openItems} done={openDone} />
       )}
@@ -124,7 +120,6 @@ export function PlanView({
       {plan.flights && (
         <PlanFlights flights={plan.flights} renderAction={flightAction} />
       )}
-      <PlanFactsStrip facts={plan.facts} timeDifference={timeDifference} />
     </DriveTimesScope>
   );
 }
