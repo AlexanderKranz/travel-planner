@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@/i18n/navigation";
 
 const ITEMS = [
-  { href: "/app/trips", key: "trips" },
+  { href: "/app", key: "trips" },
   { href: "/app/groups", key: "groups" },
   { href: "/app/purposes", key: "purposes" },
   { href: "/settings", key: "settings" },
@@ -17,7 +17,11 @@ export function NavLinks({ isAdmin = false }: { isAdmin?: boolean }) {
     <nav aria-label={t("label")}>
       <ul className="flex flex-wrap gap-x-1 sm:gap-x-3">
         {[...ITEMS, ...(isAdmin ? ([{ href: "/app/admin", key: "admin" }] as const) : [])].map(({ href, key }) => {
-          const current = pathname === href || pathname.startsWith(`${href}/`);
+          // "Reisen" is the dashboard at /app and also owns every page below /app/trips.
+          const current =
+            key === "trips"
+              ? pathname === "/app" || pathname === "/app/trips" || pathname.startsWith("/app/trips/")
+              : pathname === href || pathname.startsWith(`${href}/`);
           return (
             <li key={key}>
               <Link

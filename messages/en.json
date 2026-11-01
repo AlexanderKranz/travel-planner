@@ -109,13 +109,6 @@
       }
     }
   },
-  "dashboard": {
-    "welcome": "Welcome",
-    "welcomeNamed": "Welcome, {name}",
-    "tripsTitle": "Trips",
-    "tripsPlaceholder": "Plan trips with your travel groups and purposes.",
-    "tripsOpen": "Open trips"
-  },
   "groups": {
     "title": "Travel groups",
     "intro": "Who is travelling? Just describe the group in a sentence. Everything is optional; for groups you reuse often (such as family) you can also enter the people exactly.",
@@ -378,7 +371,7 @@
   },
   "trips": {
     "title": "Trips",
-    "intro": "A trip needs only a destination and a length. Everything else is optional.",
+    "showAll": "Show all ({count})",
     "retention": "Up to {max} trips. A trip is deleted automatically 18 months after it ends or was last edited, whichever is later.",
     "new": "New trip",
     "discoverLink": "Find destinations",

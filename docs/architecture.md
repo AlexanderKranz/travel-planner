@@ -170,7 +170,6 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
    Usage logging (`ai_usage`, `api_calls`, `app_events`) is built from phase 2/3 onwards, so the admin page has data when it arrives.
 
 ### Open items / backlog
-- **Default page after login** (Alex, 2026-11-01): revisit whether this page is needed or should be removed.
 - **Loading times** (Alex, 2026-11-01): analyse where the app is slow.
 - **TypeScript 7** (2026-10-31): blocked. `typescript-eslint` 8.72.1 throws "does not support TS 7.0" on load and `vite-tsconfig-paths` (tsconfck) wants TS 5, so lint cannot run. `tsc`, vitest and `next build` themselves worked with 7.0.2. Retry when typescript-eslint supports TS 7. Next 16, the `postcss` override removal and ESLint 10 are done (see runbook section 15).
 - **npm audit has moderate findings again** (2026-10-31; Dependabot alerts #5 `glob`, fixed in 14.0.2, and #6 `minimatch`, both labelled runtime, `glob` not traced yet): a new `minimatch` advisory (GHSA-g3hv-75wg-m249, fixed in 11.0.1) reaches the dev tooling (eslint plugins, typescript-eslint, `@sentry/bundler-plugins` via glob). It was already present before the Next 16 upgrade. Resolves when those packages update minimatch.
@@ -180,6 +179,7 @@ In phase 0 I'll walk you step by step through connecting your existing GitHub re
 
 Done or closed:
 - ~~Find destinations by driving time~~ done 2026-11-01 (Alex): the search form has a Flight or Drive choice, the drive limit runs 1 to 12 h, and every drive card carries a ferry-free road time from OpenRouteService Directions, cached per place pair. Home coordinates are stored on the profile. Spec `docs/specs/find-destinations-drive.md`, ADR 0007. Open follow-up: confirm the real Directions daily limit (the headers say 200) and set `ORS_DAILY_REQUESTS` to match.
+- ~~Default page after login~~ done 2026-11-01 (Alex): `/app` is now the one trips page (trips on the left, travel groups and purposes compact on the right, collapsed on phones); `/app/trips` redirects to it.
 - ~~"Noch zu klären" list~~ done 2026-11-01 (Alex): entries can be added, changed and deleted on the latest version. Each saves a code-only plan version (`open_add`, `open_set`, `open_remove`), so AI patches carry them along; a full regeneration writes a new list. Up to 30 entries, 160 characters each.
 - ~~Trip page length~~ done 2026-11-01 (Alex): "Reisekontext" and "Fakten hinter dem Plan" removed (also from the share page and PDF), packing list collapsed on phones, "Buchungen und Kosten" collapsed until the first entry.
 - ~~"At a glance" tiles on share page and PDF~~ done 2026-11-01 (Alex): climate, daylight, country and time difference at the top of both; the facts block is gone. Built from the plan snapshot, the local country dataset and suncalc, so the public path still makes no external calls (`src/lib/facts/plan-glance.ts`, `src/lib/server/plan-glance.ts`). A destination changed after the plan drops the country tile and the sunset. The owner's trip page is unchanged.
