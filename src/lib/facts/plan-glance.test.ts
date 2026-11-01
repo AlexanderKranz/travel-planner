@@ -56,7 +56,7 @@ describe("planGlance", () => {
 
   it("keeps the country tile of a plan without daylight facts", () => {
     const p = { header: plan.header, facts: {} } as typeof plan;
-    expect(planGlance(p, place, "2026-11-01").country).toMatchObject({ code: "GB" });
+    expect(planGlance(p, place, "2026-11-01").country).toMatchObject({ code: "GB", timezone: "Europe/London · UTC+00:00" });
   });
 
   it("shows both offsets when the clocks change during the trip", () => {

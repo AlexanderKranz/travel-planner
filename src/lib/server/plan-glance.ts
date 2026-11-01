@@ -26,10 +26,11 @@ function glanceDaylight(plan: Pick<Plan, "facts">, place: PlanGlancePlace | null
   };
 }
 
-function glanceCountry(plan: Pick<Plan, "header" | "facts">, code: string | null, today: string): PlanGlance["country"] {
+function glanceCountry(plan: Pick<Plan, "header" | "facts">, place: PlanGlancePlace | null, today: string): PlanGlance["country"] {
+  const code = place?.countryCode ?? null;
   const c = code ? getCountry(code) : undefined;
   if (!code || !c) return null;
-  const iana = plan.facts.daylight?.timezone;
+  const iana = plan.facts.daylight?.timezone ?? place?.timezone ?? undefined;
   const refs = planReferenceDates(plan.header, today);
   const offsets = iana && isValidTimeZone(iana) ? utcOffsets(iana, refs.length ? refs : [today]) : [];
   return {
@@ -54,6 +55,6 @@ export function planGlance(plan: Pick<Plan, "header" | "facts">, place: PlanGlan
   return {
     climate: climate && { ...climate, months: months.map((m) => m.month) },
     daylight: glanceDaylight(plan, current),
-    country: glanceCountry(plan, current?.countryCode ?? null, today),
+    country: glanceCountry(plan, current, today),
   };
 }

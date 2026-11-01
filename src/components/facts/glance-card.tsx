@@ -56,7 +56,7 @@ export function GlanceCard({
   const flag = c ? flagEmoji(c.code) : "";
   const tzInfo = c?.timezone;
   const tzText = tzInfo
-    ? [tzInfo.iana, tzInfo.utcOffsets.length ? `UTC${tzInfo.utcOffsets[0]}` : null].filter(Boolean).join(" · ") ||
+    ? [tzInfo.iana, tzInfo.utcOffsets.length ? tzInfo.utcOffsets.map((o) => `UTC${o}`).join(" / ") : null].filter(Boolean).join(" · ") ||
       tzInfo.countryZones[0]
     : null;
 
