@@ -31,22 +31,24 @@ function glanceCountry(plan: Pick<Plan, "header" | "facts">, code: string | null
   if (!code || !c) return null;
   const iana = plan.facts.daylight?.timezone;
   const refs = planReferenceDates(plan.header, today);
-  const offset = iana && isValidTimeZone(iana) ? utcOffsets(iana, refs.length ? refs : [today])[0] : undefined;
+  const offsets = iana && isValidTimeZone(iana) ? utcOffsets(iana, refs.length ? refs : [today]) : [];
   return {
     code: code.toUpperCase(),
     nameEn: c.nameEn,
     currencies: c.currencies.slice(0, 2),
     callingCode: c.callingCodes[0] ?? null,
     drivingSide: c.drivingSide,
-    timezone: [iana, offset ? `UTC${offset}` : null].filter(Boolean).join(" · ") || null,
+    timezone: [iana, offsets.map((o) => `UTC${o}`).join(" / ")].filter(Boolean).join(" · ") || null,
   };
 }
 
 /** Pure. `place` only counts while it is still the plan's destination: after a change it would describe another place. */
 export function planGlance(plan: Pick<Plan, "header" | "facts">, place: PlanGlancePlace | null, today: string): PlanGlance {
   // The plan stores no place id: name plus zone tells a changed destination apart, also one of the same name.
-  const zone = plan.facts.daylight?.timezone ?? null;
-  const current = place && place.name.slice(0, 120) === plan.header.destination && (place.timezone ?? null) === zone ? place : null;
+  // A plan without daylight facts has no zone to compare, then the name decides.
+  const zone = plan.facts.daylight?.timezone;
+  const sameZone = !zone || place?.timezone === zone;
+  const current = place && place.name.slice(0, 120) === plan.header.destination && sameZone ? place : null;
   const months = [...(plan.facts.climate?.months ?? [])].sort((a, b) => a.month - b.month);
   const climate = climateGlance(months);
   return {
