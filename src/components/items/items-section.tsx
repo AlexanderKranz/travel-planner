@@ -31,8 +31,8 @@ export async function ItemsSection({
     return (
       <section aria-labelledby="items-title" className={`${cardCls} min-w-0 p-0`}>
         <details>
-          <summary className="flex min-h-11 cursor-pointer items-center px-4">
-            <h2 id="items-title" className="text-lg font-bold">
+          <summary className="min-h-11 cursor-pointer px-4 py-2.5">
+            <h2 id="items-title" className="inline text-lg font-bold">
               {t("title")}
             </h2>
           </summary>

@@ -76,11 +76,11 @@ export function PlanPacking({ items }: { items: Plan["packing"] }) {
   );
   return (
     <>
-      <details className={`${box} md:hidden`}>
-        <summary className="flex min-h-11 cursor-pointer items-center text-lg font-bold">{t("packing.title")}</summary>
+      <details className={`${box} md:hidden print:hidden`}>
+        <summary className="min-h-11 cursor-pointer py-1.5 text-lg font-bold">{t("packing.title")}</summary>
         <div className="mt-3">{list}</div>
       </details>
-      <section aria-labelledby="plan-packing" className={`${box} hidden md:block`}>
+      <section aria-labelledby="plan-packing" className={`${box} hidden md:block print:block`}>
         <h3 id="plan-packing" className="mb-3 text-lg font-bold">
           {t("packing.title")}
         </h3>

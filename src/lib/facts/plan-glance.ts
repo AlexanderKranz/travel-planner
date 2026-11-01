@@ -17,8 +17,9 @@ export type PlanGlance = {
     currencies: CountryFacts["currencies"];
     callingCode: string | null;
     drivingSide: CountryFacts["drivingSide"];
-    timezone: string | null;
   } | null;
+  /** Destination zone and its offsets on the plan dates; independent of the country dataset. */
+  timezone: string | null;
 };
 
 export type GlanceChip = { key: "currency" | "callingCode" | "driving"; id: string; text: string };
@@ -80,7 +81,7 @@ export function planGlanceTiles(
       chips,
     });
   }
-  const zone = country?.timezone ? [t("timezoneLine", { zone: country.timezone })] : [];
+  const zone = doc.glance?.timezone ? [t("timezoneLine", { zone: doc.glance.timezone })] : [];
   if (td) {
     const sign = td.kind === "behind" ? "−" : "+";
     tiles.push({

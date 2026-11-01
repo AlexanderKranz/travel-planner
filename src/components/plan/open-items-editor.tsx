@@ -70,11 +70,16 @@ export function OpenItemsEditor({
         setError(asPlanError(r.error));
         return;
       }
-      // The check mark hangs on the text: a reworded item keeps it.
-      if (e.kind === "open_set" && done.has(openItemKey(items[e.i].text))) {
+      // The check mark hangs on the text: a reworded item keeps it. Same version = nothing changed (a repeated text).
+      const saved = r.data.version?.meta.versionNo !== edit.baseVersion;
+      if (e.kind === "open_set" && saved && done.has(openItemKey(items[e.i].text))) {
         const key = openItemKey(e.text);
         setKey(key, true);
-        await toggleOpenItem(tripId, key, true);
+        const moved = await toggleOpenItem(tripId, key, true);
+        if (!moved.ok) {
+          setKey(key, false);
+          setError(moved.error);
+        }
       }
       onDone();
       router.refresh();
