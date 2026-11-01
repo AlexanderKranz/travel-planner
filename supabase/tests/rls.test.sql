@@ -782,14 +782,14 @@ select throws_ok($$insert into public.destination_searches (owner_id, purpose_na
   '42501', null, 'B cannot insert a destination search owned by A (owner_id not granted)');
 select throws_ok($$insert into public.destination_searches (purpose_id, purpose_name, locale, input_hash, input) values ('a0000000-0000-4000-8000-000000003101', 'x', 'de', repeat('b', 64), '{}')$$,
   '23503', null, 'B cannot attach a search to the purpose of A (composite FK)');
-select lives_ok($$insert into public.destination_searches (id, purpose_id, purpose_name, locale, input_hash, input, status, busy_until) values ('a0000000-0000-4000-8000-000000003112', 'a0000000-0000-4000-8000-000000003102', 'B beach search', 'en', repeat('c', 64), '{"v":1}', 'running', now() + interval '2 minutes')$$,
+select lives_ok($$insert into public.destination_searches (purpose_id, purpose_name, locale, input_hash, input, status, busy_until) values ('a0000000-0000-4000-8000-000000003102', 'B beach search', 'en', repeat('c', 64), '{"v":1}', 'running', now() + interval '2 minutes')$$,
   'B can insert an own destination search');
 select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, status) values ('x', 'en', repeat('d', 64), '{}', 'running')$$,
   '23505', null, 'only one running search per user (partial unique index)');
 select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input) values ('x', 'en', repeat('c', 64), '{}')$$,
   '23505', null, 'one list per owner and input hash');
-select lives_ok($$update public.destination_searches set status = 'done', busy_until = null where id = 'a0000000-0000-4000-8000-000000003112'$$, 'B can finish an own search');
-select throws_ok($$update public.destination_searches set input_hash = repeat('e', 64) where id = 'a0000000-0000-4000-8000-000000003112'$$, '42501', null, 'input_hash cannot be changed afterwards');
+select lives_ok($$update public.destination_searches set status = 'done', busy_until = null where input_hash = repeat('c', 64)$$, 'B can finish an own search');
+select throws_ok($$update public.destination_searches set input_hash = repeat('e', 64) where input_hash = repeat('c', 64)$$, '42501', null, 'input_hash cannot be changed afterwards');
 select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input) values ('x', 'fr', repeat('f', 64), '{}')$$, '23514', null, 'locale is limited to de/en');
 select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, months) values ('x', 'de', repeat('f', 64), '{}', '{1,2,3,4}')$$, '23514', null, 'at most 3 months');
 select throws_ok($$insert into public.destination_searches (purpose_name, locale, input_hash, input, origins) values ('x', 'de', repeat('f', 64), '{}', '{FRA,MUC,HAM}')$$, '23514', null, 'at most 2 origins');
@@ -800,11 +800,11 @@ select throws_ok($$insert into public.destination_searches (purpose_name, locale
 -- trips.destination_search_id: same owner only
 select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, destination_search_id) values ('freetext', 'X', 2, 'a0000000-0000-4000-8000-000000003111')$$,
   '23503', null, 'a trip cannot reference the destination search of another owner');
-select lives_ok($$insert into public.trips (id, dest_kind, dest_name, length_days, destination_search_id) values ('a0000000-0000-4000-8000-000000003121', 'freetext', 'X', 2, 'a0000000-0000-4000-8000-000000003112')$$,
+select lives_ok($$insert into public.trips (dest_kind, dest_name, length_days, destination_search_id) values ('freetext', 'From a list', 2, (select id from public.destination_searches where input_hash = repeat('c', 64)))$$,
   'a trip can reference an own destination search');
-delete from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003112';
-select is((select destination_search_id from public.trips where id = 'a0000000-0000-4000-8000-000000003121'), null, 'deleting the list clears the link, the trip stays');
-select is((select count(*)::int from public.trips where id = 'a0000000-0000-4000-8000-000000003121'), 1, 'the trip survives the deleted list');
+delete from public.destination_searches where input_hash = repeat('c', 64);
+select is((select destination_search_id from public.trips where dest_name = 'From a list'), null, 'deleting the list clears the link, the trip stays');
+select is((select count(*)::int from public.trips where dest_name = 'From a list'), 1, 'the trip survives the deleted list');
 
 -- user A still has the list; deleting the purpose keeps it with its snapshot
 set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
