@@ -4,6 +4,7 @@ import { monthName } from "@/components/trips/trip-title";
 import { btnPrimary, btnSecondary, labelCls, linkCls, mutedCls, pillAccentCls } from "@/components/ui/styles";
 import { Link } from "@/i18n/navigation";
 import type { SuggestionCard } from "@/lib/domain/destination-search";
+import { MAX_CANDIDATES } from "@/lib/facts/places";
 import { SOURCES } from "@/lib/facts/sources";
 import { climateSummary, driveHours, flightHours } from "./helpers";
 
@@ -109,16 +110,17 @@ export function SuggestionCardView({
           {climate?.status === "not_checked" && <li>{t("climateNotChecked")}</li>}
           {card.pois.map((p) => {
             const label = hasInterestKey(p.interest) ? ti(p.interest) : p.interest;
-            return p.status === "ok" ? (
+            if (p.status !== "ok") return <li key={p.interest}>{t("poiNotChecked", { interest: label })}</li>;
+            const counted = tp.has(p.interest) ? tp(p.interest, { count: p.count }) : `${p.count} ${label}`;
+            // The lookup keeps at most MAX_CANDIDATES places, so a full list is a lower bound, not the real count.
+            return (
               <li key={p.interest}>
                 {t("poiCount", {
-                  items: tp.has(p.interest) ? tp(p.interest, { count: p.count }) : `${p.count} ${label}`,
+                  items: p.count >= MAX_CANDIDATES ? t("poiAtLeast", { items: counted }) : counted,
                   km: f.number(p.radiusKm, { maximumFractionDigits: 0 }),
                 })}
                 <Source {...p} />
               </li>
-            ) : (
-              <li key={p.interest}>{t("poiNotChecked", { interest: label })}</li>
             );
           })}
         </ul>
