@@ -3,6 +3,8 @@ import { Link } from "@/i18n/navigation";
 import { getProfileOnce } from "@/lib/server/request-reads";
 import { signOut } from "@/lib/server/auth/actions";
 import { btnGhost } from "@/components/ui/styles";
+import { FeedbackEntryProvider } from "@/components/feedback/entry-context";
+import { FeedbackFooterLink } from "@/components/feedback/footer-link";
 import { NavLinks } from "./nav-links";
 
 export async function AppShell({
@@ -56,8 +58,9 @@ export async function AppShell({
       </header>
       {/* Wide container (spec timed-items [D16]); pages stay at reading width unless their <main> sets data-wide. */}
       <div id="content" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-8 [&>main:not([data-wide])]:mx-auto [&>main:not([data-wide])]:max-w-3xl">
-        {children}
+        <FeedbackEntryProvider canReport={!isDemo}>{children}</FeedbackEntryProvider>
       </div>
+      {!isDemo && <FeedbackFooterLink />}
     </div>
   );
 }

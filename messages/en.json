@@ -1464,6 +1464,50 @@
       "changesEmpty": "No changes yet.",
       "changeLine": "{key}: {old} → {new}",
       "noValue": "-"
+    },
+    "feedback": {
+      "title": "Feedback",
+      "intro": "Reports sent by users become public GitHub issues. This section shows counts only.",
+      "statsUnavailable": "The statistics could not be loaded. The reference lookup still works.",
+      "today": "Issues today",
+      "total14": "Issues, 14 days",
+      "pending": "Waiting",
+      "pendingHint": "not yet on GitHub",
+      "failed": "Failed",
+      "lastError": "Last delivery error",
+      "noError": "none",
+      "perDay": "Issues per day (14 days)",
+      "lookup": {
+        "title": "Look up a reference",
+        "label": "Reference",
+        "hint": "Format FB-xxxxxxxx. Every lookup is logged.",
+        "submit": "Look up",
+        "ref": "Reference",
+        "email": "Email",
+        "noEmail": "unknown",
+        "date": "Date",
+        "type": "Type",
+        "status": "Status",
+        "kind": {
+          "bug": "Bug",
+          "idea": "Idea"
+        },
+        "statuses": {
+          "pending": "Waiting",
+          "created": "Published",
+          "failed": "Failed"
+        },
+        "issue": "Open issue",
+        "screenshot": "Open screenshot",
+        "noScreenshot": "No screenshot",
+        "screenshotNote": "The screenshot link is valid for 5 minutes.",
+        "errors": {
+          "forbidden": "No permission.",
+          "rate_limited": "Too many lookups. Please wait a minute.",
+          "not_found": "No report with this reference.",
+          "failed": "The lookup failed. Please try again."
+        }
+      }
     }
   },
   "discover": {
@@ -1689,6 +1733,73 @@
       "settingsHint": "A short introduction: name, language, home airports and home place, travel groups, trip purposes and your first trip.",
       "settingsTitle": "Getting started",
       "trips": "View getting started"
+    }
+  },
+  "feedback": {
+    "title": "Feedback",
+    "intro": "Found a problem or have an idea? Tell us. You do not need a GitHub account.",
+    "notice": "Your text will be published in our public GitHub project, without your name. Email addresses and phone numbers are removed automatically. Please leave out names, dates and trip details. Screenshots stay private; only the operator can see them. A report that has been published stays on GitHub even if you delete your account later. It carries no name, only the reference FB-….",
+    "closed": "Feedback is paused at the moment. Please try again later.",
+    "demoNote": "Feedback needs your own account.",
+    "back": "Back to overview",
+    "kinds": {
+      "bug": "Bug",
+      "bugHint": "Something does not work",
+      "idea": "Idea",
+      "ideaHint": "A wish or suggestion"
+    },
+    "form": {
+      "kind": "What is it about?",
+      "text": "Your message",
+      "textHint": "At least {min} characters. What happened, or what would you like?",
+      "placeholderBug": "What did you do, what did you expect, what happened instead?",
+      "placeholderIdea": "What would you like the app to do?",
+      "counter": "{count} / {max}",
+      "tooShort": "Please write at least {min} characters.",
+      "tooLong": "Please keep it under {max} characters.",
+      "screenshot": "Screenshot (optional)",
+      "screenshotHint": "PNG, JPEG or WebP. It is shrunk on your device and location data is removed. Please hide personal details first.",
+      "previewAlt": "Preview of the attached screenshot",
+      "removeScreenshot": "Remove screenshot",
+      "submit": "Send",
+      "sending": "Sending…"
+    },
+    "success": {
+      "title": "Received, thank you!",
+      "ref": "Your reference:",
+      "hint": "Keep the reference if you want to ask about this report later.",
+      "screenshotFailed": "Your report was saved, but the screenshot could not be uploaded.",
+      "another": "Send another"
+    },
+    "errors": {
+      "unauthenticated": "Your session has expired. Please sign in again.",
+      "invalid": "Please check your message: it needs between {min} and {max} characters.",
+      "rateLimited": "You have reached today's limit of reports. Please try again tomorrow.",
+      "demoForbidden": "Feedback needs your own account.",
+      "tooLarge": "The screenshot is too large. Please choose a smaller one or remove it.",
+      "badImage": "This file could not be used as a screenshot. Please choose a PNG, JPEG or WebP image.",
+      "failed": "Sending did not work. Your text is still here; please try again in a moment.",
+      "rateLimitedBurst": "Please wait a moment before sending again."
+    },
+    "mine": {
+      "title": "My reports",
+      "empty": "You have not sent any reports yet.",
+      "kind": {
+        "bug": "Bug",
+        "idea": "Idea"
+      },
+      "status": {
+        "received": "Received",
+        "published": "Published"
+      },
+      "openIssue": "View on GitHub"
+    },
+    "entry": {
+      "footer": "Report a problem or idea",
+      "settingsTitle": "Report a problem or suggest an idea",
+      "settingsHint": "Tell us what does not work or what you are missing.",
+      "settingsLink": "Send feedback",
+      "reportProblem": "Report this problem"
     }
   }
 }
