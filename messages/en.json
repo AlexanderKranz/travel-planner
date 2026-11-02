@@ -1679,7 +1679,7 @@
       "done": "You have already created a trip.",
       "open": "Go to my trips",
       "discover": "Find destinations",
-      "discoverWhy": "No destination yet? “Find destinations” suggests places for a trip purpose, reachable by direct flight from your home airports or by car from your home place."
+      "discoverWhy": "No destination yet? “Find destinations” suggests places for a trip purpose, within an estimated flight time from your home airports or a driving time from your home place. Flights are checked once you create the trip."
     },
     "link": {
       "settings": "View getting started",

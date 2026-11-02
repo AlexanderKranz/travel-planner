@@ -1679,7 +1679,7 @@
       "done": "Du hast schon eine Reise angelegt.",
       "open": "Zu meinen Reisen",
       "discover": "Reiseziele finden",
-      "discoverWhy": "Noch kein Ziel? „Reiseziele finden“ schlägt Orte zu einem Reisezweck vor, per Direktflug ab deinen Heimatflughäfen oder mit dem Auto ab deinem Wohnort erreichbar."
+      "discoverWhy": "Noch kein Ziel? „Reiseziele finden“ schlägt Orte zu einem Reisezweck vor, in geschätzter Flugzeit ab deinen Heimatflughäfen oder in Fahrzeit ab deinem Wohnort. Flüge werden geprüft, sobald du die Reise anlegst."
     },
     "link": {
       "settings": "Erste Schritte ansehen",
