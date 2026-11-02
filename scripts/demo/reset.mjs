@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 // Node strips the types of seed.ts (Node >= 22.18 / 24). Pure builders, unit-tested in seed.test.ts.
-import { buildExampleItems, buildExampleTrip, buildExampleVersion, EXAMPLE_GROUP } from "./seed.ts";
+import { buildExampleItems, buildExamplePurposeTags, buildExampleSearch, buildExampleTrip, buildExampleVersion, EXAMPLE_GROUP } from "./seed.ts";
 
 function loadEnvFile(path) {
   if (!existsSync(path)) return;
@@ -189,6 +189,34 @@ const purposeIds = {};
   log("2 example purposes inserted");
 }
 
+// 4b. Recorded destination search for "Golftrip" (scripts/demo/discover-golf.json), so "Find destinations" shows a
+// finished list without a Haiku call. Refresh: run the same search in the demo once and export the search row and
+// the purpose's parsed_tags/parsed_hash again. Runs before step 5: the tags move the purpose's updated_at, which the
+// example plan records as its basis.
+let exampleSearchId = null;
+{
+  const recorded = JSON.parse(readFileSync(resolve(import.meta.dirname, "discover-golf.json"), "utf8"));
+  // The purpose gets the tags the recording used: its first search then hashes like the recording and finds it.
+  const golf = purposes.find((p) => p.name === "Golftrip");
+  const tags = buildExamplePurposeTags(recorded, golf);
+  if (tags) {
+    const { error: tagErr } = await sb.from("trip_purposes").update(tags).eq("id", purposeIds["Golftrip"]);
+    check(tagErr, "seeding the Golftrip tags");
+  } else {
+    log("warning: Golftrip changed since the recording; its tags are not seeded, a repeated search will run anew");
+  }
+  const { data: golfGroup, error: ggErr } = await sb.from("travel_groups").select("id").eq("owner_id", userId).eq("name", "Golf-Duo").single();
+  check(ggErr, "reading the Golf-Duo group");
+  const { data: search, error } = await sb
+    .from("destination_searches")
+    .insert(buildExampleSearch(recorded, { ownerId: userId, purposeId: purposeIds["Golftrip"], groupId: golfGroup.id }))
+    .select("id")
+    .single();
+  check(error, "inserting the recorded destination search");
+  exampleSearchId = search.id;
+  log(`recorded destination search inserted (recorded ${recorded.recorded_at.slice(0, 10)})`);
+}
+
 // 5. Example trips. The cruise uses a month only (no real date: it always points at the next December); the finished
 // golf example uses the dates of the recorded plan (see ./seed.ts).
 // Destination values are hard-coded from Open-Meteo geocoding (GeoNames ids, language=de) so the
@@ -236,7 +264,8 @@ const PASSAU = {
   const example = JSON.parse(readFileSync(resolve(import.meta.dirname, "example-plan.json"), "utf8"));
   const { data: trip, error: tripErr } = await sb
     .from("trips")
-    .insert(buildExampleTrip({ ownerId: userId, groupId: freeTextGroup.id, purposeId: purposeIds["Golftrip"] }))
+    // Linked to the recorded list: its "Back to suggestions" link is how visitors find it.
+    .insert({ ...buildExampleTrip({ ownerId: userId, groupId: freeTextGroup.id, purposeId: purposeIds["Golftrip"] }), destination_search_id: exampleSearchId })
     .select("id, updated_at")
     .single();
   check(tripErr, "inserting the example trip");
