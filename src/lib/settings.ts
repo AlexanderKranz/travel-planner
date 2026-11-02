@@ -26,6 +26,8 @@ export const SETTING_DEFS = {
   aerodatabox_min_remaining: { env: "AERODATABOX_MIN_REMAINING", kind: "int", min: 0, max: 100000, default: 40 },
   ors_daily_requests: { env: "ORS_DAILY_REQUESTS", kind: "int", min: 0, max: 5000, default: 200 },
   geoapify_daily_credits: { env: "GEOAPIFY_DAILY_CREDITS", kind: "int", min: 0, max: 3000, default: 2000 },
+  feedback_user_daily: { env: "FEEDBACK_USER_DAILY", kind: "int", min: 0, max: 100, default: 10 },
+  feedback_daily_issues: { env: "FEEDBACK_DAILY_ISSUES", kind: "int", min: 0, max: 500, default: 30 },
   alert_errors_24h: { env: "ALERT_ERRORS_24H", kind: "int", min: 0, max: 10000, default: 20 },
 } as const satisfies Record<string, SettingDef>;
 

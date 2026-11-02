@@ -132,7 +132,7 @@ describe("listSettings", () => {
       { created_at: "2026-11-01T09:00:00Z", props: { weird: 1 } },
     ];
     const r = await listSettings();
-    expect(r.ok && r.data.settings).toHaveLength(12);
+    expect(r.ok && r.data.settings).toHaveLength(14);
     expect(r.ok && r.data.changes).toEqual([{ at: "2026-11-01T10:00:00Z", key: "ai_enabled", old: false, new: true }]);
   });
 });
