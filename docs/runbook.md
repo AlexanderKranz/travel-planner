@@ -443,7 +443,7 @@ A pull request that changes **only documentation** skips the slow parts. What co
 `main` is protected by the repository ruleset "main" (id 25989080). Its settings are kept in `.github/rulesets/main.json`; GitHub does not read that file, it is the reviewed copy.
 
 - No force-push, changes only through a pull request, required check `check`.
-- **1 approving review** and **code-owner review** for the paths in `.github/CODEOWNERS` (workflows, migrations, `scripts/`, package files, `vercel.json`, `.coderabbit.yaml`). This is what stops a PR from an automated author, such as the Claude Code GitHub Action or Dependabot, from being merged without Alex's approval.
+- **1 approving review** and **code-owner review** for the paths in `.github/CODEOWNERS` (workflows, migrations, `scripts/`, package files, `vercel.json`, `.coderabbit.yaml`). This is what stops a PR from an automated author, such as the Claude Code GitHub Action or Dependabot, from being merged without Alex's approval. A new push dismisses earlier approvals, and the last push needs an approval from someone other than its pusher, so an approval never covers code added after it.
 - **Admin bypass.** The Admin role (Alex) may bypass the rules. GitHub does not let you approve your own PR, so PRs opened under Alex's account, including those from local Claude Code sessions, are merged with the bypass: `gh pr merge <n> --merge --admin`, or the "bypass rules" checkbox in the web UI. Merge on a green `check` only.
 - PRs from bots (Dependabot, later the Claude agent) are approved by Alex in the web UI (Files changed -> Review changes -> Approve), then merged normally.
 
