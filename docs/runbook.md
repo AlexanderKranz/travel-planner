@@ -490,6 +490,7 @@ The daily budget cron raises `feedback_delivery` (section 10) when a GitHub auth
 | `feedback.github_auth_failed` in `app_events`; `api_calls` for `github` show 401/403/404 | Token expired, revoked, missing the Issues permission, or `GITHUB_FEEDBACK_REPO` is wrong. Create a new token (above), update Vercel, redeploy. Rows stay `pending` and the cron retries them. |
 | `api_calls` for `github` show 403/429 with a rate-limit reset | GitHub rate limit. The row waits until the reset time and the cron retries it; no action. |
 | `failed` count grows, `last_error` = `validation` (422) | GitHub rejected the issue (for example a label that does not exist). Create the missing label. Failed rows are not retried; look the report up by reference (admin page -> Feedback) and recreate it by hand if it matters. |
+| Two issues with the same `[FB-…]` title | GitHub's search index lags a few seconds to minutes. If the answer to a create was lost and the retry searched too early, a duplicate can be created. Close the duplicate by hand; the row is linked to one of them. |
 | Everything `pending`, no `github` rows in `api_calls` | The token or repo variable is not set in this environment, or `feedback_daily_issues` is 0. |
 | Reports `pending` after many hours, ceiling not reached | In the Supabase SQL editor: `select ref, attempts, next_attempt_at, lease_until, last_error from feedback where status = 'pending';`. A `next_attempt_at` in the future (1 hour after a GitHub error) is normal. |
 

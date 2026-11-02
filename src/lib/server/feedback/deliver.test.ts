@@ -145,6 +145,15 @@ describe("deliverFeedback", () => {
     expect(createIssue).not.toHaveBeenCalled();
   });
 
+  it("a bad row counts the attempt: back-off first, failed at the 8th", async () => {
+    rpc.mockResolvedValue({ data: [{ id: ID, attempts: 3 }], error: null });
+    expect((await deliverFeedback(ID, { now })).outcome).toBe("backoff");
+    expect(last()).toMatchObject({ last_error: "bad_row", lease_until: null, next_attempt_at: "2026-11-02T11:00:00.000Z" });
+    rpc.mockResolvedValue({ data: [{ id: ID, attempts: 8 }], error: null });
+    expect((await deliverFeedback(ID, { now })).outcome).toBe("failed");
+    expect(last()).toMatchObject({ status: "failed" });
+  });
+
   it("never logs the report text", async () => {
     claimed({ body: "SECRET-TEXT" });
     createIssue.mockResolvedValue({ kind: "ok", value: { number: 9, url: URL } });

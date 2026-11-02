@@ -148,21 +148,23 @@ export function createIssue(input: { title: string; body: string; kind: Feedback
 
 /** Looks for an existing issue whose title carries `[FB-…]` (duplicate guard before a retry). `value: null` = none. */
 export async function findIssueByRef(ref: string, opts: CallOpts = {}): Promise<GithubResult<GithubIssue | null>> {
-  if (!FEEDBACK_REF_RE.test(ref)) return { kind: "validation" };
+  if (!FEEDBACK_REF_RE.test(ref)) return { kind: "server", status: null };
   const cfg = githubConfig();
   if (!cfg) return { kind: "not_configured" };
   const q = encodeURIComponent(`repo:${cfg.repo} in:title "${ref}" is:issue`);
-  return call(
+  const r = await call(
     "issues_search",
     `/search/issues?q=${q}&per_page=5`,
     { method: "GET" },
     (b) => {
       const p = SearchResponse.safeParse(b);
       if (!p.success) return null;
-      const hit = p.data.items.find((i) => i.title.includes(`[${ref}]`));
+      const hit = p.data.items.find((i) => i.title.startsWith(`[${ref}]`));
       return { value: hit ? { number: hit.number, url: hit.html_url } : null };
     },
     200,
     opts,
   );
+  // A 422 on the search says nothing about the report (only a create 422 is final): retryable.
+  return r.kind === "validation" ? { kind: "server", status: 422 } : r;
 }

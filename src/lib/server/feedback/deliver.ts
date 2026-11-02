@@ -64,9 +64,16 @@ async function run(id: string, userId: string | null, now: Date): Promise<Delive
   }
   const parsed = ClaimedRow.safeParse(rows[0]);
   if (!parsed.success) {
-    await settle(id, { lease_until: null, last_error: "bad_row" });
+    // The attempt counts (already incremented by the claim), so the row reaches `failed` at the 8th instead of 20.
+    const n = Number((rows[0] as { attempts?: unknown })?.attempts);
+    const last = Number.isFinite(n) && n >= MAX_ATTEMPTS;
+    await settle(id, {
+      lease_until: null,
+      last_error: "bad_row",
+      ...(last ? { status: "failed" } : { next_attempt_at: iso(new Date(now.getTime() + BACKOFF_MS)) }),
+    });
     await logEvent({ event: "feedback.delivery_failed", level: "warn", userId, props: { status: "bad_row" } });
-    return { outcome: "backoff", stop: false };
+    return { outcome: last ? "failed" : "backoff", stop: false };
   }
   const row = parsed.data;
   if (!row.body) {

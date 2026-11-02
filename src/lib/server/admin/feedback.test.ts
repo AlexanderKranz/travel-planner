@@ -35,6 +35,7 @@ vi.mock("../supabase/admin", () => ({
 
 import { resetRateLimits } from "../rate-limit";
 import { getFeedbackStats, lookupFeedbackRef } from "./feedback";
+import { readFeedbackStats } from "./feedback-stats";
 
 const sessionWithRole = (role: string) => ({
   userId: "admin-1",
@@ -103,11 +104,12 @@ describe("getFeedbackStats", () => {
   it("non-admins get the 404 page and no query runs", async () => {
     session.mockResolvedValue(sessionWithRole("user"));
     await expect(getFeedbackStats()).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(getFeedbackStats.length).toBe(0); // no client-controlled clock
     expect(adminCreated).not.toHaveBeenCalled();
   });
 
   it("returns 14 Berlin days of counts plus pending, failed and the last error class, with no identifiers", async () => {
-    const s = await getFeedbackStats(new Date("2026-11-02T12:00:00Z"));
+    const s = await readFeedbackStats(new Date("2026-11-02T12:00:00Z"));
     expect(s.issuesPerDay).toHaveLength(14);
     expect(s.issuesPerDay[13]).toEqual({ day: "2026-11-02", count: 1 });
     expect(s.issuesPerDay[0].day).toBe("2026-10-20");

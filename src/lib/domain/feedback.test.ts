@@ -47,6 +47,14 @@ describe("sanitizeFeedbackText", () => {
     const hidden = String.fromCodePoint(0xe0041, 0xe0042);
     expect(sanitizeFeedbackText(`a​b‮c⁦d﻿e${hidden}f`)).toBe("abcdef");
   });
+  it("removes variation selectors, Mongolian, Hangul and Khmer fillers and line separators", () => {
+    const tags = String.fromCodePoint(0xe0100, 0xe01ef);
+    expect(sanitizeFeedbackText(`a\uFE0Fb\u180Bc\u115Fd\u1160e\u3164f\uFFA0g\u17B4h\u17B5i\u2028j\u2029k${tags}l`)).toBe("abcdefghijkl");
+  });
+  it("folds fullwidth look-alikes before the email and phone passes", () => {
+    expect(sanitizeFeedbackText("max＠example．com")).toBe("[email removed]");
+    expect(sanitizeFeedbackText("call ＋４９　１７０　１２３４５６７")).toContain("[phone removed]");
+  });
   it("keeps newlines and trims", () => {
     expect(sanitizeFeedbackText("  line1\r\nline2  ")).toBe("line1\nline2");
   });
@@ -186,6 +194,10 @@ describe("parseFeedbackRef", () => {
 });
 
 describe("FeedbackInput", () => {
+  it("drops an invalid viewport instead of rejecting the report", () => {
+    const r = FeedbackInput.safeParse({ kind: "bug", text: "long enough text", viewport: "abc" });
+    expect(r.success && r.data.viewport).toBeUndefined();
+  });
   it("coerces the viewport and enforces the text length", () => {
     expect(FeedbackInput.parse({ kind: "idea", text: "  a long enough text ", viewport: "360" }).viewport).toBe(360);
     expect(FeedbackInput.parse({ kind: "idea", text: "a long enough text", viewport: "" }).viewport).toBeUndefined();

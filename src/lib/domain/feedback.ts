@@ -49,7 +49,7 @@ export function parseFeedbackRef(raw: unknown): string | null {
 }
 
 // ---------- request ----------
-const optionalInt = z.preprocess((v) => (v === "" || v === null || v === undefined ? undefined : Number(v)), z.number().finite().optional());
+const optionalInt = z.preprocess((v) => (v === "" || v === null || v === undefined ? undefined : Number(v)), z.number().finite().optional()).catch(undefined);
 
 /** Text fields of the multipart request (the screenshot is a separate part). */
 export const FeedbackInput = z.object({
@@ -110,7 +110,8 @@ export function feedbackLabels(kind: FeedbackKind): FeedbackLabel[] {
 
 // ---------- sanitiser ----------
 // Zero-width, bidi controls, soft hyphen, invisible operators, BOM, Unicode tag block (hidden instructions).
-const INVISIBLE = /[­͏؜᠎​-‏‪-‮⁠-⁯﻿]|[\u{E0000}-\u{E007F}]/gu;
+const INVISIBLE =
+  /[\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180E\u200B-\u200F\u2028\u2029\u202A-\u202E\u2060-\u206F\u3164\uFE00-\uFE0F\uFEFF\uFFA0]|[\u{E0000}-\u{E007F}\u{E0100}-\u{E01EF}]/gu;
 // ASCII control characters except tab and newline.
 const CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
 const SHARE_LINK = /(?:https?:\/\/[^\s/]+)?\/s\/[A-Za-z0-9_-]{16,}/g;
@@ -131,6 +132,9 @@ export function sanitizeFeedbackText(input: string): string {
   const protectedDates: string[] = [];
   const text = input
     .replace(/\r\n?/g, "\n")
+    .replace(INVISIBLE, "")
+    // NFKC folds look-alikes (fullwidth @ and digits) so the email and phone passes see them; strip again afterwards.
+    .normalize("NFKC")
     .replace(INVISIBLE, "")
     .replace(CONTROL, "")
     .replace(/[]/g, "")

@@ -117,11 +117,19 @@ describe("findIssueByRef", () => {
     expect(url).toContain('q=repo:alex/travel in:title "FB-k3x9p2qa" is:issue');
     expect(logApiCalls.mock.calls[0][0][0]).toMatchObject({ endpoint: "issues_search", cache: "bypass", ok: true, userId: null });
   });
+  it("only a title that starts with the reference matches", async () => {
+    fetchMock.mockResolvedValue(reply(200, { items: [{ number: 3, html_url: ISSUE_URL, title: "Re: [FB-k3x9p2qa] quoted" }] }));
+    expect(await findIssueByRef("FB-k3x9p2qa")).toEqual({ kind: "ok", value: null });
+  });
+  it("a 422 on the search is retryable, not final", async () => {
+    fetchMock.mockResolvedValue(reply(422, { message: "x" }));
+    expect(await findIssueByRef("FB-k3x9p2qa")).toEqual({ kind: "server", status: 422 });
+  });
   it("returns null when nothing matches and rejects a malformed reference without a call", async () => {
     fetchMock.mockResolvedValue(reply(200, { items: [] }));
     expect(await findIssueByRef("FB-k3x9p2qa")).toEqual({ kind: "ok", value: null });
     fetchMock.mockClear();
-    expect((await findIssueByRef('FB-" OR 1')).kind).toBe("validation");
+    expect((await findIssueByRef('FB-" OR 1')).kind).toBe("server");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

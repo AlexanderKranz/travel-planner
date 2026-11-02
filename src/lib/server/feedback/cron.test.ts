@@ -75,6 +75,20 @@ describe("deliverDueFeedback", () => {
     expect(await deliverDueFeedback(now)).toEqual({ attempted: 0, delivered: 0, stopped: false });
     expect(queries).toHaveLength(0);
   });
+  it("stops starting rows after the time budget", async () => {
+    handlers.push(...counts(0, 0), () => ({ data: [{ id: "a" }, { id: "b" }, { id: "c" }], error: null }));
+    let t = 0;
+    const r = await deliverDueFeedback(now, { now: () => (t += 30_000), budgetMs: 60_000 });
+    expect(deliver).toHaveBeenCalledTimes(1);
+    expect(r.stopped).toBe(true);
+  });
+  it("stops after two network/5xx back-offs in a row", async () => {
+    handlers.push(...counts(0, 0), () => ({ data: [{ id: "a" }, { id: "b" }, { id: "c" }], error: null }));
+    deliver.mockResolvedValue({ outcome: "backoff", stop: false });
+    const r = await deliverDueFeedback(now);
+    expect(deliver).toHaveBeenCalledTimes(2);
+    expect(r.stopped).toBe(true);
+  });
   it("stops the run on a rate-limit or auth answer", async () => {
     handlers.push(...counts(0, 0), () => ({ data: [{ id: "a" }, { id: "b" }, { id: "c" }], error: null }));
     deliver.mockResolvedValueOnce({ outcome: "created", stop: false }).mockResolvedValueOnce({ outcome: "auth_failed", stop: true });

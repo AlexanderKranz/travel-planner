@@ -10,6 +10,10 @@ import { removeScreenshotPaths } from "./storage";
 /** Daily cron part of the feedback feature (spec D6 and D16). Secret key on purpose: no user context, metadata only. */
 
 export const CRON_BATCH_MAX = 10;
+/** No new row is started after this long (each row can take 2 x 10 s), so the function never reaches maxDuration. */
+export const CRON_DELIVERY_BUDGET_MS = 60_000;
+/** Consecutive network/5xx outcomes after which the run stops (GitHub is down). */
+const MAX_CONSECUTIVE_BACKOFFS = 2;
 export const SCREENSHOT_RETENTION_DAYS = 90;
 export const CREATED_RETENTION_DAYS = 180;
 export const OPEN_RETENTION_DAYS = 365;
@@ -32,7 +36,10 @@ export async function ceilingLeft(now: Date): Promise<number> {
 }
 
 /** Delivers due pending rows, oldest first, at most min(10, ceiling left). Stops at the first rate-limit or auth answer. */
-export async function deliverDueFeedback(now: Date = new Date()): Promise<{ attempted: number; delivered: number; stopped: boolean }> {
+export async function deliverDueFeedback(
+  now: Date = new Date(),
+  clock: { now: () => number; budgetMs: number } = { now: Date.now, budgetMs: CRON_DELIVERY_BUDGET_MS },
+): Promise<{ attempted: number; delivered: number; stopped: boolean }> {
   if (!githubConfig()) return { attempted: 0, delivered: 0, stopped: false };
   const batch = Math.min(CRON_BATCH_MAX, await ceilingLeft(now));
   if (batch <= 0) return { attempted: 0, delivered: 0, stopped: false };
@@ -48,11 +55,18 @@ export async function deliverDueFeedback(now: Date = new Date()): Promise<{ atte
   let attempted = 0;
   let delivered = 0;
   let stopped = false;
+  let backoffs = 0;
+  const started = clock.now();
   for (const { id } of (data ?? []) as { id: string }[]) {
+    if (clock.now() - started >= clock.budgetMs) {
+      stopped = true;
+      break;
+    }
     const r = await deliverFeedback(id, { userId: null, now });
     if (r.outcome !== "not_claimed" && r.outcome !== "no_token") attempted++;
     if (r.outcome === "created" || r.outcome === "linked") delivered++;
-    if (r.stop) {
+    backoffs = r.outcome === "backoff" ? backoffs + 1 : 0;
+    if (r.stop || backoffs >= MAX_CONSECUTIVE_BACKOFFS) {
       stopped = true;
       break;
     }
