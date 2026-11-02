@@ -161,11 +161,15 @@ Data table `src/lib/discover/verifiability.ts`, compile-time complete over `INTE
 
 | Class | Interests | Check | UI |
 |---|---|---|---|
-| Place-defining | golf (min 2), beach, hiking, wellness, family_activities, nature_wildlife, cycling, food_wine (min 1) | Count of real OSM matches; below min = drop | "3 golf courses within 40 km" + OSM, date |
+| Place-defining | golf (min 2), skiing (min 3), beach, hiking, wellness, family_activities, nature_wildlife, cycling, food_wine (min 1) | Count of real OSM matches; below min = drop. Skiing counts lifts (chair lift, gondola, mixed lift) within 60 km, see below | "3 golf courses within 40 km" + OSM, date |
 | Almost everywhere | city_sightseeing, museums, history, shopping, photography | Count shown, never drops | Same line |
-| OSM, too slow to search | skiing, architecture, water_sports | Cache only, else `not_checked` | "Not checked" |
+| OSM, too slow to search | architecture, water_sports | Cache only, else `not_checked` | "Not checked" |
 | No source | christmas_markets, nightlife, cruise, festivals_events | None | "Not checked" |
 | Qualities | "flat courses", "relaxing", custom interests, `hard`/`soft` text | None | List footer (below) |
+
+**Skiing and water sports [D10], checked 2026-11-02** against the Geoapify category list (https://apidocs.geoapify.com/docs/places/) and live samples (Chamonix, Garmisch, Zakopane, Bolzano, Passau, Vienna, Berlin, Malaga, Lisbon, Munich, Hamburg, Tarifa, Mallorca, Fuerteventura, Hurghada):
+- **skiing: mapped.** Geoapify has no category for ski areas, only lifts. Categories `ski.lift.chair_lift`, `ski.lift.gondola`, `ski.lift.mixed_lift` (OSM `aerialway=chair_lift|gondola|mixed_lift`), radius 60 km, **min 3**. Not counted: `ski.lift.tow_line` and `magic_carpet` (small hill lifts: 13 near Passau, 8 in Vienna), `ski.lift.cable_car` (sightseeing). Single gondolas still exist in Berlin (2), Lisbon (2) and Malaga (1), hence the minimum of 3; Passau within 60 km (15 chair lifts and gondolas, Bavarian Forest) passes, which is real but small. A genuine resort with 1-2 lifts is dropped (accepted: precision over recall). The card says "N ski lifts", not ski areas. This mapping is **search-only** (`discover` variant of the interest source, own cache key `variant: discover`): trip plans keep showing ski areas from Overpass (`landuse=winter_sports`), unchanged. Without a Geoapify key or on a Geoapify failure the search shows "Not checked" (it never counts the plan's cached areas).
+- **water_sports: not mapped, stays "Not checked".** `commercial.outdoor_and_sport.water_sports`, `.diving` and `sport.dive_centre` are dive and surf shops, also inland (Munich 12, Hamburg 7, Vienna 9 hits) and miss real spots (Fuerteventura 0). `maritime.marina` (Berlin 89, Vienna 25) and `rental.boat` are everywhere. `sport.sports_centre` fills the 100-place page with football and tennis. There is no surfing, kite or sailing category.
 
 The pseudo interest `general` is never checked: a purpose like "relaxing" must not be filtered by sights.
 
@@ -367,7 +371,7 @@ Add a `discover` block to both fixtures, keeping the rest:
 **Phases:**
 - **Phase 0, spike, skipped by Alex 2026-10-31 (Haiku chosen):** `discover.eval.ts` plus the pure modules. Answers the model question and the climate thresholds.
 - **Phase 1, first version:** migration, pipeline, form, cards, "Show others", prefill, back link, all section 9 gates.
-- **Phase 2, later and only if used (issue #88):** (1) recorded demo list; (2) Geoapify mappings for `skiing` and `water_sports`; (3) reuse the trip when picking another card; (4) a rough flatness check; (5) a one-off purpose typed into the search, **specified in section 13 (2026-11-02)**.
+- **Phase 2, later and only if used (issue #88):** (1) recorded demo list, **done** (2026-11-02, `scripts/demo/discover-golf.json`); (2) Geoapify mappings for `skiing` (**done**, section 6) and `water_sports` (checked, no precise category, stays not checked, section 6); (3) reuse the trip when picking another card, **dropped** (a second trip is fine); (4) a rough flatness check, **dropped**; (5) a one-off purpose typed into the search, **specified in section 13 (2026-11-02)**.
 
 ## 12. Decisions to review
 

@@ -256,10 +256,10 @@ describe("verifyIdeas: optional context (D1)", () => {
     expect(d.pois.mock.calls.map((c) => c[0]).sort()).toEqual(["city_sightseeing", "golf"]);
   });
 
-  it("slow OSM interests (skiing) are cache-only: networkAllowed is false", async () => {
+  it("slow OSM interests (water_sports) are cache-only: networkAllowed is false", async () => {
     const d = deps();
-    await verifyIdeas(base({ ideas: [idea("Marbella")], interests: ["skiing"], months: [] }), d);
-    expect(d.pois).toHaveBeenCalledWith("skiing", expect.anything(), 15, expect.anything(), false);
+    await verifyIdeas(base({ ideas: [idea("Marbella")], interests: ["water_sports"], months: [] }), d);
+    expect(d.pois).toHaveBeenCalledWith("water_sports", expect.anything(), 15, expect.anything(), false);
     const d2 = deps();
     await verifyIdeas(base({ interests: ["golf"], months: [] }), d2);
     expect(d2.pois).toHaveBeenCalledWith("golf", expect.anything(), 40, expect.anything(), true);
