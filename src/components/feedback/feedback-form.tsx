@@ -58,8 +58,12 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKind;
     setBusy(true);
     const r = await downscaleScreenshot(picked);
     setBusy(false);
-    // The input was disabled while busy, which drops keyboard focus; give it back after the re-render.
-    setTimeout(() => fileRef.current?.focus(), 0);
+    // The input was disabled while busy, which drops keyboard focus; give it back after the re-render,
+    // but only if focus was lost (not when the user moved on to another field meanwhile).
+    setTimeout(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) fileRef.current?.focus();
+    }, 0);
     if (!r.ok) return setFileError(t(r.reason === "too_large" ? "errors.tooLarge" : "errors.badImage"));
     setFile(r.blob);
   }
