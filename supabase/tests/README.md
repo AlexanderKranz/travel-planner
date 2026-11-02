@@ -1,6 +1,6 @@
 # Database tests (pgTAP)
 
-`rls.test.sql` checks RLS policies, column grants, the signup allowlist and the auth hook.
+`rls.test.sql` checks RLS policies, column grants, the signup allowlist and the auth hook. `feedback.test.sql` checks the feedback table, its limit functions and the screenshot bucket.
 
 Docker is required, so the only place this runs today is GitHub Actions (job `db-test` in
 `.github/workflows/ci.yml`). On a machine with Docker:
