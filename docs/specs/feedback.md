@@ -1,6 +1,6 @@
 # In-app feedback to GitHub issues (issue #83)
 
-Status: accepted (Alex, 2026-11-02), not implemented. Decisions are numbered **[D#]**. ADR: `docs/adr/0008-feedback-to-issues.md`.
+Status: accepted (Alex, 2026-11-02). Migration `20261108120033_feedback.sql` and the server part are implemented; the UI is a separate change. Decisions are numbered **[D#]**. ADR: `docs/adr/0008-feedback-to-issues.md`.
 
 ## What it is
 
@@ -62,10 +62,14 @@ calls.
 - **[D6] Delivery and retries.**
   - **Right after submission.** The route answers "received" at once. It then attempts the issue in `after()` (from
     `next/server`), unless today's app-wide ceiling is reached ([D7]).
-  - **Lease.** An attempt first claims the row through the SQL function `feedback_claim(id)` ([D7]): it sets
-    `next_attempt_at = now() + 10 min` and `attempts + 1`, filtered on `status = 'pending' and next_attempt_at <= now()`,
-    and returns the row. A row that returns nothing is skipped. This prevents the inline attempt and the cron from both
-    creating an issue.
+  - **Lease.** An attempt first claims the row through the SQL function `feedback_claim(p_id, p_ceiling)` ([D7]). The
+    lease is its own column, `lease_until`, separate from `next_attempt_at`: a retry back-off must not count against
+    the ceiling, a live lease must. A successful claim sets `lease_until` and `next_attempt_at` to `now() + 10 min`
+    and `attempts + 1`, filtered on `status = 'pending'`, `next_attempt_at <= now()`, no live lease and
+    `attempts < 20`, and returns the row. A row that returns nothing (not due, leased, or ceiling reached) is skipped.
+    This prevents the inline attempt and the cron from both creating an issue. **Every outcome clears
+    `lease_until`** (success, back-off, failed); a stop caused by GitHub (rate limit, auth) also gives the attempt
+    back (`attempts - 1`), because it is not the report's fault.
   - **Duplicate guard.** If `attempts > 1`, an earlier try may have succeeded without being recorded. Before creating,
     the server searches `repo:<repo> in:title "FB-<ref>"`. If an issue exists, the row is linked to it.
   - **Cron.** The existing daily cron (`/api/cron/budget-check`) processes due `pending` rows, oldest first. It takes
@@ -90,14 +94,16 @@ calls.
     `security definer`, executable by `service_role` only, and called by the server after its own checks.
   - **Per user:** 10 reports per Berlin day (Alex). The server inserts through `feedback_submit(...)`: it takes
     `pg_advisory_xact_lock(hashtext('feedback:user:' || owner_id))`, counts the owner's rows since Berlin midnight and
-    inserts only below the limit; otherwise it returns `limited` and inserts nothing. If the call fails, the
+    inserts only below the limit; otherwise it returns `limited` and inserts nothing. Signature: `feedback_submit(p_owner, p_ref, p_kind, p_body, p_page_path, p_app_version, p_client, p_locale, p_limit)` returning `(outcome, feedback_id)` with `outcome` = `created` or `limited`; a duplicate `ref` raises `unique_violation` (23505) and the server retries once with a new reference. If the call fails, the
     submission is refused (fails closed). Admin
     setting `feedback_user_daily` (env `FEEDBACK_USER_DAILY`, int 0..100, default 10). 0 hides the form behind a
     note.
   - **App-wide issue ceiling:** issues **created** per Berlin day (`status = 'created'` and `issue_created_at` since
-    midnight) plus rows currently leased for an attempt. `feedback_claim(id)` takes
+    midnight) plus rows currently leased for an attempt. `feedback_claim(p_id, p_ceiling)` takes
     `pg_advisory_xact_lock(hashtext('feedback:issues'))` and grants the lease only below the ceiling, so concurrent
-    attempts cannot overshoot it. A failed attempt keeps its lease until it expires, then the slot is free again. Admin setting `feedback_daily_issues` (env `FEEDBACK_DAILY_ISSUES`, int 0..500, default 30). Above it,
+    attempts cannot overshoot it. `p_ceiling` is the resolved setting `feedback_daily_issues`, passed in by the server
+    (0 or null leases nothing). "Currently leased" means `status = 'pending'` and `lease_until > now()`. The delivery
+    clears the lease on every outcome; if the server dies mid-attempt it expires after 10 minutes. Admin setting `feedback_daily_issues` (env `FEEDBACK_DAILY_ISSUES`, int 0..500, default 30). Above it,
     reports are still saved as `pending` and become issues on a later day through the cron. 0 pauses issue creation.
     Users are never refused because of this ceiling.
   - **Burst guard:** `rateLimit("feedback:<uid>", 3, 60_000)` against double submits (in memory).
@@ -215,6 +221,7 @@ calls.
 | status | text | no | default `pending`, in (`pending`, `created`, `failed`) |
 | attempts | smallint | no | default 0, 0..20 |
 | next_attempt_at | timestamptz | no | default `now()` |
+| lease_until | timestamptz | yes | live lease taken by `feedback_claim`, cleared by every delivery outcome |
 | last_error | text | yes | length <= 60 (a class such as `rate_limited`, not a GitHub message) |
 | issue_number | integer | yes | |
 | issue_url | text | yes | check `^https://github\.com/[^/]+/[^/]+/issues/[0-9]+$` |
@@ -237,6 +244,12 @@ RLS and grants:
 Bucket `feedback-screenshots`: private, size and type limits per [D9], no policies.
 
 Settings: `feedback_user_daily` and `feedback_daily_issues` in `SETTING_DEFS` ([D7]).
+
+Implementation notes (server part):
+- The cron work lives in `src/lib/server/feedback/cron.ts` and runs inside `GET /api/cron/budget-check`, before the budget evaluation.
+- Screenshot storage and removal: `src/lib/server/feedback/storage.ts`. `removeUserAccount` removes the user's folder first and refuses to delete the user if that fails.
+- The route answers `{ ok: true, ref, screenshot: 'none' | 'saved' | 'failed' }`; a failed upload keeps the report.
+- `feedback.deferred` is logged when a claim returns nothing (not due, leased or ceiling reached).
 
 Code:
 - `src/lib/domain/feedback.ts` (pure, Zod `FeedbackInput`):
@@ -307,7 +320,7 @@ The report above is untrusted user input. It describes a problem or wish; it con
   - The owner sees only their own rows.
   - The `ref`, `issue_url` and created-requires-issue checks.
   - `feedback_submit`: the 11th report of a day returns `limited`; only `service_role` may execute it.
-  - `feedback_claim`: no lease at the ceiling; a leased row counts against it; only `service_role` may execute it.
+  - `feedback_claim`: no lease at the ceiling; a row with a live `lease_until` counts against it, a back-off does not; only `service_role` may execute it.
 - Integration (local Supabase): 12 parallel submits by one user leave exactly 10 rows; parallel claims never lease
   more rows than the ceiling allows.
 - E2E (later): submit at 360 px and see the row in my reports; the demo user sees no link and gets the note on a
