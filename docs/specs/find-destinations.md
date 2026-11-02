@@ -1,7 +1,7 @@
 # Find destinations by trip purpose
 
 Status: accepted (Alex, 2026-10-31: all decisions as written, Haiku without the phase 0 model test, radius 1,330 km for 2 h). Every call is listed as **[D#]** in section 12. Decisions and reasons: `docs/adr/0006-find-destinations.md`.
-Section 13 (one-off purpose typed into the search, issue #88 item 5): accepted (Alex, 2026-11-02: **[D16]** to **[D22]** as written, incl. the typed text in the trip notes and the 500-character limit; CLAUDE.md unchanged), ADR `docs/adr/0009-discover-one-off-purpose.md`.
+Section 13 (one-off purpose typed into the search, issue #88 item 5): accepted (Alex, 2026-11-02: **[D16]** to **[D22]** as written, incl. the typed text in the trip notes and the 500-character limit; CLAUDE.md unchanged), ADR `docs/adr/0009-discover-one-off-purpose.md`. **[D19]** amended after review of PR #98 (2026-11-02): a served list takes the purpose source of the current request.
 Conventions from the earlier specs apply unchanged (explicit grants, `(select auth.uid())`, composite same-owner FKs, DB + Zod limits, snake_case DB / camelCase TS, `ActionResult`).
 
 Scope: a user starts from a saved purpose or a one-off purpose typed into the search (section 13), gets 3 to 5 checked suggestions, and turns one into a normal trip.
@@ -14,7 +14,7 @@ This replaces the design in the backlog entry of 2026-10-28 (filter by verified 
 
 1. `/app/trips/discover`: pick a saved purpose or type one (required, this is what the feature searches from; section 13), then optional months, group, airports, flight limit.
 2. Load the context. Haiku tags the purpose if it has none yet (existing `tagAndSave`; typed text: section 13.2).
-3. Same hash found for this owner, under 30 days old → open that list. No AI call, no external call.
+3. Same hash found for this owner, under 30 days old → open that list, with the purpose source of this request (section 13.3). No AI call, no external call.
 4. One LLM call returns up to 8 ideas (section 4).
 5. Code verifies them (section 5); failures are dropped and counted.
 6. The list is saved in `destination_searches` and shown at `/app/trips/discover/[id]`.
@@ -243,13 +243,18 @@ Trip page: when `destination_search_id` is set, a small link "Back to suggestion
 - `scripts/demo/reset.mjs` must delete the demo account's rows too; nothing cascades from trips.
 
 ```ts
-// src/lib/domain/destination-search.ts (purposeId / purposeText: section 13.1)
+// src/lib/domain/destination-search.ts. The purpose source is defined in section 13.1, the travel-mode fields
+// (travelMode, maxDriveHours, homeGeoId, saveHome) in docs/specs/find-destinations-drive.md; both apply here.
 export const DestinationSearchInput = z.object({
-  purposeId: z.string().uuid(),
+  purposeId: z.string().uuid().optional(),                                          // exactly one of purposeId
+  purposeText: z.string().trim().min(PURPOSE_TEXT_MIN).max(PURPOSE_TEXT_MAX).optional(), // and purposeText (13.1)
   months: z.array(Month).max(3).default([]),
   groupId: z.string().uuid().nullable().default(null),
   origins: z.array(z.string().regex(/^[A-Z]{3}$/)).max(2).optional(),   // absent = profile; empty = none
   maxFlightHours: z.number().min(1).max(15).multipleOf(0.5).nullable().optional(), // absent = purpose; null = none
+  // ...travel-mode fields, see the drive spec
+}).superRefine((v, ctx) => {
+  // exactly one purpose source (13.1), plus the travel-mode rules of the drive spec
 });
 
 const Checked = z.object({ source: z.enum(["geonames","open_meteo","osm"]), fetchedAt: z.string(), stale: z.boolean() });
@@ -279,7 +284,7 @@ export const SuggestionCard = z.object({
 
 **Gates, in this order:**
 1. Session, input Zod, purpose loads through RLS (typed purpose: tags from the cache, section 13.2).
-2. Hash hit → return the row. This works even with AI switched off.
+2. Hash hit → return the row, with the purpose source of this request (section 13.3). This works even with AI switched off.
 3. `isAiEnabled` → else `ai_disabled`.
 4. `rateLimit("discover:"+userId, 1, 60_000)` for real runs, protecting the Open-Meteo per-minute limit.
 5. Daily cap counted from `ai_usage` where `task = 'destination_ideas'` since Berlin midnight: 10 users, 30 admin, 5 demo. New error `search_limit`. Counted from `ai_usage` because users can delete their own searches.
@@ -355,13 +360,9 @@ Add a `discover` block to both fixtures, keeping the rest:
 | Routes | `src/app/api/destination-search/route.ts` (POST run), `[id]/route.ts` (GET state), `[id]/more/route.ts` (POST round 2); `maxDuration = 120` |
 | UI | `src/app/[locale]/app/trips/discover/page.tsx`, `discover/[id]/page.tsx`, `src/components/discover/*`, `trip-form.tsx` (`initialDraft`), `trips/new/page.tsx`, `trips/page.tsx`, trip header, flights panel link, `sources` page (OurAirports line if missing) |
 | DB, ops | Migration 31, `supabase/tests/rls.test.sql`, `scripts/demo/reset.mjs`, `evals/ledger.ts`, `evals/discover.eval.ts`, fixtures |
-| Docs, by the orchestrator | `CLAUDE.md` rule 2 (below), `docs/architecture.md` token table and backlog entry |
+| Docs, by the orchestrator | `CLAUDE.md` rule 2 (done, see below), `docs/architecture.md` token table and backlog entry |
 
-**Proposed wording for CLAUDE.md ground rule 2,** one new bullet in the allowed list, after the group line. This needs Alex's approval:
-
-> - Haiku proposes destination ideas for a trip purpose (place name, anchor town, country and a one-line reason; one call per search, one more for "Show others", cached by input hash). Code verifies every idea and drops failures; the reason is labelled as a suggestion. It never receives or states flights, routes, prices, opening hours or distances. Spec: `docs/specs/find-destinations.md`
-
-If the eval picks Sonnet, the first word changes.
+**CLAUDE.md ground rule 2 (historical):** the destination-ideas bullet proposed here was approved and is in `CLAUDE.md`, later extended with the search-radius hint. `CLAUDE.md` is the authoritative wording; this spec no longer carries a copy.
 
 **Phases:**
 - **Phase 0, spike, skipped by Alex 2026-10-31 (Haiku chosen):** `discover.eval.ts` plus the pure modules. Answers the model question and the climate thresholds.
@@ -386,25 +387,25 @@ If the eval picks Sonnet, the first word changes.
 - **[D14] Limits: 1 real run per minute, 10 per day for users, 30 for admin, 5 shared for demo,** counted from `ai_usage`. Cached lists are free and work with AI off.
 - **[D15] Entry point is its own page,** linked from the trips page and the new trip page, with no nav item.
 
-One-off purpose (section 13, proposed 2026-11-02):
+One-off purpose (section 13, accepted 2026-11-02; D19 amended after review):
 - **[D16] Saved purpose or typed text is one exclusive choice in the form,** two chips like the travel mode, text trimmed 3 to 500 characters in any language. Without saved purposes the form opens in text mode instead of blocking. Alternative: one combobox that accepts both (ambiguous at 360 px, and a typo would silently become a one-off).
 - **[D17] Typed text is tagged by the existing `purpose_tags` call, cached by `purposeTagsHash` of the text alone.** The cache is read from earlier searches, then from saved purposes with the same hash, before any call. Same gates, reserve and `ai_usage` task as today; no new kind of LLM call.
-- **[D18] Three nullable columns on `destination_searches` (`purpose_text`, `purpose_tags`, `purpose_tags_hash`), no new table.** The tags columns are server-written only, like `trip_purposes.parsed_*`. "Exactly one of `purpose_id` / `purpose_text`" is enforced by Zod at input, not by a CHECK, because `on delete set null` and "Save as purpose" both legitimately break it. Alternative: a separate owner-scoped tag cache table (survives pruning, but one more table for a rare reuse).
-- **[D19] `input_hash` and `IdeaInput` stay unchanged.** A typed text and a saved purpose that give the same model input share one list. Alternative: add the source to the hash (a second ideas call for identical input, against rule 2).
+- **[D18] Three nullable columns on `destination_searches` (`purpose_text`, `purpose_tags`, `purpose_tags_hash`), no new table.** The tags columns are server-written only, like `trip_purposes.parsed_*`. "Exactly one of `purpose_id` / `purpose_text`" is enforced by Zod at input, not by a CHECK, because `on delete set null` and "Save as purpose" both legitimately break it. `purpose_text` is checked as trimmed in the DB too. Alternative: a separate owner-scoped tag cache table (survives pruning, but one more table for a rare reuse).
+- **[D19] `input_hash` and `IdeaInput` stay unchanged; a served list takes the purpose source of the current request.** `input_hash` is unique per owner, so a typed text and a saved purpose that give the same model input share one row. When a request is served a row whose source differs, the row's source columns are rewritten to the request's before the list is shown, so the trip draft and "Save as purpose" always follow the latest request. Alternatives: the source in the hash (a second ideas call for identical input, against rule 2, and impossible to keep two rows without it because of the unique key), or the source in the card URL (a typed text of up to 500 characters in a URL and in logs).
 - **[D20] "Save as purpose" copies the text and the tags, links the search, and never calls Haiku.** Idempotent through an already-linked check, an identical-purpose check and a conditional link update; a lost race deletes its own insert.
 - **[D21] An unsaved one-off prefills the trip's `notes` with the typed text and leaves `purposeId` empty.** The text is the user's own words, so the rule that keeps the reason out of notes does not apply. Alternatives: nothing (the plan would not know the purpose) or save automatically on card select (creates purposes the user did not ask for).
 - **[D22] Demo: same limits, typed text visible to other demo visitors and said so in the form.** Events carry the source and where the tags came from, never the text.
 
 ## 13. One-off purpose typed into the search (phase 2, issue #88 item 5)
 
-Accepted by Alex (2026-11-02): the typed text is saved with the search, and after the search the user can save it as a reusable trip purpose. **[D16]** to **[D22]** as written: an unsaved one-off copies its text into the trip notes ([D21]), the text is limited to 500 characters ([D16]).
+Accepted by Alex (2026-11-02): the typed text is saved with the search, and after the search the user can save it as a reusable trip purpose. **[D16]** to **[D22]** as written: an unsaved one-off copies its text into the trip notes ([D21]), the text is limited to 500 characters ([D16]). [D19] amended after review: the served list takes the current request's purpose source (13.3).
 
 ### 13.1 Form **[D16]**
 
 - The purpose field becomes a fieldset "What is the trip for?" with two chips in `grid-cols-2`, the same `chip` style as the travel mode: "Saved purpose" | "Type it". Below it only the active input: the existing select, or a textarea (3 rows, `maxLength` 500, counter shown from 400 characters on).
 - Default: "Saved purpose" when the user has one. With no saved purpose the chips are hidden, the textarea is shown, and one line links to `/app/purposes/new` ("Save purposes to reuse them"). The empty-state box that blocks the form today goes away.
 - Switching keeps both values in client state; only the active one is sent.
-- Limits: trimmed, 3 to 500 characters, any language. 500 fits "Golf with a friend, flat courses, good food, max 3 h flight from FRA" several times over and keeps the tags call and the label small; a saved purpose allows 4000, so the copy always fits. The text is stored as trimmed, otherwise verbatim. `IdeaInput.lang` stays the profile locale, as for saved purposes.
+- Limits: trimmed, 3 to 500 characters, any language. 500 fits "Golf with a friend, flat courses, good food, max 3 h flight from FRA" several times over and keeps the tags call and the label small; a saved purpose allows 4000, so the copy always fits. The text is stored as trimmed, otherwise verbatim (the DB checks this too, 13.3). `IdeaInput.lang` stays the profile locale, as for saved purposes.
 - Flight limit default: `maxBlockMinutes(oneOffPurpose(text, null))`, computed in the browser on blur of the textarea (pure regex, no call), so "max. 3 h Flug" fills the limit field as a saved purpose's limit does. When the field is sent absent, the server applies the same rule (`resolveSearchParams` unchanged, it gets the transient purpose).
 - At 360 px: chips full width (2 × ~160 px), textarea full width, counter right-aligned below it. No new row on desktop.
 
@@ -445,7 +446,7 @@ Tag lookup, in this order, before gate 2 (user session, no AI):
 
 Found tags are parsed with `PurposeTags.safeParse`; invalid counts as missing. The call is logged in `ai_usage` as `purpose_tags` and does not count as a run (the daily cap counts `destination_ideas`), as today. Tagging failure: text fallback, `purpose.tag_failed` with `{ source: "discover_text", reason }` (no purpose id, no text).
 
-After a successful claim the server writes the tags and `h` onto the row with the secret key (`saveSearchTags(userId, searchId, tags, h)` in `store.ts`, mirroring `savePurposeTags`; best effort, logged on failure), also when they came from step 1 or 2. So a failed ideas call or a retry does not tag again. Accepted gap: when the lookup after tagging is a hit (a different text with identical tags made the list), there is no claimed row, and the same text is tagged again next time.
+After a successful claim the server writes the tags and `h` onto the row with the secret key (`saveSearchTags(userId, searchId, tags, h)` in `store.ts`, mirroring `savePurposeTags`; best effort, logged on failure), also when they came from step 1 or 2. So a failed ideas call or a retry does not tag again. The same write runs when a served row is relabelled to this text (13.3), so the tags also survive the case where the lookup after tagging is a hit.
 
 ### 13.3 Storage **[D18]** **[D19]**
 
@@ -453,54 +454,64 @@ Migration `<date>120033_destination_search_text.sql` (take the next free number)
 
 | Column | Type | Null | Note |
 |---|---|---|---|
-| `purpose_text` | text | yes | `check (purpose_text is null or char_length(purpose_text) between 3 and 500)`. Set = the search started from typed text. |
+| `purpose_text` | text | yes | `check (purpose_text is null or (char_length(purpose_text) between 3 and 500 and purpose_text !~ '^\s|\s$'))`. Set = the search's current source is typed text. |
 | `purpose_tags` | jsonb | yes | `check (purpose_tags is null or (jsonb_typeof(purpose_tags) = 'object' and pg_column_size(purpose_tags) < 16384))` |
 | `purpose_tags_hash` | text | yes | `check (purpose_tags_hash is null or purpose_tags_hash ~ '^[0-9a-f]{64}$')`; `check ((purpose_tags is null) = (purpose_tags_hash is null))` |
 
+- **Stored trimmed, checked in the DB.** Clients hold insert and update grants on `purpose_text`, so the DB must not rely on Zod's `.trim()`. `!~ '^\s|\s$'` rejects leading or trailing whitespace including newlines and tabs; `btrim(purpose_text)` alone would only catch spaces. With that, the 3..500 length counts the trimmed text, as in Zod. (`^` and `$` match only at the start and end of the string in Postgres AREs, so line breaks inside the text are allowed.)
 - Index: `(owner_id, purpose_tags_hash) where purpose_tags_hash is not null`, for 13.2 step 1. Step 2 reads `trip_purposes` through the existing owner index; a user has few purposes.
-- Grants: `purpose_text` joins the insert **and** update column grants (`claimRound1` takes over a row in place, same reason as migration 32). `purpose_tags` and `purpose_tags_hash` get **no** insert or update grant: like `trip_purposes.parsed_*` they are written only with the secret key, because "Save as purpose" copies them into `parsed_tags` without a new call. Select stays table-wide; the four owner policies cover the new columns unchanged.
-- **No CHECK for "exactly one of `purpose_id` / `purpose_text`".** `purpose_id` is cleared by `on delete set null`, so a saved-purpose list whose purpose was deleted has both null (allowed today, and a CHECK would make the purpose delete fail), and a one-off saved as purpose has both set (13.4). Exactly one is enforced at input (13.1). In the DB, `purpose_text is not null` means "started from typed text".
+- Grants: `purpose_text` joins the insert **and** update column grants (`claimRound1` takes over a row in place, same reason as migration 32, and the relabel below updates it). `purpose_tags` and `purpose_tags_hash` get **no** insert or update grant: like `trip_purposes.parsed_*` they are written only with the secret key, because "Save as purpose" copies them into `parsed_tags` without a new call. Select stays table-wide; the four owner policies cover the new columns unchanged.
+- **No CHECK for "exactly one of `purpose_id` / `purpose_text`".** `purpose_id` is cleared by `on delete set null`, so a saved-purpose list whose purpose was deleted has both null (allowed today, and a CHECK would make the purpose delete fail), and a one-off saved as purpose has both set (13.4). Exactly one is enforced at input (13.1). In the DB, `purpose_text is not null` means "the current source is typed text".
 - `purpose_name` = `oneOffLabel(text)` for a one-off; the existing `1..80` check holds. The view and `DestinationSearch` get `purposeText: string | null` (the owner's own text; lists are never shared). The list header shows the label with a "Typed purpose" pill and the full text in a `<details>`; the earlier-searches list shows the label with the same pill.
-- `claimRound1` writes `purpose_text` (null for a saved purpose), so a row taken over in place carries the origin of the current run. `NewSearch.purposeId` becomes `string | null`, plus `purposeText: string | null`. `SEARCH_COLUMNS` adds `purpose_text` (the tag columns are read only by the 13.2 lookup and by 13.4).
-- **`input_hash`, `IdeaInput` and `IDEAS_PROMPT_VERSION` stay unchanged [D19],** so no saved list is invalidated. The hash covers what the model sees, not where it came from: a typed text and a saved purpose that produce the same `IdeaInput` are served the same list, with the label and `purpose_id` it was made with. That is rule 2 (no second call for the same input). In practice it happens when a user types the text of a saved purpose, and then the prefill even gets the saved purpose.
+- `claimRound1` writes `purpose_text` (null for a saved purpose), so a row taken over in place carries the source of the current run. `NewSearch.purposeId` becomes `string | null`, plus `purposeText: string | null`. `SEARCH_COLUMNS` adds `purpose_text` (the tag columns are read only by the 13.2 lookup and by 13.4).
+- **`input_hash`, `IdeaInput` and `IDEAS_PROMPT_VERSION` stay unchanged [D19],** so no saved list is invalidated. `unique (owner_id, input_hash)` means one row per owner and model input, whatever the purpose source. A typed text and a saved purpose that produce the same `IdeaInput` share that row (rule 2: no second call for the same input).
+- **A served row takes the source of the current request [D19].** Every path that returns an existing row for a run request (gate 2 hit, the hit after tagging, the `exists` result of `claimRound1`) goes through one `adoptSource(row, request)` in `store.ts` before the view is built:
+
+  | Request | Row matches when | Otherwise the row is updated to |
+  |---|---|---|
+  | Saved purpose `P` | `purpose_id = P` | `purpose_id = P`, `purpose_name = P.name`, `purpose_text = null` |
+  | Typed text `T` | `purpose_text = T` (whether `purpose_id` is null or the purpose saved from `T`) | `purpose_id = null`, `purpose_name = oneOffLabel(T)`, `purpose_text = T`, then `saveSearchTags` when the request has tags for `T` |
+
+  The update uses the user session (all three columns are granted) and runs also while the row is `running` (`finishRound` and `failRound` never write these columns). Two tabs that alternate sources: the last request wins, and the draft (13.5) follows the row as it is when the card is opened. This also settles the older case of two saved purposes with identical tags. A relabel moves `updated_at` (trigger), so it counts as use for freshness and pruning, like a reuse in place; card facts keep their own check dates. The cached event gets `relabelled: true`.
 - Deploy order: migration first. The old app selects explicit columns and reads a one-off row like a list whose purpose was deleted. The new app selects `purpose_text`.
 - Retention unchanged: the text goes with the row (newest 10, 90 days). `reset.mjs` already deletes the demo rows.
 
 ### 13.4 Save as purpose **[D20]**
 
-List page, when `purposeText !== null && purposeId === null` and the list is not running (done or failed; a failed search may still be worth keeping): a box "Save as trip purpose" with a name field (default `purposeName`, 1 to 80) and a button; stacked at 360 px, one row from `sm`.
+List page, when `purposeText !== null && purposeId === null` and the list is not running (done or failed; a failed search may still be worth keeping): a box "Save as trip purpose" with a name field (default `purposeName`, 1 to 80) and a button; stacked at 360 px, one row from `sm`. Because a served row takes the current request's source (13.3), the box appears exactly when the latest request for this list was an unsaved typed text.
 
 `POST /api/destination-search/[id]/save-purpose`, body `{ name }`, reply `{ purposeId, name, created }`:
 1. Session, `Id`, body Zod (`TripPurposeInput.shape.name`), `externalWriteAllowed`.
-2. Row through RLS. Missing → `not_found`; `purpose_text` null → `conflict`; running → `busy`.
+2. Row through RLS. Missing → `not_found`; `purpose_text` null → `conflict` (a saved-purpose request took the row over meanwhile); running → `busy`.
 3. `purpose_id` already set → return it with `created: false` (second click, second tab).
 4. The owner has a purpose with the same `text`, `constraints = '{}'` and `guided = '{}'` → link that one (step 7) with `created: false`. No duplicate purpose.
 5. Insert with the user session through the same code as `createPurpose`: `name`, `text = purpose_text`, `guided {}`, `constraints []`.
 6. Tags: if the row's `purpose_tags_hash === oneOffTagsHash(purpose_text)` and the tags parse, `savePurposeTags(userId, newId, tags, hash)`. The hash then equals `purposeTagsHash(newPurpose)`, so `rowTags` accepts them. **No Haiku call.** Without valid tags (tagging had failed, AI was off) the purpose is saved untagged and the existing paths tag it later (trip warm, plan, next search).
-7. Link: `update destination_searches set purpose_id = :pid, purpose_name = :name where id = :id and purpose_id is null` (user session; both columns are granted). 0 rows → another request linked first: if step 5 inserted, delete that purpose; re-read the row and return its `purpose_id`.
+7. Link: `update destination_searches set purpose_id = :pid, purpose_name = :name where id = :id and purpose_id is null and purpose_text = :text` (user session; both columns are granted; `:text` is the text read in step 2, so a relabel in between is not overwritten). 0 rows → re-read the row: if it is linked to a purpose, return that one; otherwise the source changed, return `conflict`. In both cases, if step 5 inserted, delete that purpose.
 
-The client disables the button while pending; on success the box becomes "Saved as {name}" with a link to the purpose. `purpose_text` stays on the row after linking (Alex: the text is saved with the search). A later search with the new purpose produces the same `IdeaInput` and opens this list. If the purpose is deleted later, `purpose_id` clears and the box returns.
+The client disables the button while pending; on success the box becomes "Saved as {name}" with a link to the purpose. `purpose_text` stays on the row after linking (Alex: the text is saved with the search). A later search with the new purpose produces the same `IdeaInput` and opens this list, and matches without a relabel (`purpose_id = P`). If the purpose is deleted later, `purpose_id` clears and the box returns.
 
 ### 13.5 Selecting a card **[D21]**
 
-- `purposeId` = `search.purposeId ?? ""`, as today: empty for an unsaved one-off, the saved purpose after 13.4 (the draft is built from the row when `/app/trips/new` loads).
-- Unsaved one-off (`purposeText !== null && purposeId === null`): `notes` = `purposeText`. Section 7 keeps the **reason** out of notes because it is model output; the typed text is the user's own words, and without it the plan would not know what the trip is for. A one-line hint above notes: "Your typed purpose is in the notes. Save it as a purpose on the suggestions page to reuse it." The user can edit or clear it. Notes allow 2000 characters, the text at most 500.
+- The draft is built from the row when `/app/trips/new` loads, and the row carries the source of the latest request for this list (13.3). So the purpose in the draft is always the one the user last searched with, never the one of whoever created the row.
+- `purposeId` = `search.purposeId ?? ""`, as today: the saved purpose for a saved-purpose request, empty for an unsaved one-off, the saved purpose after 13.4.
+- Unsaved one-off (`purposeText !== null && purposeId === null`): `notes` = `purposeText`. Section 7 keeps the **reason** out of notes because it is model output; the typed text is the user's own words, and without it the plan would not know what the trip is for. A one-line hint above notes: "Your typed purpose is in the notes. Save it as a purpose on the suggestions page to reuse it." The user can edit or clear it. Notes allow 2000 characters, the text at most 500. A saved-purpose source has `purpose_text = null` after `adoptSource`, so no other request's text can reach the notes.
 - `buildTripDraft` gets `purposeText` in its `search` pick; the prefill test covers both cases (notes empty for a saved or linked purpose, text for an unsaved one-off, never the reason).
 
 ### 13.6 Demo, limits, logging **[D22]**
 
 - Same gates, daily runs, rate limit and reserves as a saved-purpose search; a cache hit is free. Demo keeps its 5 shared runs a day.
 - The demo account is shared, so a typed text appears in the earlier-searches list of every demo visitor. In demo, text mode shows one line under the textarea: `form.demoTextNotice`. Save as purpose is allowed in demo, like the purpose form; the nightly reset removes both. The seeded golf list is unchanged.
-- Events: `destination.searched` and `destination.search_failed` get `source: "saved" | "text"`; real runs also get `tagsFrom: "cached" | "search" | "purpose" | "haiku" | "none"` ("cached" = the saved purpose already had tags). New `destination.purpose_saved` `{ created, linkedExisting, tagged }`. Never the text, the label or the name.
+- Events: `destination.searched` and `destination.search_failed` get `source: "saved" | "text"`; cached hits also get `relabelled`; real runs also get `tagsFrom: "cached" | "search" | "purpose" | "haiku" | "none"` ("cached" = the saved purpose already had tags). New `destination.purpose_saved` `{ created, linkedExisting, tagged }`. Never the text, the label or the name.
 
 ### 13.7 Delivery
 
 **i18n** (de + en, same keys): `discover.form.{purposeSource,sourceSaved,sourceText,purposeText,purposeTextHint,purposeTextPlaceholder,purposeTextCount,savePurposesLink,demoTextNotice}`, `discover.list.{typedPurpose,showText}`, `discover.savePurpose.{title,name,submit,saving,saved,open}`, `trips.form.notesFromSearch`. `form.noPurpose` and `form.createPurpose` are removed once unused. Errors reuse `invalid`, `not_found`, `conflict`, `busy`, `rate_limited`.
 
 **Tests:**
-- Unit: Zod exactly one of `purposeId` / `purposeText`, limits 3 and 500 after trim; `oneOffLabel` cut and ellipsis; `oneOffTagsHash` equals `purposeTagsHash` of a saved purpose with the same text and differs with a constraint; tag lookup order (search row, then purpose, then Haiku) with no Haiku call on a hit; tags written to the claimed row; save-as-purpose: already linked, identical purpose linked, tags copied without a call, lost race deletes its insert; prefill notes rules.
-- Eval E10 (CI, no network): the golf fixture's purpose text typed as a one-off with recorded tags gives the same `IdeaInput` and hash as the saved purpose.
-- pgTAP: B cannot read A's `purpose_text` or tags; `authenticated` cannot write `purpose_tags` or `purpose_tags_hash`; a purpose delete still clears `purpose_id` on a one-off-linked list.
+- Unit: Zod exactly one of `purposeId` / `purposeText`, limits 3 and 500 after trim; `oneOffLabel` cut and ellipsis; `oneOffTagsHash` equals `purposeTagsHash` of a saved purpose with the same text and differs with a constraint; tag lookup order (search row, then purpose, then Haiku) with no Haiku call on a hit; tags written to the claimed row; `adoptSource`: saved request on a typed row clears the text and sets the purpose, typed request on a saved row sets text and label and clears the purpose, matching sources write nothing, a typed request on a row linked to the purpose saved from that text writes nothing; save-as-purpose: already linked, identical purpose linked, tags copied without a call, lost race deletes its insert, a relabel between read and link gives `conflict`; prefill: notes and `purposeId` follow the row after `adoptSource`, never the reason.
+- Eval E10 (CI, no network): the golf fixture's purpose text typed as a one-off with recorded tags gives the same `IdeaInput` and hash as the saved purpose; serving that row to the typed request relabels it, and the draft has an empty `purposeId` and the text in notes; serving it to the saved purpose again restores the purpose.
+- pgTAP: B cannot read A's `purpose_text` or tags; `authenticated` cannot write `purpose_tags` or `purpose_tags_hash`; `purpose_text` with leading or trailing whitespace (`' Golf'`, `E'Golf\n'`) is rejected on insert and update, while a line break inside the text is accepted; a purpose delete still clears `purpose_id` on a one-off-linked list.
 
 **Files:**
 
@@ -508,7 +519,7 @@ The client disables the button while pending; on success the box becomes "Saved 
 |---|---|
 | Domain | `src/lib/domain/destination-search.ts` (input, view, limits) |
 | Pure | `src/lib/discover/one-off.ts` (new), `prefill.ts` |
-| Server | `src/lib/server/discover/{pipeline,store}.ts`, `src/lib/server/discover/save-purpose.ts` (new), `purposes.ts` (shared insert helper) |
+| Server | `src/lib/server/discover/{pipeline,store}.ts` (`adoptSource`, `saveSearchTags`), `src/lib/server/discover/save-purpose.ts` (new), `purposes.ts` (shared insert helper) |
 | Routes | `src/app/api/destination-search/[id]/save-purpose/route.ts` (new) |
 | UI | `src/components/discover/{discover-form,discover-results}.tsx`, a small `save-purpose.tsx` (new), discover page (no blocking empty state), trip form notes hint |
 | DB | migration 33, `supabase/tests/rls.test.sql` |
