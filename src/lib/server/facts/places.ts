@@ -76,8 +76,8 @@ const overpassKey = ({ interest, anchor, radiusKm }: Lookup) =>
 function sourceOf(l: Lookup) {
   const src = sourceFor(l.interest);
   if (src.source !== "osm") return null;
-  if (l.discover && src.discover) return { ...src, ...src.discover, isDiscover: true as const };
-  return { ...src, isDiscover: false as const };
+  if (l.discover && src.discover) return { distinct: false, ...src, ...src.discover, isDiscover: true as const };
+  return { ...src, distinct: false, isDiscover: false as const };
 }
 
 function fromOverpass(l: Lookup, filters: readonly string[], exclude: InterestExclude | undefined, deadline: number, fetchAllowed: () => boolean) {
@@ -110,7 +110,7 @@ function fastCandidates(l: Lookup, networkAllowed: boolean): Promise<CachedResul
       const hit = await fromOverpass(l, src.filters, src.exclude, 0, () => false);
       if (hit.ok && hit.cache === "hit") return hit;
     }
-    return cached({
+    const res = await cached({
       provider: "geoapify",
       endpoint: "places",
       key: cacheKey("places", 2, {
@@ -128,9 +128,13 @@ function fastCandidates(l: Lookup, networkAllowed: boolean): Promise<CachedResul
         await assertGeoapifyQuota();
         const r = await fetchPlaces(groups, l.anchor, l.radiusKm * 1000);
         const matching = r.elements.filter((e) => src.filters.some((f) => matchesFilter(e.tags, f)));
-        return { data: rankCandidates(matching, src.filters, l.anchor, src.exclude, l.radiusKm), status: r.status, latencyMs: r.latencyMs, units: r.credits };
+        return { data: rankCandidates(matching, src.filters, l.anchor, src.exclude, l.radiusKm, { distinct: src.distinct }), status: r.status, latencyMs: r.latencyMs, units: r.credits };
       },
     });
+    // Discover: the minimum must never be applied to an expired list after a failed refresh ("not checked" instead).
+    // A successful empty response stays a real negative; a stale result without an attempt (network not allowed) is kept.
+    if (src.isDiscover && networkAllowed && res.ok && res.cache === "stale") return { ok: false, error: "provider_error" } as const;
+    return res;
   });
 }
 

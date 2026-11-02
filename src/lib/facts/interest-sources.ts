@@ -33,7 +33,12 @@ export type InterestSource =
        * Only for "Find destinations" (getPlacesAt): replaces `filters`/`geoapify` there, with its own cache key.
        * Trip plans never read it, so their candidates and cache keys stay as they were.
        */
-      discover?: { filters: readonly string[]; geoapify: readonly (readonly string[])[] };
+      discover?: {
+        filters: readonly string[];
+        geoapify: readonly (readonly string[])[];
+        /** Count each OSM element: no merging of equal names within 200 m (two separate lifts of one ski area). */
+        distinct?: boolean;
+      };
     }
   | { source: "none" };
 
@@ -135,6 +140,7 @@ export const INTEREST_SOURCES: Record<InterestKey, InterestSource> = {
     discover: {
       filters: [`["aerialway"~"^(chair_lift|gondola|mixed_lift)$"]`],
       geoapify: [["ski.lift.chair_lift", "ski.lift.gondola", "ski.lift.mixed_lift"]],
+      distinct: true,
     },
   },
   shopping: {

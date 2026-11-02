@@ -38,6 +38,7 @@ describe("interest sources", () => {
     expect(src.geoapify).toBeUndefined();
     expect(src.minRadiusKm).toBe(60);
     const d = src.discover;
+    expect(d?.distinct).toBe(true);
     if (!d) throw new Error("skiing needs a discover variant");
     expect(d.geoapify).toEqual([["ski.lift.chair_lift", "ski.lift.gondola", "ski.lift.mixed_lift"]]);
     const hit = (aerialway: string, name: string | null = "Lift") =>

@@ -46,6 +46,12 @@ describe("places", () => {
     expect(r.map((c) => c.osmId)).toEqual([1, 3]);
   });
 
+  it("distinct: every OSM element counts, equal names within 200 m are not merged", () => {
+    const els = [el(1, "Sessellift", 36.5, -4.9), el(2, "Sessellift", 36.5005, -4.9), el(3, "Sessellift", 36.5008, -4.9)];
+    expect(rankCandidates(els, F, { lat: 36.5, lon: -4.9 }, undefined, undefined, { distinct: true })).toHaveLength(3);
+    expect(rankCandidates(els, F, { lat: 36.5, lon: -4.9 })).toHaveLength(1);
+  });
+
   it("keeps at most 25 and only http(s) websites", () => {
     const many = Array.from({ length: 40 }, (_, i) => el(i, `P${i}`, 0, i * 0.01, i === 0 ? { website: "javascript:alert(1)" } : {}));
     const r = rankCandidates(many, F, { lat: 0, lon: 0 });

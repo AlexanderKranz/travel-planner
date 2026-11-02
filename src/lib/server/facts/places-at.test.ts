@@ -91,6 +91,20 @@ describe("getPlacesAt (destination search lookup by coordinates)", () => {
     expect(state.calls[0].key).toBe('interpreter:v2:{"interest":"skiing","lat":47.49,"lon":11.1,"r":60}');
   });
 
+  it("skiing in the search: a failed refresh that falls back to an expired list is not checked, an empty success stays a negative", async () => {
+    state.impl = () => ({ ...ok("stale", 5), stale: true });
+    const r = await getPlacesAt("skiing", point, 15, ctx, { networkAllowed: true });
+    expect(r?.result).toMatchObject({ ok: false, error: "provider_error" });
+    state.impl = () => ok("miss", 0);
+    expect((await getPlacesAt("skiing", point, 15, ctx, { networkAllowed: true }))?.result).toMatchObject({ ok: true, data: [] });
+  });
+
+  it("golf (plan-style variant) keeps a stale result after a failed refresh", async () => {
+    state.impl = (o) => (o.provider === "overpass" ? fail : { ...ok("stale", 3), stale: true });
+    const r = await getPlacesAt("golf", point, 40, ctx, { networkAllowed: true });
+    expect(r?.result).toMatchObject({ ok: true, stale: true });
+  });
+
   it("no Geoapify key: only the Overpass cache is read", async () => {
     vi.stubEnv("GEOAPIFY_API_KEY", "");
     state.impl = (o) => (o.provider === "overpass" ? ok("hit", 2) : fail);

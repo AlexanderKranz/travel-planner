@@ -72,6 +72,8 @@ export function rankCandidates(
   anchor: { lat: number; lon: number },
   exclude?: InterestExclude,
   maxKm?: number,
+  /** `distinct`: keep every OSM element (no same-name-within-200-m merge), for counting separate things such as lifts. */
+  opts: { distinct?: boolean } = {},
 ): PlaceCandidate[] {
   const all: PlaceCandidate[] = [];
   const nameRe = exclude?.nameRegex ? new RegExp(exclude.nameRegex, "i") : null;
@@ -109,7 +111,7 @@ export function rankCandidates(
   const kept: PlaceCandidate[] = [];
   for (const c of all) {
     const key = fold(c.name);
-    if (kept.some((k) => fold(k.name) === key && haversineKm(k, c) <= DEDUPE_KM)) continue;
+    if (!opts.distinct && kept.some((k) => fold(k.name) === key && haversineKm(k, c) <= DEDUPE_KM)) continue;
     kept.push(c);
     if (kept.length >= MAX_CANDIDATES) break;
   }
