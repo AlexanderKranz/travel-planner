@@ -459,7 +459,7 @@ If the ruleset was deleted, create it again with `gh api -X POST repos/Alexander
 
 ## 17. Claude agent for issues
 
-What it does: when you put the label `claude` on an issue, the workflow `.github/workflows/claude-agent.yml` starts Claude Code (Sonnet, at most 25 turns, 30 minutes). It reads the issue, works on a branch `claude/issue-<n>`, runs the tests and opens a pull request.
+What it does: when you put the label `claude` on an issue, the workflow `.github/workflows/claude-agent.yml` starts Claude Code (Sonnet, at most 40 turns, 30 minutes). It reads the issue, works on a branch `claude/issue-<n>`, runs the tests and opens a pull request.
 
 What stops it from merging: the ruleset (section 16). Only the Admin role (you) can bypass it, and the agent's token is not an Admin, so a PR needs your approval. The workflow also forbids `gh pr merge`, `gh pr review`, `gh api`, network tools and web access, but that tool list is a second layer, not the gate. Edits to `.git/`, `.github/`, `package.json`, `package-lock.json`, `.npmrc` and the vitest/eslint/next/postcss/tailwind/tsconfig/playwright config files are denied for the agent, and `npm ci` runs with `--ignore-scripts`.
 
@@ -487,7 +487,7 @@ Sources checked on 2026-11-02:
 2. **Label** one issue at a time with `claude`. Only your own label starts a run (labels from other accounts are ignored). GitHub keeps one run waiting per queue, so if you label a third issue while one runs and one waits, the waiting run is replaced: re-add that label later.
 3. **Cancel**: Actions -> the running "Claude agent for issues" run -> **Cancel workflow**. Removing the label does not stop a running job.
 4. **Review the PR** like any other, with extra care: open **Files changed** and look first at `supabase/migrations/`, `scripts/`, `vercel.json` and auth code (CODEOWNERS makes you the required reviewer for the protected paths anyway). Read the "Sensitive files changed" part of the description. Approve only after a green `check`; then merge normally (section 16).
-5. **Run stopped with "max turns"** (25): the issue is probably too big. Split it into smaller issues, or add detail and re-label.
+5. **Run stopped with "max turns"** (40): the issue is probably too big. Split it into smaller issues, or add detail and re-label.
 6. **No PR was opened** but a branch `claude/issue-<n>` was pushed: the secret scrubbing may have removed the token that `gh pr create` needs. Open the PR yourself from the branch (GitHub shows a "Compare & pull request" button).
 7. **CI did not start on the PR?** Close and reopen the PR once (CI runs on `reopened`). This should only happen if the PR was opened with the workflow token instead of the Claude app token; if it keeps happening, check that the app is installed (setup step 1).
 

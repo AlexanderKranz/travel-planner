@@ -75,7 +75,7 @@ jobs:
                issue with your questions and stop without opening a pull request.
           claude_args: |
             --model claude-sonnet-5-5
-            --max-turns 25
+            --max-turns 40
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(git add:*),Bash(git commit:*),Bash(git checkout:*),Bash(git push:*),Bash(npm ci --ignore-scripts:*),Bash(npm test:*),Bash(npm run lint:*),Bash(npm run typecheck:*),Bash(gh issue view:*),Bash(gh issue comment:*),Bash(gh pr create:*),Bash(gh pr view:*)"
             --disallowedTools "WebFetch,WebSearch,Bash(curl:*),Bash(wget:*),Bash(gh pr merge:*),Bash(gh pr review:*),Bash(gh api:*),Bash(gh secret:*),Bash(gh workflow:*),Edit(./.git/**),Edit(./.github/**),Edit(./package.json),Edit(./package-lock.json),Edit(./.npmrc),Edit(./vitest.config.ts),Edit(./eslint.config.mjs),Edit(./next.config.ts),Edit(./postcss.config.mjs),Edit(./tailwind.config.*),Edit(./tsconfig.json),Edit(./playwright.config.ts)"
           # show_full_output stays off (default): logs of a public repository are public.
