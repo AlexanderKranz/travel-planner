@@ -223,7 +223,7 @@ calls.
 | status | text | no | default `pending`, in (`pending`, `created`, `failed`) |
 | attempts | smallint | no | default 0, 0..20 |
 | next_attempt_at | timestamptz | no | default `now()` |
-| lease_until | timestamptz | yes | live lease taken by `feedback_claim`, cleared by every delivery outcome |
+| lease_until | timestamptz | yes | live lease taken by `feedback_claim`, cleared by every settled delivery outcome; after an unexpected error (no settle) it simply expires after 10 min, counting against the ceiling until then |
 | last_error | text | yes | length <= 60 (a class such as `rate_limited`, not a GitHub message) |
 | issue_number | integer | yes | |
 | issue_url | text | yes | check `^https://github\.com/[^/]+/[^/]+/issues/[0-9]+$` |
