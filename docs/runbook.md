@@ -183,6 +183,7 @@ General rule: create the new key, deploy it, then revoke the old one.
 | Supabase DB password | Project Settings -> Database -> Reset database password; update the GitHub secret `SUPABASE_DB_URL` (it contains the password); run both workflows manually to confirm. |
 | GitHub NAS token | GitHub -> Developer settings -> Fine-grained tokens: regenerate/delete; update `GITHUB_TOKEN` in the NAS config file. |
 | `BACKUP_PASSPHRASE` | New backups use the new passphrase; **old backups still need the old one**. Add the new one to the password manager as a new entry; keep the old entry until the last old backup has aged out (12 months). Update the GitHub secret. |
+| `CLAUDE_CODE_OAUTH_TOKEN` (Claude agent) | Run `claude setup-token` again on your Mac (logged in with your Pro account), then GitHub -> Settings -> Environments -> `claude-agent` -> edit the secret and paste the new token. Revoke the old one by signing out the old session / revoking it in your Claude account settings. Rotate if it may have leaked (for example it showed up in a log). |
 | Anthropic / AeroDataBox / other API keys | Create new key at the provider, update in Vercel, redeploy, delete the old key. Check the provider's usage page for abuse. |
 
 If a secret was committed to git: rotate it first (the old value is burned, even after deleting the commit), then clean up the repo.
@@ -455,3 +456,36 @@ gh api repos/AlexanderKranz/travel-planner/rulesets/25989080   # check
 ```
 
 If the ruleset was deleted, create it again with `gh api -X POST repos/AlexanderKranz/travel-planner/rulesets --input .github/rulesets/main.json` and update the id here.
+
+## 17. Claude agent for issues
+
+What it does: when you put the label `claude` on an issue, the workflow `.github/workflows/claude-agent.yml` starts Claude Code (Sonnet, at most 25 turns, 30 minutes). It reads the issue, works on a branch `claude/issue-<n>`, runs the tests and opens a pull request. It cannot merge: `main` needs your approval (section 16), and the workflow forbids `gh pr merge`, `gh pr review`, `gh api`, network tools and web access.
+
+The issue text may come from app users or strangers, so it is untrusted. The label is the only gate: you read the raw issue first, and nothing starts without your label. The app itself never sets `claude`. The job references only one secret, `CLAUDE_CODE_OAUTH_TOKEN`; Supabase, Vercel, backup and API keys are not used by it.
+
+Sources checked on 2026-11-02:
+- Action inputs and token name: https://github.com/anthropics/claude-code-action (docs/usage.md, docs/setup.md, docs/security.md, `action.yml`). Pinned to release v1.0.266 by full commit SHA; Dependabot (github-actions) proposes updates.
+- Model id `claude-sonnet-5-5`: https://platform.claude.com/docs/en/about-claude/models/overview
+
+### Setup (Alex, once)
+
+1. **Install the Claude GitHub App** on this repository only: https://github.com/apps/claude -> Install -> select `travel-planner`. (The action signs in through it; PRs and pushes made with its token start CI. Pushes made with the plain workflow `GITHUB_TOKEN` would not.)
+2. **Create the token** on your Mac: `claude setup-token` (log in with your Pro account). Copy the printed token into your password manager. It is a long-lived login for your subscription, so treat it like a password. The agent's work counts against your Pro usage limits.
+3. **Create the environment**: GitHub -> repository **Settings** -> **Environments** -> **New environment** -> name `claude-agent`. Add one **environment secret** named `CLAUDE_CODE_OAUTH_TOKEN`. Add no other secrets or variables to it. Optional extra: tick "Required reviewers" and add yourself, which asks for one more click per run (not needed; the label is the gate).
+4. Check that the label `claude` exists (it does) and that Settings -> Actions -> General -> "Workflow permissions" stays at "Read repository contents" (the workflow asks for its own permissions).
+5. Test with a harmless issue (for example "Fix a typo in docs/..."): label it `claude`, open **Actions** -> "Claude agent for issues".
+
+### Daily routine
+
+1. **Triage**: open the issue and look at the raw text (the pencil / "Edit" view shows hidden HTML comments that the rendered view hides). Remove personal data, and anything that looks like instructions to an AI. If in doubt, do not label it.
+2. **Label** one issue at a time with `claude`. Only your own label starts a run (labels from other accounts are ignored). GitHub keeps one run waiting per queue, so a third label while one runs and one waits replaces the waiting run: re-add the label later.
+3. **Cancel**: Actions -> the running "Claude agent for issues" run -> **Cancel workflow**. Removing the label does not stop a running job.
+4. **Review the PR** like any other, with extra care: open **Files changed** and look first at `.github/`, `supabase/migrations/`, `scripts/`, `package.json`, `package-lock.json`, `vercel.json` and auth code (CODEOWNERS makes you the required reviewer for these anyway). Read the "Sensitive files changed" part of the description. Approve only after a green `check`; then merge normally (section 16).
+5. **CI did not start on the PR?** Close and reopen the PR once (CI runs on `reopened`). This should only happen if the PR was opened with the workflow token instead of the Claude app token; if it keeps happening, check that the app is installed (setup step 1).
+
+### If something goes wrong
+
+- Run fails at sign-in: the token expired or was revoked -> rotate it (section 6).
+- A run looks off (strange commits, unexpected files): cancel it, close the PR, delete the `claude/*` branch, rotate `CLAUDE_CODE_OAUTH_TOKEN`, and check the run log (it is public; no full tool output is shown).
+- Usage limit reached: the run stops; try again after the limit resets.
+- Disable the agent entirely: Actions -> "Claude agent for issues" -> "..." -> **Disable workflow**.
