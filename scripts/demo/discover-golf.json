@@ -339,5 +339,45 @@
   "home_name": null,
   "home_lat": null,
   "home_lon": null,
-  "recorded_at": "2026-11-02T20:23:17.939562+00:00"
+  "recorded_at": "2026-11-02T20:23:17.939562+00:00",
+  "purpose": {
+    "name": "Golftrip",
+    "text": "Golftrip mit einem Freund: jeden Tag eine Runde, an einem Tag 36 Loch. Plätze nicht zu bergig. An- und Abreisetag sind Golftage.",
+    "constraints": [
+      "täglich Golf, an einem Tag 36 Loch",
+      "flache bis moderate Plätze",
+      "maximal 3 Stunden Flug",
+      "Einzelzimmer",
+      "zentrale Basis, alle Plätze unter 1 Stunde Fahrt",
+      "Mietwagen"
+    ],
+    "guided": {
+      "v": 1,
+      "rooms": "single_rooms",
+      "interests": [
+        "golf"
+      ]
+    },
+    "parsed_tags": {
+      "v": 1,
+      "hard": [
+        "golf every day",
+        "36 holes on one day",
+        "flat to moderate courses",
+        "max 3 hour flight",
+        "single room",
+        "central base, all courses under 1 hour drive",
+        "rental car"
+      ],
+      "soft": [
+        "arrival and departure days are golf days"
+      ],
+      "custom": [],
+      "summary": "Golf trip with one friend. One round daily, 36 holes on one day. Courses not too hilly. Travel day counts as golf day.",
+      "interests": [
+        "golf"
+      ]
+    },
+    "parsed_hash": "44f36a0e304d6ac82c2e0c64c6b32c180aadefb23669c6ec0598d1d891092c2a"
+  }
 }

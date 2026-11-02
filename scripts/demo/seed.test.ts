@@ -3,8 +3,11 @@ import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Plan } from "@/lib/domain/plan";
 import { SearchDrops, SuggestionCards } from "@/lib/domain/destination-search";
+import { PurposeTags } from "@/lib/domain/plan";
+import { purposeTagsHash } from "@/lib/plan/hash";
 import {
   buildExampleItems,
+  buildExamplePurposeTags,
   buildExampleSearch,
   buildExampleTrip,
   buildExampleVersion,
@@ -91,8 +94,22 @@ describe("demo example seed", () => {
       expect(row).toMatchObject({ owner_id: ids.ownerId, purpose_id: "p", group_id: "g", status: "done", busy_until: null, cost_micro_usd: 0 });
       expect(row).not.toHaveProperty("id");
       expect(row).not.toHaveProperty("recorded_at");
+      expect(row).not.toHaveProperty("purpose");
       expect(row.purpose_name).toBe("Golftrip");
       expect(row.travel_mode).toBe("flight");
+    });
+
+    it("carries valid tags whose hash belongs to the recorded purpose", () => {
+      const p = search.purpose;
+      expect(PurposeTags.safeParse(p.parsed_tags).success).toBe(true);
+      expect(purposeTagsHash({ text: p.text, constraints: p.constraints, guided: p.guided } as Parameters<typeof purposeTagsHash>[0])).toBe(p.parsed_hash);
+    });
+
+    it("gives the tags only to an unchanged purpose", () => {
+      const p = search.purpose;
+      const seeded = { name: p.name, text: p.text, constraints: [...p.constraints], guided: { ...p.guided } };
+      expect(buildExamplePurposeTags(search, seeded)).toMatchObject({ parsed_hash: p.parsed_hash, parsed_at: search.recorded_at });
+      expect(buildExamplePurposeTags(search, { ...seeded, text: `${p.text} Edited.` })).toBeNull();
     });
   });
 });

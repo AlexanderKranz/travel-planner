@@ -104,8 +104,38 @@ export function buildExampleVersion(
   };
 }
 
+/** The demo purpose as it was when the search was recorded, with the Haiku tags the search used. */
+export type RecordedPurpose = {
+  name: string;
+  text: string;
+  constraints: string[];
+  guided: Record<string, unknown>;
+  parsed_tags: Record<string, unknown>;
+  parsed_hash: string;
+};
+
 /** A destination search recorded once in the demo account (scripts/demo/discover-golf.json), without its row ids. */
-export type RecordedSearchFile = Record<string, unknown> & { recorded_at: string; cost_micro_usd: number };
+export type RecordedSearchFile = Record<string, unknown> & { recorded_at: string; cost_micro_usd: number; purpose: RecordedPurpose };
+
+const sameJson = (a: unknown, b: unknown): boolean => JSON.stringify(sortKeys(a)) === JSON.stringify(sortKeys(b));
+function sortKeys(v: unknown): unknown {
+  if (Array.isArray(v)) return v.map(sortKeys);
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).sort(([a], [b]) => a.localeCompare(b)).map(([k, x]) => [k, sortKeys(x)]));
+  return v;
+}
+
+/**
+ * The recorded tags for the re-seeded purpose, so its first search hashes exactly like the recording and finds it
+ * (also with AI off). Null when the seeded purpose no longer matches the recorded one: the tags would not belong to it.
+ */
+export function buildExamplePurposeTags(
+  recorded: RecordedSearchFile,
+  purpose: { name: string; text: string; constraints: string[]; guided: Record<string, unknown> },
+): { parsed_tags: Record<string, unknown>; parsed_hash: string; parsed_at: string } | null {
+  const r = recorded.purpose;
+  const same = r.name === purpose.name && r.text === purpose.text && sameJson(r.constraints, purpose.constraints) && sameJson(r.guided, purpose.guided);
+  return same ? { parsed_tags: r.parsed_tags, parsed_hash: r.parsed_hash, parsed_at: recorded.recorded_at } : null;
+}
 
 /**
  * The recorded "Golftrip" search as a fresh row: ids of the re-seeded purpose and group, status done, no lock. Lets
@@ -118,6 +148,7 @@ export function buildExampleSearch(
 ): Record<string, unknown> {
   const row: Record<string, unknown> = { ...recorded };
   delete row.recorded_at;
+  delete row.purpose;
   return {
     ...row,
     owner_id: ids.ownerId,
