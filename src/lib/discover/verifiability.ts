@@ -31,7 +31,7 @@ export const VERIFIABILITY: Record<InterestKey, Verifiability> = {
   history: common,
   shopping: common,
   photography: common,
-  skiing: cache,
+  skiing: place(3), // lifts (chair lift, gondola, mixed lift) within 60 km; fewer than 3 are hill lifts or sightseeing gondolas
   architecture: cache,
   water_sports: cache,
   christmas_markets: none,

@@ -1553,7 +1553,7 @@
       "history": "{count, plural, one {# historic site} other {# historic sites}}",
       "shopping": "{count, plural, one {# shopping place} other {# shopping places}}",
       "photography": "{count, plural, one {# photo spot} other {# photo spots}}",
-      "skiing": "{count, plural, one {# ski area} other {# ski areas}}",
+      "skiing": "{count, plural, one {# ski lift} other {# ski lifts}}",
       "architecture": "{count, plural, one {# notable building} other {# notable buildings}}",
       "water_sports": "{count, plural, one {# water sports place} other {# water sports places}}",
       "christmas_markets": "{count, plural, one {# Christmas market} other {# Christmas markets}}",

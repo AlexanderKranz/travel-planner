@@ -53,12 +53,20 @@ describe("getPlacesAt (destination search lookup by coordinates)", () => {
     expect(state.calls[0].fetchAllowed?.()).toBe(false);
   });
 
-  it("an interest with no Geoapify mapping (skiing) is read from the Overpass cache only", async () => {
+  it("an interest with no Geoapify mapping (water_sports) is read from the Overpass cache only", async () => {
     state.impl = () => fail;
-    const r = await getPlacesAt("skiing", point, 15, ctx, { networkAllowed: false });
+    const r = await getPlacesAt("water_sports", point, 15, ctx, { networkAllowed: false });
     expect(r?.result).toMatchObject({ ok: false });
     expect(state.calls.map((c) => c.provider)).toEqual(["overpass"]);
     expect(state.calls.every((c) => c.fetchAllowed?.() === false)).toBe(true);
+  });
+
+  it("skiing has a Geoapify mapping: cache first, then Geoapify, 60 km", async () => {
+    state.impl = (o) => (o.provider === "overpass" ? fail : ok("miss", 4));
+    const r = await getPlacesAt("skiing", point, 15, ctx, { networkAllowed: true });
+    expect(r?.radiusKm).toBe(60);
+    expect(r?.result).toMatchObject({ ok: true });
+    expect(state.calls.map((c) => c.provider)).toEqual(["overpass", "geoapify"]);
   });
 
   it("no Geoapify key: only the Overpass cache is read", async () => {

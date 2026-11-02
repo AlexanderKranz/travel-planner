@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { INTEREST_KEYS } from "@/lib/domain/interests";
 import { buildQuery } from "../integrations/overpass";
+import { matchesFilter } from "./places";
 import { INTEREST_SOURCES, interestsForTrip, radiusForInterest } from "./interest-sources";
 import { vi } from "vitest";
 
@@ -28,6 +29,23 @@ describe("interest sources", () => {
     expect(radiusForInterest("golf", 15)).toBe(40);
     expect(radiusForInterest("beach", 15)).toBe(15);
     expect(radiusForInterest("skiing", 100)).toBe(60);
+  });
+
+  it("skiing (Geoapify): lifts that carry skiers match, tow lines and cable cars do not", () => {
+    const src = INTEREST_SOURCES.skiing;
+    if (src.source !== "osm") throw new Error("skiing must be osm");
+    expect(src.geoapify).toEqual([["ski.lift.chair_lift", "ski.lift.gondola", "ski.lift.mixed_lift"]]);
+    const hit = (aerialway: string, name: string | null = "Lift") =>
+      src.filters.some((f) => matchesFilter({ aerialway, ...(name ? { name } : {}) }, f));
+    for (const a of ["chair_lift", "gondola", "mixed_lift"]) expect(hit(a), a).toBe(true);
+    for (const a of ["t-bar", "drag_lift", "platter", "magic_carpet", "rope_tow", "cable_car"]) expect(hit(a), a).toBe(false);
+    expect(hit("chair_lift", null)).toBe(false);
+    expect(src.filters.some((f) => matchesFilter({ landuse: "winter_sports", name: "Skigebiet" }, f))).toBe(true);
+  });
+
+  it("water_sports stays without a Geoapify mapping (categories too imprecise, checked 2026-11-02)", () => {
+    const src = INTEREST_SOURCES.water_sports;
+    expect(src.source === "osm" && src.geoapify).toBeFalsy();
   });
 
   it("builds a stable bbox query", () => {

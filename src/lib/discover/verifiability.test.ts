@@ -10,13 +10,14 @@ describe("VERIFIABILITY", () => {
   it("classes follow the spec table", () => {
     expect(VERIFIABILITY.golf).toEqual({ class: "place", min: 2 });
     expect(VERIFIABILITY.food_wine).toEqual({ class: "place", min: 1 });
+    expect(VERIFIABILITY.skiing).toEqual({ class: "place", min: 3 });
     for (const k of ["beach", "hiking", "wellness", "family_activities", "nature_wildlife", "cycling"] as const) {
       expect(VERIFIABILITY[k].class, k).toBe("place");
     }
     for (const k of ["city_sightseeing", "museums", "history", "shopping", "photography"] as const) {
       expect(VERIFIABILITY[k].class, k).toBe("common");
     }
-    for (const k of ["skiing", "architecture", "water_sports"] as const) expect(VERIFIABILITY[k].class, k).toBe("cache");
+    for (const k of ["architecture", "water_sports"] as const) expect(VERIFIABILITY[k].class, k).toBe("cache");
     for (const k of ["christmas_markets", "nightlife", "cruise", "festivals_events"] as const) expect(VERIFIABILITY[k].class, k).toBe("none");
   });
   it("only classes with a drop rule have a minimum", () => {
@@ -43,7 +44,7 @@ describe("selectSearchInterests", () => {
   });
   it("those with a POI check first, then in purpose order", () => {
     expect(selectSearchInterests(["christmas_markets", "city_sightseeing", "golf"])).toEqual(["golf", "city_sightseeing"]);
-    expect(selectSearchInterests(["skiing", "museums", "cruise"])).toEqual(["museums", "skiing"]);
+    expect(selectSearchInterests(["skiing", "museums", "cruise"])).toEqual(["skiing", "museums"]);
   });
   it("E3: cruise and christmas markets are kept (as not checked) when nothing better exists", () => {
     expect(selectSearchInterests(["cruise", "christmas_markets"])).toEqual(["cruise", "christmas_markets"]);
