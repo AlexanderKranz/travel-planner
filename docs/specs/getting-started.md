@@ -5,8 +5,9 @@ Status: implemented on `feat/getting-started`, decisions below await review.
 ## What it is
 
 A skippable four-step welcome page, `/[locale]/app/start`, in the Atlas look (eyebrow, serif heading, numbered cards,
-progress bar). Steps: 1 About you (home airports, birthdate), 2 Who travels (name + free-text description), 3 Why you
-travel (name + free text), 4 First trip (button to the trip form; only destination + length are required).
+progress bar). Steps: 1 About you (name, language, home airports, home place, birthdate; each with one line on what it is for),
+2 Who travels (name + free-text description), 3 Why you travel (name + free text), 4 First trip (button to the trip
+form, where only destination + length are required, and a second one to "Find destinations").
 No AI calls of its own: creating a group parses its text on save exactly as the group editor does.
 
 ## Decisions
@@ -27,12 +28,15 @@ No AI calls of its own: creating a group parses its text on save exactly as the 
   created later start with null.
 - **[D5] Demo account never redirects** (`shouldShowOnboarding` checks `is_demo`); its data is reset, so a redirect
   would repeat for every visitor. It can still open the guide from Einstellungen and the trips empty state.
-- **[D6] Step completion is derived** (`src/lib/onboarding.ts`, `deriveSteps`): about = any home airport or a birthdate,
-  group/purpose/trip = at least one row. Nothing about steps is stored. A step with "Später" is only folded away
-  client-side; it shows as open until data exists.
-- **[D7] Inline forms reuse existing parts**: `AirportPicker` and `updateProfile` (step 1), `createGroup` with the
-  free-text `description` (step 2), `createPurpose` with free text (step 3). Guided fields and chips stay in the full
-  purpose editor (linked via "Manage"). After saving, `router.refresh()` re-derives the steps.
+- **[D6] Step completion is derived** (`src/lib/onboarding.ts`, `deriveSteps`): about = any home airport, a
+  birthdate or a home place (home place added with #89); display name and language do not count (the language always
+  has a value, the name does not improve a plan). Group/purpose/trip = at least one row. Nothing about steps is
+  stored. A step with "Später" is only folded away client-side; it shows as open until data exists.
+- **[D7] Inline forms reuse existing parts**: step 1 uses the settings fields (`AirportPicker`, `HomeSuggestionButton`,
+  `HomeLocationPicker`, language select) and `updateProfile`; a language change switches the locale like the settings
+  form, and the home place hint repeats the warning that its name appears on shared links and PDFs. Step 2 uses
+  `createGroup` with the free-text `description`, step 3 `createPurpose` with free text. Guided fields and chips stay
+  in the full purpose editor (linked via "Manage"). After saving, `router.refresh()` re-derives the steps.
 - **[D8] Reopen**: link in Einstellungen (card at the top) and in the trips-list empty state. Not added to the main
   nav, which is already tight at 360 px.
 - **[D9] A11y**: one `h1`, each step a `section` labelled by its `h2`; the progress bar is `role="progressbar"` with

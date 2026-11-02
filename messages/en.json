@@ -1630,6 +1630,9 @@
     "skippedNote": "Skipped. You can catch up on this any time.",
     "about": {
       "title": "About you",
+      "nameWhy": "Your name is only used to greet you in the app.",
+      "languageWhy": "The language of the app and of your generated plans.",
+      "homeWhy": "Your home place is the start of a search by driving time and sets the time difference of your plans (default: Germany). The place name appears on shared plan links and PDFs.",
       "airportsWhy": "With your home airports we later look only for direct flights that really start near you.",
       "birthdateWhy": "With your birthdate we work out “my age” and know your age on the travel date.",
       "done": "Saved. You can change this any time in Settings.",
@@ -1674,11 +1677,13 @@
       "why": "A trip needs only a destination and a length. Group, purpose and everything else are optional and can be added later.",
       "button": "Create first trip",
       "done": "You have already created a trip.",
-      "open": "Go to my trips"
+      "open": "Go to my trips",
+      "discover": "Find destinations",
+      "discoverWhy": "No destination yet? “Find destinations” suggests places for a trip purpose, reachable by direct flight from your home airports or by car from your home place."
     },
     "link": {
       "settings": "View getting started",
-      "settingsHint": "A short introduction: home airports, travel groups, trip purposes and your first trip.",
+      "settingsHint": "A short introduction: name, language, home airports and home place, travel groups, trip purposes and your first trip.",
       "settingsTitle": "Getting started",
       "trips": "View getting started"
     }

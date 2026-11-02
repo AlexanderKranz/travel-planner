@@ -14,10 +14,20 @@ export default async function StartPage({ params }: { params: Promise<{ locale: 
   const p = unwrap(profile, locale);
   return (
     <StartGuide
-      displayName={p.displayName}
+      about={{
+        displayName: p.displayName,
+        locale: p.locale,
+        homeAirports: p.homeAirports,
+        birthdate: p.birthdate,
+        home:
+          p.homeLocation && p.homeTimezone
+            ? { name: p.homeLocation, timezone: p.homeTimezone, ...(p.homeGeoId !== null ? { geoId: p.homeGeoId } : {}) }
+            : null,
+      }}
       facts={{
         homeAirports: p.homeAirports,
         birthdate: p.birthdate,
+        homeLocation: p.homeLocation,
         groupCount: unwrap(groups, locale).length,
         purposeCount: unwrap(purposes, locale).length,
         tripCount: unwrap(trips, locale).length,

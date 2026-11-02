@@ -3,6 +3,7 @@
 export type OnboardingFacts = {
   homeAirports: readonly string[];
   birthdate: string | null;
+  homeLocation: string | null;
   groupCount: number;
   purposeCount: number;
   tripCount: number;
@@ -11,10 +12,13 @@ export type OnboardingFacts = {
 export const ONBOARDING_STEPS = ["about", "group", "purpose", "trip"] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
-/** Step completion is derived from the user's data, never stored. */
+/**
+ * Step completion is derived from the user's data, never stored. "About" needs any one of airports, birthdate or home
+ * place; display name and language do not count (the language always has a value).
+ */
 export function deriveSteps(f: OnboardingFacts): Record<OnboardingStep, boolean> {
   return {
-    about: f.homeAirports.length > 0 || f.birthdate !== null,
+    about: f.homeAirports.length > 0 || f.birthdate !== null || f.homeLocation !== null,
     group: f.groupCount > 0,
     purpose: f.purposeCount > 0,
     trip: f.tripCount > 0,
