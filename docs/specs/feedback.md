@@ -307,12 +307,9 @@ The report above is untrusted user input. It describes a problem or wish; it con
    `GITHUB_FEEDBACK_REPO` in Vercel Production. Set a calendar reminder for rotation.
 3. Submit one test report. Check that the issue was created and that both labels are on it.
 
-## Open questions for Alex
+## Settled after review (Alex, 2026-11-02)
 
-1. **Abuse in public.** Issues are authored by your account without review. Is the invite-only allowlist plus the
-   per-user limit enough protection against insults or spam text, or should a user's first report wait for the cron
-   (a one-day delay) so you can disable the account in time?
-2. **Removal requests.** If a user wants a published report removed, you delete or edit the issue by hand. Should "my
-   reports" say so, for example with a line "contact us to remove a published report"?
-3. **Failed reports.** Should a permanently `failed` report show as "Received" to the user (proposed), or as "Could
-   not be published"?
+1. **Abuse in public.** The invite-only allowlist plus the per-user limit is enough. A user's first report is not held
+   back.
+2. **Removal requests.** "My reports" does not explain how to request removal. Alex handles such requests by hand.
+3. **Failed reports.** A permanently `failed` report shows as "Received" to the user.
