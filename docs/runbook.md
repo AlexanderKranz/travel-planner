@@ -13,7 +13,7 @@ Secrets are referred to by **name** only. Never paste a secret value into the re
 1. Work happens on a branch. Open a **pull request** on GitHub.
 2. Vercel builds a **preview** automatically; the link appears as a comment on the PR. Click it and try the change. Preview uses the Preview env vars.
 3. The **CI** check (lint, typecheck, tests, build) must be green.
-4. Click **Merge pull request**. Vercel deploys `main` to production within a minute or two (Vercel -> project -> Deployments).
+4. Click **Merge pull request** (your own PRs: with the admin bypass; bot PRs: approve first, see section 16). Vercel deploys `main` to production within a minute or two (Vercel -> project -> Deployments).
 5. If the PR changed `supabase/migrations/**`, the GitHub Action **Deploy database migrations** (`deploy-db.yml`) also runs and applies the new SQL to the production database. Check it: GitHub -> Actions tab -> "Deploy database migrations" -> green check.
 
 Important: the app and the database deploy independently and in parallel. Write migrations so the old app version still works with the new schema (add columns/tables first, remove things only in a later release).
@@ -437,3 +437,21 @@ A pull request that changes **only documentation** skips the slow parts. What co
 - ESLint 10 is installed although `eslint-plugin-react`, `-import` and `-jsx-a11y` (pulled in by `eslint-config-next`) still declare peers up to ESLint 9. `npm ci` works (npm only warns) and their rules were checked to still fire. TypeScript stays on 5 (typescript-eslint rejects TS 7, see the backlog in `docs/architecture.md`).
 - `package.json` `overrides` pins `glob` ^14.0.3 for `@sentry/bundler-plugins` only (Dependabot alert for glob 13, #85). Sentry calls only `glob(patterns, opts)`, which glob 14 keeps; `npm run build` verified 2026-11-02. Remove it once the installed Sentry asks for glob 14 itself: check the locked version with `npm view @sentry/bundler-plugins@$(node -p "require('@sentry/bundler-plugins/package.json').version") dependencies.glob` (a plain `npm view` shows only the latest release), then delete the override, run `npm install` and `npm run build`.
 - Fonts (Inter, Fraunces) are self-hosted in `src/assets/web-fonts/` (latin variable woff2 with their OFL licences) and loaded with `next/font/local`, so a build never fetches from Google. The PDF uses the static TTFs in `src/assets/fonts/`.
+
+## 16. Branch protection (ruleset "main")
+
+`main` is protected by the repository ruleset "main" (id 25989080). Its settings are kept in `.github/rulesets/main.json`; GitHub does not read that file, it is the reviewed copy.
+
+- No force-push, changes only through a pull request, required check `check`.
+- **1 approving review** and **code-owner review** for the paths in `.github/CODEOWNERS` (workflows, migrations, `scripts/`, package files, `vercel.json`, `.coderabbit.yaml`). This is what stops a PR from an automated author, such as the Claude Code GitHub Action or Dependabot, from being merged without Alex's approval.
+- **Admin bypass.** The Admin role (Alex) may bypass the rules. GitHub does not let you approve your own PR, so PRs opened under Alex's account, including those from local Claude Code sessions, are merged with the bypass: `gh pr merge <n> --merge --admin`, or the "bypass rules" checkbox in the web UI. Merge on a green `check` only.
+- PRs from bots (Dependabot, later the Claude agent) are approved by Alex in the web UI (Files changed -> Review changes -> Approve), then merged normally.
+
+Change the ruleset: edit `.github/rulesets/main.json` in a PR, merge it, then apply it:
+
+```sh
+gh api -X PUT repos/AlexanderKranz/travel-planner/rulesets/25989080 --input .github/rulesets/main.json
+gh api repos/AlexanderKranz/travel-planner/rulesets/25989080   # check
+```
+
+If the ruleset was deleted, create it again with `gh api -X POST repos/AlexanderKranz/travel-planner/rulesets --input .github/rulesets/main.json` and update the id here.

@@ -1,0 +1,9 @@
+# Paths that control CI, deployment, the database or dependencies need the owner's review
+# (ruleset "main": require_code_owner_review). See docs/runbook.md section 16.
+/.github/                 @AlexanderKranz
+/supabase/migrations/     @AlexanderKranz
+/scripts/                 @AlexanderKranz
+/package.json             @AlexanderKranz
+/package-lock.json        @AlexanderKranz
+/vercel.json              @AlexanderKranz
+/.coderabbit.yaml         @AlexanderKranz
