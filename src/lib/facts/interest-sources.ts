@@ -29,6 +29,11 @@ export type InterestSource =
       geoapify?: readonly (readonly string[])[];
       minRadiusKm?: number;
       exclude?: InterestExclude;
+      /**
+       * Only for "Find destinations" (getPlacesAt): replaces `filters`/`geoapify` there, with its own cache key.
+       * Trip plans never read it, so their candidates and cache keys stay as they were.
+       */
+      discover?: { filters: readonly string[]; geoapify: readonly (readonly string[])[] };
     }
   | { source: "none" };
 
@@ -120,14 +125,17 @@ export const INTEREST_SOURCES: Record<InterestKey, InterestSource> = {
   cycling: { source: "osm", filters: [`["amenity"="bicycle_rental"]`], geoapify: [["rental.bicycle"]] },
   skiing: {
     source: "osm",
-    // Ski areas are mapped as landuse=winter_sports (Overpass), but Geoapify has no category for them. The
-    // Geoapify side counts the lifts that carry skiers: chair lifts, gondolas, mixed lifts. Not tow lines/magic
-    // carpets (small hill lifts exist near Passau, Vienna ...) and not cable cars (sightseeing, e.g. Malaga).
-    // Docs https://apidocs.geoapify.com/docs/places/ (categories ski.lift.*), checked 2026-11-02. Even so, single
-    // gondolas exist in Berlin, Lisbon and Malaga: verifiability.ts requires 3 (spec find-destinations section 6).
-    filters: [`["landuse"="winter_sports"]`, `["aerialway"~"^(chair_lift|gondola|mixed_lift)$"]`],
-    geoapify: [["ski.lift.chair_lift", "ski.lift.gondola", "ski.lift.mixed_lift"]],
+    filters: [`["landuse"="winter_sports"]`],
     minRadiusKm: 60,
+    // Find destinations only: Geoapify has no category for ski areas, only lifts. Counts the lifts that carry
+    // skiers (chair lifts, gondolas, mixed lifts), not tow lines/magic carpets (small hill lifts near Passau,
+    // Vienna ...) and not cable cars (sightseeing, e.g. Malaga). Docs https://apidocs.geoapify.com/docs/places/
+    // (categories ski.lift.*), checked 2026-11-02. Single gondolas still exist in Berlin, Lisbon and Malaga:
+    // verifiability.ts requires 3 (spec find-destinations section 6). Plans keep the landuse areas from Overpass.
+    discover: {
+      filters: [`["aerialway"~"^(chair_lift|gondola|mixed_lift)$"]`],
+      geoapify: [["ski.lift.chair_lift", "ski.lift.gondola", "ski.lift.mixed_lift"]],
+    },
   },
   shopping: {
     source: "osm",

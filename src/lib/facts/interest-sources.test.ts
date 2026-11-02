@@ -31,16 +31,20 @@ describe("interest sources", () => {
     expect(radiusForInterest("skiing", 100)).toBe(60);
   });
 
-  it("skiing (Geoapify): lifts that carry skiers match, tow lines and cable cars do not", () => {
+  it("skiing: plans keep landuse areas from Overpass (no Geoapify mapping); the lift mapping is discover-only", () => {
     const src = INTEREST_SOURCES.skiing;
     if (src.source !== "osm") throw new Error("skiing must be osm");
-    expect(src.geoapify).toEqual([["ski.lift.chair_lift", "ski.lift.gondola", "ski.lift.mixed_lift"]]);
+    expect(src.filters).toEqual([`["landuse"="winter_sports"]`]);
+    expect(src.geoapify).toBeUndefined();
+    expect(src.minRadiusKm).toBe(60);
+    const d = src.discover;
+    if (!d) throw new Error("skiing needs a discover variant");
+    expect(d.geoapify).toEqual([["ski.lift.chair_lift", "ski.lift.gondola", "ski.lift.mixed_lift"]]);
     const hit = (aerialway: string, name: string | null = "Lift") =>
-      src.filters.some((f) => matchesFilter({ aerialway, ...(name ? { name } : {}) }, f));
+      d.filters.some((f) => matchesFilter({ aerialway, ...(name ? { name } : {}) }, f));
     for (const a of ["chair_lift", "gondola", "mixed_lift"]) expect(hit(a), a).toBe(true);
     for (const a of ["t-bar", "drag_lift", "platter", "magic_carpet", "rope_tow", "cable_car"]) expect(hit(a), a).toBe(false);
     expect(hit("chair_lift", null)).toBe(false);
-    expect(src.filters.some((f) => matchesFilter({ landuse: "winter_sports", name: "Skigebiet" }, f))).toBe(true);
   });
 
   it("water_sports stays without a Geoapify mapping (categories too imprecise, checked 2026-11-02)", () => {
