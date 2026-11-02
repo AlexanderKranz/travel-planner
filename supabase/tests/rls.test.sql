@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261107120032. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261108120033. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
