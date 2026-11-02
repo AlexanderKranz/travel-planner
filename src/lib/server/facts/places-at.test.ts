@@ -53,12 +53,56 @@ describe("getPlacesAt (destination search lookup by coordinates)", () => {
     expect(state.calls[0].fetchAllowed?.()).toBe(false);
   });
 
-  it("an interest with no Geoapify mapping (skiing) is read from the Overpass cache only", async () => {
+  it("an interest with no Geoapify mapping (water_sports) is read from the Overpass cache only", async () => {
     state.impl = () => fail;
-    const r = await getPlacesAt("skiing", point, 15, ctx, { networkAllowed: false });
+    const r = await getPlacesAt("water_sports", point, 15, ctx, { networkAllowed: false });
     expect(r?.result).toMatchObject({ ok: false });
     expect(state.calls.map((c) => c.provider)).toEqual(["overpass"]);
     expect(state.calls.every((c) => c.fetchAllowed?.() === false)).toBe(true);
+  });
+
+  it("skiing in the search: Geoapify lifts only, own cache key, the Overpass cache (areas) is not read", async () => {
+    state.impl = () => ok("miss", 4);
+    const r = await getPlacesAt("skiing", point, 15, ctx, { networkAllowed: true });
+    expect(r?.radiusKm).toBe(60);
+    expect(r?.result).toMatchObject({ ok: true });
+    expect(state.calls.map((c) => c.provider)).toEqual(["geoapify"]);
+    expect(state.calls[0].key).toContain("discover");
+  });
+
+  it("skiing without a Geoapify key is not checked in the search (never the plan's Overpass areas)", async () => {
+    vi.stubEnv("GEOAPIFY_API_KEY", "");
+    state.impl = () => ok("hit", 5);
+    const r = await getPlacesAt("skiing", point, 15, ctx, { networkAllowed: true });
+    expect(r?.result).toMatchObject({ ok: false });
+    expect(state.calls).toHaveLength(0);
+  });
+
+  it("skiing in a trip plan (getPlacesFacts) is unchanged: Overpass only, no Geoapify, same key as before", async () => {
+    state.impl = () => ok("miss", 2);
+    const trip = {
+      id: "t", lengthDays: 7, groupId: null, purposeId: "p", wantsFlights: false, originAirports: [], createdAt: "", updatedAt: "",
+      timing: { kind: "none" as const },
+      destination: { kind: "region" as const, name: "Alps", placeName: "Garmisch", geoId: 1, countryCode: "DE", admin1: null, lat: 47.49, lon: 11.1, timezone: "Europe/Berlin", radiusKm: 40 },
+    };
+    const purpose = { id: "p", name: "p", guided: { interests: ["skiing"] }, constraints: [], tags: null, createdAt: "", updatedAt: "" };
+    await getPlacesFacts(trip as never, purpose as never, ctx);
+    expect(state.calls.map((c) => c.provider)).toEqual(["overpass"]);
+    expect(state.calls[0].key).toBe('interpreter:v2:{"interest":"skiing","lat":47.49,"lon":11.1,"r":60}');
+  });
+
+  it("skiing in the search: a failed refresh that falls back to an expired list is not checked, an empty success stays a negative", async () => {
+    state.impl = () => ({ ...ok("stale", 5), stale: true });
+    const r = await getPlacesAt("skiing", point, 15, ctx, { networkAllowed: true });
+    expect(r?.result).toMatchObject({ ok: false, error: "provider_error" });
+    state.impl = () => ok("miss", 0);
+    expect((await getPlacesAt("skiing", point, 15, ctx, { networkAllowed: true }))?.result).toMatchObject({ ok: true, data: [] });
+  });
+
+  it("golf (plan-style variant) keeps a stale result after a failed refresh", async () => {
+    state.impl = (o) => (o.provider === "overpass" ? fail : { ...ok("stale", 3), stale: true });
+    const r = await getPlacesAt("golf", point, 40, ctx, { networkAllowed: true });
+    expect(r?.result).toMatchObject({ ok: true, stale: true });
   });
 
   it("no Geoapify key: only the Overpass cache is read", async () => {

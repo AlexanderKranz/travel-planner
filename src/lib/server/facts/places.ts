@@ -60,10 +60,25 @@ function shared<T extends CachedResult<PlaceCandidate[]> | null>(key: string, ru
   return p;
 }
 
-type Lookup = { interest: InterestOrGeneral; anchor: { lat: number; lon: number }; radiusKm: number; ctx: FactsCtx };
+type Lookup = {
+  interest: InterestOrGeneral;
+  anchor: { lat: number; lon: number };
+  radiusKm: number;
+  ctx: FactsCtx;
+  /** Find destinations only: use the interest's `discover` filters/categories (own cache key, no Overpass cache). */
+  discover?: boolean;
+};
 
 const overpassKey = ({ interest, anchor, radiusKm }: Lookup) =>
   cacheKey("interpreter", 2, { interest, lat: anchor.lat, lon: anchor.lon, r: radiusKm });
+
+/** Filters and Geoapify groups of a lookup: the discover variant where the interest has one, else the plan's. */
+function sourceOf(l: Lookup) {
+  const src = sourceFor(l.interest);
+  if (src.source !== "osm") return null;
+  if (l.discover && src.discover) return { distinct: false, ...src, ...src.discover, isDiscover: true as const };
+  return { ...src, distinct: false, isDiscover: false as const };
+}
 
 function fromOverpass(l: Lookup, filters: readonly string[], exclude: InterestExclude | undefined, deadline: number, fetchAllowed: () => boolean) {
   return cached({
@@ -87,16 +102,24 @@ function fromOverpass(l: Lookup, filters: readonly string[], exclude: InterestEx
  * null = not applicable (no key, no category mapping); a failed result = use the Overpass fallback.
  */
 function fastCandidates(l: Lookup, networkAllowed: boolean): Promise<CachedResult<PlaceCandidate[]> | null> {
-  const src = sourceFor(l.interest);
-  if (src.source !== "osm" || !src.geoapify || !hasGeoapifyKey()) return Promise.resolve(null);
+  const src = sourceOf(l);
+  if (!src || !src.geoapify || !hasGeoapifyKey()) return Promise.resolve(null);
   const groups = src.geoapify;
-  return shared(`fast:${overpassKey(l)}`, async () => {
-    const hit = await fromOverpass(l, src.filters, src.exclude, 0, () => false);
-    if (hit.ok && hit.cache === "hit") return hit;
-    return cached({
+  return shared(`fast:${src.isDiscover ? "discover:" : ""}${overpassKey(l)}`, async () => {
+    if (!src.isDiscover) {
+      const hit = await fromOverpass(l, src.filters, src.exclude, 0, () => false);
+      if (hit.ok && hit.cache === "hit") return hit;
+    }
+    const res = await cached({
       provider: "geoapify",
       endpoint: "places",
-      key: cacheKey("places", 2, { interest: l.interest, lat: l.anchor.lat, lon: l.anchor.lon, r: l.radiusKm }),
+      key: cacheKey("places", 2, {
+        interest: l.interest,
+        lat: l.anchor.lat,
+        lon: l.anchor.lon,
+        r: l.radiusKm,
+        ...(src.isDiscover ? { variant: "discover" } : {}),
+      }),
       ttlSeconds: PLACES_TTL_SECONDS,
       schema: candidatesSchema,
       ctx: l.ctx,
@@ -105,9 +128,13 @@ function fastCandidates(l: Lookup, networkAllowed: boolean): Promise<CachedResul
         await assertGeoapifyQuota();
         const r = await fetchPlaces(groups, l.anchor, l.radiusKm * 1000);
         const matching = r.elements.filter((e) => src.filters.some((f) => matchesFilter(e.tags, f)));
-        return { data: rankCandidates(matching, src.filters, l.anchor, src.exclude, l.radiusKm), status: r.status, latencyMs: r.latencyMs, units: r.credits };
+        return { data: rankCandidates(matching, src.filters, l.anchor, src.exclude, l.radiusKm, { distinct: src.distinct }), status: r.status, latencyMs: r.latencyMs, units: r.credits };
       },
     });
+    // Discover: the minimum must never be applied to an expired list after a failed refresh ("not checked" instead).
+    // A successful empty response stays a real negative; a stale result without an attempt (network not allowed) is kept.
+    if (src.isDiscover && networkAllowed && res.ok && res.cache === "stale") return { ok: false, error: "provider_error" } as const;
+    return res;
   });
 }
 
@@ -132,9 +159,12 @@ export async function getPlacesAt(
     anchor: { lat: Number(point.lat.toFixed(3)), lon: Number(point.lon.toFixed(3)) },
     radiusKm: radiusForInterest(interest, baseRadiusKm),
     ctx,
+    discover: true,
   };
   const fast = await fastCandidates(l, opts.networkAllowed);
   if (fast) return { radiusKm: l.radiusKm, result: fast };
+  // The discover variant counts something else than the plan's cached Overpass areas: without Geoapify it is "not checked".
+  if (src.discover) return { radiusKm: l.radiusKm, result: { ok: false, error: "provider_error" } };
   // No Geoapify mapping or key: whatever Overpass result is cached, never a network query.
   const cachedOnly = await shared(`overpass-cache:${overpassKey(l)}`, () => fromOverpass(l, src.filters, src.exclude, 0, () => false));
   return { radiusKm: l.radiusKm, result: cachedOnly };

@@ -29,6 +29,16 @@ export type InterestSource =
       geoapify?: readonly (readonly string[])[];
       minRadiusKm?: number;
       exclude?: InterestExclude;
+      /**
+       * Only for "Find destinations" (getPlacesAt): replaces `filters`/`geoapify` there, with its own cache key.
+       * Trip plans never read it, so their candidates and cache keys stay as they were.
+       */
+      discover?: {
+        filters: readonly string[];
+        geoapify: readonly (readonly string[])[];
+        /** Count each OSM element: no merging of equal names within 200 m (two separate lifts of one ski area). */
+        distinct?: boolean;
+      };
     }
   | { source: "none" };
 
@@ -118,13 +128,30 @@ export const INTEREST_SOURCES: Record<InterestKey, InterestSource> = {
     minRadiusKm: 40,
   },
   cycling: { source: "osm", filters: [`["amenity"="bicycle_rental"]`], geoapify: [["rental.bicycle"]] },
-  skiing: { source: "osm", filters: [`["landuse"="winter_sports"]`], minRadiusKm: 60 },
+  skiing: {
+    source: "osm",
+    filters: [`["landuse"="winter_sports"]`],
+    minRadiusKm: 60,
+    // Find destinations only: Geoapify has no category for ski areas, only lifts. Counts the lifts that carry
+    // skiers (chair lifts, gondolas, mixed lifts), not tow lines/magic carpets (small hill lifts near Passau,
+    // Vienna ...) and not cable cars (sightseeing, e.g. Malaga). Docs https://apidocs.geoapify.com/docs/places/
+    // (categories ski.lift.*), checked 2026-11-02. Single gondolas still exist in Berlin, Lisbon and Malaga:
+    // verifiability.ts requires 3 (spec find-destinations section 6). Plans keep the landuse areas from Overpass.
+    discover: {
+      filters: [`["aerialway"~"^(chair_lift|gondola|mixed_lift)$"]`],
+      geoapify: [["ski.lift.chair_lift", "ski.lift.gondola", "ski.lift.mixed_lift"]],
+      distinct: true,
+    },
+  },
   shopping: {
     source: "osm",
     filters: [`["shop"~"^(mall|department_store)$"]`, `["amenity"="marketplace"]`],
     geoapify: [["commercial.shopping_mall", "commercial.department_store", "commercial.marketplace"]],
   },
   photography: { source: "osm", filters: [`["tourism"="viewpoint"]`], geoapify: [["tourism.attraction.viewpoint"]] },
+  // Geoapify checked 2026-11-02 (https://apidocs.geoapify.com/docs/places/), no mapping on purpose: the water sports
+  // shop, diving shop and dive centre categories also fill with city dive shops (Munich 12, Hamburg 7, Vienna 9
+  // hits) and miss real spots (Fuerteventura 0), marinas and boat rentals are everywhere (Berlin 89 marinas).
   water_sports: {
     source: "osm",
     filters: [`["leisure"="marina"]`, `["sport"~"^(scuba_diving|surfing|kitesurfing|sailing)$"]`],
