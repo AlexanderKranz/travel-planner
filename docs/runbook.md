@@ -183,7 +183,7 @@ General rule: create the new key, deploy it, then revoke the old one.
 | Supabase DB password | Project Settings -> Database -> Reset database password; update the GitHub secret `SUPABASE_DB_URL` (it contains the password); run both workflows manually to confirm. |
 | GitHub NAS token | GitHub -> Developer settings -> Fine-grained tokens: regenerate/delete; update `GITHUB_TOKEN` in the NAS config file. |
 | `BACKUP_PASSPHRASE` | New backups use the new passphrase; **old backups still need the old one**. Add the new one to the password manager as a new entry; keep the old entry until the last old backup has aged out (12 months). Update the GitHub secret. |
-| GitHub feedback token (`GITHUB_FEEDBACK_TOKEN`) | Section 17: create a new fine-grained token, update it in Vercel (Production and Preview), redeploy, then delete the old token on GitHub. Do it before the expiry date (calendar reminder 11 months after creation). |
+| GitHub feedback token (`GITHUB_FEEDBACK_TOKEN`) | Section 18: create a new fine-grained token, update it in Vercel (Production and Preview), redeploy, then delete the old token on GitHub. Do it before the expiry date (calendar reminder 11 months after creation). |
 | Anthropic / AeroDataBox / other API keys | Create new key at the provider, update in Vercel, redeploy, delete the old key. Check the provider's usage page for abuse. |
 
 If a secret was committed to git: rotate it first (the old value is burned, even after deleting the commit), then clean up the repo.
@@ -281,7 +281,7 @@ A Vercel Cron job calls `GET /api/cron/budget-check` once a day (`vercel.json`, 
 | `ai_monthly` | AI spend this month >= 80 % of `AI_MONTHLY_ALERT_USD` (default 10; error at 100 %) | warn / error |
 | `aerodatabox_monthly` | units remaining (last value reported by RapidAPI) < 2 x `AERODATABOX_MIN_REMAINING` (error below 1 x) | warn / error |
 | `ors_daily` | ORS requests today >= 80 % of `ORS_DAILY_REQUESTS` (error at 100 %) | warn / error |
-| `feedback_delivery` | a GitHub auth failure for feedback today (error), or a feedback report `pending` for more than 48 h (warn). See section 17 | warn / error |
+| `feedback_delivery` | a GitHub auth failure for feedback today (error), or a feedback report `pending` for more than 48 h (warn). See section 18 | warn / error |
 | `errors_24h` | more than `ALERT_ERRORS_24H` (default 20) `app_events` with level error in the last 24 h (error above 2 x) | warn / error |
 
 **Delivery** (no new account needed): each alert is written to `app_events` as `budget.alert` (level warn/error, shown on the admin page under "Recent warnings and errors") and sent to Sentry with `captureMessage` (level warning, tags `budget_alert=true`, `alert_kind=<kind>`, `alert_level`). The Sentry fingerprint contains the date, so each day is a new issue and a "new issue" alert rule fires again every day. At most one alert per kind per Berlin day (the check looks for an existing `budget.alert` event of that kind today). Without `NEXT_PUBLIC_SENTRY_DSN` only the `app_events` row is written.
@@ -458,7 +458,7 @@ gh api repos/AlexanderKranz/travel-planner/rulesets/25989080   # check
 
 If the ruleset was deleted, create it again with `gh api -X POST repos/AlexanderKranz/travel-planner/rulesets --input .github/rulesets/main.json` and update the id here.
 
-## 17. Feedback token (in-app feedback -> GitHub issues)
+## 18. Feedback token (in-app feedback -> GitHub issues)
 
 Users send feedback in the app; the server saves it and creates a public GitHub issue (labels `bug` or `enhancement` plus `reported-by-user`, never `claude`). Spec: `docs/specs/feedback.md`. Without the token the form still works and reports stay `pending`.
 
