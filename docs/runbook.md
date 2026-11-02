@@ -184,6 +184,7 @@ General rule: create the new key, deploy it, then revoke the old one.
 | GitHub NAS token | GitHub -> Developer settings -> Fine-grained tokens: regenerate/delete; update `GITHUB_TOKEN` in the NAS config file. |
 | `BACKUP_PASSPHRASE` | New backups use the new passphrase; **old backups still need the old one**. Add the new one to the password manager as a new entry; keep the old entry until the last old backup has aged out (12 months). Update the GitHub secret. |
 | `CLAUDE_CODE_OAUTH_TOKEN` (Claude agent) | Rotate if it may have leaked (for example it showed up in a log). 1. New token: run `npx @anthropic-ai/claude-code setup-token` on your Mac (logged in with your Pro account), then GitHub -> Settings -> Environments -> `claude-agent` -> edit the secret and paste it. 2. Revoke the old one: in your Claude account settings, revoke the Claude Code authorization if listed, otherwise use "log out of all devices" (exact place not verified; `/logout` in a local Claude Code session is **not** proof that the old token is dead). 3. Check the **old** token separately: `printf 'Old token: '; read -r -s old_token; printf '\n'; CLAUDE_CODE_OAUTH_TOKEN="$old_token" npx @anthropic-ai/claude-code -p "hi"; unset old_token` must fail with an authentication error. The token is typed at a hidden prompt, so it does not land in the shell history; never paste it into the command line itself. A test issue only proves the new token works. |
+| GitHub feedback token (`GITHUB_FEEDBACK_TOKEN`) | Section 18: create a new fine-grained token, update it in Vercel (Production, and Preview if it is set there), redeploy, then delete the old token on GitHub. Do it before the expiry date (calendar reminder 11 months after creation). |
 | Anthropic / AeroDataBox / other API keys | Create new key at the provider, update in Vercel, redeploy, delete the old key. Check the provider's usage page for abuse. |
 
 If a secret was committed to git: rotate it first (the old value is burned, even after deleting the commit), then clean up the repo.
@@ -281,6 +282,7 @@ A Vercel Cron job calls `GET /api/cron/budget-check` once a day (`vercel.json`, 
 | `ai_monthly` | AI spend this month >= 80 % of `AI_MONTHLY_ALERT_USD` (default 10; error at 100 %) | warn / error |
 | `aerodatabox_monthly` | units remaining (last value reported by RapidAPI) < 2 x `AERODATABOX_MIN_REMAINING` (error below 1 x) | warn / error |
 | `ors_daily` | ORS requests today >= 80 % of `ORS_DAILY_REQUESTS` (error at 100 %) | warn / error |
+| `feedback_delivery` | a GitHub auth failure for feedback today (error), or a feedback report `pending` for more than 48 h (warn). See section 18 | warn / error |
 | `errors_24h` | more than `ALERT_ERRORS_24H` (default 20) `app_events` with level error in the last 24 h (error above 2 x) | warn / error |
 
 **Delivery** (no new account needed): each alert is written to `app_events` as `budget.alert` (level warn/error, shown on the admin page under "Recent warnings and errors") and sent to Sentry with `captureMessage` (level warning, tags `budget_alert=true`, `alert_kind=<kind>`, `alert_level`). The Sentry fingerprint contains the date, so each day is a new issue and a "new issue" alert rule fires again every day. At most one alert per kind per Berlin day (the check looks for an existing `budget.alert` event of that kind today). Without `NEXT_PUBLIC_SENTRY_DSN` only the `app_events` row is written.
@@ -379,7 +381,7 @@ Behaviour to know:
 
 ## 12. Runtime settings (admin page "Einstellungen")
 
-The switches and limits that used to need a Vercel env var change and a redeploy are editable on the admin page: AI plans on/off, demo access on/off, the five AI budgets (`AI_USER_DAILY_USD`, `AI_ADMIN_DAILY_USD`, `AI_DEMO_DAILY_USD`, `AI_GLOBAL_DAILY_USD`, `AI_MONTHLY_ALERT_USD`), `AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`, `ORS_DAILY_REQUESTS`, `GEOAPIFY_DAILY_CREDITS` and `ALERT_ERRORS_24H`. Secrets (API keys, `CRON_SECRET`, Supabase keys, `DEMO_PASSWORD`) are not settings and never appear there. Spec: `docs/specs/phase-6-hardening.md` section 6.
+The switches and limits that used to need a Vercel env var change and a redeploy are editable on the admin page: AI plans on/off, demo access on/off, the five AI budgets (`AI_USER_DAILY_USD`, `AI_ADMIN_DAILY_USD`, `AI_DEMO_DAILY_USD`, `AI_GLOBAL_DAILY_USD`, `AI_MONTHLY_ALERT_USD`), `AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`, `ORS_DAILY_REQUESTS`, `GEOAPIFY_DAILY_CREDITS`, `FEEDBACK_USER_DAILY`, `FEEDBACK_DAILY_ISSUES` and `ALERT_ERRORS_24H`. Secrets (API keys, `CRON_SECRET`, Supabase keys, `DEMO_PASSWORD`) are not settings and never appear there. Spec: `docs/specs/phase-6-hardening.md` section 6.
 
 - **Precedence:** admin value, else the environment variable, else the code default. The environment variables are therefore now the *defaults*; keep them as they are or remove them. Each row shows the effective value and its source (Admin / Umgebungsvariable / Standard).
 - **Zurücksetzen** deletes the admin value, so the environment variable or default applies again.
@@ -499,3 +501,41 @@ Sources checked on 2026-11-02:
 - A run looks off (strange commits, unexpected files): cancel it, close the PR, delete the `claude/*` branch, rotate `CLAUDE_CODE_OAUTH_TOKEN`, and check the run log (it is public; no full tool output is shown).
 - Usage limit reached: the run stops; try again after the limit resets.
 - Disable the agent entirely: Actions -> "Claude agent for issues" -> "..." -> **Disable workflow**.
+
+## 18. Feedback token (in-app feedback -> GitHub issues)
+
+Users send feedback in the app; the server saves it and creates a public GitHub issue (labels `bug` or `enhancement` plus `reported-by-user`, never `claude`). Spec: `docs/specs/feedback.md`. Without the token the form still works and reports stay `pending`.
+
+### Create the token (Alex, once)
+
+1. GitHub -> avatar -> **Settings** -> **Developer settings** -> **Personal access tokens** -> **Fine-grained tokens** -> **Generate new token**.
+2. Name `travel-planner-feedback`, expiration **1 year**, resource owner = your account, **Only select repositories** -> this repository only.
+3. Repository permissions: **Issues: Read and write**. Nothing else (Metadata read is added automatically). Generate and copy the token once.
+4. In the repo create the labels `reported-by-user` and `claude` (`bug` and `enhancement` exist by default).
+5. Vercel -> project -> **Settings** -> **Environment Variables**: add `GITHUB_FEEDBACK_TOKEN` (the token) and `GITHUB_FEEDBACK_REPO` (`owner/name`) for **Production**. **Preview** is optional: with it, feedback sent from a preview deployment also becomes a real public issue (the cron runs only on production, so without it preview reports simply stay `pending`). Never use a `NEXT_PUBLIC_` prefix. Redeploy.
+6. Submit one test report. Check that the issue exists with both labels. Put a calendar reminder 11 months from now for the rotation (GitHub also mails before the token expires).
+
+### Pause or limit
+
+- Admin page -> Settings: **Feedback: GitHub issues per day** (`feedback_daily_issues`, default 30). **0 pauses issue creation**: reports are still saved as `pending` and the user still sees "Received". Raise it again to let the daily cron catch up (at most 10 rows per run, oldest first).
+- **Feedback: reports per user per day** (`feedback_user_daily`, default 10); 0 closes the form.
+
+### Alert `feedback_delivery`
+
+The daily budget cron raises `feedback_delivery` (section 10) when a GitHub auth failure happened today (error) or a `pending` report is older than 48 hours (warn). Then:
+
+1. Admin page -> Feedback shows the `pending` and `failed` counts and the last error class.
+2. Fix the cause (below), then wait for the next cron run or trigger it in Vercel -> Settings -> Cron Jobs -> **Run**. Due rows are retried automatically; nothing needs to be re-entered.
+
+### Troubleshooting: feedback stops creating issues
+
+| Sign | Cause and fix |
+|---|---|
+| `feedback.github_auth_failed` in `app_events`; `api_calls` for `github` show 401/403/404 | Token expired, revoked, missing the Issues permission, or `GITHUB_FEEDBACK_REPO` is wrong. Create a new token (above), update Vercel, redeploy. Rows stay `pending` and the cron retries them. |
+| `api_calls` for `github` show 403/429 with a rate-limit reset | GitHub rate limit. The row waits until the reset time and the cron retries it; no action. |
+| `failed` count grows, `last_error` = `validation` (422) | GitHub rejected the issue (for example a label that does not exist). Create the missing label. Failed rows are not retried; look the report up by reference (admin page -> Feedback) and recreate it by hand if it matters. |
+| Two issues with the same `[FB-…]` title | GitHub's search index lags a few seconds to minutes. If the answer to a create was lost and the retry searched too early, a duplicate can be created. Close the duplicate by hand; the row is linked to one of them. |
+| Everything `pending`, no `github` rows in `api_calls` | The token or repo variable is not set in this environment, or `feedback_daily_issues` is 0. |
+| Reports `pending` after many hours, ceiling not reached | In the Supabase SQL editor: `select ref, attempts, next_attempt_at, lease_until, last_error from feedback where status = 'pending';`. A `next_attempt_at` in the future (1 hour after a GitHub error) is normal. |
+
+Retry a stuck row by hand: `update feedback set next_attempt_at = now(), lease_until = null where ref = 'FB-xxxxxxxx' and status = 'pending';`, then run the cron. Rows disappear by themselves after 365 days (`pending`/`failed`) or 180 days (`created`); screenshots are deleted after 90 days. Deleting an account removes its screenshots first.

@@ -29,7 +29,7 @@ async function readMetrics(p: AdminPeriods): Promise<BudgetMetrics> {
     if (error || !row) throw new Error("ai_usage read failed");
     return Number(row.global_spent);
   };
-  const [aiTodayMicroUsd, aiMonthMicroUsd, quota, ors, errs] = await Promise.all([
+  const [aiTodayMicroUsd, aiMonthMicroUsd, quota, ors, errs, authFails, stale] = await Promise.all([
     spend(p.dayStart),
     spend(p.monthStart),
     getQuotaState(p.now),
@@ -45,14 +45,26 @@ async function readMetrics(p: AdminPeriods): Promise<BudgetMetrics> {
       .eq("level", "error")
       .neq("event", "budget.alert") // our own alerts must not feed the error alert
       .gte("created_at", p.last24h.toISOString()),
+    admin
+      .from("app_events")
+      .select("id", { count: "exact", head: true })
+      .eq("event", "feedback.github_auth_failed")
+      .gte("created_at", p.dayStart.toISOString()),
+    admin
+      .from("feedback")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .lt("created_at", new Date(p.now.getTime() - 48 * 3_600_000).toISOString()),
   ]);
-  if (ors.error || errs.error) throw new Error("budget read failed");
+  if (ors.error || errs.error || authFails.error || stale.error) throw new Error("budget read failed");
   return {
     aiTodayMicroUsd,
     aiMonthMicroUsd,
     adbRemaining: quota.remaining,
     orsRequestsToday: ors.count ?? 0,
     errors24h: errs.count ?? 0,
+    feedbackAuthFailuresToday: authFails.count ?? 0,
+    feedbackStalePending: stale.count ?? 0,
   };
 }
 

@@ -1450,6 +1450,8 @@
         "aerodatabox_min_remaining": "AeroDataBox: monthly safety margin",
         "ors_daily_requests": "OpenRouteService: requests per day",
         "geoapify_daily_credits": "Geoapify: credits per day",
+        "feedback_user_daily": "Feedback: reports per user per day",
+        "feedback_daily_issues": "Feedback: GitHub issues per day (0 = pause)",
         "alert_errors_24h": "Error alert: errors in 24 hours"
       },
       "errors": {
