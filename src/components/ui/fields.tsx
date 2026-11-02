@@ -27,7 +27,7 @@ function Wrap({
         </p>
       )}
       {error && (
-        <p id={`${id}-err`} className={errorCls}>
+        <p id={`${id}-err`} role="alert" className={errorCls}>
           {error}
         </p>
       )}

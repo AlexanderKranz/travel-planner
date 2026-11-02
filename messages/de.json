@@ -1771,12 +1771,13 @@
     },
     "errors": {
       "unauthenticated": "Deine Sitzung ist abgelaufen. Bitte melde dich neu an.",
-      "invalid": "Bitte prüfe deine Nachricht: Sie braucht zwischen 10 und 4000 Zeichen.",
+      "invalid": "Bitte prüfe deine Nachricht: Sie braucht zwischen {min} und {max} Zeichen.",
       "rateLimited": "Du hast das Tageslimit für Meldungen erreicht. Bitte versuche es morgen wieder.",
       "demoForbidden": "Für Feedback brauchst du ein eigenes Konto.",
       "tooLarge": "Der Screenshot ist zu groß. Bitte wähle einen kleineren oder entferne ihn.",
       "badImage": "Diese Datei lässt sich nicht als Screenshot verwenden. Bitte wähle ein PNG-, JPEG- oder WebP-Bild.",
-      "failed": "Das Senden hat nicht geklappt. Dein Text steht noch da; bitte versuche es gleich noch einmal."
+      "failed": "Das Senden hat nicht geklappt. Dein Text steht noch da; bitte versuche es gleich noch einmal.",
+      "rateLimitedBurst": "Bitte warte kurz, bevor du erneut sendest."
     },
     "mine": {
       "title": "Meine Meldungen",

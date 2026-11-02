@@ -1771,12 +1771,13 @@
     },
     "errors": {
       "unauthenticated": "Your session has expired. Please sign in again.",
-      "invalid": "Please check your message: it needs between 10 and 4000 characters.",
+      "invalid": "Please check your message: it needs between {min} and {max} characters.",
       "rateLimited": "You have reached today's limit of reports. Please try again tomorrow.",
       "demoForbidden": "Feedback needs your own account.",
       "tooLarge": "The screenshot is too large. Please choose a smaller one or remove it.",
       "badImage": "This file could not be used as a screenshot. Please choose a PNG, JPEG or WebP image.",
-      "failed": "Sending did not work. Your text is still here; please try again in a moment."
+      "failed": "Sending did not work. Your text is still here; please try again in a moment.",
+      "rateLimitedBurst": "Please wait a moment before sending again."
     },
     "mine": {
       "title": "My reports",

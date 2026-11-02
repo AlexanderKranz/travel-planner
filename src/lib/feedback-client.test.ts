@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkScreenshotInput, feedbackErrorKey, fitsServerLimit, fitWithin, parseKind, safeFromPath, textState } from "./feedback-client";
+import { buildFeedbackFormData, checkScreenshotInput, responseErrorKey, feedbackErrorKey, fitsServerLimit, fitWithin, parseKind, safeFromPath, textState } from "./feedback-client";
 
 describe("fitWithin", () => {
   it("keeps small images", () => expect(fitWithin(800, 600)).toEqual({ width: 800, height: 600 }));
@@ -59,5 +59,47 @@ describe("safeFromPath / parseKind", () => {
     expect(parseKind("idea")).toBe("idea");
     expect(parseKind("x")).toBe("bug");
     expect(parseKind(undefined)).toBe("bug");
+  });
+});
+
+describe("hardening", () => {
+  it("rejects backslash, scheme and control characters in from", () => {
+    expect(safeFromPath("/\\evil")).toBeUndefined();
+    expect(safeFromPath("javascript:alert(1)")).toBeUndefined();
+    expect(safeFromPath("/app/x\ny")).toBeUndefined();
+  });
+  it("accepts an empty MIME type only with an image extension", () => {
+    expect(checkScreenshotInput({ type: "", size: 10, name: "Screen.PNG" })).toBe("ok");
+    expect(checkScreenshotInput({ type: "", size: 10, name: "notes.txt" })).toBe("bad_type");
+    expect(checkScreenshotInput({ type: "", size: 10 })).toBe("bad_type");
+  });
+});
+
+describe("responseErrorKey", () => {
+  it("separates burst from daily limit by Retry-After", () => {
+    expect(responseErrorKey(429, { ok: false, error: "rate_limited" }, "30")).toBe("rateLimitedBurst");
+    expect(responseErrorKey(429, { ok: false, error: "rate_limited" }, null)).toBe("rateLimited");
+  });
+  it("maps 413 without JSON to tooLarge", () => {
+    expect(responseErrorKey(413, null, null)).toBe("tooLarge");
+    expect(responseErrorKey(500, null, null)).toBe("failed");
+    expect(responseErrorKey(400, { ok: false, error: "bad_image" }, null)).toBe("badImage");
+  });
+});
+
+describe("buildFeedbackFormData", () => {
+  it("sends the expected fields", async () => {
+    const shot = new Blob(["x"], { type: "image/webp" });
+    const fd = buildFeedbackFormData({ kind: "idea", text: "  hello world!  ", from: "/de/app/trips", viewport: 359.6, screenshot: shot });
+    expect(fd.get("kind")).toBe("idea");
+    expect(fd.get("text")).toBe("hello world!");
+    expect(fd.get("pagePath")).toBe("/de/app/trips");
+    expect(fd.get("viewport")).toBe("360");
+    const f = fd.get("screenshot") as File;
+    expect(f.name).toBe("screenshot.webp");
+    expect(f.type).toBe("image/webp");
+  });
+  it("omits the screenshot when none", () => {
+    expect(buildFeedbackFormData({ kind: "bug", text: "abcdefghij", viewport: 400 }).has("screenshot")).toBe(false);
   });
 });

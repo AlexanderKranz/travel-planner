@@ -6,7 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { TextAreaField } from "@/components/ui/fields";
 import { btnPrimary, btnSecondary, cardCls, mutedCls } from "@/components/ui/styles";
 import { FEEDBACK_TEXT_MAX, FEEDBACK_TEXT_MIN, type FeedbackKind, type FeedbackResponse, type FeedbackScreenshotState } from "@/lib/domain/feedback";
-import { SCREENSHOT_ACCEPT, checkScreenshotInput, feedbackErrorKey, textState } from "@/lib/feedback-client";
+import { SCREENSHOT_ACCEPT, buildFeedbackFormData, checkScreenshotInput, responseErrorKey, textState } from "@/lib/feedback-client";
 import { downscaleScreenshot } from "./downscale";
 
 type Done = { ref: string; screenshot: FeedbackScreenshotState };
@@ -24,6 +24,9 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKind;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
+  const [touched, setTouched] = useState(false);
+  const inFlight = useRef(false);
+  const focusText = useRef(false);
 
   const urlRef = useRef<string | null>(null);
   const setFile = (blob: Blob | null) => {
@@ -35,12 +38,15 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKind;
 
   useEffect(() => {
     if (done) resultRef.current?.focus();
+    else if (focusText.current) {
+      focusText.current = false;
+      document.getElementById("feedback-text")?.focus();
+    }
   }, [done]);
 
   const state = textState(text);
   const count = text.trim().length;
-  const textProblem = state === "short" ? t("form.tooShort", { min: FEEDBACK_TEXT_MIN }) : state === "long" ? t("form.tooLong", { max: FEEDBACK_TEXT_MAX }) : undefined;
-  const canSend = state === "ok" && !busy;
+  const textProblem = !touched ? undefined : state === "short" || state === "empty" ? t("form.tooShort", { min: FEEDBACK_TEXT_MIN }) : state === "long" ? t("form.tooLong", { max: FEEDBACK_TEXT_MAX }) : undefined;
 
   async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = e.target.files?.[0];
@@ -58,16 +64,17 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKind;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSend) return;
+    if (inFlight.current || busy) return;
+    if (state !== "ok") {
+      setTouched(true);
+      document.getElementById("feedback-text")?.focus();
+      return;
+    }
+    inFlight.current = true;
     setBusy(true);
     setError(null);
     try {
-      const body = new FormData();
-      body.set("kind", kind);
-      body.set("text", text.trim());
-      body.set("pagePath", from ?? "");
-      body.set("viewport", String(window.innerWidth));
-      if (shot) body.set("screenshot", new File([shot.blob], `screenshot.${shot.blob.type === "image/webp" ? "webp" : "jpg"}`, { type: shot.blob.type }));
+      const body = buildFeedbackFormData({ kind, text, from, viewport: window.innerWidth, screenshot: shot?.blob });
       const res = await fetch("/api/feedback", { method: "POST", body });
       const json = (await res.json().catch(() => null)) as FeedbackResponse | null;
       if (json?.ok) {
@@ -76,11 +83,12 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKind;
         setFile(null);
         router.refresh(); // the new row shows up in "my reports"
       } else {
-        setError(feedbackErrorKey(json?.ok === false ? json.error : res.status === 413 ? "too_large" : undefined));
+        setError(responseErrorKey(res.status, json, res.headers.get("Retry-After")));
       }
     } catch {
       setError("failed");
     } finally {
+      inFlight.current = false;
       setBusy(false);
     }
   }
@@ -94,7 +102,7 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKind;
         </p>
         <p className={`text-sm ${mutedCls}`}>{t("success.hint")}</p>
         {done.screenshot === "failed" && <p className="text-sm text-warn-fg">{t("success.screenshotFailed")}</p>}
-        <button type="button" className={`${btnSecondary} self-start`} onClick={() => setDone(null)}>
+        <button type="button" className={`${btnSecondary} self-start`} onClick={() => { focusText.current = true; setTouched(false); setDone(null); }}>
           {t("success.another")}
         </button>
       </div>
@@ -128,7 +136,9 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKind;
           label={t("form.text")}
           hint={t("form.textHint", { min: FEEDBACK_TEXT_MIN })}
           error={textProblem}
+          id="feedback-text"
           value={text}
+          onBlur={() => setTouched(true)}
           onChange={(e) => setText(e.target.value)}
           rows={7}
           required
@@ -176,12 +186,12 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKind;
       <div aria-live="polite">
         {error && (
           <p role="alert" className="rounded-lg border border-danger-line bg-danger-bg p-3 text-sm text-danger-fg">
-            {t(`errors.${error}`)}
+            {t(`errors.${error}`, { min: FEEDBACK_TEXT_MIN, max: FEEDBACK_TEXT_MAX })}
           </p>
         )}
       </div>
 
-      <button type="submit" className={`${btnPrimary} self-start`} disabled={!canSend} aria-disabled={!canSend}>
+      <button type="submit" className={`${btnPrimary} self-start`} disabled={busy}>
         {busy ? t("form.sending") : t("form.submit")}
       </button>
     </form>
