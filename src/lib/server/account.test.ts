@@ -19,9 +19,12 @@ vi.mock("./session", () => ({ getUserSession: () => getUserSession() }));
 const getUserById = vi.fn();
 const allowlistEq = vi.fn();
 const order: string[] = [];
+const listFolder = vi.fn();
+const removeObjects = vi.fn();
 vi.mock("./supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
     auth: { admin: { deleteUser, getUserById } },
+    storage: { from: () => ({ list: (...a: unknown[]) => listFolder(...a), remove: (...a: unknown[]) => removeObjects(...a) }) },
     from: (table: string) => ({
       delete: () => ({
         eq: (col: string, val: string) => {
@@ -36,10 +39,12 @@ vi.mock("./supabase/admin", () => ({
 import { deleteAccount } from "./account";
 
 beforeEach(() => {
-  [logEvent, deleteUser, signOut, getUserSession, redirect, getUserById, allowlistEq].forEach((m) => m.mockClear());
+  [logEvent, deleteUser, signOut, getUserSession, redirect, getUserById, allowlistEq, listFolder, removeObjects].forEach((m) => m.mockClear());
   order.length = 0;
   getUserById.mockResolvedValue({ data: { user: { email: "Gone@Example.com" } } });
   allowlistEq.mockResolvedValue({ error: null });
+  listFolder.mockResolvedValue({ data: [], error: null });
+  removeObjects.mockResolvedValue({ error: null });
   deleteUser.mockImplementation(async () => {
     order.push("deleteUser");
     return { error: null };
@@ -47,6 +52,29 @@ beforeEach(() => {
   getUserSession.mockResolvedValue({ userId: "11111111-1111-4111-8111-111111111111", supabase: sessionClient });
   flagResult.mockResolvedValue({ data: { is_demo: false }, error: null });
   signOut.mockResolvedValue({});
+});
+
+describe("deleteAccount: feedback screenshots", () => {
+  it("removes the user's screenshot folder before the user is deleted", async () => {
+    listFolder.mockImplementationOnce(async () => {
+      order.push("listScreenshots");
+      return { data: [{ name: "a.webp" }], error: null };
+    });
+    listFolder.mockResolvedValue({ data: [], error: null });
+    removeObjects.mockImplementation(async () => {
+      order.push("removeScreenshots");
+      return { error: null };
+    });
+    await expect(deleteAccount("de")).rejects.toThrow("REDIRECT");
+    expect(listFolder).toHaveBeenCalledWith("11111111-1111-4111-8111-111111111111", expect.anything());
+    expect(removeObjects).toHaveBeenCalledWith(["11111111-1111-4111-8111-111111111111/a.webp"]);
+    expect(order.indexOf("removeScreenshots")).toBeLessThan(order.indexOf("deleteUser"));
+  });
+  it("does not delete the user when the screenshots cannot be removed", async () => {
+    listFolder.mockResolvedValue({ data: null, error: { message: "x" } });
+    expect(await deleteAccount("de")).toEqual({ ok: false, error: "failed" });
+    expect(deleteUser).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteAccount", () => {

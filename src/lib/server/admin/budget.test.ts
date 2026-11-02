@@ -3,7 +3,7 @@ import { evaluateBudget, type BudgetMetrics } from "./budget";
 import type { BudgetConfig } from "./config";
 
 const cfg: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsDailyCap: 400, geoapifyDailyCap: 400, errors24hThreshold: 20 };
-const calm: BudgetMetrics = { aiTodayMicroUsd: 0, aiMonthMicroUsd: 0, adbRemaining: 300, orsRequestsToday: 0, errors24h: 0 };
+const calm: BudgetMetrics = { aiTodayMicroUsd: 0, aiMonthMicroUsd: 0, adbRemaining: 300, orsRequestsToday: 0, errors24h: 0, feedbackAuthFailuresToday: 0, feedbackStalePending: 0 };
 const kinds = (m: Partial<BudgetMetrics>, c = cfg) => evaluateBudget({ ...calm, ...m }, c).map((a) => `${a.kind}:${a.level}`);
 
 describe("evaluateBudget", () => {
@@ -34,6 +34,13 @@ describe("evaluateBudget", () => {
     expect(kinds({ errors24h: 20 })).toEqual([]);
     expect(kinds({ errors24h: 21 })).toEqual(["errors_24h:warn"]);
     expect(kinds({ errors24h: 41 })).toEqual(["errors_24h:error"]);
+  });
+  it("feedback delivery: an auth failure today is an error, a stale pending row a warning", () => {
+    expect(kinds({ feedbackAuthFailuresToday: 1 })).toEqual(["feedback_delivery:error"]);
+    expect(kinds({ feedbackStalePending: 2 })).toEqual(["feedback_delivery:warn"]);
+    expect(kinds({ feedbackAuthFailuresToday: 1, feedbackStalePending: 2 })).toEqual(["feedback_delivery:error"]);
+    const [a] = evaluateBudget({ ...calm, feedbackAuthFailuresToday: 1, feedbackStalePending: 2 }, cfg);
+    expect(a.props).toEqual({ auth_failures: 1, stale_pending: 2 });
   });
   it("a zero cap disables that check", () => {
     expect(kinds({ aiTodayMicroUsd: 1, orsRequestsToday: 5 }, { ...cfg, aiDailyCapMicroUsd: 0, orsDailyCap: 0 })).toEqual([]);

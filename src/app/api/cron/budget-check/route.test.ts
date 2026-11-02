@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 const run = vi.fn();
 vi.mock("@/lib/server/admin/budget-run", () => ({ runBudgetCheck: (...a: unknown[]) => run(...a) }));
+const feedbackCron = vi.fn();
+vi.mock("@/lib/server/feedback/cron", () => ({ runFeedbackCron: (...a: unknown[]) => feedbackCron(...a) }));
 const logEvent = vi.fn();
 vi.mock("@/lib/server/events", () => ({ logEvent: (...a: unknown[]) => logEvent(...a) }));
 
@@ -14,6 +16,8 @@ describe("GET /api/cron/budget-check", () => {
   beforeEach(() => {
     process.env.CRON_SECRET = "cron-secret";
     run.mockReset();
+    feedbackCron.mockReset();
+    feedbackCron.mockResolvedValue({ delivered: 0, attempted: 0, stopped: false, screenshotsPurged: 0, rowsDeleted: 0 });
     logEvent.mockReset();
   });
   afterEach(() => {
@@ -37,7 +41,8 @@ describe("GET /api/cron/budget-check", () => {
     run.mockResolvedValue({ alerts: [{ kind: "ai_daily", level: "warn", sent: true }] });
     const res = await GET(req("Bearer cron-secret"));
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, alerts: [{ kind: "ai_daily", level: "warn", sent: true }] });
+    expect(await res.json()).toMatchObject({ ok: true, alerts: [{ kind: "ai_daily", level: "warn", sent: true }], feedback: { delivered: 0 } });
+    expect(feedbackCron).toHaveBeenCalledTimes(1);
   });
   it("500 and an error event when the check throws", async () => {
     run.mockRejectedValue(new Error("boom"));

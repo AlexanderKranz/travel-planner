@@ -1,6 +1,6 @@
 import type { BudgetConfig } from "./config";
 
-export type AlertKind = "ai_daily" | "ai_monthly" | "aerodatabox_monthly" | "ors_daily" | "errors_24h";
+export type AlertKind = "ai_daily" | "ai_monthly" | "aerodatabox_monthly" | "ors_daily" | "errors_24h" | "feedback_delivery";
 export type Alert = { kind: AlertKind; level: "warn" | "error"; props: Record<string, number> };
 
 /** Measured values (null = not measurable, e.g. no AeroDataBox call logged yet). */
@@ -10,6 +10,10 @@ export type BudgetMetrics = {
   adbRemaining: number | null;
   orsRequestsToday: number;
   errors24h: number;
+  /** `feedback.github_auth_failed` events since Berlin midnight. */
+  feedbackAuthFailuresToday: number;
+  /** Pending feedback rows older than 48 h. */
+  feedbackStalePending: number;
 };
 
 export const WARN_AT = 0.8;
@@ -37,6 +41,13 @@ export function evaluateBudget(m: BudgetMetrics, cfg: BudgetConfig): Alert[] {
   }
   if (m.errors24h > cfg.errors24hThreshold) {
     out.push({ kind: "errors_24h", level: m.errors24h > cfg.errors24hThreshold * 2 ? "error" : "warn", props: { count: m.errors24h, threshold: cfg.errors24hThreshold } });
+  }
+  if (m.feedbackAuthFailuresToday > 0 || m.feedbackStalePending > 0) {
+    out.push({
+      kind: "feedback_delivery",
+      level: m.feedbackAuthFailuresToday > 0 ? "error" : "warn",
+      props: { auth_failures: m.feedbackAuthFailuresToday, stale_pending: m.feedbackStalePending },
+    });
   }
   return out.filter((a): a is Alert => a !== null);
 }

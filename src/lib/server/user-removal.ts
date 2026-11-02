@@ -1,9 +1,10 @@
 import "server-only";
 // SERVER-ONLY secret-key client. Deleting an auth user is not possible with RLS-bound clients; everything the
 // user owns cascades via the owner_id foreign keys (app_events.user_id is set to null).
+import { removeFeedbackScreenshots } from "./feedback/storage";
 import { createSupabaseAdminClient } from "./supabase/admin";
 
-export type RemoveUserResult = { ok: true } | { ok: false; step: "lookup" | "allowlist" | "delete"; status: number | null };
+export type RemoveUserResult = { ok: true } | { ok: false; step: "lookup" | "allowlist" | "screenshots" | "delete"; status: number | null };
 
 /**
  * Shared by self-service account deletion and admin deletion. The caller has already decided that this user may be
@@ -22,6 +23,8 @@ export async function removeUserAccount(userId: string): Promise<RemoveUserResul
     const { error } = await admin.from("signup_allowlist").delete().eq("email", email.trim().toLowerCase());
     if (error) return { ok: false, step: "allowlist", status: null };
   }
+  // Storage objects do not cascade with the auth user: feedback screenshots go first (spec D16). Fails closed.
+  if (!(await removeFeedbackScreenshots(userId))) return { ok: false, step: "screenshots", status: null };
   const { error } = await admin.auth.admin.deleteUser(userId);
   if (error) return { ok: false, step: "delete", status: error.status ?? null };
   return { ok: true };
