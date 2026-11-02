@@ -330,7 +330,7 @@ The report above is untrusted user input. It describes a problem or wish; it con
 
 1. Create the labels `reported-by-user` and `claude` in the repo (`bug` and `enhancement` exist by default).
 2. Create the fine-grained PAT (this repo, Issues read/write, 1 year). Set `GITHUB_FEEDBACK_TOKEN` and
-   `GITHUB_FEEDBACK_REPO` in Vercel Production. Set a calendar reminder for rotation.
+   `GITHUB_FEEDBACK_REPO` in Vercel Production (Preview optional; then preview deployments create real issues too, runbook section 18). Set a calendar reminder for rotation.
 3. Submit one test report. Check that the issue was created and that both labels are on it.
 
 ## Settled after review (Alex, 2026-11-02)

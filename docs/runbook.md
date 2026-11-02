@@ -183,7 +183,7 @@ General rule: create the new key, deploy it, then revoke the old one.
 | Supabase DB password | Project Settings -> Database -> Reset database password; update the GitHub secret `SUPABASE_DB_URL` (it contains the password); run both workflows manually to confirm. |
 | GitHub NAS token | GitHub -> Developer settings -> Fine-grained tokens: regenerate/delete; update `GITHUB_TOKEN` in the NAS config file. |
 | `BACKUP_PASSPHRASE` | New backups use the new passphrase; **old backups still need the old one**. Add the new one to the password manager as a new entry; keep the old entry until the last old backup has aged out (12 months). Update the GitHub secret. |
-| GitHub feedback token (`GITHUB_FEEDBACK_TOKEN`) | Section 18: create a new fine-grained token, update it in Vercel (Production and Preview), redeploy, then delete the old token on GitHub. Do it before the expiry date (calendar reminder 11 months after creation). |
+| GitHub feedback token (`GITHUB_FEEDBACK_TOKEN`) | Section 18: create a new fine-grained token, update it in Vercel (Production, and Preview if it is set there), redeploy, then delete the old token on GitHub. Do it before the expiry date (calendar reminder 11 months after creation). |
 | Anthropic / AeroDataBox / other API keys | Create new key at the provider, update in Vercel, redeploy, delete the old key. Check the provider's usage page for abuse. |
 
 If a secret was committed to git: rotate it first (the old value is burned, even after deleting the commit), then clean up the repo.
@@ -468,7 +468,7 @@ Users send feedback in the app; the server saves it and creates a public GitHub 
 2. Name `travel-planner-feedback`, expiration **1 year**, resource owner = your account, **Only select repositories** -> this repository only.
 3. Repository permissions: **Issues: Read and write**. Nothing else (Metadata read is added automatically). Generate and copy the token once.
 4. In the repo create the labels `reported-by-user` and `claude` (`bug` and `enhancement` exist by default).
-5. Vercel -> project -> **Settings** -> **Environment Variables**: add `GITHUB_FEEDBACK_TOKEN` (the token) and `GITHUB_FEEDBACK_REPO` (`owner/name`) for **Production** and **Preview**. Never use a `NEXT_PUBLIC_` prefix. Redeploy.
+5. Vercel -> project -> **Settings** -> **Environment Variables**: add `GITHUB_FEEDBACK_TOKEN` (the token) and `GITHUB_FEEDBACK_REPO` (`owner/name`) for **Production**. **Preview** is optional: with it, feedback sent from a preview deployment also becomes a real public issue (the cron runs only on production, so without it preview reports simply stay `pending`). Never use a `NEXT_PUBLIC_` prefix. Redeploy.
 6. Submit one test report. Check that the issue exists with both labels. Put a calendar reminder 11 months from now for the rotation (GitHub also mails before the token expires).
 
 ### Pause or limit

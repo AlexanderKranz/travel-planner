@@ -98,6 +98,13 @@ describe("lookupFeedbackRef", () => {
     expect(r.ok && r.data.screenshotUrl).toBeNull();
     expect(createSignedUrl).not.toHaveBeenCalled();
   });
+
+  it("a failed email or screenshot read is an error, not missing data", async () => {
+    getUserById.mockResolvedValueOnce({ data: { user: null }, error: { message: "boom" } });
+    expect(await lookupFeedbackRef("FB-k3x9p2qa")).toMatchObject({ ok: false, error: "failed" });
+    createSignedUrl.mockResolvedValueOnce({ data: null, error: { message: "boom" } });
+    expect(await lookupFeedbackRef("FB-k3x9p2qa")).toMatchObject({ ok: false, error: "failed" });
+  });
 });
 
 describe("getFeedbackStats", () => {

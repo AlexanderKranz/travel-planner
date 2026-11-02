@@ -61,6 +61,8 @@ export async function lookupFeedbackRef(input: unknown): Promise<ActionResult<Fe
       ? admin.storage.from(FEEDBACK_BUCKET).createSignedUrl(row.data.screenshot_path, SIGNED_URL_SECONDS)
       : Promise.resolve(null),
   ]);
+  // A failed Auth or Storage read must not look like "no email" or "no screenshot".
+  if (user.error || signed?.error) return fail("failed");
   return {
     ok: true,
     data: {
