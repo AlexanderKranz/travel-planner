@@ -1,4 +1,4 @@
-// Pure builders for the demo account's finished example trip. No I/O, no LLM, no network.
+// Pure builders for the demo account's finished example trip and recorded destination search. No I/O, no LLM, no network.
 // Imported by scripts/demo/reset.mjs (Node strips the types) and unit-tested in seed.test.ts.
 // Keep this file free of `@/` imports and of non-erasable TypeScript (enums, parameter properties).
 
@@ -100,6 +100,32 @@ export function buildExampleVersion(
     feedback: null,
     changed_days: [],
     model: example.model,
+    cost_micro_usd: 0, // seeded from a recording: no real spend, nothing written to ai_usage
+  };
+}
+
+/** A destination search recorded once in the demo account (scripts/demo/discover-golf.json), without its row ids. */
+export type RecordedSearchFile = Record<string, unknown> & { recorded_at: string; cost_micro_usd: number };
+
+/**
+ * The recorded "Golftrip" search as a fresh row: ids of the re-seeded purpose and group, status done, no lock. Lets
+ * visitors see a suggestion list without a Haiku call. A visitor repeating the same search reuses it by `input_hash`
+ * only while the prompt version and model are unchanged (they are part of the hash); otherwise it simply runs anew.
+ */
+export function buildExampleSearch(
+  recorded: RecordedSearchFile,
+  ids: { ownerId: string; purposeId: string; groupId: string },
+): Record<string, unknown> {
+  const row: Record<string, unknown> = { ...recorded };
+  delete row.recorded_at;
+  return {
+    ...row,
+    owner_id: ids.ownerId,
+    purpose_id: ids.purposeId,
+    group_id: ids.groupId,
+    status: "done",
+    busy_until: null,
+    error_code: null,
     cost_micro_usd: 0, // seeded from a recording: no real spend, nothing written to ai_usage
   };
 }

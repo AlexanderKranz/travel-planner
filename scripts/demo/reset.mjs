@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { createClient } from "@supabase/supabase-js";
 // Node strips the types of seed.ts (Node >= 22.18 / 24). Pure builders, unit-tested in seed.test.ts.
-import { buildExampleItems, buildExampleTrip, buildExampleVersion, EXAMPLE_GROUP } from "./seed.ts";
+import { buildExampleItems, buildExampleSearch, buildExampleTrip, buildExampleVersion, EXAMPLE_GROUP } from "./seed.ts";
 
 function loadEnvFile(path) {
   if (!existsSync(path)) return;
@@ -258,6 +258,19 @@ const PASSAU = {
   );
   check(version.error, "inserting the example plan version");
   log("example trip with plan version, items and free-text group inserted");
+}
+
+// 6. Recorded destination search for "Golftrip" (scripts/demo/discover-golf.json), so "Find destinations" shows a
+// finished list without a Haiku call. Refresh: run the same search in the demo once and export the row again.
+{
+  const recorded = JSON.parse(readFileSync(resolve(import.meta.dirname, "discover-golf.json"), "utf8"));
+  const { data: golfGroup, error: ggErr } = await sb.from("travel_groups").select("id").eq("owner_id", userId).eq("name", "Golf-Duo").single();
+  check(ggErr, "reading the Golf-Duo group");
+  const { error } = await sb
+    .from("destination_searches")
+    .insert(buildExampleSearch(recorded, { ownerId: userId, purposeId: purposeIds["Golftrip"], groupId: golfGroup.id }));
+  check(error, "inserting the recorded destination search");
+  log(`recorded destination search inserted (recorded ${recorded.recorded_at.slice(0, 10)})`);
 }
 
 log("done. Remember: DEMO_ENABLED=true must be set where the app runs.");

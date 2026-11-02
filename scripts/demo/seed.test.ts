@@ -2,9 +2,21 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { Plan } from "@/lib/domain/plan";
-import { buildExampleItems, buildExampleTrip, buildExampleVersion, EXAMPLE_GROUP, EXAMPLE_ITEMS, EXAMPLE_TRIP, type ExamplePlanFile } from "./seed";
+import { SearchDrops, SuggestionCards } from "@/lib/domain/destination-search";
+import {
+  buildExampleItems,
+  buildExampleSearch,
+  buildExampleTrip,
+  buildExampleVersion,
+  EXAMPLE_GROUP,
+  EXAMPLE_ITEMS,
+  EXAMPLE_TRIP,
+  type ExamplePlanFile,
+  type RecordedSearchFile,
+} from "./seed";
 
 const example = JSON.parse(readFileSync(resolve(__dirname, "example-plan.json"), "utf8")) as ExamplePlanFile;
+const search = JSON.parse(readFileSync(resolve(__dirname, "discover-golf.json"), "utf8")) as RecordedSearchFile;
 const HHMM = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 const ids = { ownerId: "00000000-0000-4000-8000-000000000001", tripId: "00000000-0000-4000-8000-000000000002" };
 
@@ -62,7 +74,25 @@ describe("demo example seed", () => {
   });
 
   it("contains no email addresses or secrets", () => {
-    const all = JSON.stringify([EXAMPLE_TRIP, EXAMPLE_GROUP, EXAMPLE_ITEMS, example]);
+    const all = JSON.stringify([EXAMPLE_TRIP, EXAMPLE_GROUP, EXAMPLE_ITEMS, example, search]);
     expect(all).not.toMatch(/@[a-z0-9-]+\.[a-z]{2,}/i);
+  });
+
+  describe("recorded destination search", () => {
+    const row = buildExampleSearch(search, { ownerId: ids.ownerId, purposeId: "p", groupId: "g" });
+
+    it("still parses with the current card and drop schemas", () => {
+      expect(SuggestionCards.safeParse(row.cards).success).toBe(true);
+      expect(SearchDrops.safeParse(row.drops).success).toBe(true);
+      expect((row.cards as unknown[]).length).toBeGreaterThanOrEqual(3);
+    });
+
+    it("is a finished, unlocked flight search for the demo golf purpose at no cost", () => {
+      expect(row).toMatchObject({ owner_id: ids.ownerId, purpose_id: "p", group_id: "g", status: "done", busy_until: null, cost_micro_usd: 0 });
+      expect(row).not.toHaveProperty("id");
+      expect(row).not.toHaveProperty("recorded_at");
+      expect(row.purpose_name).toBe("Golftrip");
+      expect(row.travel_mode).toBe("flight");
+    });
   });
 });

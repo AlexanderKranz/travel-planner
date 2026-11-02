@@ -1,0 +1,343 @@
+{
+  "purpose_name": "Golftrip",
+  "locale": "de",
+  "months": [
+    3
+  ],
+  "origins": [
+    "FRA",
+    "MUC"
+  ],
+  "max_flight_hours": 3,
+  "radius_km": 2128,
+  "input_hash": "3c34d77a386936fc38df9f765392ac6ee3edaa9471b231a1b20605786197e43c",
+  "input": {
+    "v": 1,
+    "from": [
+      "Frankfurt am Main",
+      "Munich"
+    ],
+    "lang": "de",
+    "count": 8,
+    "group": {
+      "adults": 2,
+      "children": 0,
+      "toddlers": 0
+    },
+    "months": [
+      3
+    ],
+    "exclude": [
+      "Lagos",
+      "Marbella",
+      "Alicante",
+      "Florence",
+      "Verona",
+      "Montpellier",
+      "Nice",
+      "Palma de Mallorca"
+    ],
+    "purpose": {
+      "hard": [
+        "golf every day",
+        "36 holes on one day",
+        "flat to moderate courses",
+        "single room",
+        "rental car"
+      ],
+      "soft": [
+        "arrival and departure days are golf days"
+      ],
+      "custom": [],
+      "summary": "Golf trip with one friend. One round daily, 36 holes on one day. Courses not too hilly. Travel day counts as golf day.",
+      "interests": [
+        "golf"
+      ]
+    },
+    "fromIata": [
+      "FRA",
+      "MUC"
+    ],
+    "radiusKm": 2128
+  },
+  "status": "done",
+  "rounds": 1,
+  "cards": [
+    {
+      "id": "g2267226",
+      "kind": "region",
+      "name": "Algarve",
+      "pois": [
+        {
+          "count": 15,
+          "stale": false,
+          "source": "osm",
+          "status": "ok",
+          "interest": "golf",
+          "radiusKm": 40,
+          "fetchedAt": "2026-11-01T19:55:44.016+00:00"
+        }
+      ],
+      "geoId": 2267226,
+      "place": {
+        "stale": false,
+        "source": "geonames",
+        "fetchedAt": "2026-11-01T19:55:38.223+00:00"
+      },
+      "round": 1,
+      "admin1": "Faro",
+      "flight": {
+        "origin": "FRA",
+        "gateway": "FAO",
+        "minutes": 177
+      },
+      "reason": "Dutzende flache bis moderate Golfplätze im März, mild und ideal für eine tägliche Runde mit dem Mietwagen.",
+      "climate": {
+        "stale": false,
+        "months": [
+          {
+            "month": 3,
+            "tMaxC": 18.2,
+            "tMinC": 10.9,
+            "wetDays": 11.2,
+            "precipMm": 87.4,
+            "sunshineHours": 9.9
+          }
+        ],
+        "period": {
+          "to": 2025,
+          "from": 2016
+        },
+        "source": "open_meteo",
+        "status": "ok",
+        "fetchedAt": "2026-11-01T19:55:42.167+00:00"
+      },
+      "placeName": "Lagos",
+      "countryCode": "PT",
+      "nearAirport": false
+    },
+    {
+      "id": "g2514169",
+      "kind": "region",
+      "name": "Costa del Sol",
+      "pois": [
+        {
+          "count": 25,
+          "stale": false,
+          "source": "osm",
+          "status": "ok",
+          "interest": "golf",
+          "radiusKm": 40,
+          "fetchedAt": "2026-11-01T19:55:44.499+00:00"
+        }
+      ],
+      "geoId": 2514169,
+      "place": {
+        "stale": false,
+        "source": "geonames",
+        "fetchedAt": "2026-11-01T19:55:38.214+00:00"
+      },
+      "round": 1,
+      "admin1": "Andalusien",
+      "flight": {
+        "origin": "FRA",
+        "gateway": "AGP",
+        "minutes": 167
+      },
+      "reason": "Viele Golfplätze in Küstennähe, im März angenehm warm und mit flachen Plätzen für Golf jeden Tag.",
+      "climate": {
+        "stale": false,
+        "months": [
+          {
+            "month": 3,
+            "tMaxC": 17.9,
+            "tMinC": 11.2,
+            "wetDays": 10.9,
+            "precipMm": 130.1,
+            "sunshineHours": 9.4
+          }
+        ],
+        "period": {
+          "to": 2025,
+          "from": 2016
+        },
+        "source": "open_meteo",
+        "status": "ok",
+        "fetchedAt": "2026-11-01T19:55:41.842+00:00"
+      },
+      "placeName": "Marbella",
+      "countryCode": "ES",
+      "nearAirport": false
+    },
+    {
+      "id": "g2521978",
+      "kind": "region",
+      "name": "Costa Blanca",
+      "pois": [
+        {
+          "count": 9,
+          "stale": false,
+          "source": "osm",
+          "status": "ok",
+          "interest": "golf",
+          "radiusKm": 40,
+          "fetchedAt": "2026-11-01T19:55:47.686+00:00"
+        }
+      ],
+      "geoId": 2521978,
+      "place": {
+        "stale": false,
+        "source": "geonames",
+        "fetchedAt": "2026-11-01T19:55:38.239+00:00"
+      },
+      "round": 1,
+      "admin1": "Valencia",
+      "flight": {
+        "origin": "FRA",
+        "gateway": "ALC",
+        "minutes": 142
+      },
+      "reason": "Flache Golfplätze, im März sonnig und gut zu erreichen, perfekt für Doppelrunden und Anreisetage auf dem Platz.",
+      "climate": {
+        "stale": false,
+        "months": [
+          {
+            "month": 3,
+            "tMaxC": 18.5,
+            "tMinC": 10.8,
+            "wetDays": 7.8,
+            "precipMm": 66.7,
+            "sunshineHours": 9.6
+          }
+        ],
+        "period": {
+          "to": 2025,
+          "from": 2016
+        },
+        "source": "open_meteo",
+        "status": "ok",
+        "fetchedAt": "2026-11-01T19:55:45.993+00:00"
+      },
+      "placeName": "Alicante",
+      "countryCode": "ES",
+      "nearAirport": false
+    },
+    {
+      "id": "g3176959",
+      "kind": "region",
+      "name": "Toskana",
+      "pois": [
+        {
+          "count": 10,
+          "stale": false,
+          "source": "osm",
+          "status": "ok",
+          "interest": "golf",
+          "radiusKm": 40,
+          "fetchedAt": "2026-11-02T20:23:24.746Z"
+        }
+      ],
+      "geoId": 3176959,
+      "place": {
+        "stale": false,
+        "source": "geonames",
+        "fetchedAt": "2026-11-01T19:27:07.315+00:00"
+      },
+      "round": 1,
+      "admin1": "Toskana",
+      "flight": {
+        "origin": "MUC",
+        "gateway": "FLR",
+        "minutes": 68
+      },
+      "reason": "Golfplätze mit sanften Hügeln im März, dazu Mietwagen-Touren durch die Region mit viel Abwechslung.",
+      "climate": {
+        "stale": false,
+        "months": [
+          {
+            "month": 3,
+            "tMaxC": 15.6,
+            "tMinC": 4.9,
+            "wetDays": 10.7,
+            "precipMm": 92.1,
+            "sunshineHours": 8.7
+          }
+        ],
+        "period": {
+          "to": 2025,
+          "from": 2016
+        },
+        "source": "open_meteo",
+        "status": "ok",
+        "fetchedAt": "2026-11-01T19:27:14.163+00:00"
+      },
+      "placeName": "Florenz",
+      "countryCode": "IT",
+      "nearAirport": false
+    },
+    {
+      "id": "g3164527",
+      "kind": "region",
+      "name": "Gardasee",
+      "pois": [
+        {
+          "count": 14,
+          "stale": false,
+          "source": "osm",
+          "status": "ok",
+          "interest": "golf",
+          "radiusKm": 40,
+          "fetchedAt": "2026-11-02T20:23:26.091Z"
+        }
+      ],
+      "geoId": 3164527,
+      "place": {
+        "stale": false,
+        "source": "geonames",
+        "fetchedAt": "2026-11-02T20:23:22.999Z"
+      },
+      "round": 1,
+      "admin1": "Venetien",
+      "flight": {
+        "origin": "MUC",
+        "gateway": "VRN",
+        "minutes": 55
+      },
+      "reason": "Mehrere flache bis moderate Plätze rund um den See, im März noch ruhig und mit guter Anbindung per Auto.",
+      "climate": {
+        "stale": false,
+        "months": [
+          {
+            "month": 3,
+            "tMaxC": 14.6,
+            "tMinC": 4.8,
+            "wetDays": 9.2,
+            "precipMm": 66.6,
+            "sunshineHours": 9
+          }
+        ],
+        "period": {
+          "to": 2025,
+          "from": 2016
+        },
+        "source": "open_meteo",
+        "status": "ok",
+        "fetchedAt": "2026-11-02T20:23:25.456Z"
+      },
+      "placeName": "Verona",
+      "countryCode": "IT",
+      "nearAirport": false
+    }
+  ],
+  "drops": {
+    "1": {}
+  },
+  "model": "claude-haiku-5-5",
+  "cost_micro_usd": 693,
+  "travel_mode": "flight",
+  "max_drive_hours": null,
+  "home_name": null,
+  "home_lat": null,
+  "home_lon": null,
+  "recorded_at": "2026-11-02T20:23:17.939562+00:00"
+}
