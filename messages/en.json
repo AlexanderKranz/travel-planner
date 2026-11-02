@@ -1529,6 +1529,7 @@
       "climatePeriod": "average {from}–{to}",
       "climateNotChecked": "Climate: not checked",
       "poiCount": "{items} within {km} km",
+      "poiAtLeast": "at least {items}",
       "poiNotChecked": "{interest}: not checked",
       "source": "Source",
       "checkedOn": "checked {date}",
