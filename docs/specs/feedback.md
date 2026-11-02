@@ -139,7 +139,7 @@ calls.
     - The claude-code-action workflow starts only when Alex adds the label `claude`.
     - It runs on Alex's Claude Pro subscription through `CLAUDE_CODE_OAUTH_TOKEN` (from `claude setup-token`), stored
       in a protected GitHub environment.
-    - Limits: Sonnet, at most 25 turns, 30 minutes.
+    - Limits: Sonnet, at most 40 turns, 30 minutes.
     - It has no production secrets and never merges.
   - **Branch protection** (separate PR): 1 required approval plus CODEOWNERS, so every agent PR needs Alex's approval.
   - **Runbook:** a new section "Feedback token", covering rotation before expiry (calendar reminder 11 months after
