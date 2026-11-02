@@ -40,6 +40,13 @@ jobs:
         with:
           persist-credentials: false # the action sets up its own git credentials
 
+      # Same Node/npm as CI: the runner default is older and its npm rejects our lockfile
+      # (first agent run on #102: "Missing: typescript@5.9.3 from lock file").
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+
       # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB needs bubblewrap; the action only installs it for non-write
       # users, so install it here (same commands as the action's own step). Not best-effort: without
       # isolation Claude Code refuses to start, which is the safe failure.
