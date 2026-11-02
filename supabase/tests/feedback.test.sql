@@ -86,7 +86,7 @@ delete from public.feedback;
 -- ---------- feedback_submit: 10 per Berlin day ----------
 set local role service_role;
 select is((select count(*)::int from (
-  select (public.feedback_submit('fa000000-0000-4000-8000-000000000001', 'FB-subaaaa' || chr(96 + g), 'bug', 'text ' || g, '/app/x', 'local', null, 'en', 10)).outcome
+  select (public.feedback_submit('fa000000-0000-4000-8000-000000000001', 'FB-subaaaa' || substr('abcdefghjk', g, 1), 'bug', 'text ' || g, '/app/x', 'local', null, 'en', 10)).outcome
     from generate_series(1, 10) g) s where outcome = 'created'), 10, 'first 10 reports are created');
 select is((select outcome from public.feedback_submit('fa000000-0000-4000-8000-000000000001', 'FB-sub22222', 'bug', 'eleventh', null, 'local', null, 'en', 10)),
   'limited', 'the 11th report of the Berlin day returns limited');
@@ -108,12 +108,12 @@ reset role;
 -- ---------- feedback_claim: app-wide ceiling ----------
 delete from public.feedback;
 insert into public.feedback (id, ref, owner_id, kind, body, app_version, locale, status, issue_number, issue_url, issue_created_at) values
-  ('11111111-0000-4000-8000-000000000001', 'FB-claim222', 'fa000000-0000-4000-8000-000000000001', 'bug', null, 'local', 'en', 'created', 1, 'https://github.com/o/r/issues/1', now()),
-  ('11111111-0000-4000-8000-000000000002', 'FB-claim223', 'fa000000-0000-4000-8000-000000000001', 'bug', null, 'local', 'en', 'created', 2, 'https://github.com/o/r/issues/2', now() - interval '2 days');
+  ('11111111-0000-4000-8000-000000000001', 'FB-cckkkk22', 'fa000000-0000-4000-8000-000000000001', 'bug', null, 'local', 'en', 'created', 1, 'https://github.com/o/r/issues/1', now()),
+  ('11111111-0000-4000-8000-000000000002', 'FB-cckkkk23', 'fa000000-0000-4000-8000-000000000001', 'bug', null, 'local', 'en', 'created', 2, 'https://github.com/o/r/issues/2', now() - interval '2 days');
 insert into public.feedback (id, ref, owner_id, kind, body, app_version, locale) values
-  ('22222222-0000-4000-8000-000000000001', 'FB-claim224', 'fa000000-0000-4000-8000-000000000001', 'bug', 'p1', 'local', 'en'),
-  ('22222222-0000-4000-8000-000000000002', 'FB-claim225', 'fa000000-0000-4000-8000-000000000001', 'bug', 'p2', 'local', 'en'),
-  ('22222222-0000-4000-8000-000000000003', 'FB-claim226', 'fb000000-0000-4000-8000-000000000002', 'idea', 'p3', 'local', 'de');
+  ('22222222-0000-4000-8000-000000000001', 'FB-cckkkk24', 'fa000000-0000-4000-8000-000000000001', 'bug', 'p1', 'local', 'en'),
+  ('22222222-0000-4000-8000-000000000002', 'FB-cckkkk25', 'fa000000-0000-4000-8000-000000000001', 'bug', 'p2', 'local', 'en'),
+  ('22222222-0000-4000-8000-000000000003', 'FB-cckkkk26', 'fb000000-0000-4000-8000-000000000002', 'idea', 'p3', 'local', 'de');
 
 set local role service_role;
 -- used today = 1 created (the one from 2 days ago does not count)
