@@ -494,7 +494,8 @@ Sources checked on 2026-11-02:
 ### If something goes wrong
 
 - Run fails at sign-in: the token expired or was revoked -> rotate it (section 6).
-- Run fails within a minute with "Claude Code could not start: bubblewrap is required": the step "Install subprocess isolation (bubblewrap)" did not run or failed (apt or AppArmor on the runner). Check that step's log; do **not** set `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=0` to get past it, that removes the token isolation.
+- Step "Install subprocess isolation (bubblewrap)" fails (red, the Claude step never runs): apt or the AppArmor `sysctl` failed on the runner. Re-run the job; if it keeps failing, read that step's log.
+- Run fails within a minute with "Claude Code could not start: bubblewrap is required" although the install step is green: `bwrap` is installed but not usable (for example a changed runner image). Check the install step's log and `bwrap --version`. Do **not** set `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=0` to get past either case: that removes the token isolation.
 - A run looks off (strange commits, unexpected files): cancel it, close the PR, delete the `claude/*` branch, rotate `CLAUDE_CODE_OAUTH_TOKEN`, and check the run log (it is public; no full tool output is shown).
 - Usage limit reached: the run stops; try again after the limit resets.
 - Disable the agent entirely: Actions -> "Claude agent for issues" -> "..." -> **Disable workflow**.
