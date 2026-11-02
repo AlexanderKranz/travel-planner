@@ -1468,6 +1468,7 @@
     "feedback": {
       "title": "Feedback",
       "intro": "Meldungen von Nutzern werden zu öffentlichen GitHub-Issues. Dieser Bereich zeigt nur Zahlen.",
+      "statsUnavailable": "Die Statistik konnte nicht geladen werden. Die Suche nach einer Referenz funktioniert trotzdem.",
       "today": "Issues heute",
       "total14": "Issues, 14 Tage",
       "pending": "Wartend",

@@ -1468,6 +1468,7 @@
     "feedback": {
       "title": "Feedback",
       "intro": "Reports sent by users become public GitHub issues. This section shows counts only.",
+      "statsUnavailable": "The statistics could not be loaded. The reference lookup still works.",
       "today": "Issues today",
       "total14": "Issues, 14 days",
       "pending": "Waiting",

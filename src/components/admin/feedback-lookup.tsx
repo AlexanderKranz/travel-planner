@@ -23,9 +23,14 @@ export function FeedbackLookupForm() {
     setError(null);
     setResult(null);
     start(async () => {
-      const r = await lookupFeedbackRef(ref);
-      if (r.ok) setResult(r.data);
-      else setError(t(`errors.${(KNOWN as readonly string[]).includes(r.error) ? r.error : "failed"}`));
+      try {
+        const r = await lookupFeedbackRef(ref);
+        if (r.ok) setResult(r.data);
+        else setError(t(`errors.${(KNOWN as readonly string[]).includes(r.error) ? r.error : "failed"}`));
+      } catch {
+        // A dropped connection must not hand the error to the boundary and replace the admin page.
+        setError(t("errors.failed"));
+      }
     });
   }
 

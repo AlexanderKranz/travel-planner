@@ -40,7 +40,7 @@ export default async function AdminPage({ params }: { params: Promise<{ locale: 
       <SettingsSection settings={settings.ok ? settings.data.settings : []} changes={settings.ok ? settings.data.changes : []} />
       <InvitesSection entries={invites.ok ? invites.data : []} />
       <UsersSection entries={users.ok ? users.data : []} />
-      {feedback && <FeedbackSection stats={feedback} />}
+      <FeedbackSection stats={feedback} />
       <AdminDashboard data={data} health={health} />
     </main>
   );

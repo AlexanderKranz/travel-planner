@@ -4,10 +4,18 @@ import { mutedCls } from "@/components/ui/styles";
 import { FeedbackLookupForm } from "./feedback-lookup";
 import { Bar, Section, Stat, Stats } from "./parts";
 
-/** Aggregates only (counts, no identifiers, no text) plus the reference lookup. */
-export async function FeedbackSection({ stats }: { stats: FeedbackStats }) {
+/** Aggregates only (counts, no identifiers, no text) plus the reference lookup. Without stats (read failed) the lookup still works. */
+export async function FeedbackSection({ stats }: { stats: FeedbackStats | null }) {
   const t = await getTranslations("admin.feedback");
   const f = await getFormatter();
+  if (!stats) {
+    return (
+      <Section id="admin-feedback" title={t("title")}>
+        <p className={mutedCls}>{t("statsUnavailable")}</p>
+        <FeedbackLookupForm />
+      </Section>
+    );
+  }
   const total = stats.issuesPerDay.reduce((n, d) => n + d.count, 0);
   const today = stats.issuesPerDay.at(-1)?.count ?? 0;
   const max = Math.max(1, ...stats.issuesPerDay.map((d) => d.count));
