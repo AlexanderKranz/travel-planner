@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { deriveSteps, doneCount, shouldShowOnboarding } from "./onboarding";
 
-const empty = { homeAirports: [], birthdate: null, groupCount: 0, purposeCount: 0, tripCount: 0 };
+const empty = { homeAirports: [], birthdate: null, homeLocation: null, groupCount: 0, purposeCount: 0, tripCount: 0 };
 
 describe("deriveSteps", () => {
   it("is all open for a new user", () => {
@@ -9,9 +9,10 @@ describe("deriveSteps", () => {
     expect(s).toEqual({ about: false, group: false, purpose: false, trip: false });
     expect(doneCount(s)).toBe(0);
   });
-  it("counts about as done with an airport or a birthdate", () => {
+  it("counts about as done with an airport, a birthdate or a home place", () => {
     expect(deriveSteps({ ...empty, homeAirports: ["FRA"] }).about).toBe(true);
     expect(deriveSteps({ ...empty, birthdate: "1980-05-01" }).about).toBe(true);
+    expect(deriveSteps({ ...empty, homeLocation: "Wien" }).about).toBe(true);
   });
   it("derives each step from its own data", () => {
     const s = deriveSteps({ ...empty, groupCount: 1, tripCount: 2 });

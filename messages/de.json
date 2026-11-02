@@ -1630,6 +1630,9 @@
     "skippedNote": "Übersprungen. Du kannst das jederzeit nachholen.",
     "about": {
       "title": "Über dich",
+      "nameWhy": "Mit deinem Namen begrüßen wir dich in der App, sonst nirgends.",
+      "languageWhy": "Die Sprache der App und deiner erstellten Pläne.",
+      "homeWhy": "Dein Wohnort ist der Start einer Suche nach Fahrzeit und bestimmt die Zeitverschiebung deiner Pläne (sonst gilt Deutschland). Der Ortsname erscheint in geteilten Plan-Links und PDFs.",
       "airportsWhy": "Mit deinen Heimatflughäfen suchen wir später nur Direktflüge, die wirklich ab dir starten.",
       "birthdateWhy": "Mit deinem Geburtsdatum rechnen wir „in meinem Alter“ aus und kennen dein Alter am Reisetag.",
       "done": "Gespeichert. Du kannst das jederzeit in den Einstellungen ändern.",
@@ -1674,11 +1677,13 @@
       "why": "Für eine Reise brauchst du nur ein Ziel und eine Dauer. Gruppe, Zweck und alles andere sind optional und lassen sich später ergänzen.",
       "button": "Erste Reise anlegen",
       "done": "Du hast schon eine Reise angelegt.",
-      "open": "Zu meinen Reisen"
+      "open": "Zu meinen Reisen",
+      "discover": "Reiseziele finden",
+      "discoverWhy": "Noch kein Ziel? „Reiseziele finden“ schlägt Orte zu einem Reisezweck vor, in geschätzter Flugzeit ab deinen Heimatflughäfen oder in Fahrzeit ab deinem Wohnort. Flüge werden geprüft, sobald du die Reise anlegst."
     },
     "link": {
       "settings": "Erste Schritte ansehen",
-      "settingsHint": "Eine kurze Einführung: Heimatflughäfen, Reisegruppen, Reisezwecke und die erste Reise.",
+      "settingsHint": "Eine kurze Einführung: Name, Sprache, Heimatflughäfen und Wohnort, Reisegruppen, Reisezwecke und die erste Reise.",
       "settingsTitle": "Erste Schritte",
       "trips": "Erste Schritte ansehen"
     }

@@ -1,8 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
-import { btnPrimary, cardCls, eyebrowCls, linkCls, mutedCls, pillAccentCls, pillCls } from "@/components/ui/styles";
+import { btnPrimary, btnSecondary, cardCls, eyebrowCls, linkCls, mutedCls, pillAccentCls, pillCls } from "@/components/ui/styles";
 import { deriveSteps, doneCount, ONBOARDING_STEPS, type OnboardingFacts, type OnboardingStep } from "@/lib/onboarding";
-import { AboutForm } from "./about-form";
+import { AboutForm, type AboutValues } from "./about-form";
 import { FinishButton } from "./finish-button";
 import { GroupForm } from "./group-form";
 import { PurposeForm } from "./purpose-form";
@@ -22,7 +22,8 @@ function Examples({ title, items }: { title: string; items: string[] }) {
 }
 
 /** The getting-started page body. Pure rendering from facts, so it can be previewed with mock data. */
-export async function StartGuide({ facts, displayName }: { facts: OnboardingFacts; displayName: string | null }) {
+export async function StartGuide({ facts, about }: { facts: OnboardingFacts; about: AboutValues }) {
+  const displayName = about.displayName;
   const t = await getTranslations("start");
   const steps = deriveSteps(facts);
   const done = doneCount(steps);
@@ -93,7 +94,7 @@ export async function StartGuide({ facts, displayName }: { facts: OnboardingFact
             closedLabel={steps.about ? t("about.edit") : t("fillIn")}
             closedNote={steps.about ? t("about.done") : t("skippedNote")}
           >
-            <AboutForm airports={[...facts.homeAirports]} birthdate={facts.birthdate} />
+            <AboutForm initial={about} />
           </StepToggle>,
         )}
         {card(
@@ -144,10 +145,14 @@ export async function StartGuide({ facts, displayName }: { facts: OnboardingFact
           t("trip.title"),
           <>
             <p>{t("trip.why")}</p>
+            <p className={`text-sm ${mutedCls}`}>{t("trip.discoverWhy")}</p>
             {steps.trip && <p className={`text-sm ${mutedCls}`}>{t("trip.done")}</p>}
             <div className="flex flex-wrap gap-3">
               <Link href="/app/trips/new" className={btnPrimary}>
                 {t("trip.button")}
+              </Link>
+              <Link href="/app/trips/discover" className={btnSecondary}>
+                {t("trip.discover")}
               </Link>
             </div>
           </>,
