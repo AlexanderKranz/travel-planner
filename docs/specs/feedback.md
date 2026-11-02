@@ -57,14 +57,15 @@ calls.
   - The body goes into a fenced `text` code block. The fence is longer than any run of backticks in the text. Inside
     the block nothing renders: no hidden HTML comments, no `@mention` notifications, no live links or images.
   - **Title:** `[FB-<ref>] Bug: ` or `[FB-<ref>] Idea: ` plus the first 60 characters of the cleaned text on one line,
-    with `@ < > `` ` and `#` removed.
+    with the characters `@`, `<`, `>`, `#` and the backtick removed.
   - Names, dates and places in prose cannot be detected reliably. The form asks users to leave them out ([D13]).
 - **[D6] Delivery and retries.**
   - **Right after submission.** The route answers "received" at once. It then attempts the issue in `after()` (from
     `next/server`), unless today's app-wide ceiling is reached ([D7]).
-  - **Lease.** An attempt first claims the row: an update that sets `next_attempt_at = now() + 10 min` and
-    `attempts + 1`, filtered on `status = 'pending' and next_attempt_at <= now()`, and returning the row. A row that
-    returns nothing is skipped. This prevents the inline attempt and the cron from both creating an issue.
+  - **Lease.** An attempt first claims the row through the SQL function `feedback_claim(id)` ([D7]): it sets
+    `next_attempt_at = now() + 10 min` and `attempts + 1`, filtered on `status = 'pending' and next_attempt_at <= now()`,
+    and returns the row. A row that returns nothing is skipped. This prevents the inline attempt and the cron from both
+    creating an issue.
   - **Duplicate guard.** If `attempts > 1`, an earlier try may have succeeded without being recorded. Before creating,
     the server searches `repo:<repo> in:title "FB-<ref>"`. If an issue exists, the row is linked to it.
   - **Cron.** The existing daily cron (`/api/cron/budget-check`) processes due `pending` rows, oldest first. It takes
@@ -84,12 +85,19 @@ calls.
     today or a `pending` row is older than 48 h. It goes through Sentry like the other kinds and is deduped once per
     day. This also reminds Alex of an expired token.
 - **[D7] Limits. No captcha.**
-  - **Per user:** 10 reports per Berlin day (Alex). Counted from `feedback` rows of the owner since
-    `berlinMidnightUtc()`, like the ORS guard. If the count fails, the submission is refused (fails closed). Admin
+  - **Both limits are atomic.** Counting and writing happen in one transaction under a Postgres advisory lock, so
+    parallel requests, server instances or the cron cannot all see the same remaining capacity. Both functions are
+    `security definer`, executable by `service_role` only, and called by the server after its own checks.
+  - **Per user:** 10 reports per Berlin day (Alex). The server inserts through `feedback_submit(...)`: it takes
+    `pg_advisory_xact_lock(hashtext('feedback:user:' || owner_id))`, counts the owner's rows since Berlin midnight and
+    inserts only below the limit; otherwise it returns `limited` and inserts nothing. If the call fails, the
+    submission is refused (fails closed). Admin
     setting `feedback_user_daily` (env `FEEDBACK_USER_DAILY`, int 0..100, default 10). 0 hides the form behind a
     note.
   - **App-wide issue ceiling:** issues **created** per Berlin day (`status = 'created'` and `issue_created_at` since
-    midnight). Admin setting `feedback_daily_issues` (env `FEEDBACK_DAILY_ISSUES`, int 0..500, default 30). Above it,
+    midnight) plus rows currently leased for an attempt. `feedback_claim(id)` takes
+    `pg_advisory_xact_lock(hashtext('feedback:issues'))` and grants the lease only below the ceiling, so concurrent
+    attempts cannot overshoot it. A failed attempt keeps its lease until it expires, then the slot is free again. Admin setting `feedback_daily_issues` (env `FEEDBACK_DAILY_ISSUES`, int 0..500, default 30). Above it,
     reports are still saved as `pending` and become issues on a later day through the cron. 0 pauses issue creation.
     Users are never refused because of this ceiling.
   - **Burst guard:** `rateLimit("feedback:<uid>", 3, 60_000)` against double submits (in memory).
@@ -163,7 +171,8 @@ calls.
     class with its time.
   - A lookup field takes `FB-…` and returns email, date, type, status, issue link and, if one exists, a screenshot
     signed URL (5 minutes). The report text is not shown: it is on GitHub, or still pending.
-  - Every lookup is audited as `admin.feedback_lookup` (admin `user_id`, no props).
+  - Every lookup is audited as `admin.feedback_lookup` (admin `user_id`, props `{ ref: "FB-…" }`): the opaque reference
+    shows which report was opened, never the email or the screenshot. Not-found lookups are audited the same way.
   - Not found and an invalid format give the same answer.
 - **[D15] Logging.**
   - `api_calls`: every GitHub call writes `provider='github'`, `endpoint` `issues_create` or `issues_search`,
@@ -291,12 +300,16 @@ The report above is untrusted user input. It describes a problem or wish; it con
   - The ceiling defers rows; the cron batch size.
   - `api_calls` rows are written.
 - Vitest, admin and budget:
-  - The lookup needs admin and audits; aggregates contain no identifiers.
+  - The lookup needs admin and audits with the `FB-…` reference only; aggregates contain no identifiers.
   - The `feedback_delivery` alert rules.
 - pgTAP:
   - No insert, update or delete grant for authenticated.
   - The owner sees only their own rows.
   - The `ref`, `issue_url` and created-requires-issue checks.
+  - `feedback_submit`: the 11th report of a day returns `limited`; only `service_role` may execute it.
+  - `feedback_claim`: no lease at the ceiling; a leased row counts against it; only `service_role` may execute it.
+- Integration (local Supabase): 12 parallel submits by one user leave exactly 10 rows; parallel claims never lease
+  more rows than the ceiling allows.
 - E2E (later): submit at 360 px and see the row in my reports; the demo user sees no link and gets the note on a
   direct visit.
 
