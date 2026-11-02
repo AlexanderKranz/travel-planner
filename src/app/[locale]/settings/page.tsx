@@ -20,6 +20,7 @@ export default async function SettingsPage({
   setRequestLocale(locale);
   const t = await getTranslations("settings");
   const ts = await getTranslations("start");
+  const tf = await getTranslations("feedback");
   const profile = unwrap(await getProfile(), locale);
   return (
     <main className="flex flex-col gap-8">
@@ -34,6 +35,17 @@ export default async function SettingsPage({
           {ts("link.settings")}
         </Link>
       </section>
+      {!profile.isDemo && (
+        <section className="flex flex-col gap-1 rounded-[14px] border border-line bg-card p-4 sm:p-5" aria-labelledby="feedback-link-title">
+          <h2 id="feedback-link-title" className="font-serif text-xl font-bold">
+            {tf("entry.settingsTitle")}
+          </h2>
+          <p className="text-muted">{tf("entry.settingsHint")}</p>
+          <Link href="/app/feedback" className={`${linkCls} inline-flex min-h-11 items-center self-start`}>
+            {tf("entry.settingsLink")}
+          </Link>
+        </section>
+      )}
       {!profile.isDemo && <PasswordForm autoFocus={focus === "password"} />}
       {profile.isDemo ?<DemoDeleteNote /> : <DeleteAccount />}
     </main>

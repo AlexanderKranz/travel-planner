@@ -4,6 +4,7 @@ import * as Sentry from "@sentry/nextjs";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 import { btnPrimary, linkCls, mutedCls } from "@/components/ui/styles";
+import { ReportProblemLink } from "@/components/feedback/report-link";
 import { Link } from "@/i18n/navigation";
 
 /**
@@ -37,6 +38,7 @@ export function ErrorView({
         <Link href={homeHref} className={`${linkCls} inline-flex min-h-11 items-center`}>
           {homeHref === "/app" ? t("toApp") : t("toHome")}
         </Link>
+        {homeHref === "/app" && <ReportProblemLink />}
       </div>
       {error.digest && (
         <p className={`${mutedCls} text-xs`}>

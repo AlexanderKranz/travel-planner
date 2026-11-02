@@ -1464,6 +1464,49 @@
       "changesEmpty": "Noch keine Änderungen.",
       "changeLine": "{key}: {old} → {new}",
       "noValue": "-"
+    },
+    "feedback": {
+      "title": "Feedback",
+      "intro": "Meldungen von Nutzern werden zu öffentlichen GitHub-Issues. Dieser Bereich zeigt nur Zahlen.",
+      "today": "Issues heute",
+      "total14": "Issues, 14 Tage",
+      "pending": "Wartend",
+      "pendingHint": "noch nicht auf GitHub",
+      "failed": "Fehlgeschlagen",
+      "lastError": "Letzter Zustellfehler",
+      "noError": "keiner",
+      "perDay": "Issues pro Tag (14 Tage)",
+      "lookup": {
+        "title": "Referenz nachschlagen",
+        "label": "Referenz",
+        "hint": "Format FB-xxxxxxxx. Jede Abfrage wird protokolliert.",
+        "submit": "Nachschlagen",
+        "ref": "Referenz",
+        "email": "E-Mail",
+        "noEmail": "unbekannt",
+        "date": "Datum",
+        "type": "Art",
+        "status": "Status",
+        "kind": {
+          "bug": "Fehler",
+          "idea": "Idee"
+        },
+        "statuses": {
+          "pending": "Wartend",
+          "created": "Veröffentlicht",
+          "failed": "Fehlgeschlagen"
+        },
+        "issue": "Issue öffnen",
+        "screenshot": "Screenshot öffnen",
+        "noScreenshot": "Kein Screenshot",
+        "screenshotNote": "Der Screenshot-Link ist 5 Minuten gültig.",
+        "errors": {
+          "forbidden": "Keine Berechtigung.",
+          "rate_limited": "Zu viele Abfragen. Bitte warte eine Minute.",
+          "not_found": "Keine Meldung mit dieser Referenz.",
+          "failed": "Die Abfrage ist fehlgeschlagen. Bitte versuche es erneut."
+        }
+      }
     }
   },
   "discover": {
@@ -1688,6 +1731,72 @@
       "settingsHint": "Eine kurze Einführung: Name, Sprache, Heimatflughäfen und Wohnort, Reisegruppen, Reisezwecke und die erste Reise.",
       "settingsTitle": "Erste Schritte",
       "trips": "Erste Schritte ansehen"
+    }
+  },
+  "feedback": {
+    "title": "Feedback",
+    "intro": "Etwas funktioniert nicht oder du hast eine Idee? Schreib es uns. Du brauchst dafür kein GitHub-Konto.",
+    "notice": "Dein Text wird in unserem öffentlichen GitHub-Projekt veröffentlicht, ohne deinen Namen. E-Mail-Adressen und Telefonnummern werden automatisch entfernt. Bitte lass Namen, Daten und Reisedetails weg. Screenshots bleiben privat; nur der Betreiber kann sie sehen. Eine veröffentlichte Meldung bleibt auf GitHub bestehen, auch wenn du dein Konto später löschst. Sie enthält keinen Namen, nur die Referenz FB-….",
+    "closed": "Feedback ist im Moment pausiert. Bitte versuche es später noch einmal.",
+    "demoNote": "Für Feedback brauchst du ein eigenes Konto.",
+    "back": "Zurück zur Übersicht",
+    "kinds": {
+      "bug": "Fehler",
+      "bugHint": "Etwas funktioniert nicht",
+      "idea": "Idee",
+      "ideaHint": "Ein Wunsch oder Vorschlag"
+    },
+    "form": {
+      "kind": "Worum geht es?",
+      "text": "Deine Nachricht",
+      "textHint": "Mindestens {min} Zeichen. Was ist passiert, oder was wünschst du dir?",
+      "placeholderBug": "Was hast du gemacht, was hast du erwartet, was ist stattdessen passiert?",
+      "placeholderIdea": "Was soll die App deiner Meinung nach können?",
+      "counter": "{count} / {max}",
+      "tooShort": "Bitte schreib mindestens {min} Zeichen.",
+      "tooLong": "Bitte fass dich auf höchstens {max} Zeichen.",
+      "screenshot": "Screenshot (optional)",
+      "screenshotHint": "PNG, JPEG oder WebP. Das Bild wird auf deinem Gerät verkleinert und Standortdaten werden entfernt. Bitte verdecke vorher persönliche Angaben.",
+      "previewAlt": "Vorschau des angehängten Screenshots",
+      "removeScreenshot": "Screenshot entfernen",
+      "submit": "Senden",
+      "sending": "Wird gesendet …"
+    },
+    "success": {
+      "title": "Angekommen, danke!",
+      "ref": "Deine Referenz:",
+      "hint": "Notiere dir die Referenz, falls du später zu dieser Meldung nachfragen möchtest.",
+      "screenshotFailed": "Deine Meldung ist gespeichert, aber der Screenshot konnte nicht hochgeladen werden.",
+      "another": "Weitere Meldung senden"
+    },
+    "errors": {
+      "unauthenticated": "Deine Sitzung ist abgelaufen. Bitte melde dich neu an.",
+      "invalid": "Bitte prüfe deine Nachricht: Sie braucht zwischen 10 und 4000 Zeichen.",
+      "rateLimited": "Du hast das Tageslimit für Meldungen erreicht. Bitte versuche es morgen wieder.",
+      "demoForbidden": "Für Feedback brauchst du ein eigenes Konto.",
+      "tooLarge": "Der Screenshot ist zu groß. Bitte wähle einen kleineren oder entferne ihn.",
+      "badImage": "Diese Datei lässt sich nicht als Screenshot verwenden. Bitte wähle ein PNG-, JPEG- oder WebP-Bild.",
+      "failed": "Das Senden hat nicht geklappt. Dein Text steht noch da; bitte versuche es gleich noch einmal."
+    },
+    "mine": {
+      "title": "Meine Meldungen",
+      "empty": "Du hast noch keine Meldung gesendet.",
+      "kind": {
+        "bug": "Fehler",
+        "idea": "Idee"
+      },
+      "status": {
+        "received": "Eingegangen",
+        "published": "Veröffentlicht"
+      },
+      "openIssue": "Auf GitHub ansehen"
+    },
+    "entry": {
+      "footer": "Problem oder Idee melden",
+      "settingsTitle": "Problem melden oder Idee vorschlagen",
+      "settingsHint": "Sag uns, was nicht funktioniert oder was dir fehlt.",
+      "settingsLink": "Feedback senden",
+      "reportProblem": "Dieses Problem melden"
     }
   }
 }
