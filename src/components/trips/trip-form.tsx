@@ -33,6 +33,7 @@ export function TripForm({
   countryCodes,
   profileBirthdate,
   initialDraft,
+  notesFromSearch = false,
 }: {
   trip?: Trip;
   groups: Option[];
@@ -43,6 +44,8 @@ export function TripForm({
   profileBirthdate: string | null;
   /** Prefill for a new trip (from a destination suggestion). Ignored when editing. */
   initialDraft?: TripDraft;
+  /** The draft's notes are the user's typed search purpose (spec 13.5): shows a hint and opens the notes. */
+  notesFromSearch?: boolean;
 }) {
   const t = useTranslations("trips.form");
   const tg = useTranslations("groups");
@@ -287,10 +290,11 @@ export function TripForm({
         )}
       </section>
 
-      <details className="rounded-[14px] border border-line bg-card p-4" open={!!trip?.notes}>
+      <details className="rounded-[14px] border border-line bg-card p-4" open={!!trip?.notes || notesFromSearch}>
         <summary className="flex min-h-11 cursor-pointer items-center font-semibold focus-visible:outline-2 focus-visible:outline-focus">
           {t("notes")}
         </summary>
+        {notesFromSearch && <p className="mt-2 text-sm text-muted">{t("notesFromSearch")}</p>}
         <TextAreaField
           label={t("notesLabel")}
           hint={t("notesHint")}

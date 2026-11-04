@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { DRIVE_LIMIT_OPTIONS, driveMaxMin } from "@/lib/drive/estimate";
-import { climateSummary, defaultLimitHours, defaultTravelMode, driveHours, dropTotals, flightHours, hasTrip, limitOptions } from "./helpers";
+import { maxBlockMinutes } from "@/lib/flights/constraint";
+import { oneOffPurpose } from "@/lib/discover/one-off";
+import { climateSummary, textLimitHours, defaultLimitHours, defaultTravelMode, driveHours, dropTotals, flightHours, hasTrip, limitOptions } from "./helpers";
 
 describe("discover helpers", () => {
   it("rounds the flight estimate to the nearest half hour, as the spec table does", () => {
@@ -15,6 +17,14 @@ describe("discover helpers", () => {
     expect(defaultLimitHours(180)).toBe(3);
     expect(defaultLimitHours(150)).toBe(2.5);
     expect(defaultLimitHours(20)).toBeNull(); // below the 1 h the API accepts
+  });
+
+  it("reads the flight limit of a typed purpose like the server does", () => {
+    for (const text of ["Golf with a friend, max 3 h flight", "Golf mit Freund, max. 3 h Flug", "Beach and food", "Up to 2.5 hours flight"]) {
+      expect(textLimitHours(text)).toBe(defaultLimitHours(maxBlockMinutes(oneOffPurpose(text, null))));
+    }
+    expect(textLimitHours("Golf with a friend, max 3 h flight")).toBe(3);
+    expect(textLimitHours("Beach and food")).toBeNull();
   });
 
   it("keeps an unusual limit selectable", () => {

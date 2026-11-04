@@ -9,6 +9,7 @@ import { Link } from "@/i18n/navigation";
 import type { ActionError } from "@/lib/domain/result";
 import type { DestinationSearchView } from "@/lib/domain/destination-search";
 import { CHECKING_AFTER_S, dropTotals, hasTrip, POLL_GIVE_UP_MS, POLL_INTERVAL_MS } from "./helpers";
+import { SavePurpose } from "./save-purpose";
 import { SuggestionCardView } from "./suggestion-card";
 
 type Reply = { search?: DestinationSearchView; error?: ActionError };
@@ -112,11 +113,14 @@ export function DiscoverResults({ initial, tripsByGeo }: { initial: DestinationS
   const done = search.status === "done";
   const failed = search.status === "failed";
   const isDrive = search.travelMode === "drive";
+  /** The latest request for this list was a typed text that is not a saved purpose (spec 13.3, 13.4). */
+  const unsavedText = search.purposeText !== null && search.purposeId === null;
 
   return (
     <div className="flex flex-col gap-6">
       <ul className="flex flex-wrap gap-2" aria-label={search.purposeName}>
         <li className={pillCls}>{search.purposeName}</li>
+        {search.purposeText !== null && <li className={pillCls}>{t("list.typedPurpose")}</li>}
         {monthsText && <li className={pillCls}>{monthsText}</li>}
         {search.travelMode === "drive" && search.homeName && <li className={pillCls}>{t("list.pillStart", { place: search.homeName })}</li>}
         {search.travelMode === "drive" && search.maxDriveHours !== null && (
@@ -127,6 +131,12 @@ export function DiscoverResults({ initial, tripsByGeo }: { initial: DestinationS
           <li className={pillCls}>{t("list.pillLimit", { hours: f.number(search.maxFlightHours, { maximumFractionDigits: 1 }) })}</li>
         )}
       </ul>
+      {search.purposeText !== null && (
+        <details className="text-sm">
+          <summary className="flex min-h-11 cursor-pointer items-center font-medium">{t("list.showText")}</summary>
+          <p className="whitespace-pre-line break-words pb-2">{search.purposeText}</p>
+        </details>
+      )}
       <p className={`text-sm ${mutedCls}`}>{t("list.created", { date: f.dateTime(new Date(search.createdAt), { dateStyle: "medium" }) })}</p>
 
       <div role="status" aria-live="polite">
@@ -225,6 +235,8 @@ export function DiscoverResults({ initial, tripsByGeo }: { initial: DestinationS
           </Link>
         </div>
       )}
+
+      {unsavedText && !running && <SavePurpose key={search.purposeName} searchId={search.id} defaultName={search.purposeName} />}
 
       <section aria-labelledby="discover-footer" className="flex flex-col gap-1 rounded-[14px] border border-dashed border-line-strong p-4">
         <h2 id="discover-footer" className="text-sm font-semibold">
