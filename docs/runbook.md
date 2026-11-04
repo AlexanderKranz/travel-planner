@@ -517,12 +517,13 @@ Users send feedback in the app; the server saves it and creates a public GitHub 
 
 ### Email for every new feedback issue
 
-GitHub never notifies you about these issues: the app creates them with your token, so they count as your own. Each new issue therefore also sends a Sentry message (`Feedback FB-…: issue #n`, tag `feedback_issue=true`, reference and issue only, never the text; one Sentry issue per report). Set up once:
+GitHub never notifies you about these issues: the app creates them with your token, so they count as your own. Each new issue therefore also sends a Sentry message (`A user has reported a new issue in GitHub: #n (FB-…)`, tag `feedback_issue=true`, reference and issue only, never the text; one Sentry issue per report). Set up once:
 
 1. Sentry -> **Alerts** -> **Create Alert** -> **Issues** -> choose the project.
 2. **When** "A new issue is created", **If** "The event's tags match" `feedback_issue` `equals` `true`.
 3. **Then** "Send a notification to" Member "Alex" -> name it "Feedback issues" -> **Save Rule**.
 4. Send a test report; the email links to the Sentry event, which carries the issue URL under "Additional Data".
+5. Optional: the email subject comes from the project's **Subject Template** (Settings -> Projects -> the project -> Alerts -> Settings, default `$shortID - $title`); `$title` alone leaves only the message text. It applies to every alert email of the project.
 
 At most `feedback_daily_issues` emails a day (default 30). Without `NEXT_PUBLIC_SENTRY_DSN` (local, previews without it) nothing is sent.
 
