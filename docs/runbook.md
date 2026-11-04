@@ -489,9 +489,10 @@ Sources checked on 2026-11-02:
 2. **Label** one issue at a time with `claude`. Only your own label starts a run (labels from other accounts are ignored). GitHub keeps one run waiting per queue, so if you label a third issue while one runs and one waits, the waiting run is replaced: re-add that label later.
 3. **Cancel**: Actions -> the running "Claude agent for issues" run -> **Cancel workflow**. Removing the label does not stop a running job.
 4. **Review the PR** like any other, with extra care: open **Files changed** and look first at `supabase/migrations/`, `scripts/`, `vercel.json` and auth code (CODEOWNERS makes you the required reviewer for the protected paths anyway). Read the "Sensitive files changed" part of the description. Approve only after a green `check`; then merge normally (section 16).
-5. **Run stopped with "max turns"** (40): the issue is probably too big. Split it into smaller issues, or add detail and re-label.
-6. **No PR was opened** but a branch `claude/issue-<n>` was pushed: the secret scrubbing may have removed the token that `gh pr create` needs. Open the PR yourself from the branch (GitHub shows a "Compare & pull request" button).
-7. **CI did not start on the PR?** Close and reopen the PR once (CI runs on `reopened`). This should only happen if the PR was opened with the workflow token instead of the Claude app token; if it keeps happening, check that the app is installed (setup step 1).
+5. **The agent asked questions instead of opening a PR**: answer in a comment on the issue (from your own account), then remove the `claude` label and add it again. A comment does not start a run. The agent reads the issue's comments and follows only yours (matched by GitHub login, the workflow's `repository_owner`); everyone else's stay untrusted data. Your comments work on a locked issue, too.
+6. **Run stopped with "max turns"** (40): the issue is probably too big. Split it into smaller issues, or add detail and re-label.
+7. **No PR was opened** but a branch `claude/issue-<n>` was pushed: the secret scrubbing may have removed the token that `gh pr create` needs. Open the PR yourself from the branch (GitHub shows a "Compare & pull request" button).
+8. **CI did not start on the PR?** Close and reopen the PR once (CI runs on `reopened`). This should only happen if the PR was opened with the workflow token instead of the Claude app token; if it keeps happening, check that the app is installed (setup step 1).
 
 ### If something goes wrong
 
