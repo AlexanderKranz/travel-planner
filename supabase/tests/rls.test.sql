@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261108120033. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261110120035. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -399,7 +399,7 @@ select is((select count(*)::int from public.plans), 2, 'A created a plan for own
 select throws_ok($$insert into public.plans (trip_id) values ('a0000000-0000-4000-8000-0000000000f1')$$,
   '23505', null, 'one plan per trip (unique trip_id)');
 select throws_ok($$insert into public.plans (trip_id) values ('bbbbbbbb-0000-4000-8000-0000000000f2')$$,
-  '23503', null, 'A cannot create a plan for B trip (composite FK)');
+  '42501', null, 'A cannot create a plan for B trip (the inherited owner is B, so the policy rejects it)');
 select throws_ok($$insert into public.plans (trip_id, latest_version) values ('a0000000-0000-4000-8000-0000000000f1', 5)$$,
   '42501', null, 'latest_version is not insertable');
 
@@ -426,9 +426,9 @@ set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","r
 select is((select count(*)::int from public.plans), 0, 'B sees no plans of A');
 select is((select count(*)::int from public.plan_versions), 0, 'B sees no plan_versions of A');
 select throws_ok($$insert into public.plan_versions (plan_id, kind, plan, input, input_hash) values ('a0000000-0000-4000-8000-0000000000c1', 'generate', '{}', '{}', repeat('b', 64))$$,
-  '23503', null, 'B cannot add a version to A plan');
+  '42501', null, 'B cannot add a version to A plan (the inherited owner is A, so the policy rejects it)');
 select throws_ok($$insert into public.plans (trip_id) values ('a0000000-0000-4000-8000-0000000000d7')$$,
-  '23503', null, 'B cannot create a plan for A trip');
+  '42501', null, 'B cannot create a plan for A trip (the inherited owner is A, so the policy rejects it)');
 with u as (update public.plans set busy_until = null where id = 'a0000000-0000-4000-8000-0000000000c1' returning 1)
 select is((select count(*)::int from u), 0, 'B cannot update A plan');
 with d as (delete from public.plan_versions where plan_id = 'a0000000-0000-4000-8000-0000000000c1' returning 1)
@@ -530,7 +530,7 @@ select is((select count(*)::int from d), 0, 'B cannot delete A item');
 with d as (delete from public.share_links where id = 'a0000000-0000-4000-8000-000000000531' returning 1)
 select is((select count(*)::int from d), 0, 'B cannot revoke A link');
 select throws_ok($$insert into public.trip_items (trip_id, category, title) values ('a0000000-0000-4000-8000-000000000501', 'stay', 'x')$$,
-  '23503', null, 'B cannot add an item to A trip (composite FK)');
+  '42501', null, 'B cannot add an item to A trip (the inherited owner is A, so the policy rejects it)');
 select throws_ok($$insert into public.share_links (trip_id, token_hash) values ('a0000000-0000-4000-8000-000000000501', repeat('b', 64))$$,
   '23503', null, 'B cannot link A trip (composite FK)');
 select throws_ok($$insert into public.trip_items (owner_id, trip_id, category, title) values ('aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000501', 'stay', 'x')$$,
