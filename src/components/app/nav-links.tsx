@@ -10,9 +10,11 @@ const ITEMS = [
   { href: "/settings", key: "settings" },
 ] as const;
 
-export function NavLinks({ isAdmin = false }: { isAdmin?: boolean }) {
+export function NavLinks({ isAdmin = false, showFeedback = false }: { isAdmin?: boolean; showFeedback?: boolean }) {
   const t = useTranslations("nav");
+  const tf = useTranslations("feedback.entry");
   const pathname = usePathname();
+  const onFeedback = pathname === "/app/feedback";
   return (
     <nav aria-label={t("label")}>
       <ul className="flex flex-wrap gap-x-1 sm:gap-x-3">
@@ -38,6 +40,27 @@ export function NavLinks({ isAdmin = false }: { isAdmin?: boolean }) {
             </li>
           );
         })}
+        {showFeedback && (
+          // Pill instead of a tab: an action, not a section. Carries the current path as `?from=` (spec feedback [D12]).
+          <li className="flex items-center">
+            <Link
+              href={onFeedback ? "/app/feedback" : { pathname: "/app/feedback", query: { from: pathname } }}
+              title={tf("navTitle")}
+              aria-current={onFeedback ? "page" : undefined}
+              className="inline-flex min-h-11 items-center px-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-feature-accent"
+            >
+              <span
+                className={`rounded-full border px-3 py-1 text-sm font-medium ${
+                  onFeedback
+                    ? "border-nav-underline bg-white/10 text-header-fg"
+                    : "border-header-muted/50 text-header-muted hover:border-header-fg hover:text-header-fg"
+                }`}
+              >
+                {tf("nav")}
+              </span>
+            </Link>
+          </li>
+        )}
       </ul>
     </nav>
   );

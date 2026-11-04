@@ -4,7 +4,6 @@ import { getProfileOnce } from "@/lib/server/request-reads";
 import { signOut } from "@/lib/server/auth/actions";
 import { btnGhost } from "@/components/ui/styles";
 import { FeedbackEntryProvider } from "@/components/feedback/entry-context";
-import { FeedbackFooterLink } from "@/components/feedback/footer-link";
 import { NavLinks } from "./nav-links";
 
 export async function AppShell({
@@ -52,7 +51,7 @@ export async function AppShell({
             </button>
           </form>
           <div className="w-full sm:order-2 sm:w-auto sm:flex-1">
-            <NavLinks isAdmin={isAdmin} />
+            <NavLinks isAdmin={isAdmin} showFeedback={!isDemo} />
           </div>
         </div>
       </header>
@@ -60,7 +59,6 @@ export async function AppShell({
       <div id="content" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-8 [&>main:not([data-wide])]:mx-auto [&>main:not([data-wide])]:max-w-3xl">
         <FeedbackEntryProvider canReport={!isDemo}>{children}</FeedbackEntryProvider>
       </div>
-      {!isDemo && <FeedbackFooterLink />}
     </div>
   );
 }

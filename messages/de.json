@@ -1795,7 +1795,8 @@
       "openIssue": "Auf GitHub ansehen"
     },
     "entry": {
-      "footer": "Problem oder Idee melden",
+      "nav": "Feedback",
+      "navTitle": "Problem oder Idee melden",
       "settingsTitle": "Problem melden oder Idee vorschlagen",
       "settingsHint": "Sag uns, was nicht funktioniert oder was dir fehlt.",
       "settingsLink": "Feedback senden",
