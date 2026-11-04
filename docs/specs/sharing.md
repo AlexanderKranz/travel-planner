@@ -150,7 +150,8 @@ Both `security definer set search_path = ''`, email compared with `lower()` on `
 ### 2.9 `public.share_resource` (the only write path for grants) **[D24] [D25]**
 
 ```sql
-public.share_resource(p_owner uuid, p_resource text, p_resource_id uuid, p_grantee uuid, p_access text)
+public.share_resource(p_owner uuid, p_resource text, p_resource_id uuid, p_grantee uuid, p_access text,
+                      p_share_id uuid default null)   -- set: update-only (setShareAccess)
   returns table (share_id uuid, created boolean)
 -- plpgsql, security definer, set search_path = ''.
 -- revoke all from public, anon, authenticated; grant execute to service_role only.
@@ -160,7 +161,7 @@ Called only by the server action (3.2) with the secret key, after the server has
 2. Owner: profile of `p_owner` exists, `not is_demo`, `is_active(p_owner)` → else `forbidden`.
 3. Resource: `select … from public.trips | public.trip_purposes where id = p_resource_id and owner_id = p_owner for no key update` → no row: `not_found`. The row lock serializes every concurrent `share_resource` call for this resource; `for no key update` does not block the key-share locks that item, plan and share inserts take through their FKs.
 4. `p_grantee = p_owner` → `self_share`; `not private.can_receive_share(p_grantee)` → `no_account`.
-5. Existing row for `(resource, p_grantee)`: update `access` (no-op when equal) and return `(id, false)`. This runs before the cap, so changing the level works at 10 grantees.
+5. Existing row for `(resource, p_grantee)`: update `access` (no-op when equal) and return `(id, false)`. This runs before the cap, so changing the level works at 10 grantees. With `p_share_id` set (update-only): the row must exist with `id = p_share_id`, this resource and `p_grantee`, else `not_found`; steps 6 and 7 never run. So a stale access change cannot re-create a grant the recipient left or the owner revoked in the meantime (a direct delete is not serialized by the lock of step 3).
 6. New row: `count(*)` of the resource's share rows `>= 10` (under the lock of step 3, so two parallel calls cannot both pass) → `limit_reached`.
 7. Insert with `owner_id = p_owner` and return `(id, true)`.
 
@@ -209,7 +210,7 @@ One module for both resources (a table map `{ trip: "trip_shares", purpose: "pur
 |---|---|
 | `listGrants(resource, id)` | session → owner check via RLS read of the resource (`owner_id = me`, else `forbidden`) → share rows → `share_contacts()` for names and emails |
 | `shareWith(input)` | session (401) → Zod → own profile: demo → `demo_forbidden` → resource read via RLS, owner only (`forbidden`) → resolve target (3.3) → `rpc("share_resource", { p_owner: session.userId, p_resource, p_resource_id, p_grantee, p_access })` → map errors (`self_share`, `no_account`, `limit_reached`, `not_found`, `forbidden`) → event `sharing.granted` when `created`, else `sharing.access_changed` |
-| `setShareAccess(input)` | session → share row via RLS (`owner_id = me`, else `not_found`) → same `share_resource` call with that row's grantee (step 5 updates) → `sharing.access_changed` |
+| `setShareAccess(input)` | session → share row via RLS (`owner_id = me`, else `not_found`) → `share_resource` with that row's grantee and `p_share_id` = the row id (update-only, 2.9 step 5; row gone meanwhile → `not_found`, nothing created) → `sharing.access_changed` |
 | `unshare(input)` | owner delete through RLS; 0 rows → `not_found` → `sharing.revoked` |
 | `leaveShare(input)` | delete `where id = :id and grantee_id = me`; 0 rows → `not_found` → `sharing.left` |
 | `listSharedWithMe()` | `trip_shares` and `purpose_shares` where `grantee_id = me` (RLS hides disabled owners), embedded resource summary, `share_contacts()`; two queries in parallel |
@@ -331,7 +332,7 @@ The purpose select lists own purposes, then "Shared with me" purposes (optgroup)
 
 pgTAP (`supabase/tests/sharing.test.sql`, new file; actors A owner, B write grantee, C read grantee, D stranger, E demo, F owner who gets disabled; share rows created with `share_resource` as `service_role`):
 - No share rows yet: B, C and D see exactly their own rows in `trips`, `plans`, `plan_versions`, `trip_items`, `travel_groups`, `group_entries`, `trip_purposes` (the widened policies add nothing without a share row).
-- Write path: `authenticated` has no insert or update privilege on `trip_shares` / `purpose_shares` (42501 on a direct insert by A, also with a valid grantee id); `share_resource` is not executable by `authenticated` or `anon`. As `service_role`: A shares own trip and purpose; `p_owner` = A for B's trip → `not_found`; E as owner → `forbidden`; F as owner after disable → `forbidden`; self → `self_share`; E or F as grantee, or an unknown id → `no_account`; a repeat call changes `access` and returns `created = false`; with 10 grantees a change of access for one of them works and an 11th new grantee → `limit_reached`.
+- Write path: `authenticated` has no insert or update privilege on `trip_shares` / `purpose_shares` (42501 on a direct insert by A, also with a valid grantee id); `share_resource` is not executable by `authenticated` or `anon`. As `service_role`: A shares own trip and purpose; `p_owner` = A for B's trip → `not_found`; E as owner → `forbidden`; F as owner after disable → `forbidden`; self → `self_share`; E or F as grantee, or an unknown id → `no_account`; a repeat call changes `access` and returns `created = false`; with 10 grantees a change of access for one of them works and an 11th new grantee → `limit_reached`; with `p_share_id` of a deleted row (grantee left) → `not_found` and no row is created; `p_share_id` that does not match resource and grantee → `not_found`.
 - Share rows: B sees own incoming row, D sees none; B and C can delete their own row (leave), D cannot; A can delete; anon nothing.
 - Visibility: B and C see A's shared trip, its plan, versions, items, group, entries and purpose; D sees none; B's and C's own lists (`where owner_id = auth.uid()`) do not contain them; A's other trips and groups stay invisible to B; after unshare B sees nothing.
 - Disabled owner (set `F.disabled_at`): B no longer sees F's share rows, trips, plans, versions, items, groups, entries or purposes; a purpose of F used on A's trip shared with B is not visible to B through that trip; `share_contacts()` for B does not return F, while F's own grantees list would still return B; `purpose_usable_by(F's purpose, B)` is false; clearing `disabled_at` brings everything back.
