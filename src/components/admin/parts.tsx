@@ -5,8 +5,12 @@ import type { Level } from "@/lib/server/admin/shape";
 export function Section({ id, title, children, collapsed = false }: { id: string; title: string; children: ReactNode; collapsed?: boolean }) {
   if (collapsed) {
     return (
-      <details className={cardCls}>
-        <summary className="flex min-h-11 cursor-pointer items-center">
+      <details className={`${cardCls} group`}>
+        {/* `display: flex` hides the native marker in Chromium and Firefox, so the arrow shows that it opens. */}
+        <summary className="flex min-h-11 cursor-pointer items-center gap-2">
+          <span aria-hidden="true" className={`${mutedCls} transition-transform group-open:rotate-90 motion-reduce:transition-none`}>
+            ▸
+          </span>
           <h2 id={id} className="font-serif text-xl font-bold text-heading">
             {title}
           </h2>
