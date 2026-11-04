@@ -37,11 +37,16 @@ export default async function AdminPage({ params }: { params: Promise<{ locale: 
         <h1 className="text-3xl font-bold sm:text-4xl">{t("title")}</h1>
         <p className={mutedCls}>{t("subtitle")}</p>
       </div>
-      <SettingsSection settings={settings.ok ? settings.data.settings : []} changes={settings.ok ? settings.data.changes : []} />
-      <InvitesSection entries={invites.ok ? invites.data : []} />
-      <UsersSection entries={users.ok ? users.data : []} />
-      <FeedbackSection stats={feedback} />
-      <AdminDashboard data={data} health={health} />
+      <AdminDashboard
+        data={data}
+        health={health}
+        slots={{
+          accounts: <UsersSection entries={users.ok ? users.data : []} />,
+          invites: <InvitesSection entries={invites.ok ? invites.data : []} />,
+          feedback: <FeedbackSection stats={feedback} />,
+          settings: <SettingsSection settings={settings.ok ? settings.data.settings : []} changes={settings.ok ? settings.data.changes : []} />,
+        }}
+      />
     </main>
   );
 }
