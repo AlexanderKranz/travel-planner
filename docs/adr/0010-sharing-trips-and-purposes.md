@@ -1,0 +1,28 @@
+# ADR 0010: Sharing trips and purposes between users
+
+Status: proposed (Alex's decisions of 2026-11-04 are binding; architect calls pending review) · Date: 2026-11-04 · Spec: `docs/specs/sharing.md` (decisions D1 to D20) · Issue #82
+
+## Context
+Until now every user table is private to its owner (ground rule 6); the only way to show a plan to someone else is a public, read-only share link (ADR 0005). Families and friends plan together, so Alex wants to share a trip or a trip purpose with another account, live, read-only or read/write. Alex decided the scope (trips with plan, versions and items; purposes; groups later), the two levels, what write allows, that the recipient sees the full travel group, that AI costs go to the acting user, the email notice, leaving, the email lookup with its enumeration side effect, the admin user list, and that the demo account is out. The app is invite-only and small (family and friends). RLS policies are plain `owner_id = auth.uid()`, child tables use composite same-owner FKs, and the publishable key with RLS is used for everything done on behalf of a user (ADR 0001).
+
+## Decision
+1. **Live access through two access tables, `trip_shares` and `purpose_shares`** (owner, grantee, `read | write`, unique per resource and grantee, no self-share). Real FKs cascade when the resource or either user is deleted; a polymorphic table could not have them.
+2. **RLS is widened by extra permissive policies, the owner policies stay.** Policies call `security definer` helpers in `private` that return id arrays (`shared_trip_ids()`, `writable_trip_ids()`, and the same for plans, groups and purposes), evaluated once per statement. The helpers read the share tables as definer, so there is no policy recursion. Groups and entries become readable only through a trip shared with you, never as a list. Shares of a disabled owner are hidden, like their share links.
+3. **Owner-only columns are guarded by a trigger, not by column grants.** Owner and grantee share the `authenticated` role, so grants cannot tell them apart. A trigger rejects changes to `group_id`, `group_text`, `group_structure` and `purpose_id` by anyone but the owner. Deleting, sharing and share links stay owner-only through the existing policies.
+4. **Rows a grantee writes belong to the owner.** A `before insert` trigger copies `owner_id` from the parent trip or plan, so composite FKs, the version trigger and every owner-based query keep working. `plans.busy_by` and `plan_versions.created_by` record who acted. Pruning old versions goes through a definer function, so a write grantee cannot delete history directly.
+5. **The plan always uses the owner's context.** A write grantee's run uses the owner's birthdate (for "me" and "my age" entries), home airports and plan language, read on the server with the secret key after RLS proved access. The same input gives the same hash and the same language whoever starts the run. Costs, budgets and rate limits are the actor's (Alex).
+6. **A shared purpose can be used for the recipient's own trips.** The trips → purposes FK becomes a plain FK plus a trigger that allows the trip owner's own purposes and purposes shared with the trip owner. Unshare or leave clears the reference on the recipient's trips.
+7. **Recipients are found by email with a durable limit; admins pick from a list** (Alex). 20 lookups per user per Berlin day, counted from `app_events`, plus a short in-memory limit. Demo and disabled accounts answer like unknown emails.
+8. **The notice email goes through Brevo's transactional API** with the sender already used for the Supabase Auth mails. Supabase Auth can only mail people without an account (invites) or send login links, so the invite path cannot be reused for a notice. The mail is best effort and in the recipient's locale.
+9. **Concurrency: keep what exists, add one check.** The per-plan lock and `baseVersion` conflicts already cover two plan editors. Trip and purpose forms add an optimistic `updated_at` check. Items and open-item ticks are last write wins.
+
+## Consequences
+- **Privacy: a shared trip shows the whole travel group, with names and birthdates of people who did not agree to it** (Alex's choice over a summary). The share box tells the owner this every time, before the button. The owner's own profile birthdate is not shown; the "me" entry shows the owner's name and age.
+- **Account enumeration:** any user can learn whether an email has an account, up to 20 times a day. Accepted by Alex for an invite-only app; misses are counted on the admin page.
+- A purpose shared with B and used on B's trip is visible to whoever B shares that trip with, because the plan needs it. The purpose share box says so.
+- Five existing lists that meant "all rows I can see" must now filter by `owner_id` (trips, trip count, purposes, groups, busy plans). A missed filter shows a shared item in the wrong list; tests and review check each one.
+- A new server secret (`BREVO_API_KEY`) and a new provider in `api_calls`. Without the key, sharing works and no mail is sent.
+- Plan versions written by a grantee stay with the owner's plan when the grantee's account is deleted (`created_by` becomes null).
+- CLAUDE.md ground rule 6 needs an exception sentence (wording in spec section 7), applied with Alex's approval.
+- Groups stay unshared. Sharing them later needs a way to link a hand-entered member to the account of the person it describes, which cannot be inferred from a name (spec section 10).
+- One additive migration; the current app keeps working until the server PR adds the owner filters together with the first share action.
