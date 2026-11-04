@@ -67,17 +67,23 @@ jobs:
       # branch from main cannot be pushed over it (no force push), which silently lost the #121 update.
       - name: Prepare the agent branch
         env:
+          GH_TOKEN: ${{ github.token }}
           BRANCH: claude/issue-${{ github.event.issue.number }}
         run: |
           # --exit-code: 0 = branch exists, 2 = no such branch, anything else = remote error (stop the run).
           rc=0
           git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null || rc=$?
           if [ "$rc" -eq 0 ]; then
-            git fetch --no-tags origin "$BRANCH:$BRANCH"
-            git checkout "$BRANCH"
-            echo existing > .agent-input/branch-state
+            git fetch --no-tags origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+            git checkout -b "$BRANCH" --track "origin/$BRANCH"
+            # A branch without an open PR (closed PR, or `gh pr create` failed) needs a new PR.
+            open=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq length)
+            if [ "$open" -gt 0 ]; then echo existing > .agent-input/branch-state; else echo existing-no-pr > .agent-input/branch-state; fi
           elif [ "$rc" -eq 2 ]; then
             git checkout -b "$BRANCH"
+            # Upstream set up front, so a plain `git push` works on the first push.
+            git config "branch.$BRANCH.remote" origin
+            git config "branch.$BRANCH.merge" "refs/heads/$BRANCH"
             echo new > .agent-input/branch-state
           else
             echo "git ls-remote failed with exit code $rc" >&2
@@ -136,12 +142,15 @@ jobs:
                `vercel.json`) unless the issue cannot be solved without it. If you do, list each such file at the top of the pull request
                description under the heading "Sensitive files changed" and say why.
             5. You are already on the branch `claude/issue-${{ github.event.issue.number }}` (do not create or switch
-               branches). `.agent-input/branch-state` says `new` or `existing`.
-               - `new`: commit, push it, and open a pull request with `gh pr create` whose description contains
+               branches; the upstream is set, so `git push` works). `.agent-input/branch-state` says
+               `new`, `existing` or `existing-no-pr`. Never force-push.
+               - `new`: commit, push, and open a pull request with `gh pr create` whose description contains
                  `Closes #${{ github.event.issue.number }}`, what you changed, and what you could not verify.
                - `existing`: the branch already has your earlier work and an open pull request. Add commits on top,
-                 push them (never force-push), and do not open another pull request. Then comment on the issue
-                 with what you changed in this run and what you could not verify.
+                 push them, and do not open another pull request. Then comment on the issue with what you changed
+                 in this run and what you could not verify.
+               - `existing-no-pr`: the branch has earlier work but no open pull request. Add commits on top, push,
+                 and open a pull request as for `new`.
                Never put personal data from the issue into code, tests or the PR.
             6. Never merge, approve, or enable auto-merge. Alex reviews and merges.
             7. If the issue is unclear, too large, or needs a product decision, do not guess: comment on the
