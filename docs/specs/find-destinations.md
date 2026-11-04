@@ -523,7 +523,7 @@ The client disables the button while pending; on success the box becomes "Saved 
 |---|---|
 | Domain | `src/lib/domain/destination-search.ts` (input, view, limits) |
 | Pure | `src/lib/discover/one-off.ts` (new), `prefill.ts` |
-| Server | `src/lib/server/discover/{pipeline,store}.ts` (`adoptSource`, `saveSearchTags`), `src/lib/server/discover/save-purpose.ts` (new), `purposes.ts` (shared insert helper) |
+| Server | `src/lib/server/discover/{pipeline,store}.ts` (`adoptSource`, `saveSearchTags`), `src/lib/server/discover/save-purpose.ts` (new), `purpose-insert.ts` (new, shared insert helper; `purposes.ts` is "use server" and cannot export it) |
 | Routes | `src/app/api/destination-search/[id]/save-purpose/route.ts` (new) |
 | UI | `src/components/discover/{discover-form,discover-results}.tsx`, a small `save-purpose.tsx` (new), discover page (no blocking empty state), trip form notes hint |
 | DB | migration 34, `supabase/tests/rls.test.sql` |

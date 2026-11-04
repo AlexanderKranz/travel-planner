@@ -16,12 +16,17 @@ export const REASON_MAX_CHARS = 160;
 /** A saved list is reused for the same input for this long. */
 export const SEARCH_CACHE_DAYS = 30;
 
+/** Typed one-off purpose (spec section 13.1). The upper bound is mirrored by the CHECK of migration 20261109120034. */
+export const PURPOSE_TEXT_MIN = 3;
+export const PURPOSE_TEXT_MAX = 500;
+
 export const TravelMode = z.enum(["flight", "drive"]);
 export type TravelMode = z.infer<typeof TravelMode>;
 
 export const DestinationSearchInput = z
   .object({
-    purposeId: z.string().uuid(),
+    purposeId: z.string().uuid().optional(), // exactly one of purposeId and purposeText (13.1)
+    purposeText: z.string().trim().min(PURPOSE_TEXT_MIN).max(PURPOSE_TEXT_MAX).optional(),
     months: z.array(Month).max(3).default([]),
     groupId: z.string().uuid().nullable().default(null),
     travelMode: TravelMode.default("flight"), // an open old tab keeps working: no mode is a flight search
@@ -33,6 +38,7 @@ export const DestinationSearchInput = z
   })
   .superRefine((v, ctx) => {
     const bad = (path: string, message: string) => ctx.addIssue({ code: "custom", path: [path], message });
+    if ((v.purposeId === undefined) === (v.purposeText === undefined)) bad("purposeId", "Exactly one of purposeId and purposeText");
     if (v.travelMode === "drive") {
       if (v.maxDriveHours === undefined) bad("maxDriveHours", "A drive search needs a limit");
       if (v.origins !== undefined) bad("origins", "A drive search has no airports");
@@ -125,6 +131,11 @@ export type DestinationSearch = {
   purposeId: string | null;
   groupId: string | null;
   purposeName: string;
+  /**
+   * The typed text when the latest request for this list was a typed one-off (or a saved purpose made from it), else
+   * null. `purposeText !== null && purposeId === null` = an unsaved one-off. The owner's own text; lists are never shared.
+   */
+  purposeText: string | null;
   locale: "de" | "en";
   months: number[];
   origins: string[];

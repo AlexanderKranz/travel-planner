@@ -34,7 +34,7 @@ describe("card name is model text too", () => {
 });
 
 const row = (over: Partial<SearchRow>): SearchRow => ({
-  id: "i", purpose_id: null, group_id: null, purpose_name: "P", locale: "de", months: [], origins: [], max_flight_hours: null, radius_km: null,
+  id: "i", purpose_id: null, group_id: null, purpose_name: "P", purpose_text: null, locale: "de", months: [], origins: [], max_flight_hours: null, radius_km: null,
   travel_mode: "flight", max_drive_hours: null, home_name: null, home_lat: null, home_lon: null,
   input_hash: "a".repeat(64), input: { v: 1 }, status: "done", busy_until: null, rounds: 1, cards: [], drops: {}, error_code: null, model: null,
   cost_micro_usd: 0, created_at: "2026-11-01T00:00:00Z", updated_at: "2026-11-01T00:00:00Z", ...over,

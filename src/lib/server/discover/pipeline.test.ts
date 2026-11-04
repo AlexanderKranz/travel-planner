@@ -82,6 +82,7 @@ const stored = (o: Partial<StoredSearch> = {}): StoredSearch => ({
   purposeId: PURPOSE,
   groupId: null,
   purposeName: "Golf",
+  purposeText: null,
   locale: "de",
   months: [3],
   origins: ["FRA", "MUC"],
