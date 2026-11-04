@@ -13,6 +13,7 @@ import { hasHomeCoords } from "@/lib/domain/profile";
 import { zodIssues, type ActionError } from "@/lib/domain/result";
 import { ideasInputHash } from "@/lib/discover/hash";
 import { buildIdeaInput, type IdeaInput } from "@/lib/discover/input";
+import { oneOffLabel, oneOffPurpose, oneOffTagsHash } from "@/lib/discover/one-off";
 import { interestKeysOf } from "@/lib/discover/verifiability";
 import { driveHintRadiusKm, homeCell } from "@/lib/drive/estimate";
 import { maxBlockMinutes } from "@/lib/flights/constraint";
@@ -21,8 +22,10 @@ import type { GroupSource } from "@/lib/group-text";
 import { placeLabel } from "@/lib/geocode-client";
 import { isKnownIata } from "@/lib/integrations/airports";
 import { getPlaceById } from "@/lib/integrations/open-meteo-geocoding";
+import type { PurposeTags } from "@/lib/domain/plan";
 import { berlinMidnight, budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage, userCapMicroUsd, type BudgetInfo, type Role } from "../ai-usage";
 import { proposeIdeas } from "../ai/destination-ideas";
+import { tagPurpose } from "../ai/purpose-tags";
 import { logEvent } from "../events";
 import { orsRequestsLeft } from "../facts/ors-quota";
 import { getGroup } from "../groups";
@@ -33,16 +36,20 @@ import { rateLimit, rateLimitAvailable } from "../rate-limit";
 import { getUserSession } from "../session";
 import { getEffectiveEnv } from "../settings";
 import {
+  adoptSource,
   claimRound1,
   claimRound2,
   countRunsToday,
   failRound,
+  findTagsByHash,
   finishRound,
   getSearchByHash,
   getSearchById,
   isFresh,
   pruneSearches,
+  saveSearchTags,
   type NewSearch,
+  type SourceRequest,
   type StoredSearch,
 } from "./store";
 import { verifyIdeas } from "./verify";
@@ -108,6 +115,7 @@ export function toView(s: StoredSearch, aiEnabled: boolean, cached = false): Des
     purposeId: s.purposeId,
     groupId: s.groupId,
     purposeName: s.purposeName,
+    purposeText: s.purposeText,
     locale: s.locale,
     months: s.months,
     origins: s.origins,
@@ -173,6 +181,9 @@ async function gateDrive(): Promise<SearchError | null> {
   if (!process.env.OPENROUTESERVICE_API_KEY?.trim()) return err("drive_unavailable");
   return (await orsRequestsLeft()) >= DRIVE_ROUND_REQUESTS + ORS_PLAN_RESERVE ? null : err("drive_unavailable");
 }
+
+/** Where the tags of a run came from: the saved purpose already had them, an earlier search or purpose with the same text, a Haiku call, or nowhere. */
+type TagsFrom = "cached" | "search" | "purpose" | "haiku" | "none";
 
 type Start = { name: string; lat: number; lon: number };
 
@@ -246,9 +257,17 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
   if (!parsed.success) return err("invalid", { issues: zodIssues(parsed.error).slice(0, 10) });
   const input = parsed.data;
 
-  const pr = await getPurpose(input.purposeId);
-  if (!pr.ok) return err(pr.error === "not_found" || pr.error === "invalid" ? "not_found" : "failed");
-  let purpose: TripPurpose = pr.data;
+  // Exactly one source (checked by the schema): a saved purpose through RLS, or a typed one-off that is never saved.
+  const typed = input.purposeText ?? null;
+  const source: "saved" | "text" = typed === null ? "saved" : "text";
+  let purpose: TripPurpose;
+  if (typed === null) {
+    const pr = await getPurpose(input.purposeId!);
+    if (!pr.ok) return err(pr.error === "not_found" || pr.error === "invalid" ? "not_found" : "failed");
+    purpose = pr.data;
+  } else {
+    purpose = oneOffPurpose(typed, null);
+  }
   let group: GroupSource | null = null;
   if (input.groupId) {
     const g = await getGroup(input.groupId);
@@ -285,22 +304,43 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
   };
 
   try {
+    // A typed text: earlier tags for the same text first (spec 13.2), so the same text is tagged once.
+    let textTags: PurposeTags | null = null;
+    let tagsFrom: TagsFrom = purpose.tags ? "cached" : "none";
+    if (typed !== null) {
+      const found = await findTagsByHash(c.sb, oneOffTagsHash(typed));
+      if (found) {
+        textTags = found.tags;
+        tagsFrom = found.from;
+        purpose = oneOffPurpose(typed, textTags);
+      }
+    }
+    // What a served row must carry: the source of this request (spec 13.3).
+    const request = (): SourceRequest =>
+      typed === null ? { kind: "saved", purposeId: purpose.id, name: purpose.name } : { kind: "text", text: typed, tags: textTags };
+
     let built = build(purpose);
     // Gate 2: the saved list of this owner for the same input; a hit costs nothing and works with AI off.
     let existing = await getSearchByHash(c.sb, built.hash);
     // Served as is: a fresh finished list, or the same search still running (its lock has not run out; an expired
-    // lock already reads as `failed`). A failed or older list is taken over in place by the new run.
-    const served = (s: StoredSearch | null): SearchResult | null =>
-      s && (isFresh(s) || s.status === "running") ? { ok: true, data: toView(s, aiEnabled, true) } : null;
-    const hit = served(existing);
-    if (hit) {
-      await logEvent({ event: "destination.searched", userId: c.userId, props: { cards: existing!.cards.length, rounds: existing!.rounds, cached: true } });
-      return hit;
-    }
+    // lock already reads as `failed`). A failed or older list is taken over in place by the new run. A served row
+    // first takes the purpose source of this request.
+    const serve = async (s: StoredSearch | null): Promise<SearchResult | null> => {
+      if (!s || !(isFresh(s) || s.status === "running")) return null;
+      const adopted = await adoptSource(c.sb, c.userId, s, request());
+      await logEvent({
+        event: "destination.searched",
+        userId: c.userId,
+        props: { cards: s.cards.length, rounds: s.rounds, cached: true, source, relabelled: adopted.relabelled },
+      });
+      return { ok: true, data: toView(adopted.search, aiEnabled, true) };
+    };
+    const hit = await serve(existing);
+    if (hit) return hit;
 
     const gated = await gateRun(c);
     if (gated) return gated;
-    const needTags = wantsTags(purpose);
+    const needTags = typed === null ? wantsTags(purpose) : textTags === null;
     const blocked = await checkBudget(c, RESERVE_IDEAS + (needTags ? RESERVE_TAGS : 0));
     if (blocked) return blocked;
     if (isDrive) {
@@ -310,13 +350,27 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
 
     const ai = makeAiCtx(c);
     if (needTags) {
-      // Tags are part of the hash: tag first, then look the saved lists up again (a tagged list may exist).
-      purpose = await tagAndSave(c.userId, purpose, ai.ctx);
+      if (typed === null) {
+        purpose = await tagAndSave(c.userId, purpose, ai.ctx);
+        tagsFrom = purpose.tags ? "haiku" : "none";
+      } else {
+        // One Haiku call for the typed text: the same call as for a saved purpose, but nothing is saved on a purpose.
+        const res = await tagPurpose(oneOffPurpose(typed, null), ai.ctx);
+        if (res.ok) {
+          textTags = res.data;
+          tagsFrom = "haiku";
+          purpose = oneOffPurpose(typed, textTags);
+        } else {
+          tagsFrom = "none";
+          await logEvent({ event: "purpose.tag_failed", level: "warn", userId: c.userId, props: { source: "discover_text", reason: res.error } });
+        }
+      }
+      // Tags are part of the hash: look the saved lists up again (a tagged list may exist).
       const before = built.hash;
       built = build(purpose);
       if (built.hash !== before) {
         existing = await getSearchByHash(c.sb, built.hash);
-        const again = served(existing);
+        const again = await serve(existing);
         if (again) return again;
       }
     }
@@ -324,9 +378,10 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
     const claim = await claimRound1(
       c.sb,
       {
-        purposeId: purpose.id,
+        purposeId: typed === null ? purpose.id : null,
         groupId: input.groupId,
-        purposeName: purpose.name,
+        purposeName: typed === null ? purpose.name : oneOffLabel(typed),
+        purposeText: typed,
         locale: c.locale,
         months,
         origins: params.origins,
@@ -344,12 +399,17 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
     if (!claim.ok) {
       if (claim.reason === "busy") return err("busy");
       const again = await getSearchByHash(c.sb, built.hash);
-      return again ? { ok: true, data: toView(again, aiEnabled, true) } : err("busy");
+      if (!again) return err("busy");
+      const adopted = await adoptSource(c.sb, c.userId, again, request());
+      return { ok: true, data: toView(adopted.search, aiEnabled, true) };
     }
+    // Tags and their hash go onto the row also when they came from an earlier search or purpose (13.2), so a failed
+    // ideas call or a retry does not tag again. Best effort.
+    if (typed !== null && textTags) await saveSearchTags(c.userId, claim.search.id, textTags, oneOffTagsHash(typed));
     takeRunSlot(c);
-    return await executeRound(c, claim.search, 1, built.input, ai, null);
+    return await executeRound(c, claim.search, 1, built.input, ai, null, { source, tagsFrom });
   } catch {
-    await logEvent({ event: "destination.search_failed", level: "warn", userId: c.userId, props: { reason: "exception" } });
+    await logEvent({ event: "destination.search_failed", level: "warn", userId: c.userId, props: { reason: "exception", source } });
     return err("failed");
   }
 }
@@ -360,9 +420,11 @@ export async function showOtherDestinations(id: string): Promise<SearchResult> {
   if (!loaded.ok) return loaded;
   const c = loaded.ctx;
   if (!Id.safeParse(id).success) return err("not_found");
+  let source: "saved" | "text" = "saved";
   try {
     const row = await getSearchById(c.sb, id);
     if (!row) return err("not_found");
+    source = row.purposeText !== null && row.purposeId === null ? "text" : "saved";
     if (row.status === "running") return err("busy");
     // Failed lists and lists that already used their second round cannot ask again.
     if (row.status !== "done" || row.rounds !== 1 || !row.input) return err("conflict");
@@ -378,9 +440,9 @@ export async function showOtherDestinations(id: string): Promise<SearchResult> {
     if (!claim.ok) return err(claim.reason === "busy" ? "busy" : "conflict");
     takeRunSlot(c);
     const exclude = row.input.exclude?.length ? row.input.exclude : row.cards.map((x) => x.placeName);
-    return await executeRound(c, claim.search, 2, { ...row.input, exclude }, makeAiCtx(c), row);
+    return await executeRound(c, claim.search, 2, { ...row.input, exclude }, makeAiCtx(c), row, { source });
   } catch {
-    await logEvent({ event: "destination.search_failed", level: "warn", userId: c.userId, props: { reason: "exception" } });
+    await logEvent({ event: "destination.search_failed", level: "warn", userId: c.userId, props: { reason: "exception", source } });
     return err("failed");
   }
 }
@@ -407,11 +469,12 @@ async function executeRound(
   ideaInput: IdeaInput,
   ai: { ctx: AiCtx; cost: () => number },
   previous: StoredSearch | null,
+  meta: { source: "saved" | "text"; tagsFrom?: TagsFrom },
 ): Promise<SearchResult> {
   const started = Date.now();
   const giveUp = async (error: ActionError, reason: string): Promise<SearchResult> => {
     await failRound(c.sb, claimed.id, { round, error, costMicroUsd: ai.cost(), previous });
-    await logEvent({ event: "destination.search_failed", level: "warn", userId: c.userId, props: { reason, round, costMicroUsd: ai.cost() } });
+    await logEvent({ event: "destination.search_failed", level: "warn", userId: c.userId, props: { reason, round, costMicroUsd: ai.cost(), source: meta.source } });
     return err(error);
   };
   try {
@@ -464,6 +527,8 @@ async function executeRound(
         dropsDetail: dropDetail(out.drops),
         rounds: round,
         cached: false,
+        source: meta.source,
+        ...(meta.tagsFrom ? { tagsFrom: meta.tagsFrom } : {}),
         durationMs: Date.now() - started,
         costMicroUsd: ai.cost(),
         reasonsRemoved: out.reasonsRemoved,

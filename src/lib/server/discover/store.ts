@@ -9,8 +9,10 @@ import {
   type DropCounts,
   type SuggestionCard,
 } from "@/lib/domain/destination-search";
+import { PurposeTags } from "@/lib/domain/plan";
 import type { ActionError } from "@/lib/domain/result";
 import type { IdeaInput } from "@/lib/discover/input";
+import { oneOffLabel, oneOffTagsHash } from "@/lib/discover/one-off";
 import { berlinMidnight } from "../ai-usage";
 import { createSupabaseAdminClient } from "../supabase/admin";
 
@@ -25,13 +27,14 @@ export const SEARCH_LOCK_MS = 150_000;
 const UNIQUE_VIOLATION = "23505";
 
 export const SEARCH_COLUMNS =
-  "id, purpose_id, group_id, purpose_name, locale, months, origins, max_flight_hours, radius_km, travel_mode, max_drive_hours, home_name, home_lat, home_lon, input_hash, input, status, busy_until, rounds, cards, drops, error_code, model, cost_micro_usd, created_at, updated_at";
+  "id, purpose_id, group_id, purpose_name, purpose_text, locale, months, origins, max_flight_hours, radius_km, travel_mode, max_drive_hours, home_name, home_lat, home_lon, input_hash, input, status, busy_until, rounds, cards, drops, error_code, model, cost_micro_usd, created_at, updated_at";
 
 export type SearchRow = {
   id: string;
   purpose_id: string | null;
   group_id: string | null;
   purpose_name: string;
+  purpose_text: string | null;
   locale: "de" | "en";
   months: number[];
   origins: string[];
@@ -82,6 +85,7 @@ export function rowToSearch(r: SearchRow): StoredSearch {
     purposeId: r.purpose_id,
     groupId: r.group_id,
     purposeName: r.purpose_name,
+    purposeText: r.purpose_text ?? null,
     locale: r.locale,
     months: r.months,
     origins: r.origins,
@@ -151,6 +155,118 @@ export async function listSearches(sb: SupabaseClient): Promise<StoredSearch[]> 
   return data.map(rowToSearch);
 }
 
+// ---------- one-off purpose (spec section 13) ----------
+
+/** Tags stored on a search row or purpose with the hash they were made for. */
+export type FoundTags = { tags: PurposeTags; from: "search" | "purpose" };
+
+/**
+ * Tag lookup of spec 13.2, user session: this owner's searches with `purpose_tags_hash = hash` (newest first), then
+ * this owner's purposes with `parsed_hash = hash`. `purposeTagsHash` covers exactly text, constraints and custom
+ * interests, so equal hashes mean the tags were made from the same input. Invalid stored tags count as missing.
+ * Throws on a read error: the caller fails closed instead of spending a Haiku call on a failed read.
+ */
+export async function findTagsByHash(sb: SupabaseClient, hash: string): Promise<FoundTags | null> {
+  const fromSearch = await sb
+    .from("destination_searches")
+    .select("purpose_tags")
+    .eq("purpose_tags_hash", hash)
+    .order("updated_at", { ascending: false })
+    .limit(5)
+    .returns<{ purpose_tags: unknown }[]>();
+  if (fromSearch.error) throw new Error("search read failed");
+  for (const r of fromSearch.data ?? []) {
+    const t = PurposeTags.safeParse(r.purpose_tags);
+    if (t.success) return { tags: t.data, from: "search" };
+  }
+  const fromPurpose = await sb
+    .from("trip_purposes")
+    .select("parsed_tags")
+    .eq("parsed_hash", hash)
+    .order("updated_at", { ascending: false })
+    .limit(5)
+    .returns<{ parsed_tags: unknown }[]>();
+  if (fromPurpose.error) throw new Error("purpose read failed");
+  for (const r of fromPurpose.data ?? []) {
+    const t = PurposeTags.safeParse(r.parsed_tags);
+    if (t.success) return { tags: t.data, from: "purpose" };
+  }
+  return null;
+}
+
+/**
+ * Writes the tags and their hash onto a search row. SECRET KEY (RLS bypass) on purpose: users have no grant on
+ * `purpose_tags` / `purpose_tags_hash` (like `trip_purposes.parsed_*`), because "Save as purpose" copies them without a
+ * new LLM call. The owner_id filter keeps the write scoped to the requesting user's own row. Best effort.
+ */
+export async function saveSearchTags(userId: string, searchId: string, tags: PurposeTags, hash: string): Promise<boolean> {
+  try {
+    const { data, error } = await createSupabaseAdminClient()
+      .from("destination_searches")
+      .update({ purpose_tags: tags, purpose_tags_hash: hash })
+      .eq("id", searchId)
+      .eq("owner_id", userId)
+      .select("id");
+    if (error || data.length !== 1) {
+      console.error("search tags write failed", error?.code ?? "no row");
+      return false;
+    }
+    return true;
+  } catch {
+    console.error("search tags write failed");
+    return false;
+  }
+}
+
+/** The stored tags and hash of one row (user session; the columns are readable by their owner). */
+export async function getSearchTags(sb: SupabaseClient, id: string): Promise<{ tags: PurposeTags; hash: string } | null> {
+  const { data, error } = await sb
+    .from("destination_searches")
+    .select("purpose_tags, purpose_tags_hash")
+    .eq("id", id)
+    .maybeSingle<{ purpose_tags: unknown; purpose_tags_hash: string | null }>();
+  if (error) throw new Error("search read failed");
+  if (!data?.purpose_tags_hash) return null;
+  const t = PurposeTags.safeParse(data.purpose_tags);
+  return t.success ? { tags: t.data, hash: data.purpose_tags_hash } : null;
+}
+
+/** The purpose source of the current run request (spec 13.3). */
+export type SourceRequest =
+  | { kind: "saved"; purposeId: string; name: string }
+  | { kind: "text"; text: string; tags: PurposeTags | null };
+
+/**
+ * A served row takes the purpose source of the current request (spec 13.3, ADR 0009 decision 4), so the trip draft and
+ * "Save as purpose" follow the latest request. Every path that returns an existing row for a run request goes through
+ * here. A matching row is returned unchanged and nothing is written. Otherwise the row is updated with the user
+ * session (all three columns are granted), also while it is running (`finishRound` and `failRound` never write them).
+ * A text request that relabels a row also stores the tags it has for that text.
+ */
+export async function adoptSource(
+  sb: SupabaseClient,
+  userId: string,
+  row: StoredSearch,
+  req: SourceRequest,
+): Promise<{ search: StoredSearch; relabelled: boolean }> {
+  const patch =
+    req.kind === "saved"
+      ? row.purposeId === req.purposeId
+        ? null
+        : { purpose_id: req.purposeId, purpose_name: req.name.slice(0, 80), purpose_text: null }
+      : row.purposeText === req.text
+        ? null
+        : { purpose_id: null, purpose_name: oneOffLabel(req.text), purpose_text: req.text };
+  if (!patch) return { search: row, relabelled: false };
+  const { data, error } = await sb.from("destination_searches").update(patch).eq("id", row.id).select(SEARCH_COLUMNS).maybeSingle<SearchRow>();
+  if (error) throw new Error("search write failed");
+  if (req.kind === "text" && req.tags) await saveSearchTags(userId, row.id, req.tags, oneOffTagsHash(req.text));
+  const search: StoredSearch = data
+    ? rowToSearch(data)
+    : { ...row, purposeId: patch.purpose_id, purposeName: patch.purpose_name, purposeText: patch.purpose_text };
+  return { search, relabelled: true };
+}
+
 /** Runs whose lock ran out become `failed`, so the one-running-per-user index cannot block forever. */
 export async function expireStaleRuns(sb: SupabaseClient, now: number = Date.now()): Promise<void> {
   const { data, error } = await sb
@@ -170,9 +286,12 @@ export async function expireStaleRuns(sb: SupabaseClient, now: number = Date.now
 }
 
 export type NewSearch = {
-  purposeId: string;
+  /** null for a typed one-off (spec 13.3). */
+  purposeId: string | null;
   groupId: string | null;
   purposeName: string;
+  /** The typed text of a one-off, else null (a taken-over row must not keep the text of an earlier request). */
+  purposeText: string | null;
   locale: "de" | "en";
   months: number[];
   origins: string[];
@@ -191,6 +310,7 @@ const startedColumns = (n: NewSearch, now: number) => ({
   purpose_id: n.purposeId,
   group_id: n.groupId,
   purpose_name: n.purposeName.slice(0, 80),
+  purpose_text: n.purposeText,
   locale: n.locale,
   months: n.months,
   origins: n.origins,

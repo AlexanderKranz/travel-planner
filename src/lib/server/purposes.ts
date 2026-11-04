@@ -6,24 +6,13 @@ import { PurposeGuided, TripPurposeInput, type TripPurpose } from "@/lib/domain/
 import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
 import { purposeTagsHash } from "@/lib/plan/hash";
 import { logEvent } from "./events";
+import { insertPurposeRow, PURPOSE_COLUMNS, type PurposeRow } from "./purpose-insert";
 import { externalWriteAllowed } from "./rate-limit";
 import { getUserSession } from "./session";
 import { schedulePurposeWarm } from "./warm";
 
-const COLUMNS = "id, name, text, guided, constraints, parsed_tags, parsed_hash, created_at, updated_at";
+const COLUMNS = PURPOSE_COLUMNS;
 const Id = z.string().uuid();
-
-type PurposeRow = {
-  id: string;
-  name: string;
-  text: string | null;
-  guided: unknown;
-  constraints: string[];
-  parsed_tags: unknown;
-  parsed_hash: string | null;
-  created_at: string;
-  updated_at: string;
-};
 
 /** Tags count only while the hash of the current content matches (edited purposes are re-tagged). */
 function rowTags(row: PurposeRow, guided: PurposeGuided): TripPurpose["tags"] {
@@ -85,17 +74,7 @@ export async function createPurpose(input: TripPurposeInput): Promise<ActionResu
   if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
   if (!externalWriteAllowed(session.userId)) return fail("rate_limited");
 
-  // owner_id is filled by its column default (auth.uid()); RLS checks it.
-  const { data, error } = await session.supabase
-    .from("trip_purposes")
-    .insert({
-      name: parsed.data.name,
-      text: parsed.data.text ?? null,
-      guided: parsed.data.guided,
-      constraints: parsed.data.constraints,
-    })
-    .select(COLUMNS)
-    .single();
+  const { data, error } = await insertPurposeRow(session.supabase, parsed.data);
   if (error) return fail("failed");
   await logEvent({
     event: "purpose.created",

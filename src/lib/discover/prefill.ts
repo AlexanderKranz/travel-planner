@@ -4,21 +4,27 @@ import { cleanReason } from "./reason";
 
 /**
  * The trip form draft for a tapped suggestion (spec section 7 [D11]). Nothing is created by this.
- * - `title` and `notes` stay empty: the reason is an AI guess and `trip.notes` goes verbatim into the plan input
- *   as the user's own facts, so it is never copied into the trip.
+ * - `title` stays empty and `notes` never gets the reason: the reason is an AI guess and `trip.notes` goes verbatim into
+ *   the plan input as the user's own facts, so it is never copied into the trip.
+ * - an unsaved typed one-off (`purposeText` set, no `purposeId`, spec 13.5) puts its text into `notes`: it is the user's
+ *   own words, and without it the plan would not know what the trip is for. A saved or linked purpose leaves notes empty.
  * - coordinates are not part of the draft; `createTrip` resolves them from `geoId`.
  * - `lengthDays` stays at the form default.
  * - a drive search gives `wantsFlights: false` and no airports, explicitly (the search has none; the guard keeps it
  *   so if that ever changes). The drive itself is not copied into the trip; the user can still switch flights on.
  */
 export function buildTripDraft(
-  search: Pick<DestinationSearch, "id" | "months" | "origins" | "purposeId" | "groupId"> & { travelMode?: DestinationSearch["travelMode"] },
+  search: Pick<DestinationSearch, "id" | "months" | "origins" | "purposeId" | "groupId"> & {
+    travelMode?: DestinationSearch["travelMode"];
+    purposeText?: DestinationSearch["purposeText"];
+  },
   card: Pick<SuggestionCard, "kind" | "geoId" | "placeName" | "name" | "admin1">,
   profileHomeAirports: readonly string[],
 ): TripDraft {
   const base = emptyTripDraft();
   const profileFirstTwo = profileHomeAirports.slice(0, 2);
   const sameAsProfile = search.origins.length === profileFirstTwo.length && search.origins.every((o, i) => o === profileFirstTwo[i]);
+  const unsavedOneOff = search.purposeId === null && !!search.purposeText;
   const hasOrigins = search.travelMode !== "drive" && search.origins.length > 0;
   return {
     ...base,
@@ -35,6 +41,7 @@ export function buildTripDraft(
     timing: search.months.length > 0 ? { mode: "months", startDate: "", months: [...search.months] } : base.timing,
     groupId: search.groupId ?? "",
     purposeId: search.purposeId ?? "",
+    ...(unsavedOneOff ? { notes: search.purposeText! } : {}),
     wantsFlights: hasOrigins,
     useHomeAirports: !hasOrigins || sameAsProfile,
     originAirports: hasOrigins && !sameAsProfile ? [...search.origins] : [],
