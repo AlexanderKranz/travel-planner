@@ -398,6 +398,7 @@
     },
     "form": {
       "fromSuggestion": "Prefilled from a suggestion. Check the details; nothing is created until you save. The AI reason is not copied into the trip.",
+      "notesFromSearch": "Your typed purpose is in the notes. Save it as a purpose on the suggestions page to reuse it.",
       "invalid": "Please check this field.",
       "destination": {
         "legend": "Destination",
@@ -1512,14 +1513,21 @@
   },
   "discover": {
     "title": "Find destinations",
-    "intro": "Choose a saved trip purpose and get a short list of places that fit it. Every place is checked against real data. Flights are checked only after you create a trip.",
+    "intro": "Choose a saved trip purpose or describe in a few words what the trip is for, and get a short list of places that fit it. Every place is checked against real data. Flights are checked only after you create a trip.",
     "newSearch": "New search",
     "backToForm": "Back to the search",
     "form": {
       "purpose": "Trip purpose",
       "purposeHint": "The suggestions are based on this purpose.",
-      "noPurpose": "You need a saved trip purpose first. It tells the search what you are looking for.",
-      "createPurpose": "Create a trip purpose",
+      "purposeSource": "What is the trip for?",
+      "sourceSaved": "Saved purpose",
+      "sourceText": "Type it",
+      "purposeText": "Describe the trip",
+      "purposeTextHint": "In your own words, in any language. A flight limit such as “max 3 h flight” is picked up.",
+      "purposeTextPlaceholder": "For example: Golf with a friend, flat courses, good food, max 3 h flight",
+      "purposeTextCount": "{count} of {max} characters",
+      "savePurposesLink": "Save purposes to reuse them",
+      "demoTextNotice": "This is a shared demo account: what you type here is visible to other demo visitors until the next reset.",
       "months": "Months (optional)",
       "monthsHint": "Up to three months. Without a month, the weather is not checked.",
       "monthsLabel": "Months",
@@ -1608,6 +1616,14 @@
       "cruise": "{count, plural, one {# cruise item} other {# cruise items}}",
       "festivals_events": "{count, plural, one {# event place} other {# event places}}"
     },
+    "savePurpose": {
+      "title": "Save as trip purpose",
+      "name": "Name",
+      "submit": "Save purpose",
+      "saving": "Saving…",
+      "saved": "Saved as {name}",
+      "open": "Open the purpose"
+    },
     "list": {
       "footer": "What this list does not tell you",
       "footerFlights": "Flight times are estimates from the distance. No direct flight is confirmed; that is checked after you create a trip.",
@@ -1615,6 +1631,8 @@
       "footerWishes": "Other wishes from your purpose, for example flat courses, were not checked.",
       "footerReasons": "The reasons are AI suggestions, not facts.",
       "created": "List from {date}",
+      "typedPurpose": "Typed purpose",
+      "showText": "Show the full text",
       "pillOrigins": "from {airports}",
       "pillStart": "from {place}",
       "pillDriveLimit": "up to {hours} h drive",

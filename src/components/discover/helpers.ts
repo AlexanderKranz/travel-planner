@@ -1,5 +1,7 @@
 import { DROP_REASONS, type DropCounts, type SearchDrops, type SuggestionCard, type TravelMode } from "@/lib/domain/destination-search";
+import type { TripPurpose } from "@/lib/domain/purpose";
 import { roundedDriveMin } from "@/lib/drive/estimate";
+import { maxBlockMinutes } from "@/lib/flights/constraint";
 import { roundedHalfHourMin } from "@/lib/flights/estimate";
 
 /** Poll the running search this often, and give up (with a "check again" button) after this long. */
@@ -21,6 +23,15 @@ export function defaultLimitHours(maxBlockMin: number | null): number | null {
   if (maxBlockMin === null) return null;
   const h = Math.round((maxBlockMin / 60) * 2) / 2;
   return h >= 1 && h <= 15 ? h : null;
+}
+
+/**
+ * The flight limit a typed purpose brings along (spec 13.1), the same rule as `maxBlockMinutes(oneOffPurpose(text, null))`.
+ * Built here without `one-off.ts` because that file pulls in node:crypto through the hash, which a client bundle cannot take.
+ */
+export function textLimitHours(text: string): number | null {
+  const purpose: TripPurpose = { id: "", name: "", text: text.trim(), guided: {}, constraints: [], tags: null, createdAt: "", updatedAt: "" };
+  return defaultLimitHours(maxBlockMinutes(purpose));
 }
 
 /** Hours of a rounded flight estimate for the card: 90 min -> 1.5, 120 min -> 2. */

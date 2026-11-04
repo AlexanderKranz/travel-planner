@@ -32,6 +32,7 @@ export default async function DiscoverPage({ params }: { params: Promise<{ local
         homeAirports={p.homeAirports}
         home={home}
         legacyHome={home === null && p.homeLocation !== null}
+        isDemo={p.isDemo}
       />
     </main>
   );

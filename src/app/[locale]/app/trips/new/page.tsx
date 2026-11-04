@@ -35,12 +35,15 @@ export default async function NewTripPage({
   const cardId = first(sp.card);
   let initialDraft;
   let backToList: string | null = null;
+  let notesFromSearch = false;
   if (searchId && cardId) {
     const res = await getDestinationSearch(searchId);
     const card = res.ok ? res.data.cards.find((c) => c.id === cardId) : undefined;
     if (res.ok && card) {
       initialDraft = buildTripDraft(res.data, card, profileData.homeAirports);
       backToList = res.data.id;
+      // An unsaved typed purpose is put into the notes by buildTripDraft; the form says so (spec 13.5).
+      notesFromSearch = res.data.purposeId === null && !!res.data.purposeText;
     }
   }
 
@@ -68,6 +71,7 @@ export default async function NewTripPage({
         countryCodes={listCountries().map((c) => c.code)}
         profileBirthdate={profileData.birthdate}
         initialDraft={initialDraft}
+        notesFromSearch={notesFromSearch}
       />
     </main>
   );
