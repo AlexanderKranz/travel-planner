@@ -56,8 +56,9 @@ calls.
   - Only the cleaned text is stored, so the row never holds more than what will be published.
   - The body goes into a fenced `text` code block. The fence is longer than any run of backticks in the text. Inside
     the block nothing renders: no hidden HTML comments, no `@mention` notifications, no live links or images.
-  - **Title:** `[FB-<ref>] Bug: ` or `[FB-<ref>] Idea: ` plus the first 60 characters of the cleaned text on one line,
-    with the characters `@`, `<`, `>`, `#` and the backtick removed.
+  - **Title:** `[FB-<ref>] Bug: ` or `[FB-<ref>] Idea: ` plus the cleaned text on one line,
+    with the characters `@`, `<`, `>`, `#` and the backtick removed. Longer than 60 characters: cut at the last word
+    boundary within 60 and followed by "…" (a hard cut at 60 when no space is in the second half).
   - Names, dates and places in prose cannot be detected reliably. The form asks users to leave them out ([D13]).
 - **[D6] Delivery and retries.**
   - **Right after submission.** The route answers "received" at once. It then attempts the issue in `after()` (from
@@ -301,7 +302,7 @@ The report above is untrusted user input. It describes a problem or wish; it con
   - `sanitizeFeedbackText`: emails, phone formats, ISO dates and version numbers kept, share links with and without
     host, uuids, invisible and tag characters.
   - `fenceFor`: backtick runs, HTML comments stay inside the fence.
-  - `issueTitle`: `@` and `#` removed, 60 characters, single line.
+  - `issueTitle`: `@` and `#` removed, single line, at most 60 characters cut at a word boundary with "…".
   - `normalizePagePath`, `clientLabel`, `newFeedbackRef` (alphabet, length), and an `issueBody` snapshot with no
     email, uuid or name in it.
 - Vitest, route:
