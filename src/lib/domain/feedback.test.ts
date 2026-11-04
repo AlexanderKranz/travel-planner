@@ -89,6 +89,14 @@ describe("issueTitle", () => {
     const t = issueTitle("FB-k3x9p2qa", "bug", "short " + "x".repeat(100));
     expect(t).toBe(`[FB-k3x9p2qa] Bug: short ${"x".repeat(54)}…`);
   });
+  it("counts the space position in code points, not UTF-16 units", () => {
+    const t = issueTitle("FB-k3x9p2qa", "bug", "🙂".repeat(16) + " " + "x".repeat(100));
+    expect(t).toBe(`[FB-k3x9p2qa] Bug: ${"🙂".repeat(16)} ${"x".repeat(43)}…`);
+  });
+  it("uses a space exactly at the half of the limit", () => {
+    const t = issueTitle("FB-k3x9p2qa", "bug", "a".repeat(30) + " " + "b".repeat(40));
+    expect(t).toBe(`[FB-k3x9p2qa] Bug: ${"a".repeat(30)}…`);
+  });
   it("leaves a text of exactly 60 characters unchanged", () => {
     const text = "y".repeat(60);
     expect(issueTitle("FB-k3x9p2qa", "bug", text)).toBe(`[FB-k3x9p2qa] Bug: ${text}`);

@@ -168,9 +168,9 @@ export function issueTitle(ref: string, kind: FeedbackKind, cleanedText: string)
   const chars = Array.from(cleanedText.replace(/[@<>#`]/g, "").replace(/\s+/g, " ").trim());
   let text = chars.join("");
   if (chars.length > TITLE_TEXT_MAX) {
-    const head = chars.slice(0, TITLE_TEXT_MAX + 1).join("");
-    const space = head.lastIndexOf(" ");
-    const cut = space > TITLE_TEXT_MAX / 2 ? head.slice(0, space) : chars.slice(0, TITLE_TEXT_MAX).join("");
+    // Index in code points (`chars`), like the limit itself.
+    const space = chars.slice(0, TITLE_TEXT_MAX + 1).lastIndexOf(" ");
+    const cut = chars.slice(0, space >= TITLE_TEXT_MAX / 2 ? space : TITLE_TEXT_MAX).join("");
     text = `${cut.trimEnd()}…`;
   }
   return `[${ref}] ${KIND_LABEL[kind]}: ${text}`.trimEnd();

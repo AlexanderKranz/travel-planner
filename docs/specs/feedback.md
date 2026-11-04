@@ -58,7 +58,7 @@ calls.
     the block nothing renders: no hidden HTML comments, no `@mention` notifications, no live links or images.
   - **Title:** `[FB-<ref>] Bug: ` or `[FB-<ref>] Idea: ` plus the cleaned text on one line,
     with the characters `@`, `<`, `>`, `#` and the backtick removed. Longer than 60 characters: cut at the last word
-    boundary within 60 and followed by "…" (a hard cut at 60 when no space is in the second half).
+    boundary within 60 and followed by "…" (a hard cut at 60 when no space is at position 30 or later, counted in characters).
   - Names, dates and places in prose cannot be detected reliably. The form asks users to leave them out ([D13]).
 - **[D6] Delivery and retries.**
   - **Right after submission.** The route answers "received" at once. It then attempts the issue in `after()` (from
