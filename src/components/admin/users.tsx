@@ -34,7 +34,7 @@ export function UsersSection({ entries }: { entries: AdminUserEntry[] }) {
   }
 
   return (
-    <Section id="admin-user-accounts" title={t("title")}>
+    <Section id="admin-user-accounts" title={t("title")} collapsed>
       <p className={mutedCls}>{t("intro")}</p>
       <div aria-live="polite">
         {error && (

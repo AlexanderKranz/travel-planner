@@ -52,7 +52,7 @@ export function InvitesSection({ entries }: { entries: InviteEntry[] }) {
   }
 
   return (
-    <Section id="admin-invites" title={t("title")}>
+    <Section id="admin-invites" title={t("title")} collapsed>
       <p className={mutedCls}>{t("intro")}</p>
       <form onSubmit={onInvite} className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">

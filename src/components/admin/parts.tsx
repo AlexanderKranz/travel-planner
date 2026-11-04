@@ -2,7 +2,21 @@ import type { ReactNode } from "react";
 import { cardCls, labelCls, mutedCls } from "@/components/ui/styles";
 import type { Level } from "@/lib/server/admin/shape";
 
-export function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+export function Section({ id, title, children, collapsed = false }: { id: string; title: string; children: ReactNode; collapsed?: boolean }) {
+  if (collapsed) {
+    return (
+      <details className={cardCls}>
+        <summary className="flex min-h-11 cursor-pointer items-center">
+          <h2 id={id} className="font-serif text-xl font-bold text-heading">
+            {title}
+          </h2>
+        </summary>
+        <section aria-labelledby={id} className="mt-4 flex flex-col gap-4">
+          {children}
+        </section>
+      </details>
+    );
+  }
   return (
     <section aria-labelledby={id} className={`${cardCls} flex flex-col gap-4`}>
       <h2 id={id} className="font-serif text-xl font-bold text-heading">

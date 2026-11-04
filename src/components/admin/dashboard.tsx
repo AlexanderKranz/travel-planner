@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { labelCls, mutedCls, pillAccentCls } from "@/components/ui/styles";
 import { microToUsd, type Dashboard, type Meter } from "@/lib/server/admin/shape";
@@ -7,7 +8,16 @@ import { Bar, LevelText, Section, Stat, Stats } from "./parts";
 type Health = Awaited<ReturnType<typeof getHealthInfo>>;
 
 /** Server component: the whole admin page body. Receives aggregates only (see src/lib/server/admin/shape.ts). */
-export async function AdminDashboard({ data, health }: { data: Dashboard; health: Health }) {
+export async function AdminDashboard({
+  data,
+  health,
+  slots,
+}: {
+  data: Dashboard;
+  health: Health;
+  /** Sections rendered by their own components, placed here to fix the page order. */
+  slots: { accounts: ReactNode; invites: ReactNode; feedback: ReactNode; settings: ReactNode };
+}) {
   const t = await getTranslations("admin");
   const f = await getFormatter();
   const usd = (micro: number) => f.number(microToUsd(micro), { style: "currency", currency: "USD" });
@@ -22,6 +32,28 @@ export async function AdminDashboard({ data, health }: { data: Dashboard; health
 
   return (
     <div className="flex flex-col gap-4">
+      <Section id="admin-health" title={t("health.title")}>
+        <Stats>
+          <Stat
+            label={t("health.db")}
+            value={health.db.ok ? t("health.up") : t("health.down")}
+            hint={t("health.latency", { ms: num(health.db.latencyMs) })}
+          />
+          <Stat label={t("health.aiEnabled")} value={health.aiEnabled ? t("health.on") : t("health.off")} />
+          <Stat label={t("health.demoEnabled")} value={health.demoEnabled ? t("health.on") : t("health.off")} />
+          <Stat label={t("health.lastCron")} value={health.lastCronAt ? when(health.lastCronAt) : t("health.never")} />
+          <Stat label={t("health.commit")} value={health.commit} />
+        </Stats>
+        <h3 className={labelCls}>{t("health.keys")}</h3>
+        <ul className="flex flex-wrap gap-2">
+          {(Object.keys(health.keys) as (keyof Health["keys"])[]).map((k) => (
+            <li key={k} className={health.keys[k] ? pillAccentCls : "inline-flex items-center rounded-full border border-danger-line bg-danger-bg px-3 py-0.5 text-xs font-medium text-danger-fg"}>
+              {t(`health.keyNames.${k}`)}: {health.keys[k] ? t("health.set") : t("health.missing")}
+            </li>
+          ))}
+        </ul>
+      </Section>
+
       <Section id="admin-users" title={t("users.title")}>
         <Stats>
           <Stat label={t("users.total")} value={num(users.total)} hint={t("users.admins") + ": " + num(users.admins)} />
@@ -38,6 +70,10 @@ export async function AdminDashboard({ data, health }: { data: Dashboard; health
         </Stats>
         <p className={`${mutedCls} text-xs`}>{t("users.note")}</p>
       </Section>
+
+      {slots.accounts}
+      {slots.invites}
+      {slots.feedback}
 
       <Section id="admin-usage" title={t("usage.title")}>
         <Stats>
@@ -117,7 +153,9 @@ export async function AdminDashboard({ data, health }: { data: Dashboard; health
         </div>
       </Section>
 
-      <Section id="admin-api" title={t("api.title")}>
+      {slots.settings}
+
+      <Section id="admin-api" title={t("api.title")} collapsed>
         {providers.length === 0 ? (
           <p className={mutedCls}>{t("noData")}</p>
         ) : (
@@ -202,29 +240,7 @@ export async function AdminDashboard({ data, health }: { data: Dashboard; health
         </div>
       </Section>
 
-      <Section id="admin-health" title={t("health.title")}>
-        <Stats>
-          <Stat
-            label={t("health.db")}
-            value={health.db.ok ? t("health.up") : t("health.down")}
-            hint={t("health.latency", { ms: num(health.db.latencyMs) })}
-          />
-          <Stat label={t("health.aiEnabled")} value={health.aiEnabled ? t("health.on") : t("health.off")} />
-          <Stat label={t("health.demoEnabled")} value={health.demoEnabled ? t("health.on") : t("health.off")} />
-          <Stat label={t("health.lastCron")} value={health.lastCronAt ? when(health.lastCronAt) : t("health.never")} />
-          <Stat label={t("health.commit")} value={health.commit} />
-        </Stats>
-        <h3 className={labelCls}>{t("health.keys")}</h3>
-        <ul className="flex flex-wrap gap-2">
-          {(Object.keys(health.keys) as (keyof Health["keys"])[]).map((k) => (
-            <li key={k} className={health.keys[k] ? pillAccentCls : "inline-flex items-center rounded-full border border-danger-line bg-danger-bg px-3 py-0.5 text-xs font-medium text-danger-fg"}>
-              {t(`health.keyNames.${k}`)}: {health.keys[k] ? t("health.set") : t("health.missing")}
-            </li>
-          ))}
-        </ul>
-      </Section>
-
-      <Section id="admin-events" title={t("events.title")}>
+      <Section id="admin-events" title={t("events.title")} collapsed>
         {events.length === 0 ? (
           <p className={mutedCls}>{t("events.empty")}</p>
         ) : (

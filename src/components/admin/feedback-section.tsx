@@ -10,7 +10,7 @@ export async function FeedbackSection({ stats }: { stats: FeedbackStats | null }
   const f = await getFormatter();
   if (!stats) {
     return (
-      <Section id="admin-feedback" title={t("title")}>
+      <Section id="admin-feedback" title={t("title")} collapsed>
         <p className={mutedCls}>{t("statsUnavailable")}</p>
         <FeedbackLookupForm />
       </Section>
@@ -20,8 +20,8 @@ export async function FeedbackSection({ stats }: { stats: FeedbackStats | null }
   const today = stats.issuesPerDay.at(-1)?.count ?? 0;
   const max = Math.max(1, ...stats.issuesPerDay.map((d) => d.count));
   return (
-    <Section id="admin-feedback" title={t("title")}>
-      <p className={mutedCls}>{t("intro")}</p>
+    <Section id="admin-feedback" title={t("title")} collapsed>
+<p className={mutedCls}>{t("intro")}</p>
       <Stats>
         <Stat label={t("today")} value={today} />
         <Stat label={t("total14")} value={total} />

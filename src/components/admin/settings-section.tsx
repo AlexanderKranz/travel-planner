@@ -38,7 +38,7 @@ export function SettingsSection({ settings, changes }: { settings: SettingRow[];
   const reset = (key: SettingKey) => run(() => resetSetting({ key }), t("resetDone"));
 
   return (
-    <Section id="admin-settings" title={t("title")}>
+    <Section id="admin-settings" title={t("title")} collapsed>
       <p className={mutedCls}>{t("intro")}</p>
       <div aria-live="polite">
         {msg && (
