@@ -1,10 +1,10 @@
 # Spec: share trips and purposes between users (issue #82)
 
-Status: proposed (architect, 2026-11-04). Decisions marked "(Alex)" were made by Alex on 2026-11-04 and are binding; the others are architect calls for review. All decisions are listed as **[D#]** in section 11.
+Status: accepted (Alex, 2026-11-04). Decisions marked "(Alex)" were made by Alex; the others are architect calls, accepted with the spec. Answers of 2026-11-04 applied: no notification email, PDF also for read access, shared purposes in "Find destinations", transitive purpose visibility accepted, shares of a disabled owner hidden, CLAUDE.md rule 6 amended. All decisions are listed as **[D#]** in section 11.
 Decisions and reasons: `docs/adr/0010-sharing-trips-and-purposes.md`. Conventions of the earlier specs apply unchanged (private schema, explicit grants, `(select auth.uid())`, composite same-owner FKs, DB + Zod limits, snake_case DB / camelCase TS, `ActionResult`, `logEvent` metadata only).
 
-Scope: an owner gives another existing user live access to one trip (with its plan, plan versions and items) or one trip purpose, read-only or read/write. The recipient finds it under "Shared with me", sees who shared it and the level, can leave it, and gets an email.
-Not in scope: sharing travel groups (section 10), sharing with people who have no account, copies, shared purposes in "Find destinations", comments, live presence, notifications other than the one email.
+Scope: an owner gives another existing user live access to one trip (with its plan, plan versions and items) or one trip purpose, read-only or read/write. The recipient finds it under "Shared with me", sees who shared it and the level, and can leave it. A shared purpose can be used for the recipient's own trips and destination searches.
+Not in scope: sharing travel groups (section 10), sharing with people who have no account, copies, notifications of any kind (no email, Alex), comments, live presence.
 
 ---
 
@@ -15,26 +15,28 @@ Not in scope: sharing travel groups (section 10), sharing with people who have n
 | Action on a trip | Owner | Write | Read |
 |---|---|---|---|
 | See trip, plan, versions, items, costs, open items, the group (full) and the purpose (read-only) | yes | yes | yes |
+| Download the PDF | yes | yes | yes |
 | Edit trip fields except group and purpose | yes | yes | no |
 | Create, regenerate, iterate, edit, restore the plan; tick open items | yes | yes | no |
 | Add, edit, delete items | yes | yes | no |
-| Download the PDF | yes | yes | no |
 | Change `group_id`, `group_text`, `group_structure`, `purpose_id` | yes | no | no |
 | Delete the trip, share / unshare, change access, manage share links | yes | no | no |
 | Leave the share | – | yes | yes |
 
 | Action on a purpose | Owner | Write | Read |
 |---|---|---|---|
-| See it, use it for own trips | yes | yes | yes |
+| See it, use it for own trips and own destination searches | yes | yes | yes |
 | Edit name, text, guided answers, constraints | yes | yes | no |
 | Delete, share / unshare, change access | yes | no | no |
 
 - Live access, not copies (Alex). Two levels `read` and `write` (Alex).
+- PDF for every access level (Alex): it only renders what the recipient can already see.
 - Group on a shared trip: the recipient sees the full group, names and birthdates, read-only (Alex). The `is_self` entry is the owner: shown as the owner's display name with the age on the travel date, not with the owner's profile birthdate **[D4]**. The groups list of the recipient never shows it.
-- Purpose on a shared trip: shown read-only on the trip (Alex). Editing it or picking it for own trips needs a purpose share. A purpose share at either level allows picking it for own trips **[D5]**.
+- Purpose on a shared trip: shown read-only on the trip (Alex). Editing it or picking it for own trips or searches needs a purpose share. A purpose share at either level allows picking it **[D5]**.
 - `purpose_id` on a shared trip is owner-only, like `group_id` (owner-only group: Alex; purpose and the trip's one-off group text: architect, as recommended in the brief). The purpose is the owner's data, and a write grantee could otherwise attach their own purpose to the owner's trip **[D3]**.
 - AI costs are charged to the acting user: their daily budget, their rate limits, their `ai_usage` rows (Alex). Already true in code, because every caller uses `session.userId`; the spec only keeps it that way.
 - The demo account can neither share nor receive shares (Alex).
+- No notification email (Alex): the recipient sees the new share in "Shared with me" **[D15]**.
 
 ### 1.2 Whose context is used **[D6]**
 
@@ -75,10 +77,12 @@ private.shared_group_ids()     returns uuid[]  -- trips.group_id of shared_trip_
 private.shared_purpose_ids()   returns uuid[]  -- purpose_shares to me (owner not disabled) ∪ trips.purpose_id of shared_trip_ids()
 private.writable_purpose_ids() returns uuid[]  -- purpose_shares to me with access = 'write' (owner not disabled)
 private.can_receive_share(p_user uuid) returns boolean  -- profile exists, not is_demo, disabled_at is null
+private.purpose_usable_by(p_purpose uuid, p_user uuid) returns boolean
+  -- p_purpose belongs to p_user, or purpose_shares has (p_purpose, grantee p_user) and the owner is not disabled
 ```
 They read `trip_shares`, `purpose_shares`, `trips`, `plans` and `profiles` as the definer, so the policies below never recurse (the `trips` policy calls a function that reads `trip_shares`, whose own policy does not mention `trips`). Policies always call them as `x = any ((select private.f()))`, so Postgres evaluates them once per statement (init plan), not per row. A user has at most 30 own trips and a few shares, so the arrays stay small.
 
-A disabled owner's shares disappear for the recipients, as their share links answer 404 (runbook section 11). Re-enabling brings them back.
+A disabled owner's shares are hidden from the recipients (Alex), as their share links answer 404 (runbook section 11). Re-enabling brings them back. The rows are kept.
 
 ### 2.3 Policies added to existing tables (owner policies stay as they are)
 
@@ -98,7 +102,7 @@ A disabled owner's shares disappear for the recipients, as their share links ans
 | `trip_purposes` | grantee select | `id = any ((select private.shared_purpose_ids()))` |
 | `trip_purposes` | write grantee update | using and with check `id = any ((select private.writable_purpose_ids()))` (grant stays `name, text, guided, constraints`) |
 
-No new delete policy anywhere except on `trip_items`: trips, plans, plan versions, groups and purposes are deleted by their owner only. `share_links` gets nothing: links stay owner-only. `profiles` gets nothing (see 2.7 and 3.5).
+No new delete policy anywhere except on `trip_items`: trips, plans, plan versions, groups and purposes are deleted by their owner only. `share_links` gets nothing: links stay owner-only. `destination_searches` gets nothing: lists stay owner-only, whatever purpose they use (3.8). `profiles` gets nothing (see 2.7 and 3.5).
 
 ### 2.4 Owner of child rows written by a grantee **[D9]**
 
@@ -112,12 +116,14 @@ private.inherit_plan_owner()  -- plan_versions:     new.owner_id := (select owne
 
 Trigger names: `plans_00_inherit_owner`, `trip_items_00_inherit_owner`, `plan_versions_00_inherit_owner`. Same-event triggers fire in name order, and `plan_versions_assign_no` needs the final `owner_id` (it updates `plans … where owner_id = new.owner_id`). pgTAP checks the order.
 
-### 2.5 Owner-only columns and the purpose reference on `trips` **[D3] [D5] [D10]**
+### 2.5 Owner-only columns and purpose references **[D3] [D5] [D10] [D21]**
 
 - **Trigger, not column grants.** Owner and grantee are both the `authenticated` role, so a column grant cannot tell them apart. `private.trips_owner_only()` `before update on trips`: when `(select auth.uid()) is not null and (select auth.uid()) <> old.owner_id` and any of `group_id, group_text, group_structure, purpose_id` is distinct from `old`, raise `'owner_only' using errcode = '42501'`. A null `auth.uid()` (secret key, for example the `group_parsed` cache write) passes. Holds for every path, also direct PostgREST calls.
-- **Purpose reference.** Drop the composite FK `(purpose_id, owner_id) → trip_purposes` and add `foreign key (purpose_id) references public.trip_purposes (id) on delete set null`. `private.trips_check_purpose()` `before insert or update of purpose_id`: a non-null `purpose_id` must belong to `new.owner_id` or be in `purpose_shares` with `grantee_id = new.owner_id`; otherwise raise `using errcode = '23503'` (`trips.ts` already maps 23503 to `not_found`).
-- **Unshare or leave a purpose.** `private.purpose_share_removed()` `after delete on purpose_shares` (definer): `update public.trips set purpose_id = null where owner_id = old.grantee_id and purpose_id = old.purpose_id`. Those trips get a new `updated_at`, so their plans show as outdated; plan versions keep their snapshot.
-- `group_id` keeps its composite FK: groups are not shareable.
+- **Purpose references on `trips` and `destination_searches`.** On both tables drop the composite FK `(purpose_id, owner_id) → trip_purposes` and add `foreign key (purpose_id) references public.trip_purposes (id) on delete set null`. One trigger function `private.check_purpose_ref()` `before insert or update of purpose_id` on both tables: a non-null `new.purpose_id` must satisfy `private.purpose_usable_by(new.purpose_id, new.owner_id)`; otherwise raise `using errcode = '23503'` (both callers already map 23503 to `not_found`). Every existing row passes (same owner).
+- **Unshare or leave a purpose.** `private.purpose_share_removed()` `after delete on purpose_shares` (definer), two statements:
+  - `update public.trips set purpose_id = null where owner_id = old.grantee_id and purpose_id = old.purpose_id`. Those trips get a new `updated_at`, so their plans show as outdated; plan versions keep their snapshot.
+  - `update public.destination_searches set purpose_id = null where owner_id = old.grantee_id and purpose_id = old.purpose_id`. The list keeps its `purpose_name` snapshot and cards, exactly as when a purpose is deleted (find-destinations section 9, "Purpose edited or deleted").
+- `group_id` keeps its composite FK on both tables: groups are not shareable.
 
 ### 2.6 Plans, versions, lock **[D11]**
 
@@ -170,7 +176,7 @@ export type Grant = { id: string; grantee: Person; access: ShareAccess; createdA
 export type IncomingShare = { id: string; resource: ShareResource; resourceId: string; owner: Person; access: ShareAccess; createdAt: string };
 export type ShareCandidate = { id: string; email: string; name: string | null };   // admin list
 ```
-- `Trip` and `TripPurpose` gain `access: Access` and `ownerId: string`; `TripSummary` gains `access`, `sharedBy: Person | null` (incoming) and `shareCount: number` (own trips). `TRIP_COLUMNS` and `PURPOSE_COLUMNS` add `owner_id`; access = `owner_id === session.userId ? "owner" : <share row access>`.
+- `Trip` and `TripPurpose` gain `access: Access` and `ownerId: string`; `TripSummary` gains `access`, `sharedBy: Person | null` (incoming) and `shareCount: number` (own trips). `TRIP_COLUMNS` and `PURPOSE_COLUMNS` add `owner_id`; access = `owner_id === session.userId ? "owner" : <share row access>`. A purpose visible only through a shared trip has no share row: access `read`, and it is not usable for own trips or searches.
 - `result.ts` gains `no_account` (share by email: no usable account), `self_share`, and `forbidden` is widened to "not allowed for this user" (admin and owner-only actions).
 
 ### 3.2 Actions `src/lib/server/sharing.ts` ("use server")
@@ -180,14 +186,14 @@ One module for both resources (a table map `{ trip: "trip_shares", purpose: "pur
 | Action | Steps |
 |---|---|
 | `listGrants(resource, id)` | session → owner check via RLS read of the resource (`owner_id = me`, else `forbidden`) → share rows → `share_contacts()` for names and emails |
-| `shareWith(input)` | session (401) → Zod → profile: demo → `demo_forbidden` → resource read via RLS, owner only (`forbidden`) → resolve target (3.3) → self → `self_share` → count `>= 10` → `limit_reached` → insert; on 23505 (already shared) update `access` instead and send no mail → mail (3.4) → event |
-| `setShareAccess(input)` | owner update through RLS; 0 rows → `not_found`; no mail |
+| `shareWith(input)` | session (401) → Zod → profile: demo → `demo_forbidden` → resource read via RLS, owner only (`forbidden`) → resolve target (3.3) → self → `self_share` → count `>= 10` → `limit_reached` → insert; on 23505 (already shared) update `access` instead → event |
+| `setShareAccess(input)` | owner update through RLS; 0 rows → `not_found` |
 | `unshare(input)` | owner delete through RLS; 0 rows → `not_found` |
 | `leaveShare(input)` | delete `where id = :id and grantee_id = me`; 0 rows → `not_found` |
 | `listSharedWithMe()` | `trip_shares` and `purpose_shares` where `grantee_id = me`, embedded resource summary, `share_contacts()`; two queries in parallel |
 | `listShareCandidates()` | admin only (`getAdminSession`): users from the Auth admin API and `profiles` with the secret key, minus self, demo and disabled; email and display name only |
 
-Events (`app_events`, ids and flags only; never emails, names or titles) **[D12]**: `sharing.granted { resource, resourceId, access, via: "email" | "list", mailed }`, `sharing.access_changed { resource, resourceId, access }`, `sharing.revoked { resource, resourceId }`, `sharing.left { resource, resourceId }`, `sharing.lookup { found }`, `sharing.mail_failed { resource, code }` (warn). The `sharing.` prefix keeps them apart from the link events `share.*`.
+Events (`app_events`, ids and flags only; never emails, names or titles) **[D12]**: `sharing.granted { resource, resourceId, access, via: "email" | "list" }`, `sharing.access_changed { resource, resourceId, access }`, `sharing.revoked { resource, resourceId }`, `sharing.left { resource, resourceId }`, `sharing.lookup { found }`. The `sharing.` prefix keeps them apart from the link events `share.*`.
 
 ### 3.3 Finding the recipient **[D13] [D14]**
 
@@ -196,12 +202,9 @@ Events (`app_events`, ids and flags only; never emails, names or titles) **[D12]
 - Admin: the form shows the user list only, no email field (Alex). `{ userId }` from `listShareCandidates()` is checked again against self and, through the insert policy, with `can_receive_share`. No lookup limit, no `sharing.lookup` row.
 - `{ userId }` from a non-admin → `forbidden`.
 
-### 3.4 Email to the recipient **[D15]**
+### 3.4 No notification **[D15]**
 
-- Sent after a new share (not on an access change or a repeat), in the recipient's `profiles.locale`, best effort: a failure leaves the share in place, logs `sharing.mail_failed`, and the action answers `{ ok: true, data: { mailed: false } }`; the dialog then says "Shared. The email could not be sent."
-- The invite mail goes through Supabase Auth (`inviteUserByEmail`), which only mails people without an account. Supabase has no API for a plain notice to an existing user. So the notice uses the same provider and sender behind that SMTP: Brevo's transactional API (`POST https://api.brevo.com/v3/smtp/email`, header `api-key`), new server secret `BREVO_API_KEY`, sender `MAIL_FROM` (= the current SMTP sender). No key → no mail, `mailed: false`, event code `not_configured`. Each call is logged in `api_calls` (provider `brevo`, no address).
-- Content (strings in `sharing.mail.*`, both locales): subject "{owner} shared a trip with you" / "… a trip purpose …"; body with the trip title (or destination) or purpose name, the level ("you can view it" / "you can view and edit it"), one button to `/{locale}/app/trips/{id}` or `/{locale}/app/purposes/{id}`, and a footer "You get this email because someone shared something with you in Travel Planner." Owner = display name, else the owner's email. HTML in the Atlas style of `docs/email-templates/`, every value escaped; plain-text part too.
-- Files: `src/lib/integrations/brevo.ts` (typed client, Zod on the response), `src/lib/server/mail/share-notice.ts` (builds subject, HTML, text from `getTranslations({ locale, namespace: "sharing.mail" })`).
+No email or other notice is sent (Alex). The recipient sees the share the next time they open `/app` ("Shared with me"). There is no new mail provider, secret or template.
 
 ### 3.5 Changes to existing server code **[D16]**
 
@@ -213,15 +216,16 @@ RLS now returns more rows than "my own" in a few places. Every list that means "
 | `trips.ts` `createTrip` | trip cap count gets `.eq("owner_id", userId)` (shared trips do not count) |
 | `trips.ts` `updateTrip` | non-owner: the write keeps the stored `group_id, group_text, group_structure, purpose_id` (the trigger rejects a change; 42501 → `forbidden`). New argument `expectedUpdatedAt`: update `.eq("updated_at", expectedUpdatedAt)`; 0 rows on an existing trip → `conflict` (3.6) |
 | `trips.ts` `deleteTrip` | unchanged (RLS: owner only; a grantee gets `not_found`) |
-| `purposes.ts` `listPurposes` | `.eq("owner_id", userId)`; the trip form's purpose select adds shared purposes from `listSharedWithMe` |
+| `purposes.ts` `listPurposes` | `.eq("owner_id", userId)`; the trip form and the search form add shared purposes from `listSharedWithMe` |
 | `purposes.ts` `updatePurpose` | `expectedUpdatedAt` as for trips; `deletePurpose` unchanged |
 | `groups.ts` `listGroups` | `.eq("owner_id", userId)` (groups of shared trips are readable now) |
 | `plan-store.ts` `hasBusyPlan(sb, userId)` | `.eq("busy_by", userId)`: the in-flight guard counts the actor's own runs, not a run someone else started on a shared plan |
 | `plan-store.ts` `pruneVersions` | `rpc("prune_plan_versions", { p_plan_id })` instead of a delete |
 | `plan-store.ts` `savePurposeTags`, `group-text.ts` `saveGroupParse` | take the row's `ownerId` (read through RLS before) instead of the actor's id for the `owner_id` filter; the AI call stays charged to the actor |
 | `plan-pipeline.ts` `loadPlanContext` | adds `access`, `ownerId`; for a non-owner reads the owner's `birthdate, home_airports, locale, display_name` with the secret key (one explicit select by `trip.ownerId`) and uses them for `birthdate` / `homeAirports` (1.2). `read` access → `forbidden` for every write path (`generatePlan`, `iteratePlan`, `editPlanVersion`, `restoreVersion`, `toggleOpenItem`). Locale for a non-owner: latest version's `plan.locale`, else the owner's |
-| `plan-document.ts` `getOwnerPlanDocument` | allowed for `owner` and `write`; `read` → `forbidden` (PDF route 403) |
+| `plan-document.ts` `getOwnerPlanDocument` | allowed for every access level (RLS already limits the reads); the PDF route needs no access check beyond a visible trip |
 | `items.ts` | write actions check `access !== "read"` before the write (clear error instead of an RLS 0-row miss) |
+| `discover/*` | section 3.8 |
 | trip page reads (`trip-page-reads.test.ts`) | one more parallel read for the share badge (`trip_shares` row of the viewer or the grant count); the round count may stay at 7 if it joins an existing round |
 | `account.ts` / `user-removal.ts` | no code change; cascades in 3.7 |
 
@@ -236,12 +240,32 @@ Group and purpose readers (`getGroup`, `getPurpose`) need no change: RLS lets th
 
 ### 3.7 Account deletion, disable, retention **[D18]**
 
-- Owner deleted: their trips and purposes cascade, and with them all shares; recipients lose them silently. A grantee's trips that used the owner's purpose keep the trip, `purpose_id` set null (FK).
+- Owner deleted: their trips and purposes cascade, and with them all shares; recipients lose them silently. A grantee's trips and destination searches that used the owner's purpose keep their rows, `purpose_id` set null (FK).
 - Grantee deleted: their share rows cascade; `plans.busy_by` and `plan_versions.created_by` become null; versions they created stay with the owner's plan.
 - The delete-account dialog adds one line: "Trips and purposes you shared are removed for the people you shared them with. Things shared with you stay with their owners."
-- Disabled owner: shares hidden (2.2). Disabled grantee: signed out; shares stay until an admin deletes the account.
+- Disabled owner: shares hidden (2.2, Alex). Disabled grantee: signed out; shares stay until an admin deletes the account.
 - Retention unchanged: a share does not keep a trip alive; a grantee's edits do, because they update the same `trips`, `plans` and `trip_items` rows the purge reads.
 - Demo reset: nothing to do (demo has no share rows); trips cascade as before.
+
+### 3.8 "Find destinations" with a shared purpose **[D21] [D22] [D23]**
+
+A recipient can run a destination search with a purpose shared with them at either level (Alex). The list belongs to the recipient: owner-only RLS on `destination_searches` is unchanged, and the purpose owner never sees it. Changes against `docs/specs/find-destinations.md`:
+
+| Section there | Change |
+|---|---|
+| 2, 13.1 form | The saved-purpose select lists own purposes, then an optgroup "Shared with me" with the owner's name. Default flight limit `maxBlockMinutes(purpose)` works unchanged on the shared purpose. A user without own purposes but with a shared one gets the chips (text mode is no longer forced). |
+| 8 storage | `purpose_id` loses its composite same-owner FK and gets the plain FK plus `private.check_purpose_ref()` (2.5). `group_id` keeps its composite FK. |
+| 9 gate 1 | The purpose loads through RLS **and** must be usable: `owner_id = me` or a `purpose_shares` row to me (from `listSharedWithMe` or one select). A purpose visible only through a shared trip → `not_found`, the same answer the trigger would give. |
+| 9 tags, 13.2 | A shared purpose with valid tags (`rowTags`, hash of the current content) is used as is: **no Haiku call** (`tagsFrom: "cached"`). Without valid tags the existing once-per-purpose call runs, charged to the searching user (`ai_usage` with their id), and `savePurposeTags` stores the tags on the purpose with the **purpose owner's** id (3.5). So every later user of that purpose reads them without a call. |
+| 13.2 step 2 | The tag lookup for a typed text reads own purposes and purposes shared with me (`id in` my `purpose_shares`), not purposes seen only through a trip. |
+| 6 hash, D6 there | Unchanged. `IdeaInput` holds tags, not the purpose id, and the hash stays scoped to the searching owner. A recipient and the owner with the same input each get their own list; no list is served across users. |
+| 13.3 `adoptSource` | Unchanged rules; "saved purpose `P`" now includes a shared `P` (`purpose_name = P.name`). The update writes `purpose_id = P`, which the trigger accepts while the share exists. |
+| 13.4 save as purpose | Unchanged. It creates or links the **searcher's own** purpose; step 4 (identical purpose) looks at own purposes only, because a link to a shared purpose would vanish on unshare. |
+| 7, 13.5 prefill | `purposeId` = the search's `purpose_id` as today. `buildTripDraft` drops it (empty, as for a deleted purpose) when the purpose is no longer usable, so an old tab does not end in `not_found` from `createTrip`. The trip form accepts the shared purpose (2.5). |
+| 9 failures | New row "Purpose unshared or left": like "Purpose edited or deleted": `purpose_id` is cleared by the trigger (2.5), the list keeps its `purpose_name` snapshot and cards. The FK action and the trigger both move `updated_at`, as a purpose delete already does today. |
+| 9 events | `destination.searched` and `destination.search_failed`: `source` gains `"shared"` (saved purpose of another owner). No ids of the purpose owner. |
+
+Demo: unaffected (demo has no shares). Retention: unchanged (newest 10, 90 days).
 
 ---
 
@@ -250,9 +274,9 @@ Group and purpose readers (`getGroup`, `getPurpose`) need no change: RLS lets th
 ### 4.1 Share box on the trip page and on the purpose page (owner only) **[D19]**
 - Trip: a "People" block at the top of the existing `SharePanel` (links stay below, unchanged). Purpose: the same block on `/app/purposes/[id]`. Component `src/components/sharing/people-share.tsx` (client) with `grant-row.tsx`.
 - Add form: email input (`type="email"`, `autocomplete="off"`), access as two chips in `grid-cols-2` ("Can view" | "Can edit"), button "Share". Admin: a native `<select>` of `listShareCandidates()` (email, name in brackets) instead of the input.
-- Notice above the button, always visible on trips: "They will see the whole trip, including the travel group with names and birthdates." On purposes: "They can use this purpose for their own trips. People they share those trips with can see it there."
+- Notice above the button, always visible on trips: "They will see the whole trip, including the travel group with names and birthdates." On purposes: "They can use this purpose for their own trips and destination searches. People they share those trips with can see it there."
 - Rows: name or email (truncated, full value in `title`), the email in small text below when a name is shown, access select, remove button (`ConfirmDialog`). "Shared with {n} of 10".
-- States: `no_account`, `self_share`, `limit_reached`, `rate_limited`, `demo_forbidden` (block disabled with `sharing.demoDisabled`), mail failed.
+- States: `no_account`, `self_share`, `limit_reached`, `rate_limited`, `demo_forbidden` (block disabled with `sharing.demoDisabled`).
 - 360 px: input, chips and button stacked full width, rows wrap name above controls, touch targets `min-h-11`, no horizontal scroll. From `sm`: input and button in one row.
 
 ### 4.2 Lists
@@ -261,16 +285,17 @@ Group and purpose readers (`getGroup`, `getPurpose`) need no change: RLS lets th
 
 ### 4.3 Shared trip or purpose page (recipient)
 - Header badge as in the list plus "Leave" (`ConfirmDialog`: "You lose access. {name} keeps the trip."), then redirect to `/app`.
-- Read: plan view in read-only mode (the `readOnly` props from phase 5: no iterate chips, no edits, no open-item ticks, no regenerate), items `readOnly`, no PDF button, no share panel, no "Back to suggestions", no edit or delete buttons.
+- Read: plan view in read-only mode (the `readOnly` props from phase 5: no iterate chips, no edits, no open-item ticks, no regenerate), items `readOnly`, "Download PDF" shown, no share panel, no "Back to suggestions", no edit or delete buttons.
 - Write: everything except delete, share panel and "Back to suggestions". The trip form shows group and purpose as read-only text with the note "Only {name} can change the group and purpose." The plan view shows "by {name}" on versions created by someone else.
 - Group block: read-only list of all entries; the `is_self` entry shows the owner's name and age.
 - Purpose on a shared trip: name and text read-only; a link to the purpose only when it is also shared with the viewer.
+- Shared purpose page: "Find destinations" button as on own purposes (opens the search with this purpose preselected).
 
-### 4.4 Trip form for own trips
-The purpose select lists own purposes, then "Shared with me" purposes (optgroup) with the owner's name.
+### 4.4 Trip form and search form for own trips
+The purpose select lists own purposes, then "Shared with me" purposes (optgroup) with the owner's name. Same in the "Find destinations" form (3.8).
 
 ### 4.5 i18n (de + en, same keys) **[D20]**
-`sharing.{title, people, intro, email, emailPlaceholder, pickUser, add, adding, count, groupNotice, purposeNotice, access.{read, write}, remove, confirmRemove, changeAccess, demoDisabled, mailFailed, sharedPill, sharedWithMe, badge, leave, confirmLeave, ownerOnly, ownerOnlyContext, by, busyBy, conflictPlan, conflictForm, errors.{no_account, self_share, limit_reached, rate_limited, forbidden, failed}, mail.{subjectTrip, subjectPurpose, intro, bodyTrip, bodyPurpose, levelRead, levelWrite, open, footer}}`, `settings.deleteAccount.sharedNote`, `admin.usage.{tripShares, purposeShares, tripsShared, recipients, grantsThisMonth, lookups, lookupMisses}`.
+`sharing.{title, people, intro, email, emailPlaceholder, pickUser, add, adding, count, groupNotice, purposeNotice, access.{read, write}, remove, confirmRemove, changeAccess, demoDisabled, sharedPill, sharedWithMe, badge, leave, confirmLeave, ownerOnly, ownerOnlyContext, by, busyBy, conflictPlan, conflictForm, sharedOptgroup, errors.{no_account, self_share, limit_reached, rate_limited, forbidden, failed}}`, `settings.deleteAccount.sharedNote`, `admin.usage.{tripShares, purposeShares, tripsShared, recipients, grantsThisMonth, lookups, lookupMisses}`.
 
 ### 4.6 Admin page
 "Usage" section gets one row of share counts from `admin_share_stats` (2.8). Nothing per user.
@@ -285,23 +310,28 @@ pgTAP (`supabase/tests/sharing.test.sql`, new file; actors A owner, B write gran
 - Writes: B updates trip fields, inserts plan, plan version (gets `version_no`, `owner_id = A`, `created_by = B`), items, updates `busy_until` (`busy_by = B`) and `open_done`; C gets 42501 / 0 rows for each; B cannot delete the trip, the plan, versions, share links, groups or purposes; B cannot change `group_id`, `group_text`, `group_structure`, `purpose_id` (42501); the secret key (no `auth.uid()`) can still write `group_parsed`.
 - `plan_versions_00_inherit_owner` fires before `plan_versions_assign_no` (insert by B succeeds).
 - `prune_plan_versions`: B prunes only beyond 30; C and D get 42501.
-- Purposes: B (write share) updates name/text, not `parsed_*`; C cannot; B attaches A's shared purpose to B's own trip; D cannot (23503); after A unshares, B's trip has `purpose_id` null; A deleting the purpose clears it too.
+- Purposes: B (write share) updates name/text, not `parsed_*`; C cannot; B and C attach A's shared purpose to their own trip; D cannot (23503); a purpose seen only through a shared trip cannot be attached (23503); after A unshares, B's trip has `purpose_id` null; A deleting the purpose clears it too.
+- Destination searches: B and C insert a search with A's shared purpose; D cannot (23503); a purpose seen only through a shared trip cannot be used (23503); A sees none of B's searches; after A unshares or B leaves, B's search has `purpose_id` null and keeps `purpose_name` and `cards`; F's purpose (disabled owner) cannot be used.
 - `share_user_by_email` not executable by `authenticated`; returns null for E and F. `share_contacts` returns only counterparts.
 - Cascades: deleting A removes the shares; deleting B nulls `busy_by` and `created_by`.
 
 Unit (Vitest, next to the code):
 - `domain/sharing.test.ts`: Zod email normalisation, target union, limits.
-- `server/sharing.test.ts` (mocked clients): demo → `demo_forbidden`; non-owner → `forbidden`; unknown email → `no_account` and a `sharing.lookup { found: false }` event; 21st lookup of the day → `rate_limited`; `userId` from a non-admin → `forbidden`; self → `self_share`; 10 grants → `limit_reached`; repeat share updates access and sends no mail; mail failure → `mailed: false`, share kept; events contain no email, name or title.
-- `server/mail/share-notice.test.ts`: de/en subjects, escaping, link per resource, fallback to email without a display name.
-- `integrations/brevo.test.ts`: request shape against a recorded response, no key → not configured.
-- `plan-pipeline.test.ts`: write grantee uses owner birthdate, home airports and plan locale (same input hash as the owner); read grantee → `forbidden`; AI usage logged with the actor's id; `hasBusyPlan` ignores a lock held by someone else.
+- `server/sharing.test.ts` (mocked clients): demo → `demo_forbidden`; non-owner → `forbidden`; unknown email → `no_account` and a `sharing.lookup { found: false }` event; 21st lookup of the day → `rate_limited`; `userId` from a non-admin → `forbidden`; self → `self_share`; 10 grants → `limit_reached`; repeat share updates access; events contain no email, name or title.
+- `plan-pipeline.test.ts`: write grantee uses owner birthdate, home airports and plan locale (same input hash as the owner); read grantee → `forbidden` on every write path; AI usage logged with the actor's id; `hasBusyPlan` ignores a lock held by someone else.
+- `plan-document-owner.test.ts` and the owner PDF route: a read grantee gets the document and the PDF; a stranger gets 404.
 - `trips.test.ts` / `purposes.test.ts`: own lists filter by owner; cap counts own trips only; stale `expectedUpdatedAt` → `conflict`; grantee update keeps group and purpose.
 - `plan-store.test.ts`: prune calls the RPC; `MAX_VERSIONS_KEPT` equals the SQL constant.
+- `discover/pipeline.test.ts`: a shared purpose with valid tags runs with no Haiku call (`tagsFrom: "cached"`); an untagged shared purpose makes one call logged with the searcher's id and saves the tags with the purpose owner's id; a purpose seen only through a shared trip → `not_found`; event `source: "shared"`.
+- `discover/store.test.ts`: `adoptSource` with a shared `P` sets `purpose_id` and `purpose_name`; the typed-text tag lookup finds tags on a purpose shared with me and ignores a purpose seen only through a trip.
+- `discover/save-purpose.test.ts`: step 4 links only an identical own purpose, never a shared one.
+- `discover/prefill.test.ts`: a search whose purpose is no longer usable gives an empty `purposeId`.
+- Eval E10 stays green (no change to `IdeaInput` or the hash).
 
 E2E outline (Playwright, mobile and desktop, users from `phase-6-e2e.md` plus a second user):
 1. A shares a trip with B (write) by email; B sees it under "Shared with me" with the badge, edits the length, regenerates; A sees the new version "by B".
-2. A changes B to read; B sees no edit controls and no PDF button; the plan form is gone.
-3. A shares a purpose with B; B picks it in the trip form of a new own trip; A unshares; B's trip shows no purpose.
+2. A changes B to read; B sees no edit controls and the plan form is gone; B downloads the PDF.
+3. A shares a purpose with B; B picks it in the trip form of a new own trip and runs "Find destinations" with it; A unshares; B's trip shows no purpose and B's list keeps its label.
 4. B leaves; the trip is gone from B's list.
 5. Unknown email shows the invite-only message; demo login sees the share block disabled.
 6. 360 px screenshots of the share box, a badge card and the shared trip header.
@@ -313,20 +343,20 @@ E2E outline (Playwright, mobile and desktop, users from `phase-6-e2e.md` plus a 
 | PR | Owner | Content | Depends on |
 |---|---|---|---|
 | 1 | backend-dev | migration 35 (section 2), `supabase/tests/sharing.test.sql`, header range update in `rls.test.sql`; existing pgTAP that expected 23503 for an item on another user's trip now expects 42501 | – |
-| 2 | backend-dev | `domain/sharing.ts`, `result.ts`, `server/sharing.ts`, mail (`integrations/brevo.ts`, `server/mail/share-notice.ts`), all changes of 3.5 and 3.6, admin stats reader, `sharing.mail.*` keys (de + en), `.env.example` (`BREVO_API_KEY`, `MAIL_FROM`), runbook note (key rotation, Brevo daily limit), unit tests | PR 1 deployed |
-| 3 | frontend-dev | section 4, remaining i18n keys, E2E | PR 2 |
+| 2 | backend-dev | `domain/sharing.ts`, `result.ts`, `server/sharing.ts`, all changes of 3.5, 3.6 and 3.8, admin stats reader, unit tests | PR 1 deployed |
+| 3 | frontend-dev | section 4, i18n keys, E2E | PR 2 |
 
-Deploy order: the migration is safe for the current app. No share rows exist until PR 2, so the missing owner filters cannot show anything extra; the purpose FK change accepts every existing row; the old `pruneVersions` delete still works for owners. PR 2 must add the owner filters before (or in the same deploy as) the first action that creates shares.
+Deploy order: the migration is safe for the current app. No share rows exist until PR 2, so the missing owner filters cannot show anything extra; the purpose FK changes accept every existing row; the old `pruneVersions` delete still works for owners. PR 2 must add the owner filters before (or in the same deploy as) the first action that creates shares.
 
 ---
 
 ## 7. CLAUDE.md ground rule 6
 
-Proposed wording, to be applied by the orchestrator with Alex's approval (the architect writes only under `docs/`):
+Amended (Alex approved, 2026-11-04; applied by the orchestrator):
 
 > 6. **Users see only their own data.** Every user table has `owner_id` with an RLS policy `owner_id = auth.uid()`. Exception: a trip or trip purpose the owner shared with a named user (`trip_shares`, `purpose_shares`) is also visible to that user, read-only or read/write, through `private.*` helper functions; a shared trip shows its group and purpose read-only (`docs/specs/sharing.md`). Public share links are read through a server route by token only. Secrets stay server-side (never `NEXT_PUBLIC_`).
 
-The change from "Shared plans" to "Public share links" avoids a contradiction with direct shares.
+"Shared plans" became "Public share links" so the rule does not contradict direct shares.
 
 ---
 
@@ -335,19 +365,20 @@ The change from "Shared plans" to "Public share links" avoids a contradiction wi
 | Area | Files |
 |---|---|
 | DB | `supabase/migrations/20261110120035_sharing.sql`, `supabase/tests/sharing.test.sql`, `supabase/tests/rls.test.sql` (header, one expectation) |
-| Domain | `src/lib/domain/sharing.ts` (new), `result.ts`, `trip.ts`, `purpose.ts` |
-| Server | `src/lib/server/sharing.ts` (new), `src/lib/server/mail/share-notice.ts` (new), `src/lib/integrations/brevo.ts` (new), `trips.ts`, `trip-mapping.ts`, `purposes.ts`, `purpose-insert.ts`, `groups.ts`, `plan-store.ts`, `plan-pipeline.ts`, `plan-document.ts`, `items.ts`, `group-text.ts`, `purpose-tagging.ts`, `admin/stats.ts` |
-| UI | `src/components/sharing/{people-share,grant-row,share-badge,leave-button}.tsx` (new), `src/components/share/share-panel.tsx`, trip list and purpose list components, trip page, purpose page, trip form, plan view (`readOnly`, "by"), settings delete dialog, admin usage section |
+| Domain | `src/lib/domain/sharing.ts` (new), `result.ts`, `trip.ts`, `purpose.ts`, `destination-search.ts` (event source) |
+| Server | `src/lib/server/sharing.ts` (new), `trips.ts`, `trip-mapping.ts`, `purposes.ts`, `purpose-insert.ts`, `groups.ts`, `plan-store.ts`, `plan-pipeline.ts`, `plan-document.ts`, `items.ts`, `group-text.ts`, `purpose-tagging.ts`, `admin/stats.ts`, `discover/{pipeline,store,save-purpose}.ts` |
+| Pure | `src/lib/discover/prefill.ts` |
+| UI | `src/components/sharing/{people-share,grant-row,share-badge,leave-button}.tsx` (new), `src/components/share/share-panel.tsx`, trip list and purpose list components, trip page, purpose page, trip form, `src/components/discover/discover-form.tsx`, plan view (`readOnly`, "by"), settings delete dialog, admin usage section |
 | i18n | `messages/de.json`, `messages/en.json` |
-| Docs | `CLAUDE.md` rule 6 (section 7), `docs/runbook.md` (Brevo key), `docs/architecture.md` isolation line |
+| Docs | `docs/architecture.md` isolation line; a pointer from `docs/specs/find-destinations.md` sections 8 and 9 to section 3.8 here |
 
 ---
 
 ## 9. Risks
 - The new policies widen seven tables (`trips`, `plans`, `plan_versions`, `trip_items`, `travel_groups`, `group_entries`, `trip_purposes`). A missing owner filter shows someone else's shared item in a "mine" list. Section 3.5 lists every known place; the pgTAP "own list" checks and a review grep for unfiltered `from("trips")`, `from("trip_purposes")`, `from("travel_groups")` guard it.
 - Account enumeration: 20 lookups a day per user, invite-only app, so the exposure is small and logged (`lookupMissesThisMonth` on the admin page).
-- Brevo free tier: 300 emails a day; at 20 lookups a day per owner this is far away.
-- Transitive purpose visibility (2.2, `shared_purpose_ids` includes purposes on trips shared with me, whoever owns the purpose). Needed so a write grantee's regeneration keeps the purpose; stated in the purpose share notice.
+- Transitive purpose visibility (accepted by Alex): `shared_purpose_ids` includes purposes on trips shared with me, whoever owns the purpose, so a write grantee's regeneration keeps the purpose. Stated in the purpose share notice.
+- A shared purpose edited by its owner changes the tags; the recipient's next search has a new hash and makes a new ideas call on the recipient's budget, as an owner's own edit would.
 
 ---
 
@@ -358,22 +389,25 @@ Groups are not shareable yet (Alex). Open problem for that step: the person you 
 
 ## 11. Decisions
 - **[D1] (Alex)** Scope: trips (with plan, versions, items) and trip purposes. Groups later. Live access, no copies. Two levels, `read` and `write`.
-- **[D2] (Alex)** Write allows editing trip fields, generating and patching the plan, items, PDF. Owner only: delete, share and unshare, share links, the group. Recipient can leave. Shown under "Shared with me" with owner and level. Group on a shared trip fully visible (names, birthdates), read-only; the share box says so. Purpose on a shared trip read-only; editing or own use needs a purpose share. AI costs go to the acting user. Email to the recipient in their locale. Demo neither shares nor receives. Owner types an existing user's email, success only for existing accounts (enumeration accepted, rate-limited); admins pick from a list of all users except demo.
+- **[D2] (Alex)** Write allows editing trip fields, generating and patching the plan, items. The PDF is open to every access level (Alex, 2026-11-04). Owner only: delete, share and unshare, share links, the group. Recipient can leave. Shown under "Shared with me" with owner and level. Group on a shared trip fully visible (names, birthdates), read-only; the share box says so. Purpose on a shared trip read-only; editing or own use needs a purpose share. AI costs go to the acting user. Demo neither shares nor receives. Owner types an existing user's email, success only for existing accounts (enumeration accepted, rate-limited); admins pick from a list of all users except demo.
 - **[D3]** `purpose_id` on a shared trip is owner-only, like `group_id` (Alex); the trip's one-off group (`group_text`, `group_structure`) counts as "the group" and is owner-only too.
 - **[D4]** The `is_self` entry is shown to recipients as the owner's name and computed age, without the owner's profile birthdate: that birthdate belongs to the profile, not the group.
-- **[D5]** A purpose share at either level allows picking it for own trips; `write` also allows editing. The trips → purposes FK becomes a plain FK plus a trigger (same owner or shared with the trip owner). Unshare and leave clear the reference.
+- **[D5]** A purpose share at either level allows picking it for own trips and searches; `write` also allows editing. Purpose references use a plain FK plus a trigger (same owner or shared with the row owner). Unshare and leave clear the reference. A purpose used on a shared trip is visible to the people that trip is shared with, whoever owns the purpose (accepted by Alex, 2026-11-04).
 - **[D6]** Plans on shared trips use the owner's birthdate, home airports and plan locale, so the hash and language do not depend on who presses the button.
 - **[D7]** Two access tables, `trip_shares` and `purpose_shares`, instead of one polymorphic table: real FKs with cascades on the resource and on both users, simple unique keys.
-- **[D8]** RLS through `security definer` helpers returning id arrays, called once per statement; disabled owners' shares are hidden.
+- **[D8]** RLS through `security definer` helpers returning id arrays, called once per statement. Shares of a disabled owner are hidden (Alex, 2026-11-04).
 - **[D9]** Child rows written by a grantee take the parent's `owner_id` in a `before insert` trigger, so composite FKs and owner-based code stay valid.
 - **[D10]** Owner-only trip columns are guarded by a trigger, not column grants (both users are `authenticated`).
 - **[D11]** `plans.busy_by` for a per-actor in-flight guard; `plan_versions.created_by` for "by {name}"; pruning through a definer RPC so grantees cannot delete versions directly.
 - **[D12]** Events under `sharing.*`, ids and flags only.
 - **[D13]** Lookup limit 5 a minute in memory plus 20 a Berlin day counted from `app_events`, every lookup logged.
 - **[D14]** Demo and disabled accounts answer like unknown emails.
-- **[D15]** The notice email uses Brevo's transactional API with the existing sender (Supabase Auth cannot mail existing users); best effort, no mail on access changes. The trip title or purpose name is in the mail.
+- **[D15] (Alex, 2026-11-04)** No notification email. The recipient sees the share in "Shared with me". (Replaces the earlier proposal of a notice email through Brevo, withdrawn.)
 - **[D16]** "Mine" lists filter by `owner_id` explicitly; cache writes use the row owner's id.
 - **[D17]** Concurrent editing: existing plan lock and `baseVersion` conflicts; optimistic `updated_at` check on trip and purpose forms; last write wins for items and open-item ticks.
 - **[D18]** Deletion and retention by cascade; a share does not extend retention.
 - **[D19]** Share box inside the existing share panel and on the purpose page; badges and "Shared with me" sections on the existing lists.
 - **[D20]** New i18n namespace `sharing` (the `share` namespace stays for links).
+- **[D21] (Alex, 2026-11-04)** A shared purpose (read or write) can be used in "Find destinations". The list belongs to the searcher and stays owner-only; `destination_searches.purpose_id` gets the same plain FK and trigger as trips. Unshare or leave clears it, and the list keeps its label and cards, as after a purpose delete.
+- **[D22]** Tags of a shared purpose are read from the owner's purpose without a new Haiku call. Only an untagged purpose gets the existing once-per-purpose call, charged to the searcher and saved on the owner's purpose for every later user.
+- **[D23]** No cross-user list reuse: the search hash stays per searching owner, so a recipient never receives a list built for the purpose owner. "Save as purpose" links only own purposes.

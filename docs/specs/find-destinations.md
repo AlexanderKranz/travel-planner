@@ -213,6 +213,8 @@ Trip page: when `destination_search_id` is set, a small link "Back to suggestion
 
 ## 8. Storage **[D12]**
 
+> Sharing (`docs/specs/sharing.md` section 3.8): `purpose_id` may also point to a purpose shared with the searcher; that section lists the changes to this section, section 9 and section 13.
+
 **A new table, not `api_cache`.** A list is derived from a user's purpose, group and airports, and its reasons may echo them. `api_cache` has no owner and is shared across users by key, so it cannot satisfy rule 6, and rule 8 is about external API calls anyway. Migration `20261106120031_destination_searches.sql` (one-off purpose columns: section 13.3):
 
 | Column | Type | Null | Default | Note |
