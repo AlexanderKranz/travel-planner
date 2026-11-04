@@ -162,15 +162,16 @@ const TITLE_TEXT_MAX = 60;
 
 /**
  * `[FB-xxxxxxxx] Bug: ` + at most 60 characters on one line, without `@ < > #` and backticks.
- * A longer text is cut at the last word boundary and gets "…"; a single word longer than half the limit is cut hard.
+ * A longer text is cut at the last word boundary and gets "…" (60 including it); without a space in the second half it is cut hard.
  */
 export function issueTitle(ref: string, kind: FeedbackKind, cleanedText: string): string {
   const chars = Array.from(cleanedText.replace(/[@<>#`]/g, "").replace(/\s+/g, " ").trim());
   let text = chars.join("");
   if (chars.length > TITLE_TEXT_MAX) {
-    // Index in code points (`chars`), like the limit itself.
-    const space = chars.slice(0, TITLE_TEXT_MAX + 1).lastIndexOf(" ");
-    const cut = chars.slice(0, space >= TITLE_TEXT_MAX / 2 ? space : TITLE_TEXT_MAX).join("");
+    // Index in code points (`chars`), like the limit itself; one code point stays free for "…".
+    const contentMax = TITLE_TEXT_MAX - 1;
+    const space = chars.slice(0, contentMax + 1).lastIndexOf(" ");
+    const cut = chars.slice(0, space >= TITLE_TEXT_MAX / 2 ? space : contentMax).join("");
     text = `${cut.trimEnd()}…`;
   }
   return `[${ref}] ${KIND_LABEL[kind]}: ${text}`.trimEnd();
