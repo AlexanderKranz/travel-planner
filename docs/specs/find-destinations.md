@@ -454,7 +454,7 @@ After a successful claim the server writes the tags and `h` onto the row with th
 
 ### 13.3 Storage **[D18]** **[D19]**
 
-Migration `<date>120033_destination_search_text.sql` (take the next free number), additive only:
+Migration `20261109120034_destination_search_text.sql`, additive only:
 
 | Column | Type | Null | Note |
 |---|---|---|---|
@@ -526,6 +526,6 @@ The client disables the button while pending; on success the box becomes "Saved 
 | Server | `src/lib/server/discover/{pipeline,store}.ts` (`adoptSource`, `saveSearchTags`), `src/lib/server/discover/save-purpose.ts` (new), `purposes.ts` (shared insert helper) |
 | Routes | `src/app/api/destination-search/[id]/save-purpose/route.ts` (new) |
 | UI | `src/components/discover/{discover-form,discover-results}.tsx`, a small `save-purpose.tsx` (new), discover page (no blocking empty state), trip form notes hint |
-| DB | migration 33, `supabase/tests/rls.test.sql` |
+| DB | migration 34, `supabase/tests/rls.test.sql` |
 
 **CLAUDE.md rule 2** covers this without a change ("Haiku turns free-text purposes into structured tags (once per purpose, cached)"). Alex (2026-11-02): no wording change.

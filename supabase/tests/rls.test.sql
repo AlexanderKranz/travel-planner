@@ -887,6 +887,73 @@ select is((select count(*)::int from public.destination_searches where home_name
 reset role;
 delete from public.destination_searches where input_hash = repeat('7', 64);
 
+-- one-off purpose typed into the search (migration 20261109120034)
+select ok(has_column_privilege('authenticated', 'public.destination_searches', 'purpose_text', 'insert'), 'authenticated: can insert destination_searches.purpose_text');
+select ok(has_column_privilege('authenticated', 'public.destination_searches', 'purpose_text', 'update'), 'authenticated: can update destination_searches.purpose_text');
+select ok(not has_column_privilege('authenticated', 'public.destination_searches', 'purpose_tags', 'insert'), 'authenticated: cannot insert destination_searches.purpose_tags');
+select ok(not has_column_privilege('authenticated', 'public.destination_searches', 'purpose_tags', 'update'), 'authenticated: cannot update destination_searches.purpose_tags');
+select ok(not has_column_privilege('authenticated', 'public.destination_searches', 'purpose_tags_hash', 'insert'), 'authenticated: cannot insert destination_searches.purpose_tags_hash');
+select ok(not has_column_privilege('authenticated', 'public.destination_searches', 'purpose_tags_hash', 'update'), 'authenticated: cannot update destination_searches.purpose_tags_hash');
+select ok(has_column_privilege('authenticated', 'public.destination_searches', 'purpose_tags', 'select'), 'authenticated: can select destination_searches.purpose_tags (own rows)');
+
+insert into public.trip_purposes (id, owner_id, name) values
+  ('a0000000-0000-4000-8000-000000003103', 'aaaaaaaa-0000-4000-8000-000000000001', 'A saved one-off');
+-- the server writes tags with the secret key (here: the superuser), linked to a purpose saved from the text
+insert into public.destination_searches (id, owner_id, purpose_id, purpose_name, purpose_text, purpose_tags, purpose_tags_hash, locale, input_hash, input, status) values
+  ('a0000000-0000-4000-8000-000000003121', 'aaaaaaaa-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000003103',
+   'Golf with a friend', 'Golf with a friend', '{"interests":["golf"]}'::jsonb, repeat('a', 64), 'de', repeat('3', 64), '{"v":1}'::jsonb, 'done');
+select throws_ok($$insert into public.destination_searches (owner_id, purpose_name, purpose_tags, locale, input_hash, input) values ('aaaaaaaa-0000-4000-8000-000000000001', 'x', '{}'::jsonb, 'de', repeat('4', 64), '{}')$$,
+  '23514', null, 'purpose_tags need their hash');
+select throws_ok($$insert into public.destination_searches (owner_id, purpose_name, purpose_tags_hash, locale, input_hash, input) values ('aaaaaaaa-0000-4000-8000-000000000001', 'x', repeat('a', 64), 'de', repeat('4', 64), '{}')$$,
+  '23514', null, 'a tags hash needs its tags');
+select throws_ok($$insert into public.destination_searches (owner_id, purpose_name, purpose_tags, purpose_tags_hash, locale, input_hash, input) values ('aaaaaaaa-0000-4000-8000-000000000001', 'x', '{}'::jsonb, 'not-a-hash', 'de', repeat('4', 64), '{}')$$,
+  '23514', null, 'purpose_tags_hash must be sha256 hex');
+select throws_ok($$insert into public.destination_searches (owner_id, purpose_name, purpose_tags, purpose_tags_hash, locale, input_hash, input) values ('aaaaaaaa-0000-4000-8000-000000000001', 'x', '[]'::jsonb, repeat('a', 64), 'de', repeat('4', 64), '{}')$$,
+  '23514', null, 'purpose_tags must be an object');
+
+-- B cannot read A's text or tags, and cannot write the tag columns
+set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
+set local role authenticated;
+select is((select count(*)::int from public.destination_searches where purpose_text is not null or purpose_tags is not null), 0, 'B cannot read the purpose text or tags of A');
+select throws_ok($$insert into public.destination_searches (purpose_name, purpose_tags, purpose_tags_hash, locale, input_hash, input) values ('x', '{}'::jsonb, repeat('a', 64), 'de', repeat('5', 64), '{}')$$,
+  '42501', null, 'authenticated cannot insert purpose_tags');
+reset role;
+
+-- A: the text is checked as trimmed in the database
+set local request.jwt.claims = '{"sub":"aaaaaaaa-0000-4000-8000-000000000001","role":"authenticated"}';
+set local role authenticated;
+select is((select purpose_text from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003121'), 'Golf with a friend', 'A reads the own purpose_text');
+select throws_ok($$update public.destination_searches set purpose_tags = '{}'::jsonb where id = 'a0000000-0000-4000-8000-000000003121'$$,
+  '42501', null, 'authenticated cannot update purpose_tags');
+select throws_ok($$update public.destination_searches set purpose_tags_hash = repeat('b', 64) where id = 'a0000000-0000-4000-8000-000000003121'$$,
+  '42501', null, 'authenticated cannot update purpose_tags_hash');
+select throws_ok($$insert into public.destination_searches (purpose_name, purpose_text, locale, input_hash, input) values ('x', ' Golf', 'de', repeat('5', 64), '{}')$$,
+  '23514', null, 'insert rejects a leading space');
+select throws_ok($$insert into public.destination_searches (purpose_name, purpose_text, locale, input_hash, input) values ('x', E'Golf\n', 'de', repeat('5', 64), '{}')$$,
+  '23514', null, 'insert rejects a trailing newline');
+select throws_ok($$insert into public.destination_searches (purpose_name, purpose_text, locale, input_hash, input) values ('x', E'\tGolf', 'de', repeat('5', 64), '{}')$$,
+  '23514', null, 'insert rejects a leading tab');
+select throws_ok($$insert into public.destination_searches (purpose_name, purpose_text, locale, input_hash, input) values ('x', 'ab', 'de', repeat('5', 64), '{}')$$,
+  '23514', null, 'purpose_text has at least 3 characters');
+select throws_ok($$insert into public.destination_searches (purpose_name, purpose_text, locale, input_hash, input) values ('x', repeat('a', 501), 'de', repeat('5', 64), '{}')$$,
+  '23514', null, 'purpose_text has at most 500 characters');
+select lives_ok($$insert into public.destination_searches (purpose_name, purpose_text, locale, input_hash, input, status) values ('x', repeat('a', 500), 'de', repeat('5', 64), '{}', 'done')$$,
+  'purpose_text of exactly 500 characters is accepted');
+select lives_ok($$insert into public.destination_searches (purpose_name, purpose_text, locale, input_hash, input, status) values ('Golf', E'Golf\nwith a friend', 'de', repeat('6', 64), '{}', 'done')$$,
+  'a line break inside the text is accepted');
+select throws_ok($$update public.destination_searches set purpose_text = ' Golf' where input_hash = repeat('6', 64)$$,
+  '23514', null, 'update rejects a leading space');
+select throws_ok($$update public.destination_searches set purpose_text = E'Golf\n' where input_hash = repeat('6', 64)$$,
+  '23514', null, 'update rejects a trailing newline');
+select lives_ok($$update public.destination_searches set purpose_text = null where input_hash = repeat('6', 64)$$, 'the text can be cleared again');
+
+-- deleting the purpose clears purpose_id of the one-off-linked list, the text stays
+delete from public.trip_purposes where id = 'a0000000-0000-4000-8000-000000003103';
+select is((select purpose_id from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003121'), null, 'deleting the saved one-off purpose clears purpose_id');
+select is((select purpose_text from public.destination_searches where id = 'a0000000-0000-4000-8000-000000003121'), 'Golf with a friend', 'the list keeps its purpose_text');
+reset role;
+delete from public.destination_searches where input_hash in (repeat('3', 64), repeat('5', 64), repeat('6', 64));
+
 -- ai_usage accepts the new task
 select lives_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'destination_ideas', 'claude-haiku-5-5', 'ok')$$, 'ai_usage accepts the destination_ideas task');
 
