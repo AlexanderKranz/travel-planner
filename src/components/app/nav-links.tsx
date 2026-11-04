@@ -10,9 +10,11 @@ const ITEMS = [
   { href: "/settings", key: "settings" },
 ] as const;
 
-export function NavLinks({ isAdmin = false }: { isAdmin?: boolean }) {
+export function NavLinks({ isAdmin = false, showFeedback = false }: { isAdmin?: boolean; showFeedback?: boolean }) {
   const t = useTranslations("nav");
+  const tf = useTranslations("feedback.entry");
   const pathname = usePathname();
+  const onFeedback = pathname === "/app/feedback";
   return (
     <nav aria-label={t("label")}>
       <ul className="flex flex-wrap gap-x-1 sm:gap-x-3">
@@ -38,6 +40,29 @@ export function NavLinks({ isAdmin = false }: { isAdmin?: boolean }) {
             </li>
           );
         })}
+        {showFeedback && (
+          // Pill instead of a tab: an action, not a section. Carries the current path as `?from=` (spec feedback [D12]).
+          // On the feedback page it is a plain marker, so a click cannot drop the page's own `?from=`.
+          <li className="flex items-center">
+            {onFeedback ? (
+              <span aria-current="page" className="inline-flex min-h-11 items-center px-2">
+                <span className="rounded-full border border-nav-underline bg-white/10 px-3 py-1 text-sm font-medium text-header-fg">
+                  {tf("nav")}
+                </span>
+              </span>
+            ) : (
+              <Link
+                href={{ pathname: "/app/feedback", query: { from: pathname } }}
+                title={tf("navTitle")}
+                className="group inline-flex min-h-11 items-center px-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-feature-accent"
+              >
+                <span className="rounded-full border border-header-muted/50 px-3 py-1 text-sm font-medium text-header-muted group-hover:border-header-fg group-hover:text-header-fg">
+                  {tf("nav")}
+                </span>
+              </Link>
+            )}
+          </li>
+        )}
       </ul>
     </nav>
   );

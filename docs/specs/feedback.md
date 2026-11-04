@@ -109,7 +109,7 @@ calls.
   - **Burst guard:** `rateLimit("feedback:<uid>", 3, 60_000)` against double submits (in memory).
   - When the per-user limit is reached, the form shows "again tomorrow" and the server logs `feedback.rate_limited`.
 - **[D8] The demo account cannot send feedback (Alex).**
-  - **UI:** every entry point is hidden for `is_demo`: the footer link, the settings card and the error-view link.
+  - **UI:** every entry point is hidden for `is_demo`: the nav pill, the settings card and the error-view link.
     The "my reports" list is hidden too. A direct visit to `/app/feedback` shows a note instead of the form
     (`feedback.demoNote`: "Feedback needs your own account") with a link back.
   - **API:** `POST /api/feedback` reads the profile and returns 403 `demo_forbidden` before any count, upload or
@@ -151,8 +151,8 @@ calls.
   - **Runbook:** a new section "Feedback token", covering rotation before expiry (calendar reminder 11 months after
     creation; GitHub also mails before expiry), the `feedback_delivery` alert, and how to retry or clear `pending`
     rows.
-- **[D12] Entry points.** The main nav is already tight at 360 px, so it gets no new item.
-  - App shell: a small footer link, added below the content, with `?from=`.
+- **[D12] Entry points.**
+  - App shell: a small "Feedback" pill at the end of the main nav, with `?from=` (title: the full "Report a problem or idea"). Alex (2026-11-04) moved it there from a footer link below the content; the nav wraps at 360 px.
   - Settings: a card ("Report a problem or suggest an idea").
   - `components/app/error-view.tsx`: "Report this problem", with Bug preselected.
   - All three are hidden for demo ([D8]). There is no entry point for signed-out visitors, the share page or login.

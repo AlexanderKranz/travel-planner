@@ -1795,7 +1795,8 @@
       "openIssue": "View on GitHub"
     },
     "entry": {
-      "footer": "Report a problem or idea",
+      "nav": "Feedback",
+      "navTitle": "Report a problem or idea",
       "settingsTitle": "Report a problem or suggest an idea",
       "settingsHint": "Tell us what does not work or what you are missing.",
       "settingsLink": "Send feedback",
