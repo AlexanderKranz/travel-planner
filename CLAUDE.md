@@ -30,7 +30,7 @@ Full plan: `docs/architecture.md`. Hosting walkthrough: `docs/hosting-setup.md`.
 3. **All context is optional.** A trip needs only a destination and length. A group can be a quick composition ("5 adults ~45"), named members with birthdates, free-text notes, or any mix. Never require a field the user didn't choose to give.
 4. **Ages are computed, never stored.** Store birthdates and use `ageOn()` from `src/lib/age.ts` with the travel date.
 5. **No hardcoded UI strings.** Every user-visible text goes in `messages/*.json` (de + en, same keys). Plan prose is generated in the user's locale.
-6. **Users see only their own data.** Every user table has `owner_id` with an RLS policy `owner_id = auth.uid()`. Shared plans are read through a server route by token only. Secrets stay server-side (never `NEXT_PUBLIC_`).
+6. **Users see only their own data.** Every user-owned resource table has `owner_id` with an RLS policy `owner_id = auth.uid()`; the share tables `trip_shares` and `purpose_shares` use owner-or-grantee policies instead. Exception: a trip or trip purpose the owner shared with a named user is also visible to that user, read-only or read/write, through `private.*` helper functions; a shared trip shows its group and purpose read-only (`docs/specs/sharing.md`). Public share links are read through a server route by token only. Secrets stay server-side (never `NEXT_PUBLIC_`).
 7. **Mobile first.** Layouts must work at 360 px width and on desktop.
 8. **Cache external calls** in `api_cache` (keyed by provider + normalized params), and respect free-tier quotas.
 
