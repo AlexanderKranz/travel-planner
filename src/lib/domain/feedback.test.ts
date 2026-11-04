@@ -73,11 +73,33 @@ describe("fenceFor", () => {
 });
 
 describe("issueTitle", () => {
-  it("removes @ < > # and backticks, one line, 60 characters", () => {
-    const t = issueTitle("FB-k3x9p2qa", "bug", "Hey @alex, <b>see</b> #12 `code`\nsecond line " + "x".repeat(100));
-    expect(t.startsWith("[FB-k3x9p2qa] Bug: Hey alex, bsee/b 12 code second line xxx")).toBe(true);
-    expect(t).not.toMatch(/[@<>#`\n]/);
-    expect(t.length).toBe("[FB-k3x9p2qa] Bug: ".length + 60);
+  it("removes @ < > # and backticks, one line", () => {
+    const t = issueTitle("FB-k3x9p2qa", "bug", "Hey @alex, <b>see</b> #12 `code`\nsecond line");
+    expect(t).toBe("[FB-k3x9p2qa] Bug: Hey alex, bsee/b 12 code second line");
+  });
+  it("cuts a long text at the last word boundary within 60 characters and adds …", () => {
+    const t = issueTitle("FB-n3arstpz", "idea", "The admin page is very large by now. I would like to structure it differently.");
+    expect(t).toBe("[FB-n3arstpz] Idea: The admin page is very large by now. I would like to…");
+  });
+  it("keeps a word that ends at 59 characters, so the title text with … stays at 60", () => {
+    const text = "a".repeat(54) + " bcde" + " more";
+    expect(issueTitle("FB-k3x9p2qa", "bug", text)).toBe(`[FB-k3x9p2qa] Bug: ${"a".repeat(54)} bcde…`);
+  });
+  it("cuts hard when there is no word boundary in the second half", () => {
+    const t = issueTitle("FB-k3x9p2qa", "bug", "short " + "x".repeat(100));
+    expect(t).toBe(`[FB-k3x9p2qa] Bug: short ${"x".repeat(53)}…`);
+  });
+  it("counts the space position in code points, not UTF-16 units", () => {
+    const t = issueTitle("FB-k3x9p2qa", "bug", "🙂".repeat(16) + " " + "x".repeat(100));
+    expect(t).toBe(`[FB-k3x9p2qa] Bug: ${"🙂".repeat(16)} ${"x".repeat(42)}…`);
+  });
+  it("uses a space exactly at the half of the limit", () => {
+    const t = issueTitle("FB-k3x9p2qa", "bug", "a".repeat(30) + " " + "b".repeat(40));
+    expect(t).toBe(`[FB-k3x9p2qa] Bug: ${"a".repeat(30)}…`);
+  });
+  it("leaves a text of exactly 60 characters unchanged", () => {
+    const text = "y".repeat(60);
+    expect(issueTitle("FB-k3x9p2qa", "bug", text)).toBe(`[FB-k3x9p2qa] Bug: ${text}`);
   });
   it("uses Idea for ideas", () => {
     expect(issueTitle("FB-k3x9p2qa", "idea", "Add a map")).toBe("[FB-k3x9p2qa] Idea: Add a map");

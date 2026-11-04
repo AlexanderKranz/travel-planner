@@ -158,10 +158,23 @@ export function fenceFor(text: string): string {
 
 const KIND_LABEL: Record<FeedbackKind, string> = { bug: "Bug", idea: "Idea" };
 
-/** `[FB-xxxxxxxx] Bug: ` + first 60 characters on one line, without `@ < > #` and backticks. */
+const TITLE_TEXT_MAX = 60;
+
+/**
+ * `[FB-xxxxxxxx] Bug: ` + at most 60 characters on one line, without `@ < > #` and backticks.
+ * A longer text is cut at the last word boundary and gets "…" (60 including it); without a space in the second half it is cut hard.
+ */
 export function issueTitle(ref: string, kind: FeedbackKind, cleanedText: string): string {
-  const oneLine = cleanedText.replace(/[@<>#`]/g, "").replace(/\s+/g, " ").trim();
-  return `[${ref}] ${KIND_LABEL[kind]}: ${Array.from(oneLine).slice(0, 60).join("").trim()}`.trimEnd();
+  const chars = Array.from(cleanedText.replace(/[@<>#`]/g, "").replace(/\s+/g, " ").trim());
+  let text = chars.join("");
+  if (chars.length > TITLE_TEXT_MAX) {
+    // Index in code points (`chars`), like the limit itself; one code point stays free for "…".
+    const contentMax = TITLE_TEXT_MAX - 1;
+    const space = chars.slice(0, contentMax + 1).lastIndexOf(" ");
+    const cut = chars.slice(0, space >= TITLE_TEXT_MAX / 2 ? space : contentMax).join("");
+    text = `${cut.trimEnd()}…`;
+  }
+  return `[${ref}] ${KIND_LABEL[kind]}: ${text}`.trimEnd();
 }
 
 export type IssueBodyInput = {
