@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
+const captureMessage = vi.fn();
+vi.mock("@sentry/nextjs", () => ({ captureMessage: (...a: unknown[]) => captureMessage(...a), flush: async () => true }));
 const logEvent = vi.fn();
 vi.mock("../events", () => ({ logEvent: (...a: unknown[]) => logEvent(...a) }));
 vi.mock("../settings", () => ({ getSetting: async () => ({ value: 30, source: "default", locked: false }) }));
@@ -38,6 +40,7 @@ beforeEach(() => {
   createIssue.mockReset();
   findIssueByRef.mockReset();
   logEvent.mockReset();
+  captureMessage.mockReset();
   updates.length = 0;
 });
 
@@ -54,6 +57,33 @@ describe("deliverFeedback", () => {
     expect(sent.body).toContain("Map broken");
     expect(findIssueByRef).not.toHaveBeenCalled();
     expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "feedback.issue_created", props: { issue_number: 9, linked: false } }));
+  });
+
+  it("a new issue notifies the owner through Sentry: reference and issue only, a new Sentry issue per report", async () => {
+    claimed();
+    createIssue.mockResolvedValue({ kind: "ok", value: { number: 9, url: URL } });
+    await deliverFeedback(ID, { userId: "u1", now });
+    expect(captureMessage).toHaveBeenCalledTimes(1);
+    const [msg, opts] = captureMessage.mock.calls[0];
+    expect(msg).toBe("Feedback FB-k3x9p2qa: issue #9");
+    expect(opts).toMatchObject({ tags: { feedback_issue: "true", feedback_kind: "bug" }, fingerprint: ["feedback-issue", "FB-k3x9p2qa"] });
+    expect(JSON.stringify(captureMessage.mock.calls)).not.toContain("Map broken");
+  });
+
+  it("a failing Sentry call does not fail the delivery", async () => {
+    claimed();
+    createIssue.mockResolvedValue({ kind: "ok", value: { number: 9, url: URL } });
+    captureMessage.mockImplementation(() => {
+      throw new Error("sentry down");
+    });
+    expect(await deliverFeedback(ID, { userId: "u1", now })).toEqual({ outcome: "created", stop: false });
+  });
+
+  it("a failed delivery sends no notification", async () => {
+    claimed();
+    createIssue.mockResolvedValue({ kind: "server", status: 500 });
+    await deliverFeedback(ID, { userId: "u1", now });
+    expect(captureMessage).not.toHaveBeenCalled();
   });
 
   it("without a token nothing is claimed and the row stays pending", async () => {

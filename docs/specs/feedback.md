@@ -197,6 +197,11 @@ calls.
     - `feedback.delivery_failed` (warn; props `status`)
     - `feedback.github_auth_failed` (error)
     - `admin.feedback_lookup`
+  - **Owner email per new issue (Alex, 2026-11-04):** GitHub does not notify the token owner about their own issues,
+    so after a successful create (or link) the delivery sends a Sentry message `Feedback FB-…: issue #n` with tag
+    `feedback_issue=true` and fingerprint `["feedback-issue", ref]` (one Sentry issue per report). A Sentry alert rule
+    on that tag sends the email (runbook section 18). Reference, kind and issue number/URL only, never the text or the
+    user id. A Sentry failure never fails the delivery.
   - Never logged: the text, emails, or the reference together with the user id (except the admin's own lookup
     audit). Sentry gets no text either.
 - **[D16] Retention and account deletion.**
