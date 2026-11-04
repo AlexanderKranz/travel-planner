@@ -136,7 +136,7 @@ async function finish(row: Claimed, r: GithubResult<GithubIssue>, linked: boolea
  */
 async function notifyOwner(row: Claimed, issue: GithubIssue): Promise<void> {
   try {
-    Sentry.captureMessage(`Feedback ${row.ref}: issue #${issue.number}`, {
+    Sentry.captureMessage(`A user has reported a new issue in GitHub: #${issue.number} (${row.ref})`, {
       level: "info",
       tags: { feedback_issue: "true", feedback_kind: row.kind },
       extra: { ref: row.ref, issue_number: issue.number, issue_url: issue.url },

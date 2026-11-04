@@ -65,7 +65,7 @@ describe("deliverFeedback", () => {
     await deliverFeedback(ID, { userId: "u1", now });
     expect(captureMessage).toHaveBeenCalledTimes(1);
     const [msg, opts] = captureMessage.mock.calls[0];
-    expect(msg).toBe("Feedback FB-k3x9p2qa: issue #9");
+    expect(msg).toBe("A user has reported a new issue in GitHub: #9 (FB-k3x9p2qa)");
     expect(opts).toMatchObject({ tags: { feedback_issue: "true", feedback_kind: "bug" }, fingerprint: ["feedback-issue", "FB-k3x9p2qa"] });
     expect(JSON.stringify(captureMessage.mock.calls)).not.toContain("Map broken");
   });
