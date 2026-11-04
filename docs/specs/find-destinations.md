@@ -221,7 +221,7 @@ Trip page: when `destination_search_id` is set, a small link "Back to suggestion
 |---|---|---|---|---|
 | `id` | uuid | no | `gen_random_uuid()` | PK; `unique (id, owner_id)` |
 | `owner_id` | uuid | no | `auth.uid()` | FK `auth.users`, cascade |
-| `purpose_id` | uuid | yes | | composite FK, `on delete set null (purpose_id)` |
+| `purpose_id` | uuid | yes | | plain FK `references public.trip_purposes (id)`, `on delete set null`; `private.check_purpose_ref()` before insert or update (`sharing.md` section 2.5). Was a composite same-owner FK before sharing. |
 | `group_id` | uuid | yes | | composite FK, `on delete set null (group_id)` |
 | `purpose_name` | text | no | | snapshot, `<= 80` |
 | `locale` | text | no | | `check (locale in ('de','en'))` |

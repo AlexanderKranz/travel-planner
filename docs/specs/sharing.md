@@ -387,7 +387,7 @@ E2E outline (Playwright, mobile and desktop, users from `phase-6-e2e.md` plus a 
 
 Amended (Alex approved, 2026-11-04; applied by the orchestrator):
 
-> 6. **Users see only their own data.** Every user table has `owner_id` with an RLS policy `owner_id = auth.uid()`. Exception: a trip or trip purpose the owner shared with a named user (`trip_shares`, `purpose_shares`) is also visible to that user, read-only or read/write, through `private.*` helper functions; a shared trip shows its group and purpose read-only (`docs/specs/sharing.md`). Public share links are read through a server route by token only. Secrets stay server-side (never `NEXT_PUBLIC_`).
+> 6. **Users see only their own data.** Every user-owned resource table has `owner_id` with an RLS policy `owner_id = auth.uid()`; the share tables `trip_shares` and `purpose_shares` use owner-or-grantee policies instead. Exception: a trip or trip purpose the owner shared with a named user is also visible to that user, read-only or read/write, through `private.*` helper functions; a shared trip shows its group and purpose read-only (`docs/specs/sharing.md`). Public share links are read through a server route by token only. Secrets stay server-side (never `NEXT_PUBLIC_`).
 
 "Shared plans" became "Public share links" so the rule does not contradict direct shares.
 
