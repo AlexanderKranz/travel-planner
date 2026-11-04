@@ -77,7 +77,9 @@ jobs:
             git fetch --no-tags origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
             git checkout -b "$BRANCH" --track "origin/$BRANCH"
             # A branch without an open PR (closed PR, or `gh pr create` failed) needs a new PR.
-            open=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq length)
+            # --head matches the branch name in forks too, so count only PRs from this repository.
+            open=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open \
+              --json headRepositoryOwner --jq "[.[] | select(.headRepositoryOwner.login == \"$GITHUB_REPOSITORY_OWNER\")] | length")
             if [ "$open" -gt 0 ]; then echo existing > .agent-input/branch-state; else echo existing-no-pr > .agent-input/branch-state; fi
           elif [ "$rc" -eq 2 ]; then
             git checkout -b "$BRANCH"
@@ -148,7 +150,9 @@ jobs:
                  `Closes #${{ github.event.issue.number }}`, what you changed, and what you could not verify.
                - `existing`: the branch already has your earlier work and an open pull request. Add commits on top,
                  push them, and do not open another pull request. Then comment on the issue with what you changed
-                 in this run and what you could not verify.
+                 in this run and what you could not verify. After pushing, check
+                 `gh pr view claude/issue-${{ github.event.issue.number }} --json state`: if it is no longer `OPEN`
+                 (closed or merged while you worked), open a pull request as for `new`.
                - `existing-no-pr`: the branch has earlier work but no open pull request. Add commits on top, push,
                  and open a pull request as for `new`.
                Never put personal data from the issue into code, tests or the PR.
