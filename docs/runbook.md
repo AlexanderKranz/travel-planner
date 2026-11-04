@@ -515,6 +515,17 @@ Users send feedback in the app; the server saves it and creates a public GitHub 
 5. Vercel -> project -> **Settings** -> **Environment Variables**: add `GITHUB_FEEDBACK_TOKEN` (the token) and `GITHUB_FEEDBACK_REPO` (`owner/name`) for **Production**. **Preview** is optional: with it, feedback sent from a preview deployment also becomes a real public issue (the cron runs only on production, so without it preview reports simply stay `pending`). Never use a `NEXT_PUBLIC_` prefix. Redeploy.
 6. Submit one test report. Check that the issue exists with both labels. Put a calendar reminder 11 months from now for the rotation (GitHub also mails before the token expires).
 
+### Email for every new feedback issue
+
+GitHub never notifies you about these issues: the app creates them with your token, so they count as your own. Each new issue therefore also sends a Sentry message (`Feedback FB-…: issue #n`, tag `feedback_issue=true`, reference and issue only, never the text; one Sentry issue per report). Set up once:
+
+1. Sentry -> **Alerts** -> **Create Alert** -> **Issues** -> choose the project.
+2. **When** "A new issue is created", **If** "The event's tags match" `feedback_issue` `equals` `true`.
+3. **Then** "Send a notification to" Member "Alex" -> name it "Feedback issues" -> **Save Rule**.
+4. Send a test report; the email links to the Sentry event, which carries the issue URL under "Additional Data".
+
+At most `feedback_daily_issues` emails a day (default 30). Without `NEXT_PUBLIC_SENTRY_DSN` (local, previews without it) nothing is sent.
+
 ### Pause or limit
 
 - Admin page -> Settings: **Feedback: GitHub issues per day** (`feedback_daily_issues`, default 30). **0 pauses issue creation**: reports are still saved as `pending` and the user still sees "Received". Raise it again to let the daily cron catch up (at most 10 rows per run, oldest first).

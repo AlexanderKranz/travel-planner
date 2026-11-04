@@ -1,4 +1,5 @@
 import "server-only";
+import * as Sentry from "@sentry/nextjs";
 import { z } from "zod";
 import { FeedbackKind, issueBody, issueTitle } from "@/lib/domain/feedback";
 import { createIssue, findIssueByRef, githubConfig, type GithubFailure, type GithubIssue, type GithubResult } from "@/lib/integrations/github";
@@ -121,9 +122,30 @@ async function finish(row: Claimed, r: GithubResult<GithubIssue>, linked: boolea
       last_error: null,
     });
     await logEvent({ event: "feedback.issue_created", userId, props: { issue_number: r.value.number, linked } });
+    await notifyOwner(row, r.value);
     return { outcome: linked ? "linked" : "created", stop: false };
   }
   return fail(row, r, userId, now);
+}
+
+/**
+ * One email per new issue through a Sentry alert rule (runbook section 18): the issues are created with the owner's
+ * token, so GitHub never notifies the owner. Reference, kind and issue only, never the text. The fingerprint makes
+ * every report a NEW Sentry issue, which the "new issue" condition needs. A linked row also notifies: the try that
+ * created the issue never settled, so it never notified. No-op without a DSN; never throws.
+ */
+async function notifyOwner(row: Claimed, issue: GithubIssue): Promise<void> {
+  try {
+    Sentry.captureMessage(`Feedback ${row.ref}: issue #${issue.number}`, {
+      level: "info",
+      tags: { feedback_issue: "true", feedback_kind: row.kind },
+      extra: { ref: row.ref, issue_number: issue.number, issue_url: issue.url },
+      fingerprint: ["feedback-issue", row.ref],
+    });
+    await Sentry.flush(2000);
+  } catch {
+    // Monitoring must not fail a delivery that already succeeded.
+  }
 }
 
 async function fail(row: Claimed, r: GithubFailure, userId: string | null, now: Date): Promise<DeliverResult> {
