@@ -6,8 +6,8 @@ export function Section({ id, title, children, collapsed = false }: { id: string
   if (collapsed) {
     return (
       <details className={`${cardCls} group`}>
-        {/* `display: flex` hides the native marker in Chromium and Firefox, so the arrow shows that it opens. */}
-        <summary className="flex min-h-11 cursor-pointer items-center gap-2">
+        {/* The native marker is hidden everywhere (Safari keeps it despite `display: flex`); the arrow shows that it opens. */}
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
           <span aria-hidden="true" className={`${mutedCls} transition-transform group-open:rotate-90 motion-reduce:transition-none`}>
             ▸
           </span>
