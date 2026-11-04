@@ -1513,7 +1513,7 @@
   },
   "discover": {
     "title": "Reiseziele finden",
-    "intro": "Wähle einen gespeicherten Reisezweck und erhalte eine kurze Liste passender Orte. Jeder Ort wird mit echten Daten geprüft. Flüge werden erst geprüft, wenn du eine Reise anlegst.",
+    "intro": "Wähle einen gespeicherten Reisezweck oder beschreibe in ein paar Worten, worum es geht, und erhalte eine kurze Liste passender Orte. Jeder Ort wird mit echten Daten geprüft. Flüge werden erst geprüft, wenn du eine Reise anlegst.",
     "newSearch": "Neue Suche",
     "backToForm": "Zurück zur Suche",
     "form": {

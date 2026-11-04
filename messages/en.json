@@ -1513,7 +1513,7 @@
   },
   "discover": {
     "title": "Find destinations",
-    "intro": "Choose a saved trip purpose and get a short list of places that fit it. Every place is checked against real data. Flights are checked only after you create a trip.",
+    "intro": "Choose a saved trip purpose or describe in a few words what the trip is for, and get a short list of places that fit it. Every place is checked against real data. Flights are checked only after you create a trip.",
     "newSearch": "New search",
     "backToForm": "Back to the search",
     "form": {
