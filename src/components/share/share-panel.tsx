@@ -4,12 +4,40 @@ import { PdfButton } from "@/components/pdf/pdf-button";
 import { cardCls, mutedCls } from "@/components/ui/styles";
 import { MAX_LINKS_PER_TRIP } from "@/lib/domain/share";
 import { listShareLinks } from "@/lib/server/shares";
+import { PeopleBox } from "@/components/sharing/people-box";
 import { ShareCreate } from "./share-create";
 import { ShareLinkRow } from "./share-link-row";
 
 /** Owner block: PDF download, create form, list of links. */
-export async function SharePanel({ tripId, hasPlan, isDemo }: { tripId: string; hasPlan: boolean; isDemo: boolean }) {
+export async function SharePanel({
+  tripId,
+  hasPlan,
+  isDemo,
+  isAdmin = false,
+  owner = true,
+}: {
+  tripId: string;
+  hasPlan: boolean;
+  isDemo: boolean;
+  isAdmin?: boolean;
+  /** False for a grantee: PDF only, no people box, no links (spec sharing 4.3). */
+  owner?: boolean;
+}) {
   const t = await getTranslations("share");
+  if (!owner) {
+    if (!hasPlan) return null;
+    return (
+      <section aria-labelledby="share-title" className={`${cardCls} flex min-w-0 flex-col gap-3`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="share-title" className="text-xl font-bold">
+            {t("pdfTitle")}
+          </h2>
+          <PdfButton href={`/api/trips/${tripId}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} />
+        </div>
+        <p className={`text-sm ${mutedCls}`}>{t("pdfHint")}</p>
+      </section>
+    );
+  }
   const res = await listShareLinks(tripId);
   const now = Date.now();
   const links = res.ok ? res.data : [];
@@ -26,6 +54,8 @@ export async function SharePanel({ tripId, hasPlan, isDemo }: { tripId: string; 
         )}
       </div>
       {hasPlan && <p className={`-mt-2 text-sm ${mutedCls}`}>{t("pdfHint")}</p>}
+      <PeopleBox resource="trip" resourceId={tripId} isDemo={isDemo} isAdmin={isAdmin} />
+      <h3 className="text-base font-semibold">{t("linksTitle")}</h3>
       <ShareCreate tripId={tripId} disabledReason={reason} />
       {!res.ok && <ErrorBanner error={res.error} />}
       {links.length > 0 && (

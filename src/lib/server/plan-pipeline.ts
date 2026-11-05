@@ -238,7 +238,7 @@ export async function loadPlanState(
       capMicroUsd: info.capMicroUsd,
       resetsAt: info.resetsAt,
     };
-    const base = { tripId: c.trip.id, versions, busy, aiEnabled, budget };
+    const base = { tripId: c.trip.id, versions, busy, aiEnabled, budget, access: c.access };
     if (!row || versions.length === 0) {
       if (requested !== undefined) return err("not_found");
       return { ok: true, state: { ...base, version: null, isLatest: true, outdated: false, canIterate: false } };

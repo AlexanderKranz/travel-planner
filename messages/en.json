@@ -329,7 +329,8 @@
       "wordLabel": "Type {word} to confirm",
       "confirm": "Delete permanently",
       "cancel": "Cancel",
-      "demoUnavailable": "Not available in the demo account"
+      "demoUnavailable": "Not available in the demo account",
+      "sharedNote": "Trips and purposes you shared are deleted too; people you shared them with lose access. Shares others gave you simply end."
     },
     "home": {
       "label": "Home place (for the time difference)",
@@ -1115,7 +1116,9 @@
     "cancel": "Cancel",
     "createdTitle": "Link created",
     "pdfBusy": "Creating PDF…",
-    "pdfFailed": "The PDF could not be created. Please try again later."
+    "pdfFailed": "The PDF could not be created. Please try again later.",
+    "pdfTitle": "Download",
+    "linksTitle": "Public links"
   },
   "picture": {
     "alt": "Photo of {place}",
@@ -1279,7 +1282,15 @@
       "shares": "Active share links",
       "perDay": "Plan versions per day, last 14 days",
       "generatedLabel": "generated",
-      "patchedLabel": "patched"
+      "patchedLabel": "patched",
+      "tripShares": "Trip shares",
+      "purposeShares": "Purpose shares",
+      "tripsShared": "Trips shared",
+      "recipients": "Recipients",
+      "grantsThisMonth": "Shares granted this month",
+      "lookups": "Email lookups this month",
+      "lookupMisses": "without an account",
+      "readWrite": "{read} read-only, {write} can edit"
     },
     "ai": {
       "title": "AI cost",
@@ -1819,6 +1830,76 @@
       "settingsHint": "Tell us what does not work or what you are missing.",
       "settingsLink": "Send feedback",
       "reportProblem": "Report this problem"
+    }
+  },
+  "sharing": {
+    "title": "Sharing",
+    "people": "People",
+    "intro": "Give another user of this app access. They find it under “Shared with me”.",
+    "email": "Email address of the person",
+    "emailPlaceholder": "name@example.com",
+    "pickUser": "Choose a user",
+    "pickUserNone": "Choose…",
+    "accessLabel": "Access",
+    "add": "Share",
+    "adding": "Sharing…",
+    "count": "Shared with {n} of {max}",
+    "noGrants": "Not shared with anyone yet.",
+    "groupNotice": "They will see the whole trip, including the travel group with names and birthdates.",
+    "purposeNotice": "They can use this purpose for their own trips and destination searches. People they share those trips with can see it there.",
+    "access": {
+      "read": "Can view",
+      "write": "Can edit"
+    },
+    "level": {
+      "read": "Read-only",
+      "write": "Can edit"
+    },
+    "remove": "Remove",
+    "removeFor": "Remove access for {name}",
+    "confirmRemove": "{name} loses access right away. Nothing is deleted.",
+    "changeAccess": "Access for {name}",
+    "demoDisabled": "Sharing with people is not available in the demo account.",
+    "sharedPill": "Shared · {n}",
+    "sharedWithMe": "Shared with me",
+    "badge": "{name} · {level}",
+    "badgeLabel": "Shared by {name}, {level}",
+    "leave": "Leave",
+    "leaveTitle": "Leave this share?",
+    "confirmLeave": "You lose access. {name} keeps it.",
+    "cancel": "Cancel",
+    "ownerOnlyContext": "Only {name} can change the group and purpose.",
+    "by": "by {name}",
+    "conflictForm": "This was changed by someone else in the meantime. The latest values are loaded; please check them and save again.",
+    "sharedOptgroup": "Shared with me",
+    "optionShared": "{name} (from {owner})",
+    "added": "Shared.",
+    "accessChanged": "Access changed.",
+    "removed": "Access removed.",
+    "noPlanReadOnly": "There is no plan yet. You can view this trip, but not change it.",
+    "readOnlyNote": "You can view this, but not change it.",
+    "groupBlock": {
+      "title": "Travel group",
+      "self": "{name} (trip owner)",
+      "ageYears": "{age} years",
+      "people": "{count} people"
+    },
+    "purposeBlock": {
+      "title": "Trip purpose",
+      "openLink": "Open the purpose"
+    },
+    "sharedBy": "Shared by {name}",
+    "sharedPurposeHint": "This purpose is shared with you. You can pick it for your own trips and destination searches.",
+    "errors": {
+      "no_account": "This address has no account here. The app is invite-only; ask them to sign up first.",
+      "self_share": "That is your own address.",
+      "limit_reached": "You can share with at most {max} people.",
+      "rate_limited": "Too many lookups today. Please try again tomorrow.",
+      "forbidden": "Only the owner can do this.",
+      "demo_forbidden": "Sharing with people is not available in the demo account.",
+      "failed": "Something went wrong. Please try again later.",
+      "invalid": "Please check the email address.",
+      "not_found": "This share no longer exists."
     }
   }
 }

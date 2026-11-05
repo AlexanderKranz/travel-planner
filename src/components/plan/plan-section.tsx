@@ -19,6 +19,7 @@ export async function PlanSection({
   version,
   partySize,
   startDate = null,
+  authors = {},
 }: {
   tripId: string;
   locale: string;
@@ -26,6 +27,8 @@ export async function PlanSection({
   version?: number;
   partySize: number | null;
   startDate?: string | null;
+  /** Names of the other people who wrote versions (shared trips), by user id. */
+  authors?: Record<string, string>;
 }) {
   const res = await getPlanStateOnce(tripId, version);
   if (!res.ok) {
@@ -40,8 +43,9 @@ export async function PlanSection({
     );
   }
   const state = res.data;
+  const readOnly = state.access === "read";
   if (!state.version) {
-    return <PlanEmpty state={state} locale={locale} tooLong={lengthDays > MAX_PLAN_DAYS} />;
+    return <PlanEmpty state={state} locale={locale} tooLong={lengthDays > MAX_PLAN_DAYS} readOnly={readOnly} />;
   }
   const shown = state.version;
   // The page already loaded this version and the profile in this request: the document read reuses them.
@@ -73,23 +77,26 @@ export async function PlanSection({
           shown={shown}
           locale={locale}
           openDone={openDone}
+          readOnly={readOnly}
           items={{ lengthDays, partySize, startDate, list: doc?.items ?? [], changed: doc?.itemsChanged === true }}
         />
       </div>
       {/* Sticky side column; scrolls on its own when taller than the viewport. */}
       <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-4 lg:max-h-[calc(100dvh-2rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pb-1">
-        <PlanIterate
-          key={shown.meta.versionNo}
-          tripId={tripId}
-          locale={locale}
-          baseVersion={shown.meta.versionNo}
-          dayCount={shown.plan.days.length}
-          aiBlock={aiBlock}
-          editBlock={editBlock}
-        />
+        {!readOnly && (
+          <PlanIterate
+            key={shown.meta.versionNo}
+            tripId={tripId}
+            locale={locale}
+            baseVersion={shown.meta.versionNo}
+            dayCount={shown.plan.days.length}
+            aiBlock={aiBlock}
+            editBlock={editBlock}
+          />
+        )}
         <BudgetLine budget={state.budget} />
-        <PlanVersions tripId={tripId} versions={state.versions} shown={shown.meta.versionNo} busy={state.busy} />
-        {state.isLatest && !state.busy && <PlanRegenerate tripId={tripId} locale={locale} aiEnabled={state.aiEnabled} />}
+        <PlanVersions tripId={tripId} versions={state.versions} shown={shown.meta.versionNo} busy={state.busy} readOnly={readOnly} authors={authors} />
+        {!readOnly && state.isLatest && !state.busy && <PlanRegenerate tripId={tripId} locale={locale} aiEnabled={state.aiEnabled} />}
       </aside>
     </section>
   );

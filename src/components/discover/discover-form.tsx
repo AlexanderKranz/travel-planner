@@ -19,6 +19,8 @@ import { defaultTravelMode, limitOptions, textLimitHours } from "./helpers";
 export type DiscoverHome = { home: HomeLocation & { geoId: number } | null; legacyHome: boolean };
 
 export type DiscoverPurposeOption = { id: string; name: string; /** Hours from the purpose's flight limit, null = none. */ maxFlightHours: number | null };
+/** A purpose shared with me: listed in its own optgroup with the owner's name. */
+export type SharedDiscoverPurposeOption = DiscoverPurposeOption & { ownerName: string };
 
 const chip =
   "flex min-h-11 cursor-pointer items-center justify-center rounded-md border border-line-strong px-3 text-sm select-none has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-white has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus";
@@ -31,7 +33,9 @@ const MAX_MONTHS = 3;
  * a slow search can be left without losing it.
  */
 export function DiscoverForm({
-  purposes,
+  purposes: ownPurposes,
+  sharedPurposes = [],
+  initialPurposeId,
   groups,
   homeAirports,
   home,
@@ -39,25 +43,31 @@ export function DiscoverForm({
   isDemo = false,
 }: {
   purposes: DiscoverPurposeOption[];
+  sharedPurposes?: SharedDiscoverPurposeOption[];
+  /** Preselected saved purpose (own or shared), e.g. from the purpose page. */
+  initialPurposeId?: string;
   groups: { id: string; name: string }[];
   homeAirports: string[];
   /** The demo account is shared: typed text gets a visibility notice (spec 13.6). */
   isDemo?: boolean;
 } & DiscoverHome) {
   const t = useTranslations("discover");
+  const ts = useTranslations("sharing");
+  const purposes: DiscoverPurposeOption[] = [...ownPurposes, ...sharedPurposes];
+  const initial = purposes.find((p) => p.id === initialPurposeId) ?? purposes[0];
   const locale = useLocale();
   const f = useFormatter();
   const router = useRouter();
   const id = useId();
   // Both values stay in state when the user switches; only the active one is sent (spec 13.1).
   const [source, setSource] = useState<"saved" | "text">(purposes.length > 0 ? "saved" : "text");
-  const [purposeId, setPurposeId] = useState(purposes[0]?.id ?? "");
+  const [purposeId, setPurposeId] = useState(initial?.id ?? "");
   const [purposeText, setPurposeText] = useState("");
   const [months, setMonths] = useState<number[]>([]);
   const [groupId, setGroupId] = useState("");
   const [origins, setOrigins] = useState<string[]>(homeAirports.slice(0, MAX_ORIGINS));
   const purpose = purposes.find((p) => p.id === purposeId);
-  const [limit, setLimit] = useState<number | null>(purposes[0]?.maxFlightHours ?? null);
+  const [limit, setLimit] = useState<number | null>(initial?.maxFlightHours ?? null);
   const [mode, setMode] = useState<TravelMode>(() => defaultTravelMode(homeAirports, home));
   const [driveHours, setDriveHours] = useState<number>(DEFAULT_DRIVE_HOURS);
   const [start, setStart] = useState<HomeLocation | null>(home);
@@ -180,11 +190,20 @@ export function DiscoverForm({
             }}
             required
           >
-            {purposes.map((p) => (
+            {ownPurposes.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name}
               </option>
             ))}
+            {sharedPurposes.length > 0 && (
+              <optgroup label={ts("sharedOptgroup")}>
+                {sharedPurposes.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {ts("optionShared", { name: p.name, owner: p.ownerName })}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </SelectField>
         )}
       </fieldset>

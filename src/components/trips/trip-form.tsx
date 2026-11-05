@@ -12,7 +12,7 @@ import { hasIssue, type Issue } from "@/components/ui/issues";
 import { btnPrimary, btnSecondary, inputCls, mutedCls } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
 import { MAX_ENTRIES_PER_GROUP, MAX_TRIP_DAYS, type ActionError, type GroupParse, type Trip } from "@/lib/domain";
-import { createTrip, updateTrip } from "@/lib/server/trips";
+import { createTrip, getTrip, updateTrip } from "@/lib/server/trips";
 import { DestinationPicker } from "./destination-picker";
 import { TimingField } from "./timing-field";
 import {
@@ -25,11 +25,15 @@ import {
 } from "./trip-draft";
 
 type Option = { id: string; name: string };
+/** A purpose another user shared with me (usable for own trips). */
+export type SharedOption = Option & { ownerName: string };
 
 export function TripForm({
   trip,
   groups,
   purposes,
+  sharedPurposes = [],
+  ownerName,
   countryCodes,
   profileBirthdate,
   initialDraft,
@@ -38,6 +42,10 @@ export function TripForm({
   trip?: Trip;
   groups: Option[];
   purposes: Option[];
+  /** Usable purposes shared with me, listed in their own optgroup with the owner's name. */
+  sharedPurposes?: SharedOption[];
+  /** Write grantee editing a shared trip: the owner, named in "Only {name} can change the group and purpose". */
+  ownerName?: string;
   /** ISO country codes for the free-text destination picker (from the server dataset). */
   countryCodes: string[];
   /** For "about your age" in the recognised one-off group. */
@@ -49,6 +57,7 @@ export function TripForm({
 }) {
   const t = useTranslations("trips.form");
   const tg = useTranslations("groups");
+  const ts = useTranslations("sharing");
   const router = useRouter();
   const [draft, setDraft] = useState<TripDraft>(() =>
     trip ? draftFromTrip(trip) : (initialDraft ?? emptyTripDraft()),
@@ -57,8 +66,13 @@ export function TripForm({
   const [issues, setIssues] = useState<Issue[]>();
   const [local, setLocal] = useState<string[]>([]);
   const [pending, start] = useTransition();
+  /** `updated_at` the form was loaded with; sent back so a change by someone else is reported, not overwritten. */
+  const [loadedAt, setLoadedAt] = useState(trip?.updatedAt);
+  const [conflict, setConflict] = useState(false);
   const [today] = useState(() => new Date().toISOString().slice(0, 10));
   const oneOff = draft.groupId === ONE_OFF_GROUP;
+  // Owner-only fields (group, purpose) are shown as text for a write grantee.
+  const ownerOnly = !!trip && trip.access !== "owner";
   const set = (patch: Partial<TripDraft>) => setDraft((d) => ({ ...d, ...patch }));
   const adjustFromParse = (parse: GroupParse) =>
     set({
@@ -73,6 +87,7 @@ export function TripForm({
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setConflict(false);
     setIssues(undefined);
     const problems = draftProblems(draft);
     setLocal(problems);
@@ -82,7 +97,17 @@ export function TripForm({
     }
     const input = draftToInput(draft);
     start(async () => {
-      const result = trip ? await updateTrip(trip.id, input) : await createTrip(input);
+      const result = trip ? await updateTrip(trip.id, input, loadedAt) : await createTrip(input);
+      if (!result.ok && result.error === "conflict" && trip) {
+        // Someone else saved first: load their version into the form and say so; nothing was overwritten.
+        const latest = await getTrip(trip.id);
+        if (latest.ok) {
+          setDraft(draftFromTrip(latest.data));
+          setLoadedAt(latest.data.updatedAt);
+        }
+        setConflict(true);
+        return;
+      }
       if (!result.ok) {
         setError(result.error);
         setIssues(result.issues);
@@ -179,6 +204,13 @@ export function TripForm({
         error={bad("title")}
       />
 
+      {ownerOnly && (
+        <p role="note" className="rounded-lg border border-info-line bg-info-bg p-3 text-sm text-info-fg">
+          {ts("ownerOnlyContext", { name: ownerName ?? "" })}
+        </p>
+      )}
+
+      {!ownerOnly && (
       <div id="field-group" className="flex flex-col gap-3">
         <SelectField
           label={t("group")}
@@ -247,20 +279,32 @@ export function TripForm({
           </>
         )}
       </div>
+      )}
 
-      <SelectField
-        label={t("purpose")}
-        hint={t("purposeHint")}
-        value={draft.purposeId}
-        onChange={(e) => set({ purposeId: e.target.value })}
-      >
-        <option value="">{t("none")}</option>
-        {purposes.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </SelectField>
+      {!ownerOnly && (
+        <SelectField
+          label={t("purpose")}
+          hint={t("purposeHint")}
+          value={draft.purposeId}
+          onChange={(e) => set({ purposeId: e.target.value })}
+        >
+          <option value="">{t("none")}</option>
+          {purposes.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+          {sharedPurposes.length > 0 && (
+            <optgroup label={ts("sharedOptgroup")}>
+              {sharedPurposes.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {ts("optionShared", { name: p.name, owner: p.ownerName })}
+                </option>
+              ))}
+            </optgroup>
+          )}
+        </SelectField>
+      )}
 
       <section aria-labelledby="flights-title" className="flex flex-col gap-2">
         <h2 id="flights-title" className="sr-only">
@@ -307,6 +351,9 @@ export function TripForm({
       </details>
 
       <ErrorBanner error={error} />
+      <p role="alert" className="rounded-lg border border-warn-line bg-warn-bg p-3 text-sm text-warn-fg empty:hidden">
+        {conflict ? ts("conflictForm") : ""}
+      </p>
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" className={btnSecondary} onClick={() => router.back()}>
           {t("cancel")}

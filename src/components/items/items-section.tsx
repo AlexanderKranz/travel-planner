@@ -9,6 +9,7 @@ import { AddItemButton } from "./add-item-button";
 import { CostSummaryView } from "./cost-summary";
 import { ItemActions } from "./item-actions";
 import { ItemList } from "./item-list";
+import { StatusBadge } from "./status-badge";
 import { StatusControl } from "./status-control";
 
 /** Owner block of the trip page: cost table, items by day, add button. Works without a plan. */
@@ -17,16 +18,20 @@ export async function ItemsSection({
   lengthDays,
   startDate,
   partySize,
+  readOnly = false,
 }: {
   tripId: string;
   lengthDays: number;
   startDate: string | null;
   partySize: number | null;
+  /** Read grantee: list and costs only. */
+  readOnly?: boolean;
 }) {
   const t = await getTranslations("items");
   const [res, planFlights] = await Promise.all([listItems(tripId), getOwnerPlanFlights(tripId)]);
   const ctx = { tripId, lengthDays, partySize, startDate, flights: planFlights ? fittingLegs(planFlights.legs) : [] };
   // Collapsed until the first entry (Alex, 2026-11-01); a quick add from the plan brings the full block.
+  if (res.ok && res.data.length === 0 && readOnly) return null;
   if (res.ok && res.data.length === 0) {
     return (
       <section aria-labelledby="items-title" className={`${cardCls} min-w-0 p-0`}>
@@ -50,7 +55,7 @@ export async function ItemsSection({
         <h2 id="items-title" className="text-xl font-bold">
           {t("title")}
         </h2>
-        <AddItemButton ctx={ctx} />
+        {!readOnly && <AddItemButton ctx={ctx} />}
       </div>
       {!res.ok ? (
         <ErrorBanner error={res.error} />
@@ -61,8 +66,8 @@ export async function ItemsSection({
             items={res.data}
             partySize={partySize}
             startDate={startDate}
-            renderStatus={(i) => <StatusControl id={i.id} title={i.title} status={i.status} />}
-            renderActions={(i) => <ItemActions item={i} {...ctx} />}
+            renderStatus={(i) => (readOnly ? <StatusBadge status={i.status} /> : <StatusControl id={i.id} title={i.title} status={i.status} />)}
+            renderActions={readOnly ? undefined : (i) => <ItemActions item={i} {...ctx} />}
           />
         </>
       )}

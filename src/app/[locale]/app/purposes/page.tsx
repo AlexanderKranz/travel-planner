@@ -1,6 +1,8 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { btnPrimary, cardCls, focusCls, mutedCls } from "@/components/ui/styles";
+import { SharedPurposes } from "@/components/sharing/shared-lists";
+import { listSharedWithMe } from "@/lib/server/sharing";
 import { listPurposes } from "@/lib/server/purposes";
 import { unwrap } from "@/lib/unwrap";
 
@@ -8,7 +10,9 @@ export default async function PurposesPage({ params }: { params: Promise<{ local
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("purposes");
-  const purposes = unwrap(await listPurposes(), locale);
+  const [purposesRes, incomingRes] = await Promise.all([listPurposes(), listSharedWithMe()]);
+  const purposes = unwrap(purposesRes, locale);
+  const incoming = incomingRes.ok ? incomingRes.data : [];
 
   return (
     <main className="flex flex-col gap-4">
@@ -36,6 +40,7 @@ export default async function PurposesPage({ params }: { params: Promise<{ local
           ))}
         </ul>
       )}
+      <SharedPurposes shares={incoming} />
     </main>
   );
 }

@@ -32,13 +32,20 @@ export function PlanVersions({
   versions,
   shown,
   busy,
+  readOnly = false,
+  authors = {},
 }: {
   tripId: string;
   versions: PlanVersionMeta[];
   /** Version number currently displayed. */
   shown: number;
   busy: boolean;
+  /** Read grantee: no restore. */
+  readOnly?: boolean;
+  /** Names of other people who wrote versions, by user id (shared trips); the viewer's own versions are absent. */
+  authors?: Record<string, string>;
 }) {
+  const ts = useTranslations("sharing");
   const t = useTranslations("plan.versions");
   const tk = useTranslations("plan.versionKinds");
   const f = useFormatter();
@@ -61,6 +68,9 @@ export function PlanVersions({
                   <time dateTime={v.createdAt} className={mutedCls}>
                     {f.relativeTime(new Date(v.createdAt), new Date())}
                   </time>
+                  {v.createdBy && authors[v.createdBy] && (
+                    <span className={mutedCls}>{ts("by", { name: authors[v.createdBy] })}</span>
+                  )}
                   {isShown && (
                     <span className="rounded-full border border-info-line px-2 text-xs">
                       {t("shown")}
@@ -86,7 +96,7 @@ export function PlanVersions({
                       <span className="sr-only"> v{v.versionNo}</span>
                     </Link>
                   )}
-                  {v.versionNo !== latest && <RestoreButton tripId={tripId} versionNo={v.versionNo} disabled={busy} />}
+                  {!readOnly && v.versionNo !== latest && <RestoreButton tripId={tripId} versionNo={v.versionNo} disabled={busy} />}
                 </div>
               </li>
             );

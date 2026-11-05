@@ -2,6 +2,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { cardCls, focusCls, mutedCls } from "@/components/ui/styles";
 import type { TripSummary } from "@/lib/domain";
+import { ShareBadge, SharedPill } from "@/components/sharing/share-badge";
 import { TripCardPending } from "./trip-card-pending";
 import { timingLabel, tripTitle } from "./trip-title";
 
@@ -23,8 +24,10 @@ export function TripCard({ trip }: { trip: TripSummary }) {
       <span className={`block text-sm ${mutedCls}`}>
         {timingLabel(trip.timing, locale, t)} · {t("days", { count: trip.lengthDays })}
       </span>
-      {(trip.groupName || trip.purposeName) && (
+      {(trip.groupName || trip.purposeName || trip.sharedBy || (trip.shareCount ?? 0) > 0) && (
         <span className="mt-2 flex flex-wrap gap-1">
+          {trip.sharedBy && trip.access !== "owner" && <ShareBadge owner={trip.sharedBy} access={trip.access} />}
+          {(trip.shareCount ?? 0) > 0 && <SharedPill count={trip.shareCount} />}
           {trip.groupName && <span className={chip}>{trip.groupName}</span>}
           {trip.purposeName && <span className={chip}>{trip.purposeName}</span>}
         </span>

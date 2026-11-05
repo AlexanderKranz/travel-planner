@@ -15,6 +15,7 @@ export function TripHeader({
   purposeName,
   pills,
   aside,
+  shared,
 }: {
   trip: Trip;
   purposeName: string | null;
@@ -22,6 +23,8 @@ export function TripHeader({
   pills: React.ReactNode;
   /** Right column on desktop, below the buttons on phones ("About the destination"). */
   aside?: React.ReactNode;
+  /** Recipient only: badge with the owner and the level, plus "Leave" (server-rendered by the page). */
+  shared?: React.ReactNode;
 }) {
   const t = useTranslations("trips");
   const locale = useLocale();
@@ -57,7 +60,7 @@ export function TripHeader({
           <Link href="/app" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
             {t("back")}
           </Link>
-          {trip.destinationSearchId && (
+          {trip.access === "owner" && trip.destinationSearchId && (
             <Link href={`/app/trips/discover/${trip.destinationSearchId}`} className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`} data-no-print>
               {t("backToSuggestions")}
             </Link>
@@ -70,15 +73,20 @@ export function TripHeader({
           {place && place !== d.name ? ` (${place})` : ""}
         </p>
         {pills}
+        {shared}
         <ErrorBanner error={error} />
-        <div className="mt-1 flex flex-col gap-2 sm:flex-row" data-no-print>
-          <Link href={`/app/trips/${trip.id}/edit`} className={btnPrimary}>
-            {t("edit")}
-          </Link>
-          <button type="button" className={btnDanger} onClick={() => setConfirm(true)}>
-            {t("delete")}
-          </button>
-        </div>
+        {trip.access !== "read" && (
+          <div className="mt-1 flex flex-col gap-2 sm:flex-row" data-no-print>
+            <Link href={`/app/trips/${trip.id}/edit`} className={btnPrimary}>
+              {t("edit")}
+            </Link>
+            {trip.access === "owner" && (
+              <button type="button" className={btnDanger} onClick={() => setConfirm(true)}>
+                {t("delete")}
+              </button>
+            )}
+          </div>
+        )}
       </div>
       {aside && <div className="min-w-0 lg:pt-11">{aside}</div>}
       <ConfirmDialog

@@ -28,7 +28,7 @@ export async function AdminDashboard({
   const day = (iso: string) => f.dateTime(new Date(`${iso}T12:00:00Z`), { day: "2-digit", month: "2-digit", timeZone: "UTC" });
   const levelText = (m: Meter) => t(`level.${m.level}`);
 
-  const { users, usage, ai, providers, adb, ors, geoapify, overpass, events } = data;
+  const { users, usage, ai, providers, adb, ors, geoapify, overpass, events, shares } = data;
 
   return (
     <div className="flex flex-col gap-4">
@@ -83,6 +83,28 @@ export async function AdminDashboard({
           <Stat label={t("usage.patched")} value={num(usage.patchedThisMonth)} hint={`${t("usage.versionsPatch")}: ${num(usage.versionsPatch)}`} />
           <Stat label={t("usage.shares")} value={num(usage.shareLinksActive)} />
         </Stats>
+        {shares && (
+          <Stats>
+            <Stat
+              label={t("usage.tripShares")}
+              value={num(shares.tripSharesRead + shares.tripSharesWrite)}
+              hint={t("usage.readWrite", { read: num(shares.tripSharesRead), write: num(shares.tripSharesWrite) })}
+            />
+            <Stat
+              label={t("usage.purposeShares")}
+              value={num(shares.purposeSharesRead + shares.purposeSharesWrite)}
+              hint={t("usage.readWrite", { read: num(shares.purposeSharesRead), write: num(shares.purposeSharesWrite) })}
+            />
+            <Stat label={t("usage.tripsShared")} value={num(shares.tripsShared)} />
+            <Stat label={t("usage.recipients")} value={num(shares.recipients)} />
+            <Stat label={t("usage.grantsThisMonth")} value={num(shares.grantsThisMonth)} />
+            <Stat
+              label={t("usage.lookups")}
+              value={num(shares.lookupsThisMonth)}
+              hint={`${t("usage.lookupMisses")}: ${num(shares.lookupMissesThisMonth)}`}
+            />
+          </Stats>
+        )}
         <h3 className={labelCls}>{t("usage.perDay")}</h3>
         <ul className="flex flex-col gap-2">
           {usage.perDay.map((d) => (

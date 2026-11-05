@@ -10,11 +10,15 @@ export function PlanEmpty({
   state,
   locale,
   tooLong,
+  readOnly = false,
 }: {
   state: PlanState;
   locale: string;
   tooLong: boolean;
+  /** Read grantee: nothing to start, say so. */
+  readOnly?: boolean;
 }) {
+  const ts = useTranslations("sharing");
   const t = useTranslations("plan");
   const reason = !state.aiEnabled
     ? "aiDisabled"
@@ -28,6 +32,10 @@ export function PlanEmpty({
       <h2 id="plan-title" className="text-xl font-bold">
         {t("title")}
       </h2>
+      {readOnly ? (
+        <p className={`max-w-prose text-sm ${mutedCls}`}>{ts("noPlanReadOnly")}</p>
+      ) : (
+        <>
       <p className="max-w-prose text-sm">{t("empty.body")}</p>
       {reason ? (
         <p role="note" className={`text-sm ${mutedCls}`}>
@@ -42,6 +50,8 @@ export function PlanEmpty({
         disabled={reason !== null}
       />
       {state.aiEnabled && <BudgetLine budget={state.budget} />}
+        </>
+      )}
     </section>
   );
 }

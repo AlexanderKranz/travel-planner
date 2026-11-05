@@ -31,3 +31,4 @@ Until now every user table is private to its owner (ground rule 6); the only way
 - CLAUDE.md ground rule 6 carries the exception (spec section 7).
 - Groups stay unshared. Sharing them later needs a way to link a hand-entered member to the account of the person it describes, which cannot be inferred from a name (spec section 10).
 - One additive migration; the current app keeps working until the server PR adds the owner filters together with the first share action.
+- UI (spec section 4): pages read `access` (`owner | write | read`) from the loaders and hide what the server would refuse anyway; the server stays the only enforcement. A recipient never receives the owner's birthdate, only the owner's age on the travel date, so the trip page feeds the group resolution a stand-in birthdate that yields exactly that age (`birthdateForAge`). Shared purposes are offered in the trip form and in "Find destinations" in their own option group labelled with the owner.

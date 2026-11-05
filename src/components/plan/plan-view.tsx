@@ -26,6 +26,7 @@ export function PlanView({
   locale,
   openDone,
   items,
+  readOnly = false,
 }: {
   state: PlanState;
   shown: Shown;
@@ -36,6 +37,8 @@ export function PlanView({
    * rows of the day cards; `changed` = a timed item changed after this version.
    */
   items: { lengthDays: number; partySize: number | null; startDate: string | null; list: SharedItem[]; changed: boolean };
+  /** Read grantee (sharing spec 4.3): no quick add, no edits, no open-item ticks, no regenerate. */
+  readOnly?: boolean;
 }) {
   const t = useTranslations("plan");
   const ti = useTranslations("items");
@@ -43,10 +46,10 @@ export function PlanView({
   const changed = new Set(highlightedDays(meta));
   const legs = plan.flights ? fittingLegs(plan.flights.legs) : [];
   const ctx = { tripId: state.tripId, lengthDays: items.lengthDays, partySize: items.partySize, startDate: items.startDate, flights: legs };
-  const quick = state.isLatest;
+  const quick = state.isLatest && !readOnly;
   const fixed = fixedItemsOf(items.list, plan.days.length);
   // Activity edits without AI: owner's latest version only, not while a generation or patch runs.
-  const editCtx = state.isLatest && !state.busy ? { tripId: state.tripId, baseVersion: meta.versionNo } : undefined;
+  const editCtx = state.isLatest && !state.busy && !readOnly ? { tripId: state.tripId, baseVersion: meta.versionNo } : undefined;
   const flightAction = (leg: (typeof legs)[number]) => {
     const held = itemForLeg(leg, items.list, items.lengthDays, items.startDate);
     if (held) {
@@ -78,13 +81,13 @@ export function PlanView({
           <p>
             <span className="font-medium">{t("outdated.title")}</span> {t("outdated.body")}
           </p>
-          <PlanRunner tripId={state.tripId} locale={locale} label={t("outdated.regenerate")} secondary disabled={!state.aiEnabled} />
+          {!readOnly && <PlanRunner tripId={state.tripId} locale={locale} label={t("outdated.regenerate")} secondary disabled={!state.aiEnabled} />}
         </div>
       )}
       {state.placesIncomplete && state.isLatest && !state.outdated && (
         <div role="note" className="flex flex-col gap-2 rounded-lg border border-warn-line bg-warn-bg p-3 text-sm text-warn-fg">
           <p>{t("placesIncomplete")}</p>
-          <PlanRunner tripId={state.tripId} locale={locale} label={t("outdated.regenerate")} secondary disabled={!state.aiEnabled} />
+          {!readOnly && <PlanRunner tripId={state.tripId} locale={locale} label={t("outdated.regenerate")} secondary disabled={!state.aiEnabled} />}
         </div>
       )}
       {items.changed && state.isLatest && !state.outdated && (
@@ -111,7 +114,7 @@ export function PlanView({
         ))}
       </ol>
       <PlanNotes notes={plan.notes} />
-      {state.isLatest ? (
+      {state.isLatest && !readOnly ? (
         <OpenItemsEditor tripId={state.tripId} items={plan.openItems} done={openDone} edit={editCtx} />
       ) : (
         <PlanOpenItems items={plan.openItems} done={openDone} />

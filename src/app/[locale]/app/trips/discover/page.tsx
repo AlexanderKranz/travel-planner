@@ -8,14 +8,24 @@ import { maxBlockMinutes } from "@/lib/flights/constraint";
 import { listGroups } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
 import { listPurposes } from "@/lib/server/purposes";
+import { sharedPurposeOptions } from "@/components/sharing/helpers";
+import { listSharedWithMe } from "@/lib/server/sharing";
 import { unwrap } from "@/lib/unwrap";
 
-export default async function DiscoverPage({ params }: { params: Promise<{ locale: string }> }) {
+export default async function DiscoverPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ purpose?: string | string[] }>;
+}) {
   const { locale } = await params;
+  const sp = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations("discover");
   const tt = await getTranslations("trips");
-  const [groups, purposes, profile] = await Promise.all([listGroups(), listPurposes(), getProfile()]);
+  const [groups, purposes, profile, incoming] = await Promise.all([listGroups(), listPurposes(), getProfile(), listSharedWithMe()]);
+  const purposeParam = Array.isArray(sp.purpose) ? sp.purpose[0] : sp.purpose;
   const p = unwrap(profile, locale);
   // A home saved before drive searches has a name but no coordinates: it is picked once more (spec section 3).
   const home = hasHomeCoords(p) && p.homeTimezone ? { name: p.homeLocation!, timezone: p.homeTimezone, geoId: p.homeGeoId! } : null;
@@ -28,6 +38,15 @@ export default async function DiscoverPage({ params }: { params: Promise<{ local
       <p className={mutedCls}>{t("intro")}</p>
       <DiscoverForm
         purposes={unwrap(purposes, locale).map((p) => ({ id: p.id, name: p.name, maxFlightHours: defaultLimitHours(maxBlockMinutes(p)) }))}
+        sharedPurposes={
+          incoming.ok
+            ? sharedPurposeOptions(incoming.data).flatMap((o) => {
+                const p = incoming.data.find((s) => s.purpose?.id === o.id)?.purpose;
+                return p ? [{ ...o, maxFlightHours: defaultLimitHours(maxBlockMinutes(p)) }] : [];
+              })
+            : []
+        }
+        initialPurposeId={purposeParam}
         groups={unwrap(groups, locale).map(({ id, name }) => ({ id, name }))}
         homeAirports={p.homeAirports}
         home={home}

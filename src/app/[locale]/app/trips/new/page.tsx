@@ -1,4 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { sharedPurposeOptions } from "@/components/sharing/helpers";
 import { TripForm } from "@/components/trips/trip-form";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import { Link } from "@/i18n/navigation";
@@ -8,6 +9,7 @@ import { getDestinationSearch } from "@/lib/server/discover/pipeline";
 import { listGroups } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
 import { listPurposes } from "@/lib/server/purposes";
+import { listSharedWithMe } from "@/lib/server/sharing";
 import { unwrap } from "@/lib/unwrap";
 
 // The server action's after() facts warm-up runs within this route's budget.
@@ -26,7 +28,7 @@ export default async function NewTripPage({
   const sp = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations("trips");
-  const [groups, purposes, profile] = await Promise.all([listGroups(), listPurposes(), getProfile()]);
+  const [groups, purposes, profile, incoming] = await Promise.all([listGroups(), listPurposes(), getProfile(), listSharedWithMe()]);
   const profileData = unwrap(profile, locale);
 
   // Prefill from a suggestion (spec section 7). The row is read through RLS; an unknown search or card simply gives
@@ -68,6 +70,7 @@ export default async function NewTripPage({
       <TripForm
         groups={unwrap(groups, locale).map(({ id, name }) => ({ id, name }))}
         purposes={unwrap(purposes, locale).map(({ id, name }) => ({ id, name }))}
+        sharedPurposes={incoming.ok ? sharedPurposeOptions(incoming.data) : []}
         countryCodes={listCountries().map((c) => c.code)}
         profileBirthdate={profileData.birthdate}
         initialDraft={initialDraft}
