@@ -329,7 +329,8 @@
       "wordLabel": "Tippe {word} zur Bestätigung",
       "confirm": "Endgültig löschen",
       "cancel": "Abbrechen",
-      "demoUnavailable": "Im Demo-Konto nicht verfügbar"
+      "demoUnavailable": "Im Demo-Konto nicht verfügbar",
+      "sharedNote": "Reisen und Reisezwecke, die du geteilt hast, werden mitgelöscht; die Personen verlieren den Zugriff. Freigaben, die andere dir gegeben haben, enden einfach."
     },
     "home": {
       "label": "Heimatort (für die Zeitverschiebung)",
@@ -1115,7 +1116,9 @@
     "cancel": "Abbrechen",
     "createdTitle": "Link erstellt",
     "pdfBusy": "PDF wird erstellt …",
-    "pdfFailed": "Das PDF konnte nicht erstellt werden. Bitte versuche es später noch einmal."
+    "pdfFailed": "Das PDF konnte nicht erstellt werden. Bitte versuche es später noch einmal.",
+    "pdfTitle": "Herunterladen",
+    "linksTitle": "Öffentliche Links"
   },
   "picture": {
     "alt": "Foto von {place}",
@@ -1279,7 +1282,15 @@
       "shares": "Aktive Freigabelinks",
       "perDay": "Planversionen pro Tag, letzte 14 Tage",
       "generatedLabel": "erstellt",
-      "patchedLabel": "geändert"
+      "patchedLabel": "geändert",
+      "tripShares": "Reise-Freigaben",
+      "purposeShares": "Zweck-Freigaben",
+      "tripsShared": "Geteilte Reisen",
+      "recipients": "Empfänger",
+      "grantsThisMonth": "Freigaben diesen Monat",
+      "lookups": "E-Mail-Suchen diesen Monat",
+      "lookupMisses": "ohne Konto",
+      "readWrite": "{read} nur lesen, {write} bearbeiten"
     },
     "ai": {
       "title": "KI-Kosten",
@@ -1820,5 +1831,77 @@
       "settingsLink": "Feedback senden",
       "reportProblem": "Dieses Problem melden"
     }
+  },
+  "sharing": {
+    "title": "Teilen",
+    "people": "Personen",
+    "intro": "Gib einer anderen Person mit Konto in dieser App Zugriff. Sie findet es unter „Mit mir geteilt“.",
+    "email": "E-Mail-Adresse der Person",
+    "emailPlaceholder": "name@beispiel.de",
+    "pickUser": "Nutzer wählen",
+    "pickUserNone": "Auswählen…",
+    "accessLabel": "Zugriff",
+    "add": "Teilen",
+    "adding": "Wird geteilt…",
+    "count": "Geteilt mit {n} von {max}",
+    "noGrants": "Noch mit niemandem geteilt.",
+    "groupNotice": "Die Person sieht die ganze Reise, auch die Reisegruppe mit Namen und Geburtsdaten.",
+    "purposeNotice": "Die Person kann diesen Reisezweck für eigene Reisen und Zielsuchen nutzen. Wer diese Reisen von ihr geteilt bekommt, sieht ihn dort.",
+    "access": {
+      "read": "Darf ansehen",
+      "write": "Darf bearbeiten"
+    },
+    "level": {
+      "read": "Nur lesen",
+      "write": "Darf bearbeiten"
+    },
+    "remove": "Entfernen",
+    "removeFor": "Zugriff für {name} entfernen",
+    "confirmRemove": "{name} verliert den Zugriff sofort. Es wird nichts gelöscht.",
+    "changeAccess": "Zugriff für {name}",
+    "demoDisabled": "Teilen mit Personen ist im Demo-Konto nicht verfügbar.",
+    "sharedPill": "Geteilt · {n}",
+    "sharedWithMe": "Mit mir geteilt",
+    "badge": "{name} · {level}",
+    "badgeLabel": "Geteilt von {name}, {level}",
+    "leave": "Verlassen",
+    "leaveTitle": "Diese Freigabe verlassen?",
+    "confirmLeave": "Du verlierst den Zugriff. {name} behält alles.",
+    "cancel": "Abbrechen",
+    "ownerOnlyContext": "Nur {name} kann Gruppe und Reisezweck ändern.",
+    "by": "von {name}",
+    "conflictForm": "Jemand anderes hat zwischenzeitlich Änderungen gespeichert. Deine Eingaben sind noch da. Lade die neueste Version (deine Änderungen gehen verloren) oder speichere deine Eingaben darüber.",
+    "sharedOptgroup": "Mit mir geteilt",
+    "optionShared": "{name} (von {owner})",
+    "added": "Geteilt.",
+    "accessChanged": "Zugriff geändert.",
+    "removed": "Zugriff entfernt.",
+    "noPlanReadOnly": "Es gibt noch keinen Plan. Du kannst diese Reise ansehen, aber nicht ändern.",
+    "readOnlyNote": "Du kannst das ansehen, aber nicht ändern.",
+    "groupBlock": {
+      "title": "Reisegruppe",
+      "self": "{name} (Besitzer der Reise)",
+      "ageYears": "{age} Jahre",
+      "people": "{count} Personen"
+    },
+    "purposeBlock": {
+      "title": "Reisezweck",
+      "openLink": "Reisezweck öffnen"
+    },
+    "sharedBy": "Geteilt von {name}",
+    "sharedPurposeHint": "Dieser Reisezweck ist mit dir geteilt. Du kannst ihn für eigene Reisen und Zielsuchen wählen.",
+    "errors": {
+      "no_account": "Diese Adresse hat hier kein Konto. Die App ist nur auf Einladung nutzbar; die Person muss sich zuerst anmelden.",
+      "self_share": "Das ist deine eigene Adresse.",
+      "limit_reached": "Du kannst mit höchstens {max} Personen teilen.",
+      "rate_limited": "Heute zu viele Suchen. Bitte versuche es morgen wieder.",
+      "forbidden": "Das darf nur der Besitzer.",
+      "demo_forbidden": "Teilen mit Personen ist im Demo-Konto nicht verfügbar.",
+      "failed": "Etwas ist schiefgelaufen. Bitte versuche es später erneut.",
+      "invalid": "Bitte prüfe die E-Mail-Adresse.",
+      "not_found": "Diese Freigabe gibt es nicht mehr."
+    },
+    "conflictLoad": "Neueste Version laden",
+    "conflictOverwrite": "Trotzdem speichern"
   }
 }

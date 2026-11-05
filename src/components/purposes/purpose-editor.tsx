@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { ConflictNotice } from "@/components/sharing/conflict-notice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { TextAreaField, TextField } from "@/components/ui/fields";
@@ -9,7 +10,7 @@ import { errorAt, hasIssue, type Issue } from "@/components/ui/issues";
 import { btnDanger, btnPrimary } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
 import { MAX_CONSTRAINTS, type ActionError, type TripPurpose } from "@/lib/domain";
-import { createPurpose, deletePurpose, updatePurpose } from "@/lib/server/purposes";
+import { createPurpose, deletePurpose, getPurpose, updatePurpose } from "@/lib/server/purposes";
 import { ChipList } from "./chip-list";
 import {
   emptyGuided,
@@ -21,6 +22,7 @@ import {
 
 export function PurposeEditor({ purpose }: { purpose?: TripPurpose }) {
   const t = useTranslations("purposes");
+  const ts = useTranslations("sharing");
   const router = useRouter();
   const [name, setName] = useState(purpose?.name ?? "");
   const [text, setText] = useState(purpose?.text ?? "");
@@ -33,6 +35,10 @@ export function PurposeEditor({ purpose }: { purpose?: TripPurpose }) {
   const [saved, setSaved] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
+  const [loadedAt, setLoadedAt] = useState(purpose?.updatedAt);
+  const [conflict, setConflict] = useState<{ latest: TripPurpose | null } | null>(null);
+  const readOnly = purpose?.access === "read";
+  const owner = !purpose || purpose.access === "owner";
   const bad = t("fieldInvalid");
 
   function onSubmit(e: React.FormEvent) {
@@ -40,16 +46,28 @@ export function PurposeEditor({ purpose }: { purpose?: TripPurpose }) {
     setError(null);
     setIssues(undefined);
     setSaved(false);
+    setConflict(null);
+    save(loadedAt);
+  }
+
+  function save(expected: string | undefined) {
     const input = { name, text, guided: guidedToInput(guided), constraints };
     start(async () => {
       const result = purpose
-        ? await updatePurpose(purpose.id, input)
+        ? await updatePurpose(purpose.id, input, expected)
         : await createPurpose(input);
+      if (!result.ok && result.error === "conflict" && purpose) {
+        // Someone else saved first. Keep the draft; read their version without applying it and let the user choose.
+        const latest = await getPurpose(purpose.id);
+        setConflict({ latest: latest.ok ? latest.data : null });
+        return;
+      }
       if (!result.ok) {
         setError(result.error);
         setIssues(result.issues);
       } else if (purpose) {
         setSaved(true);
+        setLoadedAt(result.data.updatedAt);
         router.refresh();
       } else {
         router.push("/app/purposes");
@@ -71,6 +89,12 @@ export function PurposeEditor({ purpose }: { purpose?: TripPurpose }) {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-6">
+      {readOnly && (
+        <p role="note" className="rounded-lg border border-info-line bg-info-bg p-3 text-sm text-info-fg">
+          {ts("readOnlyNote")}
+        </p>
+      )}
+      <fieldset disabled={readOnly} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0">
       <TextField
         label={t("name")}
         value={name}
@@ -113,25 +137,54 @@ export function PurposeEditor({ purpose }: { purpose?: TripPurpose }) {
           onChange={setConstraints}
         />
       </section>
+      </fieldset>
 
       <ErrorBanner error={error} />
+      {conflict && (
+        <ConflictNotice
+          pending={pending}
+          onLoadLatest={() => {
+            const l = conflict.latest;
+            if (l) {
+              setName(l.name);
+              setText(l.text ?? "");
+              setGuided(guidedFromStored(l.guided));
+              setConstraints(l.constraints);
+              setLoadedAt(l.updatedAt);
+              setConflict(null);
+            } else router.refresh();
+          }}
+          onOverwrite={
+            conflict.latest
+              ? () => {
+                  const expected = conflict.latest!.updatedAt;
+                  setLoadedAt(expected);
+                  setConflict(null);
+                  save(expected);
+                }
+              : undefined
+          }
+        />
+      )}
       {saved && (
         <p role="status" className="text-sm text-ok">
           {t("saved")}
         </p>
       )}
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-        {purpose ? (
-          <button type="button" className={btnDanger} onClick={() => setConfirmDelete(true)}>
-            {t("delete")}
+      {!readOnly && (
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+          {purpose && owner ? (
+            <button type="button" className={btnDanger} onClick={() => setConfirmDelete(true)}>
+              {t("delete")}
+            </button>
+          ) : (
+            <span />
+          )}
+          <button type="submit" className={btnPrimary} disabled={pending}>
+            {t("save")}
           </button>
-        ) : (
-          <span />
-        )}
-        <button type="submit" className={btnPrimary} disabled={pending}>
-          {t("save")}
-        </button>
-      </div>
+        </div>
+      )}
 
       <ConfirmDialog
         open={confirmDelete}

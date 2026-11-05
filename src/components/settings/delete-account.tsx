@@ -46,7 +46,7 @@ export function DeleteAccount() {
       <ConfirmDialog
         open={open}
         title={t("dialogTitle")}
-        description={t("dialogBody")}
+        description={`${t("dialogBody")} ${t("sharedNote")}`}
         confirmLabel={t("confirm")}
         cancelLabel={t("cancel")}
         confirmDisabled={word.trim() !== t("word")}

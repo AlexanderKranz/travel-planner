@@ -1,4 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { sharedPurposeOptions } from "@/components/sharing/helpers";
 import { TripForm } from "@/components/trips/trip-form";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import { Link } from "@/i18n/navigation";
@@ -8,6 +9,7 @@ import { getDestinationSearch } from "@/lib/server/discover/pipeline";
 import { listGroups } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
 import { listPurposes } from "@/lib/server/purposes";
+import { listSharedWithMe } from "@/lib/server/sharing";
 import { unwrap } from "@/lib/unwrap";
 
 // The server action's after() facts warm-up runs within this route's budget.
@@ -26,7 +28,7 @@ export default async function NewTripPage({
   const sp = await searchParams;
   setRequestLocale(locale);
   const t = await getTranslations("trips");
-  const [groups, purposes, profile] = await Promise.all([listGroups(), listPurposes(), getProfile()]);
+  const [groups, purposes, profile, incoming] = await Promise.all([listGroups(), listPurposes(), getProfile(), listSharedWithMe()]);
   const profileData = unwrap(profile, locale);
 
   // Prefill from a suggestion (spec section 7). The row is read through RLS; an unknown search or card simply gives
@@ -40,7 +42,14 @@ export default async function NewTripPage({
     const res = await getDestinationSearch(searchId);
     const card = res.ok ? res.data.cards.find((c) => c.id === cardId) : undefined;
     if (res.ok && card) {
-      initialDraft = buildTripDraft(res.data, card, profileData.homeAirports);
+      // Only purposes the user can still use and the picker can show: own ones and shares from active owners (RLS
+      // hides a disabled owner's shares). A list that failed to load verifies nothing, so its purposes are dropped and
+      // the user picks again, instead of submitting an id that createTrip would reject.
+      const usablePurposeIds = [
+        ...(purposes.ok ? purposes.data.map((p) => p.id) : []),
+        ...(incoming.ok ? sharedPurposeOptions(incoming.data).map((p) => p.id) : []),
+      ];
+      initialDraft = buildTripDraft(res.data, card, profileData.homeAirports, usablePurposeIds);
       backToList = res.data.id;
       // An unsaved typed purpose is put into the notes by buildTripDraft; the form says so (spec 13.5).
       notesFromSearch = res.data.purposeId === null && !!res.data.purposeText;
@@ -68,6 +77,7 @@ export default async function NewTripPage({
       <TripForm
         groups={unwrap(groups, locale).map(({ id, name }) => ({ id, name }))}
         purposes={unwrap(purposes, locale).map(({ id, name }) => ({ id, name }))}
+        sharedPurposes={incoming.ok ? sharedPurposeOptions(incoming.data) : []}
         countryCodes={listCountries().map((c) => c.code)}
         profileBirthdate={profileData.birthdate}
         initialDraft={initialDraft}

@@ -38,5 +38,6 @@ Full plan: `docs/architecture.md`. Hosting walkthrough: `docs/hosting-setup.md`.
 - Server code in `src/lib/server/`, API clients in `src/lib/integrations/<provider>.ts`, pure logic in `src/lib/`
 - Dates as ISO strings `YYYY-MM-DD` in data and APIs. Format only in the UI.
 - Small, focused files. Name things after the domain (trip, group, purpose, plan, item).
+- Shared trips and purposes: UI code branches on `access` (`owner | write | read`, `canEdit()` in `src/lib/domain/sharing.ts`) and hides owner-only and write controls; the server enforces it regardless. Components live in `src/components/sharing/`.
 - Reference trips for evals live in `evals/fixtures/` (Danube cruise = family with toddler, Costa del Sol = golf with a friend).
 - Log what the admin page needs: every Claude call → `ai_usage`, every external API call → `api_calls`, errors and key events → `app_events`. The admin area shows aggregates only, never other users' content. Exception: for a feedback reference (`FB-…`) the admin can look up the reporter's email and view that report's screenshot; nothing else of theirs (`docs/specs/feedback.md`).

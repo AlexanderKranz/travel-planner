@@ -56,7 +56,7 @@ const data: Record<string, { single?: unknown; list?: unknown }> = {
   },
   trips: {
     single: {
-      id: TRIP, title: null, dest_kind: "city", dest_name: "Marbella", dest_place_name: "Marbella", dest_geo_id: 1,
+      id: TRIP, owner_id: USER, title: null, dest_kind: "city", dest_name: "Marbella", dest_place_name: "Marbella", dest_geo_id: 1,
       dest_country_code: "ES", dest_admin1: null, dest_lat: 36.5, dest_lon: -4.9, dest_timezone: "Europe/Madrid",
       dest_radius_km: null, length_days: 3, start_date: "2038-03-13", months: [], group_id: GROUP, group_text: null,
       group_structure: null, group_parsed: null, group_parsed_hash: null, purpose_id: PURPOSE, wants_flights: false,
@@ -74,7 +74,7 @@ const data: Record<string, { single?: unknown; list?: unknown }> = {
   },
   trip_purposes: {
     single: {
-      id: PURPOSE, name: "Golf", text: "golf", guided: {}, constraints: [], parsed_tags: null, parsed_hash: null,
+      id: PURPOSE, owner_id: USER, name: "Golf", text: "golf", guided: {}, constraints: [], parsed_tags: null, parsed_hash: null,
       created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z",
     },
   },

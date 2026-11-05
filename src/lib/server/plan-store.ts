@@ -49,7 +49,7 @@ const StoredInput = z.object({
   index: z.record(z.string(), z.object({ key: OsmKey, place: PlanPlace })),
 });
 
-const META_COLUMNS = "version_no, kind, created_at, feedback, restored_from, changed_days, model";
+const META_COLUMNS = "version_no, kind, created_at, feedback, restored_from, changed_days, model, created_by";
 const FULL_COLUMNS = `${META_COLUMNS}, plan, input, input_hash, cost_micro_usd`;
 
 type MetaRow = {
@@ -60,6 +60,7 @@ type MetaRow = {
   restored_from: number | null;
   changed_days: number[] | null;
   model: string | null;
+  created_by?: string | null;
 };
 type FullRow = MetaRow & { plan: unknown; input: unknown; input_hash: string; cost_micro_usd: number };
 
@@ -75,6 +76,7 @@ export function rowToMeta(r: MetaRow): PlanVersionMeta {
     restoredFrom: r.restored_from,
     changedDays: r.changed_days ?? [],
     model: r.model,
+    createdBy: r.created_by ?? null,
   };
 }
 

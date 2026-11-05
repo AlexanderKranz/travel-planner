@@ -3,6 +3,7 @@ import { IsoDate, optionalText } from "./common";
 import { IataCode } from "./flights";
 import { Locale } from "./profile";
 import { INTEREST_KEYS } from "./interests";
+import type { Access } from "./sharing";
 
 export const PLAN_SCHEMA_VERSION = 1;
 export const MAX_PLAN_DAYS = 21; // [D5]
@@ -244,6 +245,8 @@ export type PlanVersionMeta = {
   restoredFrom: number | null;
   changedDays: number[];
   model: string | null;
+  /** Who wrote the version (user id); differs from the viewer on a shared trip. Null for old rows. */
+  createdBy?: string | null;
 };
 export type BudgetStatus = { spentMicroUsd: number; capMicroUsd: number; resetsAt: string /* next Berlin midnight */ };
 export type PlanState = {
@@ -258,6 +261,8 @@ export type PlanState = {
   canIterate: boolean; // latest && days.length === trip.lengthDays && same start date && aiEnabled
   aiEnabled: boolean;
   budget: BudgetStatus;
+  /** The viewer's access to the trip (spec sharing 1.1); "read" hides every write control. */
+  access?: Access;
 };
 
 /** Spec 5.5. Soft banner only. */

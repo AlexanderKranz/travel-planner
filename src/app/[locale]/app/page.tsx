@@ -1,6 +1,8 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
 import { TripCard } from "@/components/trips/trip-card";
+import { personLabel } from "@/components/sharing/helpers";
+import { SharedTrips } from "@/components/sharing/shared-lists";
 import { SideList } from "@/components/dashboard/side-list";
 import { btnPrimary, btnSecondary, cardCls, linkCls, mutedCls } from "@/components/ui/styles";
 import { MAX_TRIPS_PER_USER } from "@/lib/domain/trip";
@@ -8,6 +10,7 @@ import { shouldShowOnboarding } from "@/lib/onboarding";
 import { listGroups } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
 import { listPurposes } from "@/lib/server/purposes";
+import { listSharedWithMe } from "@/lib/server/sharing";
 import { listTrips } from "@/lib/server/trips";
 import { unwrap } from "@/lib/unwrap";
 
@@ -20,11 +23,12 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
     getTranslations("purposes"),
     getTranslations("start"),
   ]);
-  const [profileRes, tripsRes, groupsRes, purposesRes] = await Promise.all([
+  const [profileRes, tripsRes, groupsRes, purposesRes, incomingRes] = await Promise.all([
     getProfile(),
     listTrips(),
     listGroups(),
     listPurposes(),
+    listSharedWithMe(),
   ]);
   const profile = unwrap(profileRes, locale);
   // First visit after login: show the getting-started guide once (never for the demo account).
@@ -32,6 +36,11 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
   const trips = unwrap(tripsRes, locale);
   const groups = unwrap(groupsRes, locale);
   const purposes = unwrap(purposesRes, locale);
+  // A failed shares read must not break the own lists: the section simply stays hidden.
+  const incoming = incomingRes.ok ? incomingRes.data : [];
+  const sharedPurposeItems = incoming.flatMap((s) =>
+    s.resource === "purpose" && s.purpose ? [{ id: s.purpose.id, name: `${s.purpose.name} (${personLabel(s.owner)})` }] : [],
+  );
 
   return (
     <main className="flex flex-col gap-4">
@@ -65,6 +74,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
               ))}
             </ul>
           )}
+          <SharedTrips shares={incoming} />
           {/* Below the list, so the first card lines up with the side column. */}
           <p className={`text-sm ${mutedCls}`}>{t("retention", { max: MAX_TRIPS_PER_USER })}</p>
         </section>
@@ -82,7 +92,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           <SideList
             id="side-purposes"
             title={tp("title")}
-            items={purposes.map(({ id, name }) => ({ id, name }))}
+            items={[...purposes.map(({ id, name }) => ({ id, name })), ...sharedPurposeItems]}
             itemHref="/app/purposes"
             addHref="/app/purposes/new"
             addLabel={tp("new")}
