@@ -57,6 +57,8 @@ export async function listGroups(): Promise<ActionResult<TravelGroupSummary[]>> 
   const { data, error } = await session.supabase
     .from("travel_groups")
     .select(`id, name, notes, description, updated_at, group_entries(count)`)
+    // RLS also returns the groups of trips shared with the user: "mine" filters by owner (spec sharing 3.5).
+    .eq("owner_id", session.userId)
     .order("updated_at", { ascending: false });
   if (error) return fail("failed");
   return {
@@ -101,7 +103,7 @@ async function loadGroupParsed(
 ): Promise<ActionResult<TravelGroup>> {
   const res = await loadGroup(session.supabase, id);
   if (!res.ok || !res.data.description || res.data.parse) return res;
-  const saved = await ensureGroupParse(session, { table: "travel_groups", id }, res.data.description, false);
+  const saved = await ensureGroupParse(session, { table: "travel_groups", id, ownerId: session.userId }, res.data.description, false);
   return saved ? loadGroup(session.supabase, id) : res;
 }
 

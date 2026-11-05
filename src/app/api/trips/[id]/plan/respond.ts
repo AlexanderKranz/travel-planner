@@ -29,6 +29,8 @@ export const STATUS: Record<ActionError, number> = {
   drive_unavailable: 503,
   home_required: 422,
   forbidden: 403,
+  no_account: 404,
+  self_share: 422,
   protected: 403,
   already_member: 409,
   email_failed: 502,

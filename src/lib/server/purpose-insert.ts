@@ -7,10 +7,14 @@ import type { TripPurposeParsed } from "@/lib/domain/purpose";
  * Lives outside purposes.ts on purpose: that file is "use server", so every export would become a callable action.
  */
 
-export const PURPOSE_COLUMNS = "id, name, text, guided, constraints, parsed_tags, parsed_hash, created_at, updated_at";
+export const PURPOSE_COLUMNS = "id, owner_id, name, text, guided, constraints, parsed_tags, parsed_hash, created_at, updated_at";
+
+/** PURPOSE_COLUMNS plus the share rows the viewer may see (their own, or every grant of their own purpose). */
+export const PURPOSE_COLUMNS_WITH_SHARES = `${PURPOSE_COLUMNS}, purpose_shares(grantee_id, access)`;
 
 export type PurposeRow = {
   id: string;
+  owner_id: string;
   name: string;
   text: string | null;
   guided: unknown;
@@ -19,6 +23,7 @@ export type PurposeRow = {
   parsed_hash: string | null;
   created_at: string;
   updated_at: string;
+  purpose_shares?: { grantee_id: string; access: "read" | "write" }[] | null;
 };
 
 /** Inserts one purpose with the USER session. owner_id is filled by its column default (auth.uid()); RLS checks it. */

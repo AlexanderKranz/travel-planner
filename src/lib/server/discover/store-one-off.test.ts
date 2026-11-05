@@ -31,7 +31,7 @@ function fakeSb(results: unknown[]) {
       const call = { table, ops: [] as [string, unknown[]][] };
       calls.push(call);
       const q: Record<string, unknown> = {};
-      for (const m of ["select", "insert", "update", "eq", "neq", "lt", "order", "limit", "returns"]) q[m] = (...a: unknown[]) => (call.ops.push([m, a]), q);
+      for (const m of ["select", "insert", "update", "eq", "neq", "lt", "or", "order", "limit", "returns"]) q[m] = (...a: unknown[]) => (call.ops.push([m, a]), q);
       for (const m of ["maybeSingle", "single"]) q[m] = (...a: unknown[]) => (call.ops.push([m, a]), Promise.resolve(queue.shift()));
       q.then = (res: (v: unknown) => unknown) => res(queue.shift());
       return q;
@@ -65,29 +65,46 @@ describe("SEARCH_COLUMNS / rowToSearch", () => {
   });
 });
 
-describe("findTagsByHash (13.2: search rows first, then purposes)", () => {
+describe("findTagsByHash (13.2: search rows first, then own and shared purposes)", () => {
   it("a search row with the hash wins and the purposes are not read", async () => {
     const { sb, calls } = fakeSb([{ data: [{ purpose_tags: TAGS }], error: null }]);
-    expect(await findTagsByHash(sb, "h")).toEqual({ tags: TAGS, from: "search" });
+    expect(await findTagsByHash(sb, "h", "u1")).toEqual({ tags: TAGS, from: "search" });
     expect(calls.map((c) => c.table)).toEqual(["destination_searches"]);
     expect(calls[0].ops).toContainEqual(["eq", ["purpose_tags_hash", "h"]]);
     expect(calls[0].ops).toContainEqual(["order", ["updated_at", { ascending: false }]]);
   });
   it("then a purpose with the same parsed_hash", async () => {
-    const { sb, calls } = fakeSb([{ data: [], error: null }, { data: [{ parsed_tags: TAGS }], error: null }]);
-    expect(await findTagsByHash(sb, "h")).toEqual({ tags: TAGS, from: "purpose" });
-    expect(calls.map((c) => c.table)).toEqual(["destination_searches", "trip_purposes"]);
-    expect(calls[1].ops).toContainEqual(["eq", ["parsed_hash", "h"]]);
+    const { sb, calls } = fakeSb([{ data: [], error: null }, { data: [], error: null }, { data: [{ parsed_tags: TAGS }], error: null }]);
+    expect(await findTagsByHash(sb, "h", "u1")).toEqual({ tags: TAGS, from: "purpose" });
+    expect(calls.map((c) => c.table)).toEqual(["destination_searches", "purpose_shares", "trip_purposes"]);
+    expect(calls[2].ops).toContainEqual(["eq", ["parsed_hash", "h"]]);
+  });
+  it("reads own purposes and purposes shared with the user, not purposes seen only through a shared trip", async () => {
+    const { sb, calls } = fakeSb([
+      { data: [], error: null },
+      { data: [{ purpose_id: "ps1" }, { purpose_id: "ps2" }], error: null },
+      { data: [{ parsed_tags: TAGS }], error: null },
+    ]);
+    expect(await findTagsByHash(sb, "h", "u1")).toEqual({ tags: TAGS, from: "purpose" });
+    // The share rows are the user's own incoming ones; the purpose query names the owner and exactly those ids.
+    expect(calls[1].ops).toContainEqual(["eq", ["grantee_id", "u1"]]);
+    expect(calls[2].ops).toContainEqual(["or", ["owner_id.eq.u1,id.in.(ps1,ps2)"]]);
+  });
+  it("without incoming shares only the own purposes are read", async () => {
+    const { sb, calls } = fakeSb([{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }]);
+    expect(await findTagsByHash(sb, "h", "u1")).toBeNull();
+    expect(calls[2].ops).toContainEqual(["or", ["owner_id.eq.u1"]]);
   });
   it("invalid stored tags count as missing, a later valid row is used", async () => {
     const { sb } = fakeSb([{ data: [{ purpose_tags: { bad: 1 } }, { purpose_tags: TAGS }], error: null }]);
-    expect(await findTagsByHash(sb, "h")).toEqual({ tags: TAGS, from: "search" });
-    const none = fakeSb([{ data: [{ purpose_tags: { bad: 1 } }], error: null }, { data: [{ parsed_tags: null }], error: null }]);
-    expect(await findTagsByHash(none.sb, "h")).toBeNull();
+    expect(await findTagsByHash(sb, "h", "u1")).toEqual({ tags: TAGS, from: "search" });
+    const none = fakeSb([{ data: [{ purpose_tags: { bad: 1 } }], error: null }, { data: [], error: null }, { data: [{ parsed_tags: null }], error: null }]);
+    expect(await findTagsByHash(none.sb, "h", "u1")).toBeNull();
   });
   it("a read error throws (the caller fails closed instead of spending a Haiku call)", async () => {
-    await expect(findTagsByHash(fakeSb([{ data: null, error: { code: "x" } }]).sb, "h")).rejects.toThrow();
-    await expect(findTagsByHash(fakeSb([{ data: [], error: null }, { data: null, error: { code: "x" } }]).sb, "h")).rejects.toThrow();
+    await expect(findTagsByHash(fakeSb([{ data: null, error: { code: "x" } }]).sb, "h", "u1")).rejects.toThrow();
+    await expect(findTagsByHash(fakeSb([{ data: [], error: null }, { data: null, error: { code: "x" } }]).sb, "h", "u1")).rejects.toThrow();
+    await expect(findTagsByHash(fakeSb([{ data: [], error: null }, { data: [], error: null }, { data: null, error: { code: "x" } }]).sb, "h", "u1")).rejects.toThrow();
   });
 });
 
@@ -151,6 +168,13 @@ describe("adoptSource (13.3: a served row takes the source of the request)", () 
     expect(calls[0].ops).toContainEqual(["eq", ["id", "s1"]]);
     expect(r.search).toMatchObject({ purposeId: "p2", purposeText: null, purposeName: "Beach" });
     expect(h.adminCalls).toHaveLength(0);
+  });
+  it("a shared purpose P: the row takes purpose_id and purpose_name of P (the trigger accepts it while the share exists)", async () => {
+    const { sb, calls } = fakeSb([{ data: baseRow({ purpose_id: "shared-p", purpose_name: "Golf (shared)" }), error: null }]);
+    const r = await adoptSource(sb, "u1", stored({ purpose_id: null, purpose_text: TEXT, purpose_name: TEXT }), { kind: "saved", purposeId: "shared-p", name: "Golf (shared)" });
+    expect(r.relabelled).toBe(true);
+    expect(updateOf(calls)).toEqual({ purpose_id: "shared-p", purpose_name: "Golf (shared)", purpose_text: null });
+    expect(r.search).toMatchObject({ purposeId: "shared-p", purposeName: "Golf (shared)" });
   });
   it("saved request on a row of another saved purpose with the same input (identical tags) relabels too", async () => {
     const { sb, calls } = fakeSb([{ data: baseRow({ purpose_id: "p2", purpose_name: "Second" }), error: null }]);

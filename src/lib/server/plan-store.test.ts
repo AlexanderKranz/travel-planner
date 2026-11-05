@@ -4,7 +4,9 @@ vi.mock("server-only", () => ({}));
 vi.mock("./supabase/admin", () => ({ createSupabaseAdminClient: () => ({}) }));
 
 import golf from "./__fixtures__/plan-document-golf.json";
-import { acquireLock, getVersionLight, isBusy, LOCK_MS, releaseLock } from "./plan-store";
+import { readFileSync } from "node:fs";
+import { MAX_VERSIONS_KEPT } from "@/lib/domain/plan";
+import { acquireLock, getVersionLight, hasBusyPlan, isBusy, LOCK_MS, pruneVersions, releaseLock } from "./plan-store";
 
 describe("generation lock expiry (stale lock recovery)", () => {
   const now = Date.parse("2026-10-31T12:00:00Z");
@@ -96,5 +98,43 @@ describe("getVersionLight", () => {
     expect(await getVersionLight(client({ data: row({ plan: { nope: 1 } }), error: null }).sb, "p", 3)).toBeNull();
     expect(await getVersionLight(client({ data: row({ pending_places: [1] }), error: null }).sb, "p", 3)).toBeNull();
     await expect(getVersionLight(client({ data: null, error: { code: "x" } }).sb, "p", 3)).rejects.toThrow("version read failed");
+  });
+});
+
+describe("hasBusyPlan (per-user in-flight guard, sharing spec 3.5)", () => {
+  const client = (rows: unknown[]) => {
+    const eqs: [string, unknown][] = [];
+    const q: Record<string, unknown> = {};
+    q.select = () => q;
+    q.eq = (c: string, v: unknown) => (eqs.push([c, v]), q);
+    q.gt = () => q;
+    q.limit = async () => ({ data: rows, error: null });
+    return { sb: { from: () => q } as never, eqs };
+  };
+  it("counts only locks the acting user took (busy_by), not a run someone else started on a shared plan", async () => {
+    const { sb, eqs } = client([]);
+    expect(await hasBusyPlan(sb, "U1")).toBe(false);
+    expect(eqs).toContainEqual(["busy_by", "U1"]);
+  });
+  it("is true when the user has a live lock of their own", async () => {
+    expect(await hasBusyPlan(client([{ id: "p" }]).sb, "U1")).toBe(true);
+  });
+});
+
+describe("pruneVersions (through the definer function)", () => {
+  it("calls prune_plan_versions instead of deleting, and only past the limit", async () => {
+    const rpc = vi.fn(async () => ({ error: null }));
+    const del = vi.fn();
+    const sb = { rpc, from: () => ({ delete: del }) } as never;
+    await pruneVersions(sb, "p1", MAX_VERSIONS_KEPT);
+    expect(rpc).not.toHaveBeenCalled(); // nothing to prune yet
+    await pruneVersions(sb, "p1", MAX_VERSIONS_KEPT + 1);
+    expect(rpc).toHaveBeenCalledWith("prune_plan_versions", { p_plan_id: "p1" });
+    expect(del).not.toHaveBeenCalled();
+  });
+  it("the SQL function keeps the same number of versions as MAX_VERSIONS_KEPT", () => {
+    const sql = readFileSync(new URL("../../../supabase/migrations/20261110120035_sharing.sql", import.meta.url), "utf8");
+    const m = /version_no <= v_latest - (\d+)/.exec(sql);
+    expect(m && Number(m[1])).toBe(MAX_VERSIONS_KEPT);
   });
 });

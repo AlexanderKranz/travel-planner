@@ -111,6 +111,8 @@ export function evalTrip(id: FixtureId): Trip {
   const a = f.trip.anchor;
   return {
     id: `eval-${id}`,
+    ownerId: "eval",
+    access: "owner",
     destination: {
       kind: f.trip.destination.kind,
       name: f.trip.destination.name,
@@ -156,6 +158,9 @@ export function evalPurpose(id: FixtureId, tags: PurposeTags | null): TripPurpos
   if (!p) return null;
   return {
     id: `eval-${id}-purpose`,
+    ownerId: "eval",
+    access: "owner",
+    usable: true,
     name: p.name,
     text: p.text,
     guided: {},

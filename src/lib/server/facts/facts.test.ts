@@ -27,14 +27,14 @@ import { getSummaryFacts } from "./summary";
 import { getWeatherFacts } from "./weather";
 
 const ctx: FactsCtx = { userId: "u1", locale: "de", today: "2026-10-28" };
-const base = { id: "t1", lengthDays: 7, groupId: null, purposeId: null, wantsFlights: false, originAirports: [], createdAt: "", updatedAt: "" };
+const base = { id: "t1", ownerId: "u1", access: "owner" as const, lengthDays: 7, groupId: null, purposeId: null, wantsFlights: false, originAirports: [], createdAt: "", updatedAt: "" };
 const passau: Trip = {
   ...base,
   timing: { kind: "months", months: [12] },
   destination: { kind: "city", name: "Passau", placeName: "Passau", geoId: 2855328, countryCode: "DE", admin1: "Bayern", lat: 48.5665, lon: 13.43122, timezone: "Europe/Berlin", radiusKm: 15 },
 };
 const free: Trip = { ...base, timing: { kind: "none" }, destination: { kind: "freetext", name: "Irgendwo", countryCode: undefined as never } };
-const purpose = (interests: string[]): TripPurpose => ({ id: "p", name: "p", guided: { interests }, constraints: [], tags: null, createdAt: "", updatedAt: "" });
+const purpose = (interests: string[]): TripPurpose => ({ id: "p", name: "p", guided: { interests }, constraints: [], tags: null, ownerId: "u1", access: "owner", usable: true, createdAt: "", updatedAt: "" });
 
 const months = Array.from({ length: 12 }, (_, i) => ({ month: i + 1, tMaxC: 10, tMinC: 2, precipMm: 50, wetDays: 8, sunshineHours: 4 }));
 const hit = (data: unknown, extra = {}) => ({ ok: true, data, fetchedAt: "2026-10-01T00:00:00.000Z", stale: false, cache: "hit", ...extra });

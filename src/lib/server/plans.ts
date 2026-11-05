@@ -3,10 +3,12 @@
 import { z } from "zod";
 import type { PlanEdit, PlanState } from "@/lib/domain/plan";
 import { fail, type ActionResult } from "@/lib/domain/result";
+import { canEdit } from "@/lib/domain/sharing";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { openItemKey } from "@/lib/plan/open-items";
 import { getVersionLight } from "./plan-store";
 import { getUserSession } from "./session";
+import { getTripAccess } from "./trip-access";
 import { editPlanVersion, loadPlanContext, loadPlanState, restoreVersion } from "./plan-pipeline";
 
 const Version = z.number().int().min(1);
@@ -43,6 +45,15 @@ export async function toggleOpenItem(tripId: string, key: string, done: boolean)
     return fail("invalid");
   }
   const sb = session.supabase;
+  // A read grantee may not tick open items (spec sharing 1.1); RLS would only answer with a 0-row miss.
+  let access;
+  try {
+    access = await getTripAccess(sb as SupabaseClient, tripId, session.userId);
+  } catch {
+    return fail("failed");
+  }
+  if (access === null) return fail("not_found");
+  if (!canEdit(access)) return fail("forbidden");
   const { data: row, error } = await sb
     .from("plans")
     .select("id, latest_version, open_done")

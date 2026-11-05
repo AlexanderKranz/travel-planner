@@ -6,7 +6,7 @@ import { createSupabaseAdminClient } from "../supabase/admin";
 import { readBudgetConfig } from "./config";
 import { requireAdmin } from "./gate";
 import { adminPeriods } from "./periods";
-import { ApiStatsRaw, AiStatsRaw, RecentEventsRaw, UsageStatsRaw, UserStatsRaw } from "./schema";
+import { ApiStatsRaw, AiStatsRaw, RecentEventsRaw, ShareStatsRaw, UsageStatsRaw, UserStatsRaw } from "./schema";
 import { shapeDashboard } from "./shape";
 import { getEffectiveEnv } from "../settings";
 
@@ -40,14 +40,16 @@ export async function getAdminDashboard(now: Date = new Date()) {
   const p = adminPeriods(now);
   const day = p.dayStart.toISOString();
   const month = p.monthStart.toISOString();
-  const [users, usage, ai, api, events] = await Promise.all([
+  const [users, usage, ai, api, events, shares] = await Promise.all([
     rpc("admin_user_stats", { p_now: now.toISOString(), p_month_start: month }, UserStatsRaw),
     rpc("admin_usage_stats", { p_month_start: month, p_days: 14 }, UsageStatsRaw),
     rpc("admin_ai_stats", { p_day_start: day, p_month_start: month }, AiStatsRaw),
     rpc("admin_api_stats", { p_day_start: day, p_month_start: month }, ApiStatsRaw),
     rpc("admin_recent_events", { p_limit: 50 }, RecentEventsRaw),
+    // Share counters are one extra row on the page: a failure there must not take the dashboard down.
+    rpc("admin_share_stats", { p_month_start: month }, ShareStatsRaw).catch(() => undefined),
   ]);
-  return shapeDashboard({ users, usage, ai, api, events }, readBudgetConfig(await getEffectiveEnv()));
+  return shapeDashboard({ users, usage, ai, api, events, shares }, readBudgetConfig(await getEffectiveEnv()));
 }
 
 /** DB reachability, feature switches, key presence and the last cron run (timestamp only). Admin only. */

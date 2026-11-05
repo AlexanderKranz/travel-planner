@@ -13,6 +13,8 @@ import { groupPartySize, resolveGroup, tripGroupSource } from "@/lib/group-text"
 const T = "2026-10-01T00:00:00.000Z";
 const trip = (over: Partial<Trip> = {}): Trip => ({
   id: "t1",
+  ownerId: "u1",
+  access: "owner",
   title: "Golf",
   destination: {
     kind: "region", name: "Costa del Sol", placeName: "Marbella", geoId: 1, countryCode: "ES", admin1: null,
@@ -42,7 +44,7 @@ const group: TravelGroup = {
 
 const purpose = (over: Partial<TripPurpose> = {}): TripPurpose => ({
   id: "p1", name: "Golftrip", text: "Jeden Tag Golf, ".repeat(60), guided: { interests: ["golf", "Pilze"], pace: "packed" },
-  constraints: ["flat courses"], tags: null, createdAt: T, updatedAt: T, ...over,
+  constraints: ["flat courses"], tags: null, ownerId: "u1", access: "owner", usable: true, createdAt: T, updatedAt: T, ...over,
 });
 
 const cand = (i: number, interest: string): PlaceCandidate => ({

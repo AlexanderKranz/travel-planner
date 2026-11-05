@@ -12,10 +12,12 @@ import {
   type TripTiming,
 } from "@/lib/domain/trip";
 import type { GeoPlace } from "@/lib/domain/geo";
+import { accessOf, type ShareAccess } from "@/lib/domain/sharing";
 
 /** snake_case row of public.trips (the columns the app reads and writes). */
 export type TripRow = {
   id: string;
+  owner_id: string;
   title: string | null;
   dest_kind: "city" | "region" | "freetext";
   dest_name: string;
@@ -43,13 +45,18 @@ export type TripRow = {
   destination_search_id: string | null;
   created_at: string;
   updated_at: string;
+  /** Embedded `trip_shares(grantee_id, access)` (RLS: the viewer's own row, or every grant when the viewer owns the trip). */
+  trip_shares?: { grantee_id: string; access: ShareAccess }[] | null;
 };
 
 export const TRIP_COLUMNS =
-  "id, title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_country_code, dest_admin1, dest_lat, dest_lon, dest_timezone, dest_radius_km, length_days, start_date, months, group_id, group_text, group_structure, group_parsed, group_parsed_hash, purpose_id, wants_flights, origin_airports, notes, destination_search_id, created_at, updated_at";
+  "id, owner_id, title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_country_code, dest_admin1, dest_lat, dest_lon, dest_timezone, dest_radius_km, length_days, start_date, months, group_id, group_text, group_structure, group_parsed, group_parsed_hash, purpose_id, wants_flights, origin_airports, notes, destination_search_id, created_at, updated_at";
+
+/** TRIP_COLUMNS plus the share rows the viewer may see (their own, or all grants of their own trip). */
+export const TRIP_COLUMNS_WITH_SHARES = `${TRIP_COLUMNS}, trip_shares(grantee_id, access)`;
 
 /** The writable columns (everything except id, owner_id, the timestamps and the server-written parse cache). */
-export type TripWrite = Omit<TripRow, "id" | "created_at" | "updated_at" | "group_parsed" | "group_parsed_hash" | "destination_search_id"> & {
+export type TripWrite = Omit<TripRow, "id" | "owner_id" | "created_at" | "updated_at" | "group_parsed" | "group_parsed_hash" | "destination_search_id" | "trip_shares"> & {
   /** Omitted = not written (an update keeps the stored link; an insert gets null). */
   destination_search_id?: string | null;
 };
@@ -99,9 +106,16 @@ export function rowToTiming(row: Pick<TripRow, "start_date" | "months">): TripTi
   return { kind: "none" };
 }
 
-export function rowToTrip(row: TripRow): Trip {
+/** The viewer's access to a trip row: owner, the level of their share row, else `read` (fails closed). */
+export function tripAccess(row: Pick<TripRow, "owner_id" | "trip_shares">, viewerId: string): Trip["access"] {
+  return accessOf(row.owner_id, viewerId, row.trip_shares?.find((s) => s.grantee_id === viewerId)?.access);
+}
+
+export function rowToTrip(row: TripRow, viewerId: string): Trip {
   return {
     id: row.id,
+    ownerId: row.owner_id,
+    access: tripAccess(row, viewerId),
     title: row.title ?? undefined,
     destination: rowToDestination(row),
     lengthDays: row.length_days,
@@ -124,10 +138,13 @@ type NamedRef = { name: string } | null;
 export type TripSummaryRow = TripRow & {
   travel_groups: NamedRef;
   trip_purposes: NamedRef;
+  /** Own trips list: `trip_shares(count)` for `shareCount`. */
+  share_count?: { count: number }[] | null;
 };
 
-export function rowToSummary(row: TripSummaryRow): TripSummary {
-  const trip = rowToTrip(row);
+/** `sharedBy` is set for an incoming trip (listSharedWithMe); own trips pass null. */
+export function rowToSummary(row: TripSummaryRow, viewerId: string, sharedBy: TripSummary["sharedBy"] = null): TripSummary {
+  const trip = rowToTrip(row, viewerId);
   return {
     id: trip.id,
     title: trip.title,
@@ -137,6 +154,9 @@ export function rowToSummary(row: TripSummaryRow): TripSummary {
     updatedAt: trip.updatedAt,
     groupName: row.travel_groups?.name ?? (row.group_text ? row.group_text.slice(0, 40) : null),
     purposeName: row.trip_purposes?.name ?? null,
+    access: trip.access,
+    sharedBy,
+    shareCount: trip.access === "owner" ? (row.share_count?.[0]?.count ?? 0) : 0,
   };
 }
 

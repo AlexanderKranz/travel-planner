@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TripInput } from "@/lib/domain/trip";
 import type { GeoPlace } from "@/lib/domain/geo";
 import { groupTextHash } from "@/lib/plan/hash";
-import { buildTripWrite, factsInputsChanged, rowToTrip, type TripRow } from "./trip-mapping";
+import { buildTripWrite, factsInputsChanged, rowToSummary, rowToTrip, tripAccess, type TripRow } from "./trip-mapping";
 
 const place: GeoPlace = {
   geoId: 2513918,
@@ -79,6 +79,7 @@ describe("buildTripWrite", () => {
 
 const row: TripRow = {
   id: "t1",
+  owner_id: "u1",
   title: null,
   dest_kind: "region",
   dest_name: "Costa del Sol",
@@ -109,13 +110,13 @@ const row: TripRow = {
 
 describe("rowToTrip", () => {
   it("applies the default radius by kind and derives timing", () => {
-    const t = rowToTrip(row);
+    const t = rowToTrip(row, "u1");
     expect(t.destination).toMatchObject({ kind: "region", radiusKm: 40, placeName: "Marbella" });
     expect(t.timing).toEqual({ kind: "months", months: [3] });
     expect(t.title).toBeUndefined();
-    expect(rowToTrip({ ...row, dest_kind: "city" }).destination).toMatchObject({ radiusKm: 15 });
-    expect(rowToTrip({ ...row, months: [], start_date: "2027-03-01" }).timing).toEqual({ kind: "date", startDate: "2027-03-01" });
-    expect(rowToTrip({ ...row, months: [] }).timing).toEqual({ kind: "none" });
+    expect(rowToTrip({ ...row, dest_kind: "city" }, "u1").destination).toMatchObject({ radiusKm: 15 });
+    expect(rowToTrip({ ...row, months: [], start_date: "2027-03-01" }, "u1").timing).toEqual({ kind: "date", startDate: "2027-03-01" });
+    expect(rowToTrip({ ...row, months: [] }, "u1").timing).toEqual({ kind: "none" });
   });
 });
 
@@ -189,18 +190,18 @@ describe("one-off group (spec group-text)", () => {
   it("the cached parse is only used for the exact text it belongs to", () => {
     const parse = { v: 1, travellers: [{ count: 2 }], notes: [] };
     const base = { ...row, group_text: text, group_parsed: parse, group_parsed_hash: groupTextHash(text) };
-    expect(rowToTrip(base).groupParse).toEqual(parse);
-    expect(rowToTrip({ ...base, group_text: text + " und Oma" }).groupParse).toBeUndefined(); // text changed: stale
-    expect(rowToTrip({ ...base, group_parsed_hash: null }).groupParse).toBeUndefined();
-    expect(rowToTrip({ ...base, group_parsed: { v: 2 } }).groupParse).toBeUndefined(); // invalid shape
-    expect(rowToTrip({ ...base, group_text: `  ${text}\n` }).groupParse).toEqual(parse); // whitespace-insensitive
+    expect(rowToTrip(base, "u1").groupParse).toEqual(parse);
+    expect(rowToTrip({ ...base, group_text: text + " und Oma" }, "u1").groupParse).toBeUndefined(); // text changed: stale
+    expect(rowToTrip({ ...base, group_parsed_hash: null }, "u1").groupParse).toBeUndefined();
+    expect(rowToTrip({ ...base, group_parsed: { v: 2 } }, "u1").groupParse).toBeUndefined(); // invalid shape
+    expect(rowToTrip({ ...base, group_text: `  ${text}\n` }, "u1").groupParse).toEqual(parse); // whitespace-insensitive
   });
 
   it("reads a stored structure and ignores a broken one", () => {
     const ok = [{ count: 2, age: { ageMode: "approx", age: 40 }, ageAsOf: "2026-10-29" }];
-    expect(rowToTrip({ ...row, group_text: text, group_structure: ok }).groupStructure).toEqual(ok);
-    expect(rowToTrip({ ...row, group_text: text, group_structure: [{ count: 0 }] }).groupStructure).toEqual([]);
-    expect(rowToTrip(row).groupStructure).toEqual([]);
+    expect(rowToTrip({ ...row, group_text: text, group_structure: ok }, "u1").groupStructure).toEqual(ok);
+    expect(rowToTrip({ ...row, group_text: text, group_structure: [{ count: 0 }] }, "u1").groupStructure).toEqual([]);
+    expect(rowToTrip(row, "u1").groupStructure).toEqual([]);
   });
 });
 
@@ -220,7 +221,37 @@ describe("destination_search_id (find destinations)", () => {
     expect(TripInput.safeParse({ ...free, destinationSearchId: "x" }).success).toBe(false);
   });
   it("is mapped onto the trip (undefined when none)", () => {
-    expect(rowToTrip({ ...row, destination_search_id: SEARCH }).destinationSearchId).toBe(SEARCH);
-    expect(rowToTrip(row).destinationSearchId).toBeUndefined();
+    expect(rowToTrip({ ...row, destination_search_id: SEARCH }, "u1").destinationSearchId).toBe(SEARCH);
+    expect(rowToTrip(row, "u1").destinationSearchId).toBeUndefined();
+  });
+});
+
+describe("access mapping (sharing spec 3.1)", () => {
+  it("owner_id = viewer is the owner, whatever share rows are embedded", () => {
+    expect(rowToTrip(row, "u1")).toMatchObject({ ownerId: "u1", access: "owner" });
+    expect(rowToTrip({ ...row, trip_shares: [{ grantee_id: "v", access: "write" }] }, "u1").access).toBe("owner");
+  });
+  it("a trip of somebody else takes the level of the viewer's own share row", () => {
+    const other = { ...row, owner_id: "o1" };
+    expect(rowToTrip({ ...other, trip_shares: [{ grantee_id: "v", access: "write" }] }, "v")).toMatchObject({ ownerId: "o1", access: "write" });
+    expect(rowToTrip({ ...other, trip_shares: [{ grantee_id: "v", access: "read" }] }, "v").access).toBe("read");
+  });
+  it("another grantee's row does not count, and no row at all fails closed to read", () => {
+    const other = { ...row, owner_id: "o1" };
+    expect(tripAccess({ ...other, trip_shares: [{ grantee_id: "x", access: "write" }] }, "v")).toBe("read");
+    expect(tripAccess({ ...other, trip_shares: null }, "v")).toBe("read");
+    expect(tripAccess(other, "v")).toBe("read");
+  });
+  it("the summary carries access, sharedBy and shareCount (own trips only)", () => {
+    const own = rowToSummary({ ...row, travel_groups: null, trip_purposes: null, share_count: [{ count: 2 }] }, "u1");
+    expect(own).toMatchObject({ access: "owner", sharedBy: null, shareCount: 2 });
+    const by = { id: "o1", name: "Olga", email: "o@example.com" };
+    const incoming = rowToSummary(
+      { ...row, owner_id: "o1", trip_shares: [{ grantee_id: "v", access: "read" }], travel_groups: null, trip_purposes: null, share_count: [{ count: 5 }] },
+      "v",
+      by,
+    );
+    expect(incoming).toMatchObject({ access: "read", sharedBy: by, shareCount: 0 });
+    expect(rowToSummary({ ...row, travel_groups: null, trip_purposes: null }, "u1").shareCount).toBe(0);
   });
 });

@@ -1,56 +1,31 @@
 "use server";
 
 import { z } from "zod";
-import { PurposeTags } from "@/lib/domain/plan";
-import { PurposeGuided, TripPurposeInput, type TripPurpose } from "@/lib/domain/purpose";
+import { TripPurposeInput, type TripPurpose } from "@/lib/domain/purpose";
 import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
-import { purposeTagsHash } from "@/lib/plan/hash";
+import { rowToPurpose } from "./purpose-mapping";
 import { logEvent } from "./events";
-import { insertPurposeRow, PURPOSE_COLUMNS, type PurposeRow } from "./purpose-insert";
+import { insertPurposeRow, PURPOSE_COLUMNS_WITH_SHARES, type PurposeRow } from "./purpose-insert";
 import { externalWriteAllowed } from "./rate-limit";
 import { getUserSession } from "./session";
 import { schedulePurposeWarm } from "./warm";
 
-const COLUMNS = PURPOSE_COLUMNS;
 const Id = z.string().uuid();
-
-/** Tags count only while the hash of the current content matches (edited purposes are re-tagged). */
-function rowTags(row: PurposeRow, guided: PurposeGuided): TripPurpose["tags"] {
-  if (row.parsed_tags == null || !row.parsed_hash) return null;
-  try {
-    const hash = purposeTagsHash({ text: row.text ?? undefined, constraints: row.constraints, guided });
-    if (hash !== row.parsed_hash) return null;
-  } catch {
-    return null;
-  }
-  const tags = PurposeTags.safeParse(row.parsed_tags);
-  return tags.success ? tags.data : null;
-}
-
-function rowToPurpose(row: PurposeRow): TripPurpose {
-  const guided = PurposeGuided.safeParse(row.guided);
-  const guidedData = guided.success ? guided.data : {};
-  return {
-    id: row.id,
-    name: row.name,
-    text: row.text ?? undefined,
-    guided: guidedData,
-    constraints: row.constraints,
-    tags: rowTags(row, guidedData),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-  };
-}
+const INSUFFICIENT_PRIVILEGE = "42501";
 
 export async function listPurposes(): Promise<ActionResult<TripPurpose[]>> {
   const session = await getUserSession();
   if (!session) return fail("unauthenticated");
   const { data, error } = await session.supabase
     .from("trip_purposes")
-    .select(COLUMNS)
-    .order("updated_at", { ascending: false });
+    .select(PURPOSE_COLUMNS_WITH_SHARES)
+    // RLS also returns purposes shared with the user and purposes seen through a shared trip: "mine" filters by owner.
+    // Usable shared purposes come from listSharedWithMe (spec sharing 3.5).
+    .eq("owner_id", session.userId)
+    .order("updated_at", { ascending: false })
+    .returns<PurposeRow[]>();
   if (error) return fail("failed");
-  return { ok: true, data: data.map(rowToPurpose) };
+  return { ok: true, data: data.map((row) => rowToPurpose(row, session.userId)) };
 }
 
 export async function getPurpose(id: string): Promise<ActionResult<TripPurpose>> {
@@ -59,12 +34,12 @@ export async function getPurpose(id: string): Promise<ActionResult<TripPurpose>>
   if (!Id.safeParse(id).success) return fail("invalid");
   const { data, error } = await session.supabase
     .from("trip_purposes")
-    .select(COLUMNS)
+    .select(PURPOSE_COLUMNS_WITH_SHARES)
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle<PurposeRow>();
   if (error) return fail("failed");
   if (!data) return fail("not_found");
-  return { ok: true, data: rowToPurpose(data) };
+  return { ok: true, data: rowToPurpose(data, session.userId) };
 }
 
 export async function createPurpose(input: TripPurposeInput): Promise<ActionResult<TripPurpose>> {
@@ -81,12 +56,17 @@ export async function createPurpose(input: TripPurposeInput): Promise<ActionResu
     userId: session.userId,
     props: { purposeId: data.id, constraints: parsed.data.constraints.length },
   });
-  return { ok: true, data: rowToPurpose(data) };
+  return { ok: true, data: rowToPurpose(data, session.userId) };
 }
 
+/**
+ * `expectedUpdatedAt`: the `updatedAt` the form was loaded with; a different stored value means someone else changed the
+ * purpose meanwhile: `conflict` (spec sharing 3.6). Omitted = no check. A read grantee gets `forbidden`.
+ */
 export async function updatePurpose(
   id: string,
   input: TripPurposeInput,
+  expectedUpdatedAt?: string,
 ): Promise<ActionResult<TripPurpose>> {
   const session = await getUserSession();
   if (!session) return fail("unauthenticated");
@@ -95,7 +75,19 @@ export async function updatePurpose(
   if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
   if (!externalWriteAllowed(session.userId)) return fail("rate_limited");
 
-  const { data, error } = await session.supabase
+  // Read first (RLS): a purpose the user cannot see is `not_found`; a visible one they may not edit is `forbidden`.
+  const { data: before, error: readError } = await session.supabase
+    .from("trip_purposes")
+    .select(PURPOSE_COLUMNS_WITH_SHARES)
+    .eq("id", id)
+    .maybeSingle<PurposeRow>();
+  if (readError) return fail("failed");
+  if (!before) return fail("not_found");
+  const current = rowToPurpose(before, session.userId);
+  if (current.access === "read") return fail("forbidden");
+  if (expectedUpdatedAt !== undefined && before.updated_at !== expectedUpdatedAt) return fail("conflict");
+
+  let query = session.supabase
     .from("trip_purposes")
     .update({
       name: parsed.data.name,
@@ -103,12 +95,13 @@ export async function updatePurpose(
       guided: parsed.data.guided,
       constraints: parsed.data.constraints,
     })
-    .eq("id", id)
-    .select(COLUMNS)
-    .maybeSingle();
-  if (error) return fail("failed");
-  if (!data) return fail("not_found");
-  const purpose = rowToPurpose(data);
+    .eq("id", id);
+  if (expectedUpdatedAt !== undefined) query = query.eq("updated_at", expectedUpdatedAt);
+  const { data, error } = await query.select(PURPOSE_COLUMNS_WITH_SHARES).maybeSingle<PurposeRow>();
+  if (error) return fail(error.code === INSUFFICIENT_PRIVILEGE ? "forbidden" : "failed");
+  // The row was readable a moment ago: no row back means somebody changed it in between.
+  if (!data) return fail(expectedUpdatedAt !== undefined ? "conflict" : "not_found");
+  const purpose = rowToPurpose(data, session.userId);
   // New content → new tags → other places: refresh tags and places for trips using it in the background.
   if (purpose.tags == null) await schedulePurposeWarm(session, purpose.id);
   return { ok: true, data: purpose };

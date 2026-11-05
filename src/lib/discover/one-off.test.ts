@@ -32,7 +32,7 @@ describe("oneOffLabel", () => {
 describe("oneOffPurpose", () => {
   it("a transient purpose: empty id and timestamps, the text, no guided fields or constraints", () => {
     const p = oneOffPurpose("  Golf mit einem Freund ", null);
-    expect(p).toEqual({ id: "", name: "Golf mit einem Freund", text: "Golf mit einem Freund", guided: {}, constraints: [], tags: null, createdAt: "", updatedAt: "" });
+    expect(p).toEqual({ id: "", name: "Golf mit einem Freund", text: "Golf mit einem Freund", guided: {}, constraints: [], tags: null, ownerId: "", access: "owner", usable: true, createdAt: "", updatedAt: "" });
   });
   it("carries the tags", () => {
     const tags = { v: 1 as const, interests: ["golf" as const], custom: [], hard: [], soft: [], summary: "s" };

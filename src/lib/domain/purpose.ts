@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { optionalText } from "./common";
 import type { PurposeTags } from "./plan";
+import type { Access } from "./sharing";
 
 export const PurposeGuided = z
   .object({
@@ -39,6 +40,12 @@ export type TripPurpose = {
   constraints: string[];
   /** Haiku tags; set only when `parsed_hash === purposeTagsHash(purpose)`, else null. */
   tags: PurposeTags | null;
+  /** Who owns it (spec sharing 3.1). */
+  ownerId: string;
+  /** The viewer's access: owner, the level of the viewer's purpose share, or `read` when it is only on a shared trip. */
+  access: Access;
+  /** Owner or purpose share: may be picked for own trips and destination searches. False for a purpose seen only through a shared trip. */
+  usable: boolean;
   createdAt: string;
   updatedAt: string;
 };

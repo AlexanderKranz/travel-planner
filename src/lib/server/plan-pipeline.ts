@@ -14,6 +14,7 @@ import {
 import type { Locale } from "@/lib/domain/profile";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { ActionError } from "@/lib/domain/result";
+import { canEdit, type Access } from "@/lib/domain/sharing";
 import type { Trip } from "@/lib/domain/trip";
 import { applyEdit } from "@/lib/plan/edit";
 import { canonicalJson, planInputHash } from "@/lib/plan/hash";
@@ -50,6 +51,7 @@ import {
   type PlanRow,
   type StoredVersion,
 } from "./plan-store";
+import { loadOwnerContext } from "./owner-context";
 import { getProfile } from "./profile";
 import { tagAndSave, wantsTags } from "./purpose-tagging";
 import { getPurpose } from "./purposes";
@@ -88,10 +90,22 @@ type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;
 export type PlanContext = {
   session: Session;
   sb: SupabaseClient;
+  /** Role and demo flag of the ACTING user: budget, rate limits and ai_usage are theirs (spec sharing 1.1). */
   role: Role;
   isDemo: boolean;
+  /** The viewer's access to the trip (owner, write or read). */
+  access: Access;
+  /** Owner of the trip and its plan. */
+  ownerId: string;
+  /**
+   * Birthdate and home airports of the plan OWNER (spec sharing 1.2): for the owner these are their own profile values,
+   * for a write grantee the owner's (read on the server, never sent to the client), so the same input gives the same
+   * hash and plan whoever starts the run.
+   */
   birthdate: string | null;
   homeAirports: string[];
+  /** Language of a first plan on a shared trip: the owner's locale (null for the owner: their request locale counts). */
+  ownerLocale: Locale | null;
   trip: Trip;
   group: GroupContext | null;
   purpose: TripPurpose | null;
@@ -135,6 +149,18 @@ export async function loadPlanContext(
     if (src) group = { ...src, updatedAt: trip.updatedAt };
   }
   if (p?.ok) purpose = p.data;
+  // A non-owner (write or read grantee): the plan belongs to the owner, so the pipeline uses the OWNER's birthdate, home
+  // airports and locale. Read here, after the trip was visible through RLS, with the secret key (owner-context.ts).
+  let birthdate = profile.data.birthdate;
+  let homeAirports = profile.data.homeAirports;
+  let ownerLocale: Locale | null = null;
+  if (trip.access !== "owner") {
+    const owner = await loadOwnerContext(trip.ownerId);
+    if (!owner) return err("failed"); // fail closed: never fall back to the grantee's own values
+    birthdate = owner.birthdate;
+    homeAirports = owner.homeAirports;
+    ownerLocale = owner.locale;
+  }
   return {
     ok: true,
     ctx: {
@@ -142,8 +168,11 @@ export async function loadPlanContext(
       sb: session.supabase as SupabaseClient,
       role: profile.data.role,
       isDemo: profile.data.isDemo,
-      birthdate: profile.data.birthdate,
-      homeAirports: profile.data.homeAirports,
+      access: trip.access,
+      ownerId: trip.ownerId,
+      birthdate,
+      homeAirports,
+      ownerLocale,
       trip,
       group,
       purpose,
@@ -286,6 +315,18 @@ export async function loadTripItems(sb: SupabaseClient, tripId: string): Promise
 }
 
 /**
+ * Language of a plan on a shared trip: the latest version's, else the owner's locale. The request locale of a write
+ * grantee never decides, so the plan does not switch language behind the owner's back.
+ */
+async function sharedPlanLocale(c: PlanContext, plan: PlanRow): Promise<Locale> {
+  if (plan.latestVersion > 0) {
+    const latest = await getVersionLight(c.sb, plan.id, plan.latestVersion);
+    if (latest) return latest.plan.locale as Locale;
+  }
+  return c.ownerLocale ?? "de";
+}
+
+/**
  * One call does everything (places, facts, compose), so the browser may leave at any time.
  * `force`: "generate anyway": skip the places step (cache only) and generate even when places are missing.
  * `fresh`: always call the model, even when the input equals an earlier version (the user's "Regenerate plan").
@@ -300,12 +341,14 @@ export async function loadTripItems(sb: SupabaseClient, tripId: string): Promise
  */
 export async function generatePlan(
   tripId: string,
-  locale: Locale,
+  requestLocale: Locale,
   opts: { force?: boolean; fresh?: boolean; clientGone?: () => boolean } = {},
 ): Promise<PipelineResult> {
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
   const c = loaded.ctx;
+  if (!canEdit(c.access)) return err("forbidden");
+  let locale: Locale = requestLocale;
   const g = await gate(c.session.userId);
   if (g) return g;
   if (c.trip.lengthDays > MAX_PLAN_DAYS) return err("too_long");
@@ -316,13 +359,15 @@ export async function generatePlan(
   let lock: string | null = null;
   try {
     // Per-user in-flight guard: parallel requests could otherwise all pass the budget check (spend is recorded late).
-    if (await hasBusyPlan(c.sb)) return err("busy");
+    if (await hasBusyPlan(c.sb, c.session.userId)) return err("busy");
     // Lock first (creates the plan row for a trip without one). The budget check below returns through `finally`.
     plan = await ensurePlan(c.sb, c.trip.id);
     lock = await acquireLock(c.sb, plan.id);
     if (!lock) return err("busy");
     // A run that finished between ensurePlan and the lock may have added a version: read latestVersion under the lock.
     plan = (await getPlanRow(c.sb, c.trip.id)) ?? plan;
+    // On a shared trip the plan keeps its language: the latest version's, else the owner's (spec sharing 1.2).
+    if (c.access !== "owner") locale = await sharedPlanLocale(c, plan);
     // 3. Haiku tags (once per purpose content, cached in parsed_*)
     let purpose = c.purpose;
     if (wantsTags(purpose)) {
@@ -461,6 +506,7 @@ export async function iteratePlan(
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
   const c = loaded.ctx;
+  if (!canEdit(c.access)) return err("forbidden");
   const fb = PlanFeedback.safeParse(feedback);
   if (!fb.success || !z.number().int().min(1).safeParse(baseVersion).success) {
     return err("invalid", fb.success ? undefined : { issues: fb.error.issues.map((i) => ({ path: i.path.map(String).join("."), message: i.message })) });
@@ -474,7 +520,7 @@ export async function iteratePlan(
   let plan: PlanRow | null = null;
   let lock: string | null = null;
   try {
-    if (await hasBusyPlan(c.sb)) return err("busy");
+    if (await hasBusyPlan(c.sb, c.session.userId)) return err("busy");
     plan = await getPlanRow(c.sb, c.trip.id);
     if (!plan || plan.latestVersion === 0) return err("not_found");
     if (baseVersion !== plan.latestVersion) return err("conflict");
@@ -571,6 +617,7 @@ export async function editPlanVersion(tripId: string, baseVersion: number, edit:
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
   const c = loaded.ctx;
+  if (!canEdit(c.access)) return err("forbidden");
   if (!parsed.success || !z.number().int().min(1).safeParse(baseVersion).success) return err("invalid");
   // Every edit writes a version: cap bursts (taps on × are cheap), separate from the AI gate.
   const rl = rateLimit(`plan-edit:${c.session.userId}`, 20, 60_000);
@@ -614,6 +661,7 @@ export async function restoreVersion(tripId: string, versionNo: number): Promise
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
   const c = loaded.ctx;
+  if (!canEdit(c.access)) return err("forbidden");
   if (!z.number().int().min(1).safeParse(versionNo).success) return err("invalid");
   try {
     const row = await getPlanRow(c.sb, c.trip.id);

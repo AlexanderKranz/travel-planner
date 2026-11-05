@@ -10,7 +10,7 @@ import { savePurposeTags } from "./plan-store";
 export const wantsTags = (p: TripPurpose | null): p is TripPurpose => !!p && p.tags == null && needsTags(p);
 
 /**
- * One Haiku call → tags saved on the purpose (cached by content hash). Returns the purpose with tags and the new
+ * One Haiku call → tags saved on the purpose (cached by content hash). `userId` is the acting user (labels the failure event; the cost goes through `ctx`). Returns the purpose with tags and the new
  * updatedAt, or the unchanged purpose when tagging failed (logged). Budget checks are the caller's.
  */
 export async function tagAndSave(userId: string, purpose: TripPurpose, ctx: AiCtx): Promise<TripPurpose> {
@@ -19,7 +19,9 @@ export async function tagAndSave(userId: string, purpose: TripPurpose, ctx: AiCt
     await logEvent({ event: "purpose.tag_failed", level: "warn", userId, props: { purposeId: purpose.id, reason: res.error } });
     return purpose;
   }
-  const saved = await savePurposeTags(userId, purpose.id, res.data, purposeTagsHash(purpose));
+  // The tags belong to the purpose, so they are saved with the PURPOSE OWNER's id (a shared purpose may be tagged by a
+  // recipient); the AI call itself is charged to the actor through `ctx.onUsage` (spec sharing 3.5).
+  const saved = await savePurposeTags(purpose.ownerId, purpose.id, res.data, purposeTagsHash(purpose));
   // The save moves purpose.updated_at (trigger); use the new value so a plan basis stays current.
   return { ...purpose, tags: res.data, updatedAt: saved?.updatedAt ?? purpose.updatedAt };
 }

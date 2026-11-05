@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   insert: vi.fn(),
   saveTags: vi.fn(),
   logEvent: vi.fn(async () => {}),
+  eqCalls: [] as [string, unknown][],
 }));
 
 vi.mock("../session", () => ({
@@ -21,7 +22,7 @@ vi.mock("../session", () => ({
             from(table: string) {
               const ops: Ops = [];
               const q: Record<string, unknown> = {};
-              for (const m of ["select", "update", "delete", "eq", "is", "order", "limit", "returns"]) q[m] = (...a: unknown[]) => (ops.push([m, a]), q);
+              for (const m of ["select", "update", "delete", "eq", "is", "order", "limit", "returns"]) q[m] = (...a: unknown[]) => (ops.push([m, a]), m === "eq" && h.eqCalls.push(a as [string, unknown]), q);
               q.maybeSingle = (...a: unknown[]) => (ops.push(["maybeSingle", a]), Promise.resolve(h.db(table, ops)));
               q.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => Promise.resolve(h.db(table, ops)).then(res, rej);
               return q;
@@ -62,6 +63,7 @@ beforeEach(() => {
   resetRateLimits();
   vi.clearAllMocks();
   h.session = true;
+  h.eqCalls.length = 0;
   world.identical = [];
   world.names = { [OLD_ID]: "Old name" };
   world.linked = true;
@@ -135,6 +137,13 @@ describe("save as purpose (13.4)", () => {
     expect(h.insert).not.toHaveBeenCalled();
     expect(opsHave(world.linkOps, "update", [{ purpose_id: OLD_ID, purpose_name: "Old name" }])).toBe(true);
     expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "destination.purpose_saved", props: { created: false, linkedExisting: true, tagged: false } }));
+  });
+  it("step 4 looks at OWN purposes only: a shared purpose with the same text is never linked (it would vanish on unshare)", async () => {
+    world.identical = [];
+    await saveSearchAsPurpose(SEARCH, { name: "Golf trips" });
+    // RLS also returns purposes shared with the user, so the lookup names the owner explicitly.
+    expect(h.eqCalls).toContainEqual(["owner_id", "u1"]);
+    expect(h.insert).toHaveBeenCalledTimes(1); // nothing identical of their own: a new own purpose is created
   });
   it("a purpose with guided fields is not identical", async () => {
     world.identical = [{ id: OLD_ID, name: "Old name", guided: { interests: ["golf"] }, constraints: [] }];

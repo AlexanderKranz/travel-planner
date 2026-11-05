@@ -6,7 +6,8 @@ const Id = z.string().uuid();
 
 /**
  * Trips made from one saved list, as `geoId -> trip id` (newest first wins), so the list can mark cards that
- * already have a trip and link to it (spec section 7). RLS limits this to the caller's own trips.
+ * already have a trip and link to it (spec section 7). Own trips only: RLS also returns trips shared with the caller, so the
+ * owner filter is explicit (sharing spec 3.5).
  */
 export async function tripsOfSearch(searchId: string): Promise<Record<string, string>> {
   if (!Id.safeParse(searchId).success) return {};
@@ -15,6 +16,7 @@ export async function tripsOfSearch(searchId: string): Promise<Record<string, st
   const { data, error } = await session.supabase
     .from("trips")
     .select("id, dest_geo_id")
+    .eq("owner_id", session.userId)
     .eq("destination_search_id", searchId)
     .not("dest_geo_id", "is", null)
     .order("created_at", { ascending: false })

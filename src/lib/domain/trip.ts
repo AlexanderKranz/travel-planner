@@ -3,6 +3,7 @@ import { IsoDate, optionalText } from "./common";
 import { CompositionEntry, MAX_ENTRIES_PER_GROUP, type StatedAge } from "./group";
 import { GROUP_TEXT_MAX, type GroupParse } from "./group-text";
 import { HomeAirports } from "./profile";
+import type { Access, Person } from "./sharing";
 
 export const MAX_TRIP_DAYS = 60;
 export const MAX_TRIPS_PER_USER = 30;
@@ -101,6 +102,10 @@ export type TripGroupEntry = {
 
 export type Trip = {
   id: string;
+  /** Who owns the trip (spec sharing 3.1). */
+  ownerId: string;
+  /** The viewer's access: owner, or the level of the viewer's share. */
+  access: Access;
   title?: string;
   destination: Destination;
   lengthDays: number;
@@ -128,4 +133,10 @@ export type TripSummary = Pick<
 > & {
   groupName: string | null;
   purposeName: string | null;
+  /** The viewer's access (own trips: "owner"). */
+  access: Access;
+  /** Who shared the trip with the viewer; null for own trips. Set by `listSharedWithMe`. */
+  sharedBy: Person | null;
+  /** Own trips: number of people it is shared with (0 when none). Incoming trips: 0. */
+  shareCount: number;
 };

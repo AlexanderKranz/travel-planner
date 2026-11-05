@@ -14,7 +14,8 @@ type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;
 /** Same reserve as the purpose tagging step: a Haiku call costs well below a thousandth of a dollar. */
 const RESERVE_GROUP_PARSE = 2_000;
 
-export type ParseTarget = { table: "travel_groups"; id: string } | { table: "trips"; id: string };
+/** `ownerId` = owner of the ROW (read through RLS before), not necessarily the acting user (a write grantee of a shared trip). */
+export type ParseTarget = { table: "travel_groups"; id: string; ownerId: string } | { table: "trips"; id: string; ownerId: string };
 
 /** Column names of the parse cache per table (the user session has no grant on them). */
 const CACHE_COLUMNS = {
@@ -24,10 +25,11 @@ const CACHE_COLUMNS = {
 
 /**
  * Caches the Haiku parse on the group / trip. SECRET KEY (RLS bypass) on purpose: users have no grant on the
- * parse columns (they could otherwise plant a structure that looks machine-made). The owner_id filter keeps the
- * write scoped to the requesting user's own row.
+ * parse columns (they could otherwise plant a structure that looks machine-made). The owner_id filter (the row's owner,
+ * `target.ownerId`) keeps the write scoped to the one row the caller already read through RLS. The AI call that made the
+ * parse stays charged to the acting user (`ensureGroupParse`).
  */
-export async function saveGroupParse(userId: string, target: ParseTarget, parse: GroupParse, hash: string): Promise<boolean> {
+export async function saveGroupParse(target: ParseTarget, parse: GroupParse, hash: string): Promise<boolean> {
   const c = CACHE_COLUMNS[target.table];
   try {
     const admin = createSupabaseAdminClient();
@@ -35,7 +37,7 @@ export async function saveGroupParse(userId: string, target: ParseTarget, parse:
       .from(target.table)
       .update({ [c.parsed]: parse, [c.hash]: hash, [c.at]: new Date().toISOString() })
       .eq("id", target.id)
-      .eq("owner_id", userId)
+      .eq("owner_id", target.ownerId)
       .select("id");
     return !error && data.length === 1;
   } catch {
@@ -68,7 +70,7 @@ export async function ensureGroupParse(
       await logEvent({ event: "group.parse_failed", level: "warn", userId: session.userId, props: { table: target.table, reason: res.error } });
       return false;
     }
-    return await saveGroupParse(session.userId, target, res.data, groupTextHash(clean));
+    return await saveGroupParse(target, res.data, groupTextHash(clean));
   } catch {
     return false;
   }

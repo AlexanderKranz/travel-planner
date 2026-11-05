@@ -27,6 +27,14 @@ describe("buildTripDraft (D11)", () => {
     expect(JSON.stringify(d)).not.toContain("mildes Klima");
   });
 
+  it("a purpose that is no longer usable (unshared in another tab) gives an empty purposeId; a usable one is kept", () => {
+    expect(buildTripDraft(search, card, [], ["99999999-9999-4999-8999-999999999999"]).purposeId).toBe("");
+    expect(buildTripDraft(search, card, [], []).purposeId).toBe("");
+    expect(buildTripDraft(search, card, [], [search.purposeId]).purposeId).toBe(search.purposeId);
+    // no list given: no check (as before)
+    expect(buildTripDraft(search, card, []).purposeId).toBe(search.purposeId);
+  });
+
   it("no months -> no timing", () => {
     expect(buildTripDraft({ ...search, months: [] }, card, []).timing.mode).toBe("none");
   });

@@ -4,7 +4,7 @@ vi.mock("server-only", () => ({}));
 const h = vi.hoisted(() => ({
   session: { userId: "u1", supabase: {} } as { userId: string; supabase: unknown } | null,
   profile: { role: "user", isDemo: false, locale: "de", birthdate: null, homeAirports: ["FRA", "MUC", "HAM"] } as Record<string, unknown>,
-  purpose: { id: "11111111-1111-4111-8111-111111111111", name: "Golf", guided: { interests: ["golf"] }, constraints: [], tags: null, updatedAt: "t" } as Record<string, unknown>,
+  purpose: { id: "11111111-1111-4111-8111-111111111111", name: "Golf", guided: { interests: ["golf"] }, constraints: [], tags: null, ownerId: "u1", access: "owner", usable: true, updatedAt: "t" } as Record<string, unknown>,
   group: null as unknown,
   env: { AI_ENABLED: "true", ANTHROPIC_API_KEY: "k" } as Record<string, string>,
   budgetOk: true,
@@ -114,7 +114,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.session = { userId: "u1", supabase: {} };
   h.profile = { role: "user", isDemo: false, locale: "de", birthdate: null, homeAirports: ["FRA", "MUC", "HAM"] };
-  h.purpose = { id: PURPOSE, name: "Golf", guided: { interests: ["golf"] }, constraints: [], tags: null, updatedAt: "t" };
+  h.purpose = { id: PURPOSE, name: "Golf", guided: { interests: ["golf"] }, constraints: [], tags: null, ownerId: "u1", access: "owner", usable: true, updatedAt: "t" };
   h.group = null;
   h.env = { AI_ENABLED: "true", ANTHROPIC_API_KEY: "k" };
   h.budgetOk = true;
@@ -132,6 +132,52 @@ beforeEach(() => {
   h.finish.mockImplementation(async (_sb: unknown, _id: string, p: { cards: unknown[] }) => stored({ cards: p.cards as never, rounds: 1 }));
   h.propose.mockResolvedValue({ ok: true, data: [idea("Marbella"), idea("Palma")], usage: {} });
   h.verify.mockResolvedValue({ cards: [card(1)], drops: { too_far: 1 }, reasonsRemoved: 1, geocodeDown: false, stoppedBy: null, climateMisses: 1 });
+});
+
+describe("a purpose shared with the searcher (sharing spec 3.8)", () => {
+  const TAGS = { v: 1, interests: ["golf"], custom: [], hard: [], soft: [], summary: "Golf" };
+  const shared = (o: Record<string, unknown> = {}) => ({ ...h.purpose, ownerId: "owner-1", access: "read", usable: true, ...o });
+
+  it("with valid tags it runs without a Haiku call (tagsFrom cached) and the event says source shared", async () => {
+    h.purpose = shared({ tags: TAGS });
+    h.wantsTags = false; // wantsTags(purpose) is false when tags exist
+    const r = await runDestinationSearch(body);
+    expect(r).toMatchObject({ ok: true });
+    expect(h.tagAndSave).not.toHaveBeenCalled();
+    expect(h.propose).toHaveBeenCalledTimes(1);
+    expect(h.logEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "destination.searched", props: expect.objectContaining({ source: "shared", tagsFrom: "cached", cached: false }) }),
+    );
+  });
+
+  it("without tags the once-per-purpose call runs for the searcher (their id), and the event says source shared", async () => {
+    h.purpose = shared();
+    h.wantsTags = true;
+    h.tagAndSave.mockResolvedValue({ ...h.purpose, tags: TAGS });
+    const r = await runDestinationSearch(body);
+    expect(r).toMatchObject({ ok: true });
+    expect(h.tagAndSave).toHaveBeenCalledTimes(1);
+    // The searching user's id leads (it labels the failure event and the usage); the purpose carries its owner for the save.
+    expect(h.tagAndSave.mock.calls[0][0]).toBe("u1");
+    expect(h.tagAndSave.mock.calls[0][1]).toMatchObject({ ownerId: "owner-1" });
+    expect(h.logEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "destination.searched", props: expect.objectContaining({ source: "shared", tagsFrom: "haiku" }) }),
+    );
+  });
+
+  it("a purpose seen only through a shared trip is not usable: not_found, no run", async () => {
+    h.purpose = shared({ usable: false });
+    expect(await runDestinationSearch(body)).toMatchObject({ ok: false, error: "not_found" });
+    expect(h.propose).not.toHaveBeenCalled();
+    expect(h.claim1).not.toHaveBeenCalled();
+  });
+
+  it("an own purpose keeps source saved", async () => {
+    await runDestinationSearch(body);
+    expect(h.logEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ event: "destination.searched", props: expect.objectContaining({ source: "saved" }) }),
+    );
+  });
 });
 
 describe("gates, in the order of the spec", () => {

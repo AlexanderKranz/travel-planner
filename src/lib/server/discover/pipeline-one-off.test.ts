@@ -83,7 +83,7 @@ beforeEach(() => {
   h.profile = { role: "user", isDemo: false, locale: "de", birthdate: null, homeAirports: ["FRA", "MUC"] };
   h.env = { AI_ENABLED: "true", ANTHROPIC_API_KEY: "k" };
   h.runs = 0;
-  h.getPurpose.mockResolvedValue({ ok: true, data: { id: PURPOSE, name: "Golf", guided: { interests: ["golf"] }, constraints: [], tags: null, updatedAt: "t" } });
+  h.getPurpose.mockResolvedValue({ ok: true, data: { id: PURPOSE, name: "Golf", guided: { interests: ["golf"] }, constraints: [], tags: null, ownerId: "u1", access: "owner", usable: true, updatedAt: "t" } });
   h.findTags.mockResolvedValue(null);
   h.byHash.mockResolvedValue(null);
   h.adopt.mockImplementation(async (_sb: unknown, _u: string, row: StoredSearch) => ({ search: row, relabelled: false }));
@@ -112,7 +112,7 @@ describe("tag lookup order (13.2)", () => {
     h.findTags.mockResolvedValue({ tags: TAGS, from: "search" });
     const res = await runDestinationSearch({ purposeText: `  ${TEXT}  ` });
     expect(res.ok).toBe(true);
-    expect(h.findTags).toHaveBeenCalledWith(expect.anything(), oneOffTagsHash(TEXT));
+    expect(h.findTags).toHaveBeenCalledWith(expect.anything(), oneOffTagsHash(TEXT), "u1");
     expect(h.findTags.mock.invocationCallOrder[0]).toBeLessThan(h.byHash.mock.invocationCallOrder[0]);
     expect(h.tagPurpose).not.toHaveBeenCalled();
     expect(h.tagAndSave).not.toHaveBeenCalled();
@@ -207,7 +207,7 @@ describe("served rows take the source of the request (13.3)", () => {
 
 describe("saved purposes keep their path", () => {
   it("claim writes the purpose and no text; tagsFrom cached when the purpose had tags", async () => {
-    h.getPurpose.mockResolvedValue({ ok: true, data: { id: PURPOSE, name: "Golf", guided: {}, constraints: [], tags: TAGS, updatedAt: "t" } });
+    h.getPurpose.mockResolvedValue({ ok: true, data: { id: PURPOSE, name: "Golf", guided: {}, constraints: [], tags: TAGS, ownerId: "u1", access: "owner", usable: true, updatedAt: "t" } });
     await runDestinationSearch({ purposeId: PURPOSE });
     expect(h.claim1.mock.calls[0][1]).toMatchObject({ purposeId: PURPOSE, purposeName: "Golf", purposeText: null });
     expect(h.saveTags).not.toHaveBeenCalled();
