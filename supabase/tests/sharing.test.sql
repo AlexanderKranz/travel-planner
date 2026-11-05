@@ -169,6 +169,8 @@ select ok(not has_function_privilege('anon', 'public.share_contacts()', 'execute
 select ok(has_function_privilege('authenticated', 'public.prune_plan_versions(uuid)', 'execute'), 'authenticated may execute prune_plan_versions');
 select ok(not has_function_privilege('anon', 'public.prune_plan_versions(uuid)', 'execute'), 'anon may not execute prune_plan_versions');
 select ok(not has_function_privilege('authenticated', 'private.inherit_trip_owner()', 'execute'), 'trigger functions are not executable by authenticated');
+select ok(not has_function_privilege('authenticated', 'private.can_receive_share(uuid)', 'execute'), 'authenticated may not probe can_receive_share');
+select ok(not has_function_privilege('authenticated', 'private.purpose_usable_by(uuid, uuid)', 'execute'), 'authenticated may not probe purpose_usable_by');
 select ok((select bool_and(p.prosecdef and p.proconfig @> array['search_path=""'])
              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'private' and p.proname in ('is_active', 'shared_trip_ids', 'writable_trip_ids', 'shared_plan_ids',

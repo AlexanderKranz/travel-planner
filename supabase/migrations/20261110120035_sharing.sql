@@ -195,8 +195,10 @@ revoke execute on function private.writable_plan_ids() from public, anon;
 revoke execute on function private.shared_group_ids() from public, anon;
 revoke execute on function private.shared_purpose_ids() from public, anon;
 revoke execute on function private.writable_purpose_ids() from public, anon;
-revoke execute on function private.can_receive_share(uuid) from public, anon;
-revoke execute on function private.purpose_usable_by(uuid, uuid) from public, anon;
+-- Called only inside security definer functions (share_resource, share_user_by_email, check_purpose_ref), which run
+-- as the definer: clients get no EXECUTE, so they cannot probe which ids are active users or usable purposes.
+revoke execute on function private.can_receive_share(uuid) from public, anon, authenticated;
+revoke execute on function private.purpose_usable_by(uuid, uuid) from public, anon, authenticated;
 grant execute on function private.is_active(uuid) to authenticated;
 grant execute on function private.shared_trip_ids() to authenticated;
 grant execute on function private.writable_trip_ids() to authenticated;
@@ -205,8 +207,6 @@ grant execute on function private.writable_plan_ids() to authenticated;
 grant execute on function private.shared_group_ids() to authenticated;
 grant execute on function private.shared_purpose_ids() to authenticated;
 grant execute on function private.writable_purpose_ids() to authenticated;
-grant execute on function private.can_receive_share(uuid) to authenticated;
-grant execute on function private.purpose_usable_by(uuid, uuid) to authenticated;
 
 -- ---------- policies of the share tables (no insert or update policy) ----------
 drop policy if exists "trip_shares: owner or grantee select" on public.trip_shares;
