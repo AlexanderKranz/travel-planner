@@ -42,10 +42,13 @@ export default async function NewTripPage({
     const res = await getDestinationSearch(searchId);
     const card = res.ok ? res.data.cards.find((c) => c.id === cardId) : undefined;
     if (res.ok && card) {
-      // Only purposes the user can still use: own ones and shares from active owners (RLS hides a disabled owner's
-      // shares). Without both lists the check is skipped rather than dropping a valid purpose.
-      const usablePurposeIds =
-        purposes.ok && incoming.ok ? [...purposes.data.map((p) => p.id), ...sharedPurposeOptions(incoming.data).map((p) => p.id)] : undefined;
+      // Only purposes the user can still use and the picker can show: own ones and shares from active owners (RLS
+      // hides a disabled owner's shares). A list that failed to load verifies nothing, so its purposes are dropped and
+      // the user picks again, instead of submitting an id that createTrip would reject.
+      const usablePurposeIds = [
+        ...(purposes.ok ? purposes.data.map((p) => p.id) : []),
+        ...(incoming.ok ? sharedPurposeOptions(incoming.data).map((p) => p.id) : []),
+      ];
       initialDraft = buildTripDraft(res.data, card, profileData.homeAirports, usablePurposeIds);
       backToList = res.data.id;
       // An unsaved typed purpose is put into the notes by buildTripDraft; the form says so (spec 13.5).
