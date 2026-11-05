@@ -162,7 +162,7 @@ export function PeopleShare({
         <ul className="flex flex-col gap-2">
           {grants.map((g) => (
             <GrantRow
-              key={g.id}
+              key={`${g.id}-${g.access}`}
               resource={resource}
               grant={g}
               onChanged={(kind) => {

@@ -1870,7 +1870,7 @@
     "cancel": "Abbrechen",
     "ownerOnlyContext": "Nur {name} kann Gruppe und Reisezweck ändern.",
     "by": "von {name}",
-    "conflictForm": "Das wurde zwischenzeitlich von jemand anderem geändert. Die neuesten Werte sind geladen; bitte prüfen und erneut speichern.",
+    "conflictForm": "Jemand anderes hat zwischenzeitlich Änderungen gespeichert. Deine Eingaben sind noch da. Lade die neueste Version (deine Änderungen gehen verloren) oder speichere deine Eingaben darüber.",
     "sharedOptgroup": "Mit mir geteilt",
     "optionShared": "{name} (von {owner})",
     "added": "Geteilt.",
@@ -1900,6 +1900,8 @@
       "failed": "Etwas ist schiefgelaufen. Bitte versuche es später erneut.",
       "invalid": "Bitte prüfe die E-Mail-Adresse.",
       "not_found": "Diese Freigabe gibt es nicht mehr."
-    }
+    },
+    "conflictLoad": "Neueste Version laden",
+    "conflictOverwrite": "Trotzdem speichern"
   }
 }

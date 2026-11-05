@@ -6,6 +6,7 @@ import { AirportPicker } from "@/components/settings/airport-picker";
 import { emptyDraft, parseToDrafts } from "@/components/groups/draft";
 import { EntryEditor } from "@/components/groups/entry-editor";
 import { GroupTextField } from "@/components/groups/group-text-field";
+import { ConflictNotice } from "@/components/sharing/conflict-notice";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { CheckboxField, SelectField, TextAreaField, TextField } from "@/components/ui/fields";
 import { hasIssue, type Issue } from "@/components/ui/issues";
@@ -34,6 +35,7 @@ export function TripForm({
   purposes,
   sharedPurposes = [],
   ownerName,
+  ownerOnlyValues,
   countryCodes,
   profileBirthdate,
   initialDraft,
@@ -46,6 +48,8 @@ export function TripForm({
   sharedPurposes?: SharedOption[];
   /** Write grantee editing a shared trip: the owner, named in "Only {name} can change the group and purpose". */
   ownerName?: string;
+  /** Write grantee: the resolved names of the group and purpose, shown as read-only text. */
+  ownerOnlyValues?: { group: string | null; purpose: string | null };
   /** ISO country codes for the free-text destination picker (from the server dataset). */
   countryCodes: string[];
   /** For "about your age" in the recognised one-off group. */
@@ -68,7 +72,8 @@ export function TripForm({
   const [pending, start] = useTransition();
   /** `updated_at` the form was loaded with; sent back so a change by someone else is reported, not overwritten. */
   const [loadedAt, setLoadedAt] = useState(trip?.updatedAt);
-  const [conflict, setConflict] = useState(false);
+  /** Someone else saved first: their version (null = could not be read). The draft stays as the user typed it. */
+  const [conflict, setConflict] = useState<{ latest: Trip | null } | null>(null);
   const [today] = useState(() => new Date().toISOString().slice(0, 10));
   const oneOff = draft.groupId === ONE_OFF_GROUP;
   // Owner-only fields (group, purpose) are shown as text for a write grantee.
@@ -87,7 +92,7 @@ export function TripForm({
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setConflict(false);
+    setConflict(null);
     setIssues(undefined);
     const problems = draftProblems(draft);
     setLocal(problems);
@@ -95,17 +100,17 @@ export function TripForm({
       document.getElementById(`field-${problems[0]}`)?.scrollIntoView({ block: "center" });
       return;
     }
+    save(loadedAt);
+  }
+
+  function save(expected: string | undefined) {
     const input = draftToInput(draft);
     start(async () => {
-      const result = trip ? await updateTrip(trip.id, input, loadedAt) : await createTrip(input);
+      const result = trip ? await updateTrip(trip.id, input, expected) : await createTrip(input);
       if (!result.ok && result.error === "conflict" && trip) {
-        // Someone else saved first: load their version into the form and say so; nothing was overwritten.
+        // Someone else saved first. Keep the draft; read their version without applying it and let the user choose.
         const latest = await getTrip(trip.id);
-        if (latest.ok) {
-          setDraft(draftFromTrip(latest.data));
-          setLoadedAt(latest.data.updatedAt);
-        }
-        setConflict(true);
+        setConflict({ latest: latest.ok ? latest.data : null });
         return;
       }
       if (!result.ok) {
@@ -208,6 +213,18 @@ export function TripForm({
         <p role="note" className="rounded-lg border border-info-line bg-info-bg p-3 text-sm text-info-fg">
           {ts("ownerOnlyContext", { name: ownerName ?? "" })}
         </p>
+      )}
+      {ownerOnly && ownerOnlyValues && (
+        <dl className="flex flex-col gap-2 text-sm">
+          <div>
+            <dt className="font-medium">{t("group")}</dt>
+            <dd className="break-words text-muted">{ownerOnlyValues.group ?? t("none")}</dd>
+          </div>
+          <div>
+            <dt className="font-medium">{t("purpose")}</dt>
+            <dd className="break-words text-muted">{ownerOnlyValues.purpose ?? t("none")}</dd>
+          </div>
+        </dl>
       )}
 
       {!ownerOnly && (
@@ -351,9 +368,28 @@ export function TripForm({
       </details>
 
       <ErrorBanner error={error} />
-      <p role="alert" className="rounded-lg border border-warn-line bg-warn-bg p-3 text-sm text-warn-fg empty:hidden">
-        {conflict ? ts("conflictForm") : ""}
-      </p>
+      {conflict && (
+        <ConflictNotice
+          pending={pending}
+          onLoadLatest={() => {
+            if (conflict.latest) {
+              setDraft(draftFromTrip(conflict.latest));
+              setLoadedAt(conflict.latest.updatedAt);
+              setConflict(null);
+            } else router.refresh();
+          }}
+          onOverwrite={
+            conflict.latest
+              ? () => {
+                  const expected = conflict.latest!.updatedAt;
+                  setLoadedAt(expected);
+                  setConflict(null);
+                  save(expected);
+                }
+              : undefined
+          }
+        />
+      )}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
         <button type="button" className={btnSecondary} onClick={() => router.back()}>
           {t("cancel")}

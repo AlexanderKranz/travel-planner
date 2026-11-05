@@ -1870,7 +1870,7 @@
     "cancel": "Cancel",
     "ownerOnlyContext": "Only {name} can change the group and purpose.",
     "by": "by {name}",
-    "conflictForm": "This was changed by someone else in the meantime. The latest values are loaded; please check them and save again.",
+    "conflictForm": "Someone else saved changes in the meantime. Your input is still here. Load the latest version (your changes are dropped) or save your input over it.",
     "sharedOptgroup": "Shared with me",
     "optionShared": "{name} (from {owner})",
     "added": "Shared.",
@@ -1900,6 +1900,8 @@
       "failed": "Something went wrong. Please try again later.",
       "invalid": "Please check the email address.",
       "not_found": "This share no longer exists."
-    }
+    },
+    "conflictLoad": "Load latest version",
+    "conflictOverwrite": "Save anyway"
   }
 }

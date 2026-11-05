@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
+import { ConflictNotice } from "@/components/sharing/conflict-notice";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { TextAreaField, TextField } from "@/components/ui/fields";
@@ -35,7 +36,7 @@ export function PurposeEditor({ purpose }: { purpose?: TripPurpose }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
   const [loadedAt, setLoadedAt] = useState(purpose?.updatedAt);
-  const [conflict, setConflict] = useState(false);
+  const [conflict, setConflict] = useState<{ latest: TripPurpose | null } | null>(null);
   const readOnly = purpose?.access === "read";
   const owner = !purpose || purpose.access === "owner";
   const bad = t("fieldInvalid");
@@ -45,23 +46,20 @@ export function PurposeEditor({ purpose }: { purpose?: TripPurpose }) {
     setError(null);
     setIssues(undefined);
     setSaved(false);
-    setConflict(false);
+    setConflict(null);
+    save(loadedAt);
+  }
+
+  function save(expected: string | undefined) {
     const input = { name, text, guided: guidedToInput(guided), constraints };
     start(async () => {
       const result = purpose
-        ? await updatePurpose(purpose.id, input, loadedAt)
+        ? await updatePurpose(purpose.id, input, expected)
         : await createPurpose(input);
       if (!result.ok && result.error === "conflict" && purpose) {
-        // Someone else saved first: load their values and say so; nothing was overwritten.
+        // Someone else saved first. Keep the draft; read their version without applying it and let the user choose.
         const latest = await getPurpose(purpose.id);
-        if (latest.ok) {
-          setName(latest.data.name);
-          setText(latest.data.text ?? "");
-          setGuided(guidedFromStored(latest.data.guided));
-          setConstraints(latest.data.constraints);
-          setLoadedAt(latest.data.updatedAt);
-        }
-        setConflict(true);
+        setConflict({ latest: latest.ok ? latest.data : null });
         return;
       }
       if (!result.ok) {
@@ -142,9 +140,32 @@ export function PurposeEditor({ purpose }: { purpose?: TripPurpose }) {
       </fieldset>
 
       <ErrorBanner error={error} />
-      <p role="alert" className="rounded-lg border border-warn-line bg-warn-bg p-3 text-sm text-warn-fg empty:hidden">
-        {conflict ? ts("conflictForm") : ""}
-      </p>
+      {conflict && (
+        <ConflictNotice
+          pending={pending}
+          onLoadLatest={() => {
+            const l = conflict.latest;
+            if (l) {
+              setName(l.name);
+              setText(l.text ?? "");
+              setGuided(guidedFromStored(l.guided));
+              setConstraints(l.constraints);
+              setLoadedAt(l.updatedAt);
+              setConflict(null);
+            } else router.refresh();
+          }}
+          onOverwrite={
+            conflict.latest
+              ? () => {
+                  const expected = conflict.latest!.updatedAt;
+                  setLoadedAt(expected);
+                  setConflict(null);
+                  save(expected);
+                }
+              : undefined
+          }
+        />
+      )}
       {saved && (
         <p role="status" className="text-sm text-ok">
           {t("saved")}
