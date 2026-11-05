@@ -169,7 +169,7 @@ select ok(not has_function_privilege('anon', 'public.share_contacts()', 'execute
 select ok(has_function_privilege('authenticated', 'public.prune_plan_versions(uuid)', 'execute'), 'authenticated may execute prune_plan_versions');
 select ok(not has_function_privilege('anon', 'public.prune_plan_versions(uuid)', 'execute'), 'anon may not execute prune_plan_versions');
 select ok(not has_function_privilege('authenticated', 'private.inherit_trip_owner()', 'execute'), 'trigger functions are not executable by authenticated');
-select ok((select bool_and(p.prosecdef and p.proconfig @> array['search_path='])
+select ok((select bool_and(p.prosecdef and p.proconfig @> array['search_path=""'])
              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'private' and p.proname in ('is_active', 'shared_trip_ids', 'writable_trip_ids', 'shared_plan_ids',
               'writable_plan_ids', 'shared_group_ids', 'shared_purpose_ids', 'writable_purpose_ids', 'can_receive_share',
@@ -441,7 +441,7 @@ select throws_ok($$insert into public.plan_versions (plan_id, kind, plan, input,
 select throws_ok($$update public.trips set group_id = '5a000000-0000-4000-8000-00000000b001' where id = '5a000000-0000-4000-8000-00000000a201'$$, '42501', null, 'B cannot change group_id');
 select throws_ok($$update public.trips set group_id = null where id = '5a000000-0000-4000-8000-00000000a201'$$, '42501', null, 'B cannot clear group_id');
 select throws_ok($$update public.trips set purpose_id = '5a000000-0000-4000-8000-00000000b101' where id = '5a000000-0000-4000-8000-00000000a201'$$, '42501', null, 'B cannot change purpose_id to an own purpose');
-select throws_ok($$update public.trips set purpose_id = '5a000000-0000-4000-8000-00000000a101' where id = '5a000000-0000-4000-8000-00000000a201'$$, '42501', null, 'B cannot set purpose_id (even to a usable purpose)');
+select throws_ok($$update public.trips set purpose_id = '5a000000-0000-4000-8000-00000000a102' where id = '5a000000-0000-4000-8000-00000000a201'$$, '42501', null, 'B cannot set purpose_id (even to another purpose of the owner)');
 select throws_ok($$update public.trips set purpose_id = null where id = '5a000000-0000-4000-8000-00000000a201'$$, '42501', null, 'B cannot clear purpose_id');
 select throws_ok($$update public.trips set group_text = 'five friends' where id = '5a000000-0000-4000-8000-00000000a204'$$, '42501', null, 'B cannot change group_text');
 select throws_ok($$update public.trips set group_text = 'five friends', group_structure = '[]'::jsonb where id = '5a000000-0000-4000-8000-00000000a204'$$, '42501', null, 'B cannot change group_structure');

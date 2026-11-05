@@ -232,62 +232,62 @@ create policy "purpose_shares: owner or grantee delete" on public.purpose_shares
 -- ---------- 2.3 policies added to existing tables (the owner policies stay) ----------
 drop policy if exists "trips: grantee select" on public.trips;
 create policy "trips: grantee select" on public.trips
-  for select to authenticated using (id = any ((select private.shared_trip_ids())));
+  for select to authenticated using (id = any ((select private.shared_trip_ids())::uuid[]));
 drop policy if exists "trips: write grantee update" on public.trips;
 create policy "trips: write grantee update" on public.trips
   for update to authenticated
-  using (id = any ((select private.writable_trip_ids())))
-  with check (id = any ((select private.writable_trip_ids())));
+  using (id = any ((select private.writable_trip_ids())::uuid[]))
+  with check (id = any ((select private.writable_trip_ids())::uuid[]));
 
 drop policy if exists "plans: grantee select" on public.plans;
 create policy "plans: grantee select" on public.plans
-  for select to authenticated using (id = any ((select private.shared_plan_ids())));
+  for select to authenticated using (id = any ((select private.shared_plan_ids())::uuid[]));
 drop policy if exists "plans: write grantee insert" on public.plans;
 create policy "plans: write grantee insert" on public.plans
-  for insert to authenticated with check (trip_id = any ((select private.writable_trip_ids())));
+  for insert to authenticated with check (trip_id = any ((select private.writable_trip_ids())::uuid[]));
 drop policy if exists "plans: write grantee update" on public.plans;
 create policy "plans: write grantee update" on public.plans
   for update to authenticated
-  using (id = any ((select private.writable_plan_ids())))
-  with check (id = any ((select private.writable_plan_ids())));
+  using (id = any ((select private.writable_plan_ids())::uuid[]))
+  with check (id = any ((select private.writable_plan_ids())::uuid[]));
 
 drop policy if exists "plan_versions: grantee select" on public.plan_versions;
 create policy "plan_versions: grantee select" on public.plan_versions
-  for select to authenticated using (plan_id = any ((select private.shared_plan_ids())));
+  for select to authenticated using (plan_id = any ((select private.shared_plan_ids())::uuid[]));
 drop policy if exists "plan_versions: write grantee insert" on public.plan_versions;
 create policy "plan_versions: write grantee insert" on public.plan_versions
-  for insert to authenticated with check (plan_id = any ((select private.writable_plan_ids())));
+  for insert to authenticated with check (plan_id = any ((select private.writable_plan_ids())::uuid[]));
 
 drop policy if exists "trip_items: grantee select" on public.trip_items;
 create policy "trip_items: grantee select" on public.trip_items
-  for select to authenticated using (trip_id = any ((select private.shared_trip_ids())));
+  for select to authenticated using (trip_id = any ((select private.shared_trip_ids())::uuid[]));
 drop policy if exists "trip_items: write grantee insert" on public.trip_items;
 create policy "trip_items: write grantee insert" on public.trip_items
-  for insert to authenticated with check (trip_id = any ((select private.writable_trip_ids())));
+  for insert to authenticated with check (trip_id = any ((select private.writable_trip_ids())::uuid[]));
 drop policy if exists "trip_items: write grantee update" on public.trip_items;
 create policy "trip_items: write grantee update" on public.trip_items
   for update to authenticated
-  using (trip_id = any ((select private.writable_trip_ids())))
-  with check (trip_id = any ((select private.writable_trip_ids())));
+  using (trip_id = any ((select private.writable_trip_ids())::uuid[]))
+  with check (trip_id = any ((select private.writable_trip_ids())::uuid[]));
 drop policy if exists "trip_items: write grantee delete" on public.trip_items;
 create policy "trip_items: write grantee delete" on public.trip_items
-  for delete to authenticated using (trip_id = any ((select private.writable_trip_ids())));
+  for delete to authenticated using (trip_id = any ((select private.writable_trip_ids())::uuid[]));
 
 drop policy if exists "travel_groups: grantee select" on public.travel_groups;
 create policy "travel_groups: grantee select" on public.travel_groups
-  for select to authenticated using (id = any ((select private.shared_group_ids())));
+  for select to authenticated using (id = any ((select private.shared_group_ids())::uuid[]));
 drop policy if exists "group_entries: grantee select" on public.group_entries;
 create policy "group_entries: grantee select" on public.group_entries
-  for select to authenticated using (group_id = any ((select private.shared_group_ids())));
+  for select to authenticated using (group_id = any ((select private.shared_group_ids())::uuid[]));
 
 drop policy if exists "trip_purposes: grantee select" on public.trip_purposes;
 create policy "trip_purposes: grantee select" on public.trip_purposes
-  for select to authenticated using (id = any ((select private.shared_purpose_ids())));
+  for select to authenticated using (id = any ((select private.shared_purpose_ids())::uuid[]));
 drop policy if exists "trip_purposes: write grantee update" on public.trip_purposes;
 create policy "trip_purposes: write grantee update" on public.trip_purposes
   for update to authenticated
-  using (id = any ((select private.writable_purpose_ids())))
-  with check (id = any ((select private.writable_purpose_ids())));
+  using (id = any ((select private.writable_purpose_ids())::uuid[]))
+  with check (id = any ((select private.writable_purpose_ids())::uuid[]));
 
 -- ---------- 2.4 owner of child rows written by a grantee ----------
 -- owner_id defaults to auth.uid(), which would be the grantee and break the composite FK. A before-insert trigger sets
@@ -336,11 +336,12 @@ create trigger plan_versions_00_inherit_owner
 
 -- ---------- 2.5 owner-only columns and purpose references ----------
 -- Owner and grantee are both the `authenticated` role, so a column grant cannot tell them apart: a trigger does.
--- A null auth.uid() (secret key, e.g. the group_parsed cache write) passes.
--- Exception: clearing purpose_id from inside another trigger (pg_trigger_depth() > 1) passes. That is the foreign-key
--- action when the purpose owner deletes the purpose, and private.purpose_share_removed() when the purpose owner
--- unshares; both clear the reference on the RECIPIENT's own trip while auth.uid() is the purpose owner. A user cannot
--- reach that depth with their own statement, and nothing else is allowed to change.
+-- It guards statements run as a user: current_user = 'authenticated' (a PostgREST call with a user JWT) and a user who
+-- is not the owner. It passes a null auth.uid() (secret key, e.g. the group_parsed cache write) and every other role.
+-- That also keeps the system's own writes working: when the purpose owner deletes or unshares a purpose, the foreign-key
+-- action and private.purpose_share_removed() (security definer) clear purpose_id on the RECIPIENT's trip while
+-- auth.uid() is the purpose owner. Both run as the table owner, not as `authenticated`, so they pass; a user's own
+-- statement cannot reach that role (no security definer function lets a user write these columns).
 create or replace function private.trips_owner_only()
   returns trigger
   language plpgsql
@@ -349,20 +350,13 @@ as $$
 declare
   v_uid uuid := (select auth.uid());
 begin
-  if v_uid is null or v_uid = old.owner_id then
+  if v_uid is null or v_uid = old.owner_id or current_user <> 'authenticated' then
     return new;
   end if;
   if new.group_id is distinct from old.group_id
      or new.group_text is distinct from old.group_text
      or new.group_structure is distinct from old.group_structure
      or new.purpose_id is distinct from old.purpose_id then
-    if pg_trigger_depth() > 1
-       and new.purpose_id is null
-       and new.group_id is not distinct from old.group_id
-       and new.group_text is not distinct from old.group_text
-       and new.group_structure is not distinct from old.group_structure then
-      return new;
-    end if;
     raise exception 'owner_only' using errcode = '42501';
   end if;
   return new;
@@ -370,8 +364,10 @@ end;
 $$;
 revoke all on function private.trips_owner_only() from public, anon, authenticated;
 
-drop trigger if exists trips_owner_only on public.trips;
-create trigger trips_owner_only
+-- The _00_ prefix again: same-event triggers fire in name order, and the owner-only check must come before
+-- trips_check_purpose_ref, so a non-owner always gets 42501 for these columns, whatever value they try to set.
+drop trigger if exists trips_00_owner_only on public.trips;
+create trigger trips_00_owner_only
   before update on public.trips
   for each row execute function private.trips_owner_only();
 
