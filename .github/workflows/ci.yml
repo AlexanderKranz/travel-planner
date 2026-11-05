@@ -82,6 +82,9 @@ jobs:
         run: supabase start -x studio,imgproxy,mailpit,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor
       - name: Run pgTAP tests
         run: supabase test db
+      # Two psql sessions race for the last share slot (spec sharing.md section 5); psql is preinstalled.
+      - name: Run sharing concurrency test
+        run: bash supabase/tests/sharing-concurrency.sh
       - name: Show status on failure
         if: failure()
         run: |
