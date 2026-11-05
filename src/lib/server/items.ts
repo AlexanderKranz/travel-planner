@@ -9,8 +9,10 @@ import {
   type TripItem,
 } from "@/lib/domain/items";
 import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
+import { canEdit } from "@/lib/domain/sharing";
 import { ITEM_COLUMNS, itemToWrite, rowToItem, type ItemRow } from "./item-mapping";
 import { getUserSession } from "./session";
+import { getItemTripId, getTripAccess } from "./trip-access";
 
 const Id = z.string().uuid();
 const Status = z.enum(ITEM_STATUSES);
@@ -18,6 +20,32 @@ const FK_VIOLATION = "23503"; // trip of another user (or unknown) fails the com
 
 /** SQLSTATE raised by trigger trip_items_cap (migration 22). */
 const ITEM_LIMIT_ERRCODE = "TP100";
+
+type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;
+type Denied = ReturnType<typeof fail>;
+
+/**
+ * Write gate of every item action (spec sharing 3.5): a clear `forbidden` for a read grantee instead of an RLS 0-row
+ * miss, `not_found` when the trip (or the item's trip) is not visible at all. RLS still enforces the same on the write.
+ */
+async function writeGate(session: Session, tripId: string | null): Promise<Denied | null> {
+  if (tripId === null) return fail("not_found");
+  try {
+    const access = await getTripAccess(session.supabase, tripId, session.userId);
+    if (access === null) return fail("not_found");
+    return canEdit(access) ? null : fail("forbidden");
+  } catch {
+    return fail("failed");
+  }
+}
+
+async function itemWriteGate(session: Session, itemId: string): Promise<Denied | null> {
+  try {
+    return await writeGate(session, await getItemTripId(session.supabase, itemId));
+  } catch {
+    return fail("failed");
+  }
+}
 
 export async function listItems(tripId: string): Promise<ActionResult<TripItem[]>> {
   const session = await getUserSession();
@@ -40,6 +68,8 @@ export async function createItem(tripId: string, input: unknown): Promise<Action
   if (!Id.safeParse(tripId).success) return fail("invalid");
   const parsed = TripItemInput.safeParse(input);
   if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
+  const denied = await writeGate(session, tripId);
+  if (denied) return denied;
 
   const { count, error: countError } = await session.supabase
     .from("trip_items")
@@ -66,6 +96,8 @@ export async function updateItem(id: string, input: unknown): Promise<ActionResu
   if (!Id.safeParse(id).success) return fail("invalid");
   const parsed = TripItemInput.safeParse(input);
   if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
+  const denied = await itemWriteGate(session, id);
+  if (denied) return denied;
   const { data, error } = await session.supabase
     .from("trip_items")
     .update(itemToWrite(parsed.data))
@@ -81,6 +113,8 @@ export async function setItemStatus(id: string, status: ItemStatus): Promise<Act
   const session = await getUserSession();
   if (!session) return fail("unauthenticated");
   if (!Id.safeParse(id).success || !Status.safeParse(status).success) return fail("invalid");
+  const denied = await itemWriteGate(session, id);
+  if (denied) return denied;
   const { data, error } = await session.supabase.from("trip_items").update({ status }).eq("id", id).select("id");
   if (error) return fail("failed");
   if (!data || data.length === 0) return fail("not_found");
@@ -91,6 +125,8 @@ export async function deleteItem(id: string): Promise<ActionResult> {
   const session = await getUserSession();
   if (!session) return fail("unauthenticated");
   if (!Id.safeParse(id).success) return fail("invalid");
+  const denied = await itemWriteGate(session, id);
+  if (denied) return denied;
   const { data, error } = await session.supabase.from("trip_items").delete().eq("id", id).select("id");
   if (error) return fail("failed");
   if (!data || data.length === 0) return fail("not_found");

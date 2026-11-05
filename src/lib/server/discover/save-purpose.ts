@@ -32,11 +32,15 @@ async function nameOf(sb: SupabaseClient, purposeId: string, fallback: string): 
   return data?.name ?? fallback;
 }
 
-/** An own purpose with exactly this text and no constraints or guided fields (oldest first). */
-async function findIdenticalPurpose(sb: SupabaseClient, text: string): Promise<{ id: string; name: string } | null> {
+/**
+ * An OWN purpose with exactly this text and no constraints or guided fields (oldest first). Own only: RLS also returns
+ * shared purposes, but a link to a shared purpose would vanish on unshare (sharing spec 3.8).
+ */
+async function findIdenticalPurpose(sb: SupabaseClient, userId: string, text: string): Promise<{ id: string; name: string } | null> {
   const { data, error } = await sb
     .from("trip_purposes")
     .select("id, name, guided, constraints")
+    .eq("owner_id", userId)
     .eq("text", text)
     .order("created_at", { ascending: true })
     .limit(20)
@@ -87,7 +91,7 @@ export async function saveSearchAsPurpose(id: string, raw: unknown): Promise<Sav
     let name: string;
     let created = false;
     let tagged = false;
-    const identical = await findIdenticalPurpose(sb, text);
+    const identical = await findIdenticalPurpose(sb, userId, text);
     if (identical) {
       purposeId = identical.id;
       name = identical.name;

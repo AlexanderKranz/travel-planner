@@ -30,6 +30,12 @@ export const ApiStatsRaw = z.object({
   overpassVariants: z.array(z.object({ variant: z.string(), calls: n, errors: n })),
 });
 
+/** Shape of public.admin_share_stats (migration 20261110120035): counts only, no ids, emails or titles. */
+export const ShareStatsRaw = z.object({
+  tripSharesRead: n, tripSharesWrite: n, purposeSharesRead: n, purposeSharesWrite: n,
+  tripsShared: n, recipients: n, grantsThisMonth: n, lookupsThisMonth: n, lookupMissesThisMonth: n,
+});
+
 export const RecentEventsRaw = z.array(z.object({
   at: z.string(), level: z.enum(["warn", "error"]), event: z.string(), route: z.string().nullable(), code: z.string().nullable(),
 }));

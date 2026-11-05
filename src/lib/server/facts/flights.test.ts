@@ -37,7 +37,7 @@ import { getFlightsFacts } from "./flights";
 
 const ctx = { userId: "u", locale: "de" as const, today: "2026-10-28" };
 const trip = (over: Partial<Trip> = {}): Trip => ({
-  id: "t", lengthDays: 5, groupId: null, purposeId: null, wantsFlights: true, originAirports: [], createdAt: "", updatedAt: "",
+  id: "t", ownerId: "u", access: "owner", lengthDays: 5, groupId: null, purposeId: null, wantsFlights: true, originAirports: [], createdAt: "", updatedAt: "",
   destination: { kind: "region", name: "Costa del Sol", placeName: "Marbella", geoId: 1, countryCode: "ES", admin1: null, lat: 36.51543, lon: -4.88583, timezone: null, radiusKm: 40 },
   timing: { kind: "date", startDate: "2027-03-06" },
   ...over,

@@ -56,6 +56,20 @@ describe("getOwnerPlanDocumentResult", () => {
     expect(admin).not.toHaveBeenCalled();
   });
 
+  it("a grantee of a shared trip (any access level) gets the document: no access check beyond a visible trip", async () => {
+    // The session user "U1" is not the owner of anything here; RLS (the mocked reads) decides what is visible.
+    const res = await getOwnerPlanDocumentResult(TRIP);
+    expect(res.ok).toBe(true);
+    expect(admin).not.toHaveBeenCalled();
+    expect(from("trips").every((s) => !s.includes("owner_id"))).toBe(true);
+  });
+
+  it("a stranger's read finds no trip row: not_found, nothing else is read as an answer", async () => {
+    tables.trips = null;
+    expect(await getOwnerPlanDocumentResult(TRIP)).toEqual({ ok: false, error: "not_found" });
+    expect(admin).not.toHaveBeenCalled();
+  });
+
   it("reuses the version and the home place the page already holds", async () => {
     const res = await getOwnerPlanDocumentResult(TRIP, {
       latest: { plan, versionNo: 3, versionAt: "2026-10-05T00:00:00Z" },

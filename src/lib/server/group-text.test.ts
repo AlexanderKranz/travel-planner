@@ -51,7 +51,7 @@ beforeEach(() => {
 
 describe("ensureGroupParse", () => {
   it("parses once and caches by text hash with the secret key, scoped to the owner", async () => {
-    const saved = await ensureGroupParse(session, { table: "travel_groups", id: "g1" }, "  Wir sind 5 Freunde ", false);
+    const saved = await ensureGroupParse(session, { table: "travel_groups", id: "g1", ownerId: "u1" }, "  Wir sind 5 Freunde ", false);
     expect(saved).toBe(true);
     expect(h.parse).toHaveBeenCalledOnce();
     expect(h.parse.mock.calls[0][0]).toBe("Wir sind 5 Freunde");
@@ -63,8 +63,14 @@ describe("ensureGroupParse", () => {
     });
   });
 
+  it("a write grantee's parse is saved with the ROW owner's id; the call is charged to the acting user", async () => {
+    await ensureGroupParse(session, { table: "trips", id: "t1", ownerId: "owner-7" }, "Ich und Ben", false);
+    expect(h.updates[0].eq).toEqual([["id", "t1"], ["owner_id", "owner-7"]]);
+    expect(h.usage).not.toHaveBeenCalledWith("owner-7", expect.anything(), expect.anything());
+  });
+
   it("uses the trip's own columns", async () => {
-    await ensureGroupParse(session, { table: "trips", id: "t1" }, "Ich und Ben", false);
+    await ensureGroupParse(session, { table: "trips", id: "t1", ownerId: "u1" }, "Ich und Ben", false);
     expect(Object.keys(h.updates[0].payload).sort()).toEqual(["group_parsed", "group_parsed_at", "group_parsed_hash"]);
   });
 
@@ -75,24 +81,24 @@ describe("ensureGroupParse", () => {
     ["the budget is used up", () => { h.budgetOk = false; }, "text", false],
   ])("makes no call when %s", async (_n, arrange, text, valid) => {
     arrange();
-    expect(await ensureGroupParse(session, { table: "travel_groups", id: "g1" }, text, valid)).toBe(false);
+    expect(await ensureGroupParse(session, { table: "travel_groups", id: "g1", ownerId: "u1" }, text, valid)).toBe(false);
     expect(h.parse).not.toHaveBeenCalled();
   });
 
   it("a failed call never throws and saves nothing; the failure is logged without text", async () => {
     h.parse.mockResolvedValue({ ok: false, error: "ai_unavailable" });
-    expect(await ensureGroupParse(session, { table: "travel_groups", id: "g1" }, "geheimer Text", false)).toBe(false);
+    expect(await ensureGroupParse(session, { table: "travel_groups", id: "g1", ownerId: "u1" }, "geheimer Text", false)).toBe(false);
     expect(h.updates).toHaveLength(0);
     expect(h.event).toHaveBeenCalledWith(expect.objectContaining({ event: "group.parse_failed", props: { table: "travel_groups", reason: "ai_unavailable" } }));
     expect(JSON.stringify(h.event.mock.calls)).not.toContain("geheimer");
     h.parse.mockRejectedValue(new Error("boom"));
-    expect(await ensureGroupParse(session, { table: "travel_groups", id: "g1" }, "t", false)).toBe(false);
+    expect(await ensureGroupParse(session, { table: "travel_groups", id: "g1", ownerId: "u1" }, "t", false)).toBe(false);
   });
 
   it("is rate limited per user", async () => {
-    for (let i = 0; i < 20; i++) await ensureGroupParse(session, { table: "travel_groups", id: "g1" }, "t" + i, false);
+    for (let i = 0; i < 20; i++) await ensureGroupParse(session, { table: "travel_groups", id: "g1", ownerId: "u1" }, "t" + i, false);
     h.parse.mockClear();
-    expect(await ensureGroupParse(session, { table: "travel_groups", id: "g1" }, "one more", false)).toBe(false);
+    expect(await ensureGroupParse(session, { table: "travel_groups", id: "g1", ownerId: "u1" }, "one more", false)).toBe(false);
     expect(h.parse).not.toHaveBeenCalled();
   });
 });

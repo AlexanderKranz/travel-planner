@@ -20,6 +20,12 @@ export function buildTripDraft(
   },
   card: Pick<SuggestionCard, "kind" | "geoId" | "placeName" | "name" | "admin1">,
   profileHomeAirports: readonly string[],
+  /**
+   * Ids of the purposes the user may still use (own and shared with them, `TripPurpose.usable`). A purpose that is no
+   * longer in the list (unshared in another tab) gives an empty `purposeId`, as for a deleted purpose, so `createTrip`
+   * does not end in `not_found`. Omitted = no check (callers without the list).
+   */
+  usablePurposeIds?: readonly string[],
 ): TripDraft {
   const base = emptyTripDraft();
   const profileFirstTwo = profileHomeAirports.slice(0, 2);
@@ -40,7 +46,7 @@ export function buildTripDraft(
     },
     timing: search.months.length > 0 ? { mode: "months", startDate: "", months: [...search.months] } : base.timing,
     groupId: search.groupId ?? "",
-    purposeId: search.purposeId ?? "",
+    purposeId: search.purposeId && (!usablePurposeIds || usablePurposeIds.includes(search.purposeId)) ? search.purposeId : "",
     ...(unsavedOneOff ? { notes: search.purposeText! } : {}),
     wantsFlights: hasOrigins,
     useHomeAirports: !hasOrigins || sameAsProfile,

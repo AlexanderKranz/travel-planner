@@ -213,6 +213,8 @@ Trip page: when `destination_search_id` is set, a small link "Back to suggestion
 
 ## 8. Storage **[D12]**
 
+> Sharing (`docs/specs/sharing.md` 3.8): `purpose_id` no longer has the composite same-owner FK; it is a plain FK plus the trigger `private.check_purpose_ref()`, so a purpose shared with the searcher can be used.
+
 > Sharing (`docs/specs/sharing.md` section 3.8): `purpose_id` may also point to a purpose shared with the searcher; that section lists the changes to this section, section 9 and section 13.
 
 **A new table, not `api_cache`.** A list is derived from a user's purpose, group and airports, and its reasons may echo them. `api_cache` has no owner and is shared across users by key, so it cannot satisfy rule 6, and rule 8 is about external API calls anyway. Migration `20261106120031_destination_searches.sql` (one-off purpose columns: section 13.3):
@@ -285,6 +287,8 @@ export const SuggestionCard = z.object({
 `flight` needs no check date: it is computed from a static file and always labelled an estimate. No ages or names are stored (rule 4).
 
 ## 9. Rounds, limits, failures
+
+> Sharing (`docs/specs/sharing.md` 3.8): gate 1 also requires the purpose to be usable (own or shared with the searcher), a shared purpose with valid tags runs without a Haiku call, and the events get `source: "shared"`.
 
 **Rounds [D13].** One call per search, plus one "Show others" (`exclude` = all anchors of round 1), so at most 2 per search. No automatic second call, even with few cards. Round 2 runs on the same row and appends cards, so a list can never spend a third call. The agreed hash still holds: the exclusions are exactly round 1's ideas, so round 2 is cached by the row itself. After 2 rounds the UI suggests changing month, limit or purpose.
 

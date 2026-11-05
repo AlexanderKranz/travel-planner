@@ -31,7 +31,7 @@ const { getDestinationPicture, getSharedDestinationPicture } = await import("./p
 const { hashShareToken } = await import("../share-token");
 
 const ctx: FactsCtx = { userId: "u1", locale: "de", today: "2026-10-31" };
-const base = { id: "t1", lengthDays: 7, groupId: null, purposeId: null, wantsFlights: false, originAirports: [], createdAt: "", updatedAt: "" };
+const base = { id: "t1", ownerId: "u1", access: "owner" as const, lengthDays: 7, groupId: null, purposeId: null, wantsFlights: false, originAirports: [], createdAt: "", updatedAt: "" };
 const passau: Trip = {
   ...base,
   timing: { kind: "none" },

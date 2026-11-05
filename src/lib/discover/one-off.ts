@@ -34,6 +34,9 @@ export function oneOffPurpose(text: string, tags: PurposeTags | null): TripPurpo
     guided: {},
     constraints: [],
     tags,
+    ownerId: "",
+    access: "owner",
+    usable: true,
     createdAt: "",
     updatedAt: "",
   };

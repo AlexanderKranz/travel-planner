@@ -104,9 +104,17 @@ export function isBusy(row: Pick<PlanRow, "busyUntil"> | null, now: number = Dat
   return !!row?.busyUntil && Date.parse(row.busyUntil) > now;
 }
 
-/** True when any of the caller's plans (RLS: own rows) holds an unexpired generation lock. Per-user in-flight guard. */
-export async function hasBusyPlan(sb: SupabaseClient, now: number = Date.now()): Promise<boolean> {
-  const { data, error } = await sb.from("plans").select("id").gt("busy_until", new Date(now).toISOString()).limit(1);
+/**
+ * True when a plan holds an unexpired generation lock that THIS user took (`busy_by`). Per-user in-flight guard: it
+ * counts the actor's own runs, not a run someone else started on a shared plan (spec sharing 3.5).
+ */
+export async function hasBusyPlan(sb: SupabaseClient, userId: string, now: number = Date.now()): Promise<boolean> {
+  const { data, error } = await sb
+    .from("plans")
+    .select("id")
+    .eq("busy_by", userId)
+    .gt("busy_until", new Date(now).toISOString())
+    .limit(1);
   if (error) throw new Error("plan read failed");
   return data.length > 0;
 }
@@ -222,11 +230,14 @@ export async function insertVersion(sb: SupabaseClient, planId: string, v: NewVe
   return data.version_no;
 }
 
-/** Keeps the last MAX_VERSIONS_KEPT versions [D3]. Best effort. */
+/**
+ * Keeps the last MAX_VERSIONS_KEPT versions [D3] (the SQL constant in `prune_plan_versions` mirrors it). Best effort.
+ * Through the definer function: a write grantee has no delete policy on plan_versions, and the function refuses
+ * anyone who is neither the owner nor a write grantee of the plan.
+ */
 export async function pruneVersions(sb: SupabaseClient, planId: string, latestVersion: number): Promise<void> {
-  const cutoff = latestVersion - MAX_VERSIONS_KEPT;
-  if (cutoff < 1) return;
-  await sb.from("plan_versions").delete().eq("plan_id", planId).lte("version_no", cutoff);
+  if (latestVersion - MAX_VERSIONS_KEPT < 1) return;
+  await sb.rpc("prune_plan_versions", { p_plan_id: planId });
 }
 
 /** Generation lock: the `busy_until` value this call set (the token for `releaseLock`), or null when it was held. */
@@ -256,10 +267,11 @@ export async function releaseLock(sb: SupabaseClient, planId: string, token: str
 
 /**
  * Caches Haiku tags on the purpose. SECRET KEY (RLS bypass) on purpose: users have no grant on parsed_*.
- * The owner_id filter keeps the write scoped to the requesting user's own purpose.
+ * `ownerId` is the owner of the PURPOSE row (read through RLS by the caller), which may differ from the acting user
+ * when a recipient tags a shared purpose; the owner_id filter keeps the write scoped to exactly that row.
  */
 export async function savePurposeTags(
-  userId: string,
+  ownerId: string,
   purposeId: string,
   tags: PurposeTags,
   hash: string,
@@ -270,7 +282,7 @@ export async function savePurposeTags(
       .from("trip_purposes")
       .update({ parsed_tags: tags, parsed_hash: hash, parsed_at: new Date().toISOString() })
       .eq("id", purposeId)
-      .eq("owner_id", userId)
+      .eq("owner_id", ownerId)
       .select("updated_at");
     // The updated_at trigger moves purpose.updatedAt; callers must use the returned value so the plan basis stays current.
     return !error && data.length === 1 ? { updatedAt: data[0].updated_at as string } : null;

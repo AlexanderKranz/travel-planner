@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { BudgetConfig } from "./config";
-import type { ApiStatsRaw, AiStatsRaw, RecentEventsRaw, UsageStatsRaw, UserStatsRaw } from "./schema";
+import type { ApiStatsRaw, AiStatsRaw, RecentEventsRaw, ShareStatsRaw, UsageStatsRaw, UserStatsRaw } from "./schema";
 
 export type Level = "ok" | "warn" | "over";
 
@@ -32,6 +32,8 @@ type Raw = {
   ai: z.infer<typeof AiStatsRaw>;
   api: z.infer<typeof ApiStatsRaw>;
   events: z.infer<typeof RecentEventsRaw>;
+  /** Share counters (sharing spec 2.8); absent when the reader failed or in tests. */
+  shares?: z.infer<typeof ShareStatsRaw>;
 };
 
 const AI_TASKS = ["purpose_tags", "group_parse", "destination_ideas", "plan_generate", "plan_patch"] as const;
@@ -85,6 +87,7 @@ export function shapeDashboard(raw: Raw, cfg: BudgetConfig) {
     geoapify: { creditsToday: meter(geoapify?.unitsToday ?? 0, cfg.geoapifyDailyCap) },
     overpass: raw.api.overpassVariants,
     events: raw.events,
+    shares: raw.shares ?? null,
   };
 }
 export type Dashboard = ReturnType<typeof shapeDashboard>;

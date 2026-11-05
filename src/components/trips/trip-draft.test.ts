@@ -49,7 +49,7 @@ describe("trip draft", () => {
 
   it("round-trips a stored trip", () => {
     const draft = draftFromTrip({
-      id: "1", destination: { kind: "city", name: "Passau", placeName: "Passau", geoId: 5, countryCode: "DE", admin1: "Bayern", lat: 1, lon: 1, timezone: "Europe/Berlin", radiusKm: 15 },
+      id: "1", ownerId: "u", access: "owner", destination: { kind: "city", name: "Passau", placeName: "Passau", geoId: 5, countryCode: "DE", admin1: "Bayern", lat: 1, lon: 1, timezone: "Europe/Berlin", radiusKm: 15 },
       lengthDays: 7, timing: { kind: "months", months: [12] }, groupId: null, purposeId: null,
       wantsFlights: false, originAirports: [], createdAt: "", updatedAt: "",
     });
@@ -84,7 +84,7 @@ describe("one-off group in the trip draft", () => {
 
   it("round-trips text and corrected structure", () => {
     const draft = draftFromTrip({
-      id: "1", destination: { kind: "freetext", name: "x", countryCode: null }, lengthDays: 3, timing: { kind: "none" },
+      id: "1", ownerId: "u", access: "owner", destination: { kind: "freetext", name: "x", countryCode: null }, lengthDays: 3, timing: { kind: "none" },
       groupId: null, groupText: "Ich und Ben", groupStructure: [{ count: 2, age: { ageMode: "relativeToMe" } }],
       purposeId: null, wantsFlights: false, originAirports: [], createdAt: "", updatedAt: "",
     });

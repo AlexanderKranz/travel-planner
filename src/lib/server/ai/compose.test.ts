@@ -68,7 +68,7 @@ describe("compose requests", () => {
   });
 });
 
-const purpose = (over: Partial<TripPurpose> = {}): TripPurpose => ({ id: "p", name: "n", guided: {}, constraints: [], tags: null, createdAt: "", updatedAt: "", ...over });
+const purpose = (over: Partial<TripPurpose> = {}): TripPurpose => ({ id: "p", name: "n", guided: {}, constraints: [], tags: null, ownerId: "u", access: "owner", usable: true, createdAt: "", updatedAt: "", ...over });
 
 describe("purpose tags", () => {
   it("needsTags only for text, constraints or custom interests", () => {

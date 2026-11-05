@@ -74,7 +74,7 @@ The plan view, share page and PDF are rendered from this structure. The visual s
 
 ## Architecture
 - **Auth:** Supabase Auth (magic link + Google), invite-only or allowlisted at first.
-- **Isolation:** every table has `owner_id`, and RLS enforces `owner_id = auth.uid()`. Share pages are rendered server-side by an unguessable token, read-only, and always show the latest version. Links can be revoked.
+- **Isolation:** every user-owned resource table has `owner_id`, and RLS enforces `owner_id = auth.uid()`; the share tables `trip_shares` and `purpose_shares` use owner-or-grantee policies. Exception: a trip or purpose the owner shared with a named user is also visible to that user (read-only or read/write) through `private.*` helper functions; grants are written only by `public.share_resource` (service role, `docs/specs/sharing.md`, ADR 0010). Public share pages are rendered server-side by an unguessable token, read-only, and always show the latest version. Links can be revoked.
 - **Tables:**
   - `profiles` (language, home airports)
   - `travel_groups`, `group_entries` (composition and/or named member)

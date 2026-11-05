@@ -259,12 +259,16 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
 
   // Exactly one source (checked by the schema): a saved purpose through RLS, or a typed one-off that is never saved.
   const typed = input.purposeText ?? null;
-  const source: "saved" | "text" = typed === null ? "saved" : "text";
+  let source: "saved" | "text" | "shared" = typed === null ? "saved" : "text";
   let purpose: TripPurpose;
   if (typed === null) {
     const pr = await getPurpose(input.purposeId!);
     if (!pr.ok) return err(pr.error === "not_found" || pr.error === "invalid" ? "not_found" : "failed");
+    // Readable is not enough: a purpose seen only through a shared trip is not usable (sharing spec 3.8). The same
+    // answer as the database trigger would give for the row.
+    if (!pr.data.usable) return err("not_found");
     purpose = pr.data;
+    if (purpose.access !== "owner") source = "shared"; // a saved purpose of another owner
   } else {
     purpose = oneOffPurpose(typed, null);
   }
@@ -308,7 +312,7 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
     let textTags: PurposeTags | null = null;
     let tagsFrom: TagsFrom = purpose.tags ? "cached" : "none";
     if (typed !== null) {
-      const found = await findTagsByHash(c.sb, oneOffTagsHash(typed));
+      const found = await findTagsByHash(c.sb, oneOffTagsHash(typed), c.userId);
       if (found) {
         textTags = found.tags;
         tagsFrom = found.from;
@@ -469,7 +473,7 @@ async function executeRound(
   ideaInput: IdeaInput,
   ai: { ctx: AiCtx; cost: () => number },
   previous: StoredSearch | null,
-  meta: { source: "saved" | "text"; tagsFrom?: TagsFrom },
+  meta: { source: "saved" | "text" | "shared"; tagsFrom?: TagsFrom },
 ): Promise<SearchResult> {
   const started = Date.now();
   const giveUp = async (error: ActionError, reason: string): Promise<SearchResult> => {

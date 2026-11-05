@@ -18,7 +18,9 @@ export type ActionError =
   | "invalid_output" // model output failed validation
   | "demo_forbidden" // demo account cannot create share links
   | "no_plan" // trip has no plan version yet
-  | "forbidden" // not an admin
+  | "forbidden" // not allowed for this user (admin-only and owner-only actions, a write on a read-only share)
+  | "no_account" // share by email: no usable account (unknown, demo or disabled)
+  | "self_share" // share target is the owner themselves
   | "protected" // admin user action on yourself, the demo account or another admin
   | "already_member" // invite: this address already has an account
   | "email_failed" // invite: allowlisted, but the mail could not be sent

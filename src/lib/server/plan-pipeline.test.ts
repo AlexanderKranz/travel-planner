@@ -4,8 +4,12 @@ vi.mock("server-only", () => ({}));
 const h = vi.hoisted(() => ({
   session: { userId: "u1", supabase: {} } as { userId: string; supabase: unknown },
   itemRows: [] as unknown[],
-  trip: { id: "11111111-1111-4111-8111-111111111111", lengthDays: 3, groupId: null, purposeId: "p1", timing: { kind: "none" }, updatedAt: "t" } as Record<string, unknown>,
-  purpose: { id: "p1", tags: null, updatedAt: "pu" } as Record<string, unknown>,
+  trip: { id: "11111111-1111-4111-8111-111111111111", ownerId: "u1", access: "owner", lengthDays: 3, groupId: null, purposeId: "p1", timing: { kind: "none" }, updatedAt: "t" } as Record<string, unknown>,
+  purpose: { id: "p1", ownerId: "u1", tags: null, updatedAt: "pu" } as Record<string, unknown>,
+  ownerCtx: { birthdate: "1980-05-06", homeAirports: ["MUC"], locale: "en", displayName: "Alice" } as unknown,
+  logUsage: vi.fn(async () => {}),
+  hasBusy: vi.fn(),
+  prune: vi.fn(async () => {}),
   budgetOk: true,
   planRow: { id: "plan1", latestVersion: 1, busyUntil: null } as Record<string, unknown>,
   latest: null as unknown,
@@ -35,7 +39,8 @@ const Plan = { header: { basis: {}, timing: { kind: "none" } }, days: [{ n: 1 },
 const stored = (hash: string, no: number) => ({ meta: { versionNo: no, model: null }, plan: Plan, input: { llm: { v: 1 }, index: {} }, inputHash: hash, costMicroUsd: 0 });
 
 vi.mock("./session", () => ({ getUserSession: async () => h.session }));
-vi.mock("./profile", () => ({ getProfile: async () => ({ ok: true, data: { role: "user", isDemo: false, birthdate: null } }) }));
+vi.mock("./profile", () => ({ getProfile: async () => ({ ok: true, data: { role: "user", isDemo: false, birthdate: "1999-01-02", homeAirports: ["FRA"] } }) }));
+vi.mock("./owner-context", () => ({ loadOwnerContext: async () => h.ownerCtx }));
 vi.mock("./trips", () => ({ getTrip: async () => ({ ok: true, data: h.trip }) }));
 vi.mock("./groups", () => ({ getGroup: async () => ({ ok: false }) }));
 vi.mock("./purposes", () => ({ getPurpose: async () => ({ ok: true, data: h.purpose }) }));
@@ -46,7 +51,7 @@ vi.mock("./ai/compose", () => ({ composePlan: h.compose, patchPlan: h.patch }));
 vi.mock("./ai/purpose-tags", () => ({ needsTags: h.needsTags, tagPurpose: h.tag }));
 vi.mock("./ai-usage", () => ({
   isAiEnabled: () => true,
-  logAiUsage: async () => {},
+  logAiUsage: h.logUsage,
   userCapMicroUsd: () => 500_000,
   berlinMidnight: () => new Date("2026-10-28T23:00:00Z"),
   getBudgetStatus: async () => ({ spentMicroUsd: 0, capMicroUsd: 500_000, resetsAt: "r", globalSpentMicroUsd: 0, globalCapMicroUsd: 5_000_000 }),
@@ -64,12 +69,12 @@ vi.mock("./plan-store", () => ({
   },
   findVersionByHash: async () => h.byHash,
   insertVersion: h.insert,
-  pruneVersions: async () => {},
+  pruneVersions: h.prune,
   acquireLock: h.acquire,
   releaseLock: h.release,
   savePurposeTags: h.saveTags,
   isBusy: (r: { busyUntil?: string | null } | null) => !!r?.busyUntil,
-  hasBusyPlan: async () => h.inFlight,
+  hasBusyPlan: (...args: unknown[]) => (h.hasBusy(...args), Promise.resolve(h.inFlight)),
 }));
 vi.mock("@/lib/plan/hash", () => ({ canonicalJson: JSON.stringify, planInputHash: () => "hash-new", purposeTagsHash: () => "th" }));
 vi.mock("@/lib/plan/input", () => ({ buildPlanInput: h.build, selectPlaces: () => ({ picks: h.picks, noSource: [] }) }));
@@ -87,7 +92,7 @@ h.session.supabase = {
 };
 
 import { resetRateLimits } from "./rate-limit";
-import { generatePlan, iteratePlan, loadPlanContext, loadPlanState } from "./plan-pipeline";
+import { editPlanVersion, generatePlan, iteratePlan, loadPlanContext, loadPlanState, restoreVersion } from "./plan-pipeline";
 import { applyPatch } from "@/lib/plan/patch";
 
 const insertArg = () => h.insert.mock.calls[0] as unknown as [unknown, unknown, { input: Record<string, unknown>; inputHash: string }];
@@ -112,6 +117,10 @@ beforeEach(() => {
   h.latest = stored("hash-old", 1);
   h.byHash = null;
   h.trip.lengthDays = 3;
+  h.trip.access = "owner";
+  h.trip.ownerId = "u1";
+  h.trip.wantsFlights = undefined;
+  h.ownerCtx = { birthdate: "1980-05-06", homeAirports: ["MUC"], locale: "en", displayName: "Alice" };
   h.planRow = { id: "plan1", latestVersion: 1, busyUntil: null };
   h.needsTags.mockReturnValue(false);
   h.facts = { places: { status: "unavailable", reason: "no_location" } };
@@ -120,6 +129,105 @@ beforeEach(() => {
   h.trip.destination = { kind: "city", lat: 36.5, lon: -4.9 };
   h.compose.mockResolvedValue({ ok: true, data: {}, usage: {} });
   h.assemble.mockReturnValue({ ok: true, plan: Plan, issues: {} });
+});
+
+describe("shared trips (sharing spec 1.1, 1.2, 3.5)", () => {
+  const owner = (access: "write" | "read") => {
+    h.trip.access = access;
+    h.trip.ownerId = "owner-1";
+  };
+  const withLocale = (locale: string) => {
+    h.latest = { ...stored("hash-old", 1), plan: { ...Plan, locale } };
+  };
+
+  it("a write grantee generates with the OWNER's birthdate, home airports and the language of the latest version", async () => {
+    owner("write");
+    withLocale("en");
+    h.trip.wantsFlights = true;
+    const res = await generatePlan(TRIP, "de"); // the grantee's request locale must not decide
+    expect(res).toMatchObject({ ok: true });
+    expect(h.build.mock.calls[0][0]).toMatchObject({ profileBirthdate: "1980-05-06", locale: "en" });
+    expect(h.getFacts.mock.calls[0][2]).toMatchObject({ locale: "en", userId: "u1" });
+    expect(h.getFacts.mock.calls[0][3]).toMatchObject({ withFlights: { homeAirports: ["MUC"] } });
+    expect(h.compose).toHaveBeenCalledTimes(1);
+    h.trip.wantsFlights = undefined;
+  });
+
+  it("the same input gives the same build arguments whoever presses the button (owner vs write grantee)", async () => {
+    withLocale("en");
+    h.trip.wantsFlights = true;
+    h.ownerCtx = { birthdate: "1999-01-02", homeAirports: ["FRA"], locale: "en", displayName: null }; // = the owner's own profile
+    await generatePlan(TRIP, "en"); // the owner themselves
+    resetRateLimits();
+    owner("write");
+    await generatePlan(TRIP, "de"); // a grantee, other request locale
+    const [own, shared] = h.build.mock.calls.map((c) => c[0] as Record<string, unknown>);
+    expect(shared.profileBirthdate).toBe(own.profileBirthdate);
+    expect(shared.locale).toBe(own.locale);
+    expect(h.getFacts.mock.calls[1][3]).toEqual(h.getFacts.mock.calls[0][3]);
+    h.trip.wantsFlights = undefined;
+  });
+
+  it("a first plan on a shared trip takes the owner's locale", async () => {
+    owner("write");
+    h.planRow = { id: "plan1", latestVersion: 0, busyUntil: null };
+    h.ensure.mockImplementation(async () => h.planRow);
+    h.latest = null;
+    await generatePlan(TRIP, "de");
+    expect(h.build.mock.calls[0][0]).toMatchObject({ locale: "en" }); // ownerCtx.locale
+  });
+
+  it("the owner's request locale and own profile values are unchanged for the owner", async () => {
+    await generatePlan(TRIP, "de");
+    expect(h.build.mock.calls[0][0]).toMatchObject({ profileBirthdate: "1999-01-02", locale: "de" });
+  });
+
+  it("AI usage is charged to the acting user, not to the owner", async () => {
+    owner("write");
+    withLocale("en");
+    h.compose.mockImplementation(async (_llm: unknown, ctx: { onUsage: (u: unknown) => Promise<void> }) => {
+      await ctx.onUsage({ costMicroUsd: 7 });
+      return { ok: true, data: {}, usage: {} };
+    });
+    await generatePlan(TRIP, "en");
+    expect(h.logUsage).toHaveBeenCalledWith("u1", false, expect.objectContaining({ costMicroUsd: 7 }));
+    expect(h.logUsage).not.toHaveBeenCalledWith("owner-1", expect.anything(), expect.anything());
+  });
+
+  it("the in-flight guard asks about the acting user's own runs", async () => {
+    await generatePlan(TRIP, "en");
+    expect(h.hasBusy).toHaveBeenCalledWith(expect.anything(), "u1");
+  });
+
+  it("a read grantee is forbidden on every write path, before any work", async () => {
+    owner("read");
+    expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "forbidden" });
+    expect(await iteratePlan(TRIP, 1, { days: [1], text: "x" } as never, "en")).toMatchObject({ ok: false, error: "forbidden" });
+    expect(await editPlanVersion(TRIP, 1, { kind: "set_best", n: null })).toMatchObject({ ok: false, error: "forbidden" });
+    expect(await restoreVersion(TRIP, 1)).toMatchObject({ ok: false, error: "forbidden" });
+    expect(h.compose).not.toHaveBeenCalled();
+    expect(h.patch).not.toHaveBeenCalled();
+    expect(h.insert).not.toHaveBeenCalled();
+    expect(h.acquire).not.toHaveBeenCalled();
+  });
+
+  it("a read grantee can still load the plan context (the page reads it)", async () => {
+    owner("read");
+    expect(await loadPlanContext(TRIP)).toMatchObject({ ok: true, ctx: { access: "read", ownerId: "owner-1", birthdate: "1980-05-06" } });
+  });
+
+  it("fails closed when the owner's context cannot be read: never falls back to the grantee's own values", async () => {
+    owner("write");
+    h.ownerCtx = null;
+    expect(await loadPlanContext(TRIP)).toMatchObject({ ok: false, error: "failed" });
+    h.ownerCtx = { birthdate: "1980-05-06", homeAirports: ["MUC"], locale: "en", displayName: "Alice" };
+  });
+
+  it("the owner path never reads the owner context", async () => {
+    h.ownerCtx = null; // would fail closed if it were read
+    expect(await loadPlanContext(TRIP)).toMatchObject({ ok: true, ctx: { access: "owner", birthdate: "1999-01-02", homeAirports: ["FRA"] } });
+    h.ownerCtx = { birthdate: "1980-05-06", homeAirports: ["MUC"], locale: "en", displayName: "Alice" };
+  });
 });
 
 describe("busy guards", () => {

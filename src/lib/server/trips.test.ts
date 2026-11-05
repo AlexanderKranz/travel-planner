@@ -5,7 +5,7 @@ vi.mock("server-only", () => ({}));
 type Result = { data?: unknown; error?: { code: string } | null; count?: number | null };
 const h = vi.hoisted(() => ({
   results: {} as Record<string, Result>, // key: `${table}.${op}`
-  ops: [] as { table: string; op: string; payload?: unknown }[],
+  ops: [] as { table: string; op: string; payload?: unknown; eqs: [string, unknown][] }[],
   session: true as boolean,
   getPlaceById: vi.fn(),
   warm: vi.fn(),
@@ -17,12 +17,14 @@ const h = vi.hoisted(() => ({
 function builder(table: string) {
   let op = "select";
   let payload: unknown;
+  const eqs: [string, unknown][] = [];
   const b: Record<string, unknown> = {};
   const settle = (): Result => {
-    h.ops.push({ table, op, payload });
+    h.ops.push({ table, op, payload, eqs });
     return { data: null, error: null, count: null, ...(h.results[`${table}.${op}`] ?? {}) };
   };
-  for (const m of ["select", "eq", "order", "returns"]) b[m] = () => b;
+  for (const m of ["select", "order", "returns"]) b[m] = () => b;
+  b.eq = (c: string, v: unknown) => { eqs.push([c, v]); return b; };
   b.insert = (p: unknown) => { op = "insert"; payload = p; return b; };
   b.update = (p: unknown) => { op = "update"; payload = p; return b; };
   b.delete = () => { op = "delete"; return b; };
@@ -51,7 +53,7 @@ const place = {
   lat: 36.51, lon: -4.88, timezone: "Europe/Madrid", population: 1, suggestedKind: "city" as const,
 };
 const row = {
-  id: "11111111-1111-4111-8111-111111111111", title: null, dest_kind: "city", dest_name: "Marbella",
+  id: "11111111-1111-4111-8111-111111111111", owner_id: "u1", title: null, dest_kind: "city", dest_name: "Marbella",
   dest_place_name: "Marbella", dest_geo_id: 2513918, dest_country_code: "ES", dest_admin1: "Andalusia",
   dest_lat: 36.51, dest_lon: -4.88, dest_timezone: "Europe/Madrid", dest_radius_km: null, length_days: 5,
   start_date: null, months: [], group_id: null, group_text: null, group_structure: null, group_parsed: null,
@@ -96,6 +98,14 @@ describe("createTrip", () => {
     h.results["trips.select"] = { count: 30 };
     expect(await createTrip(input)).toEqual({ ok: false, error: "limit_reached" });
     expect(h.ops.some((o) => o.op === "insert")).toBe(false);
+  });
+
+  it("the cap counts own trips only: shared trips are readable but do not count (sharing spec 3.5)", async () => {
+    h.results["trips.select"] = { count: 0, data: row };
+    h.results["trips.insert"] = { data: row };
+    await createTrip(input);
+    const count = h.ops.find((o) => o.table === "trips" && o.op === "select")!;
+    expect(count.eqs).toContainEqual(["owner_id", "u1"]);
   });
 
   it("unknown_place when the geoId cannot be resolved; failed when the lookup throws", async () => {
@@ -157,7 +167,8 @@ describe("one-off group of the trip", () => {
     expect(res).toMatchObject({ ok: true, data: { groupText: text, groupId: null } });
     const insert = h.ops.find((o) => o.table === "trips" && o.op === "insert")!.payload as Record<string, unknown>;
     expect(insert).toMatchObject({ group_id: null, group_text: text, group_structure: null });
-    expect(h.ensureParse).toHaveBeenCalledWith(expect.anything(), { table: "trips", id: row.id }, text, false);
+    // The parse is saved with the OWNER of the row (here also the actor).
+    expect(h.ensureParse).toHaveBeenCalledWith(expect.anything(), { table: "trips", id: row.id, ownerId: "u1" }, text, false);
   });
 
   it("a saved group wins over stray text: no text is stored", async () => {
@@ -232,6 +243,86 @@ describe("updateTrip / getTrip / deleteTrip / listTrips", () => {
   it("listTrips embeds group and purpose names", async () => {
     h.results["trips.select"] = { data: [{ ...row, travel_groups: { name: "G" }, trip_purposes: null }] };
     const res = await listTrips();
-    expect(res).toMatchObject({ ok: true, data: [{ groupName: "G", purposeName: null }] });
+    expect(res).toMatchObject({ ok: true, data: [{ groupName: "G", purposeName: null, access: "owner", sharedBy: null, shareCount: 0 }] });
+  });
+
+  it("listTrips means mine: it filters by owner (RLS also returns shared trips) and counts the grants", async () => {
+    h.results["trips.select"] = { data: [{ ...row, travel_groups: null, trip_purposes: null, share_count: [{ count: 3 }] }] };
+    const res = await listTrips();
+    expect(res).toMatchObject({ ok: true, data: [{ shareCount: 3 }] });
+    expect(h.ops.find((o) => o.table === "trips")!.eqs).toContainEqual(["owner_id", "u1"]);
+  });
+});
+
+describe("shared trips: access, conflicts and owner-only columns (sharing spec 3.5, 3.6)", () => {
+  const GROUP = "22222222-2222-4222-8222-222222222222";
+  const PURPOSE = "33333333-3333-4333-8333-333333333333";
+  const shared = (access: "read" | "write") => ({
+    ...row,
+    owner_id: "owner-9",
+    group_id: GROUP,
+    purpose_id: PURPOSE,
+    trip_shares: [{ grantee_id: "u1", access }],
+  });
+  const updateOp = () => h.ops.find((o) => o.table === "trips" && o.op === "update")!;
+
+  it("getTrip carries ownerId and the viewer's access", async () => {
+    h.results["trips.select"] = { data: shared("write") };
+    expect(await getTrip(row.id)).toMatchObject({ ok: true, data: { ownerId: "owner-9", access: "write" } });
+    h.results["trips.select"] = { data: row };
+    expect(await getTrip(row.id)).toMatchObject({ ok: true, data: { ownerId: "u1", access: "owner" } });
+  });
+
+  it("a write grantee updates the fields, but group and purpose stay as stored", async () => {
+    h.results["trips.select"] = { data: shared("write") };
+    h.results["trips.update"] = { data: shared("write") };
+    const res = await updateTrip(row.id, { ...input, lengthDays: 7, groupId: null, purposeId: null });
+    expect(res).toMatchObject({ ok: true });
+    expect(updateOp().payload).toMatchObject({ length_days: 7, group_id: GROUP, purpose_id: PURPOSE, group_text: null });
+  });
+
+  it("an owner's group and purpose changes are written as given", async () => {
+    h.results["trips.select"] = { data: { ...row, group_id: GROUP, purpose_id: PURPOSE } };
+    h.results["trips.update"] = { data: row };
+    await updateTrip(row.id, { ...input, groupId: null, purposeId: null });
+    expect(updateOp().payload).toMatchObject({ group_id: null, purpose_id: null });
+  });
+
+  it("a read grantee gets forbidden and nothing is written", async () => {
+    h.results["trips.select"] = { data: shared("read") };
+    expect(await updateTrip(row.id, input)).toEqual({ ok: false, error: "forbidden" });
+    expect(h.ops.some((o) => o.op === "update")).toBe(false);
+  });
+
+  it("the owner-only trigger (42501) maps to forbidden", async () => {
+    h.results["trips.select"] = { data: shared("write") };
+    h.results["trips.update"] = { error: { code: "42501" } };
+    expect(await updateTrip(row.id, input)).toEqual({ ok: false, error: "forbidden" });
+  });
+
+  it("a stale expectedUpdatedAt is a conflict before any write", async () => {
+    h.results["trips.select"] = { data: row };
+    expect(await updateTrip(row.id, input, "2025-12-31T00:00:00Z")).toEqual({ ok: false, error: "conflict" });
+    expect(h.ops.some((o) => o.op === "update")).toBe(false);
+  });
+
+  it("the write is conditional on updated_at; no row back after a matching read is a conflict (lost race)", async () => {
+    h.results["trips.select"] = { data: row };
+    h.results["trips.update"] = { data: null };
+    expect(await updateTrip(row.id, input, row.updated_at)).toEqual({ ok: false, error: "conflict" });
+    expect(updateOp().eqs).toContainEqual(["updated_at", row.updated_at]);
+  });
+
+  it("a matching expectedUpdatedAt writes", async () => {
+    h.results["trips.select"] = { data: row };
+    h.results["trips.update"] = { data: { ...row, title: "New" } };
+    expect(await updateTrip(row.id, { ...input, title: "New" }, row.updated_at)).toMatchObject({ ok: true });
+  });
+
+  it("without expectedUpdatedAt there is no conflict check and no updated_at condition", async () => {
+    h.results["trips.select"] = { data: row };
+    h.results["trips.update"] = { data: row };
+    await updateTrip(row.id, input);
+    expect(updateOp().eqs.map((e) => e[0])).not.toContain("updated_at");
   });
 });

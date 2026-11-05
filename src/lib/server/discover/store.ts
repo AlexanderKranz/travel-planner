@@ -162,11 +162,13 @@ export type FoundTags = { tags: PurposeTags; from: "search" | "purpose" };
 
 /**
  * Tag lookup of spec 13.2, user session: this owner's searches with `purpose_tags_hash = hash` (newest first), then
- * this owner's purposes with `parsed_hash = hash`. `purposeTagsHash` covers exactly text, constraints and custom
+ * the purposes with `parsed_hash = hash` that are the user's own or shared with the user (`purpose_shares` to them).
+ * RLS also returns purposes seen only through a shared trip; those are NOT used here (sharing spec 3.8), so the lookup
+ * names the owner and the shared ids explicitly. `purposeTagsHash` covers exactly text, constraints and custom
  * interests, so equal hashes mean the tags were made from the same input. Invalid stored tags count as missing.
  * Throws on a read error: the caller fails closed instead of spending a Haiku call on a failed read.
  */
-export async function findTagsByHash(sb: SupabaseClient, hash: string): Promise<FoundTags | null> {
+export async function findTagsByHash(sb: SupabaseClient, hash: string, userId: string): Promise<FoundTags | null> {
   const fromSearch = await sb
     .from("destination_searches")
     .select("purpose_tags")
@@ -179,10 +181,15 @@ export async function findTagsByHash(sb: SupabaseClient, hash: string): Promise<
     const t = PurposeTags.safeParse(r.purpose_tags);
     if (t.success) return { tags: t.data, from: "search" };
   }
+  // The user's incoming purpose shares (RLS: their own rows only; none for a disabled owner).
+  const shares = await sb.from("purpose_shares").select("purpose_id").eq("grantee_id", userId).returns<{ purpose_id: string }[]>();
+  if (shares.error) throw new Error("share read failed");
+  const sharedIds = (shares.data ?? []).map((s) => s.purpose_id);
   const fromPurpose = await sb
     .from("trip_purposes")
     .select("parsed_tags")
     .eq("parsed_hash", hash)
+    .or(sharedIds.length ? `owner_id.eq.${userId},id.in.(${sharedIds.join(",")})` : `owner_id.eq.${userId}`)
     .order("updated_at", { ascending: false })
     .limit(5)
     .returns<{ parsed_tags: unknown }[]>();

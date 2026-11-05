@@ -80,6 +80,7 @@ export async function schedulePurposeWarm(session: Session, purposeId: string): 
           session.supabase
             .from("trips")
             .select(TRIP_COLUMNS)
+            .eq("owner_id", session.userId) // RLS also returns trips shared with the user: warm own trips only
             .eq("purpose_id", purposeId)
             .order("updated_at", { ascending: false })
             .limit(PURPOSE_WARM_TRIPS)
@@ -92,7 +93,7 @@ export async function schedulePurposeWarm(session: Session, purposeId: string): 
         for (const row of rows) {
           const left = WARM_BUDGET_MS - (Date.now() - started);
           if (left < 30_000) break;
-          await warmTripFacts(rowToTrip(row), purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: left });
+          await warmTripFacts(rowToTrip(row, session.userId), purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: left });
         }
       } catch {
         // warming is best effort

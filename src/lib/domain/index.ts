@@ -16,4 +16,5 @@ export * from "./ai";
 export * from "./flights";
 export * from "./items";
 export * from "./share";
+export * from "./sharing";
 export * from "./destination-search";

@@ -30,7 +30,7 @@ export function defaultLimitHours(maxBlockMin: number | null): number | null {
  * Built here without `one-off.ts` because that file pulls in node:crypto through the hash, which a client bundle cannot take.
  */
 export function textLimitHours(text: string): number | null {
-  const purpose: TripPurpose = { id: "", name: "", text: text.trim(), guided: {}, constraints: [], tags: null, createdAt: "", updatedAt: "" };
+  const purpose: TripPurpose = { id: "", name: "", text: text.trim(), guided: {}, constraints: [], tags: null, ownerId: "", access: "owner", usable: true, createdAt: "", updatedAt: "" };
   return defaultLimitHours(maxBlockMinutes(purpose));
 }
 
