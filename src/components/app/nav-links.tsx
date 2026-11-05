@@ -46,7 +46,7 @@ export function NavLinks({ isAdmin = false, showFeedback = false }: { isAdmin?: 
           <li className="flex items-center">
             {onFeedback ? (
               <span aria-current="page" className="inline-flex min-h-11 items-center px-2">
-                <span className="rounded-full border border-nav-underline bg-white/10 px-3 py-1 text-sm font-medium text-nav-underline">
+                <span className="rounded-full border border-nav-underline bg-white/10 px-3 py-1 text-sm font-medium text-feature-accent">
                   {tf("nav")}
                 </span>
               </span>
@@ -56,7 +56,7 @@ export function NavLinks({ isAdmin = false, showFeedback = false }: { isAdmin?: 
                 title={tf("navTitle")}
                 className="group inline-flex min-h-11 items-center px-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-feature-accent"
               >
-                <span className="rounded-full border border-header-muted/50 px-3 py-1 text-sm font-medium text-nav-underline group-hover:border-header-fg">
+                <span className="rounded-full border border-header-muted/50 px-3 py-1 text-sm font-medium text-feature-accent group-hover:border-header-fg">
                   {tf("nav")}
                 </span>
               </Link>
