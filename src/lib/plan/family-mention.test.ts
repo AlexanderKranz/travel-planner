@@ -34,7 +34,7 @@ describe("mentionsFamily (issue #142)", () => {
 
 describe("withFamilyFallback", () => {
   it("adds family_activities when the text or a constraint mentions children", () => {
-    expect(withFamilyFallback(tags(), ["Kreuzfahrt mit Kleinkind"]).interests).toEqual(["christmas_markets", "cruise", "family_activities"]);
+    expect(withFamilyFallback(tags(), ["Kreuzfahrt mit Kleinkind"]).interests).toEqual(["family_activities", "christmas_markets", "cruise"]);
     expect(withFamilyFallback(tags(), [undefined, "toddler nap midday"]).interests).toContain("family_activities");
   });
 

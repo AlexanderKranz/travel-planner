@@ -21,8 +21,8 @@ export function mentionsFamily(text: string | null | undefined): boolean {
   return !!text && (FAMILY_WORDS.test(text) || KIND.test(text));
 }
 
-/** Tags with `family_activities` added (at the end) when one of `texts` mentions children or a family. */
+/** Tags with `family_activities` added (first, so the MAX_INTEREST_QUERIES cap never drops it) when one of `texts` mentions children or a family. */
 export function withFamilyFallback(tags: PurposeTags, texts: readonly (string | null | undefined)[]): PurposeTags {
   if (tags.interests.includes("family_activities") || !texts.some(mentionsFamily)) return tags;
-  return { ...tags, interests: [...tags.interests, "family_activities"] };
+  return { ...tags, interests: ["family_activities", ...tags.interests] };
 }
