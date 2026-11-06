@@ -973,7 +973,7 @@
     "itemsChanged": "Kostenpunkte mit Uhrzeit wurden nach dieser Planversion geändert. Der Tagesplan zeigt sie schon an; damit die Aktivitäten darum herum passen, den Plan neu erstellen.",
     "fixedItem": "fester Termin",
     "regenerate": {
-      "title": "Neu erstellen",
+      "predatesSuggestions": "Dieser Plan wurde vor den konkreten Restaurant- und Aktivitätsvorschlägen erstellt. Plan neu erstellen, um sie zu bekommen.",
       "button": "Plan neu erstellen",
       "confirm": "Erstellt mit KI eine neue Version. Die aktuelle bleibt im Versionsverlauf.",
       "confirmButton": "Ja, neu erstellen",

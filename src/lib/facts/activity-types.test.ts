@@ -7,10 +7,15 @@ import {
   groupsForWishes,
   placeGroup,
   radiusForGroup,
+  splitGroupTypes,
   typesInGroup,
+  isOpenAirBath,
 } from "./activity-types";
 import { MAX_RADIUS_KM } from "./interest-sources";
 import { matchesFilter } from "./places";
+
+/** Types an adult open wish expands to: the group without family types. */
+const adult = (g: "indoor" | "outdoor") => typesInGroup(g).filter((t) => !ACTIVITY_SOURCES[t].family);
 
 describe("activity catalogue", () => {
   it("every type has a group, at least one filter and a sane radius", () => {
@@ -43,6 +48,23 @@ describe("activity catalogue", () => {
     expect(typesInGroup("outdoor")).toContain("playground");
     expect(placeGroup("playground", {})).toBe("outdoor");
   });
+  it("open-air words: German compounds match, short words need word boundaries", () => {
+    expect(isOpenAirBath({ name: "Waldfreibad Nord" })).toBe(true);
+    expect(isOpenAirBath({ name: "Lido di Venezia" })).toBe(true);
+    expect(isOpenAirBath({ name: "Seebad Heringsdorf" })).toBe(true);
+    expect(isOpenAirBath({ name: "Lidobar Bad" })).toBe(false);
+    expect(isOpenAirBath({ name: "Ostseebadhalle" })).toBe(false);
+  });
+  it("combined facilities and indoor names count as indoor unless indoor=no", () => {
+    for (const name of ["Hallen- und Freibad Mitte", "Hallenbad & Freibad Süd", "Indoor & Outdoor Pool", "Therme am Freibad", "Sauna- und Freibad", "Erlebnisbad Strandbad"]) {
+      expect(isOpenAirBath({ name }), name).toBe(false);
+    }
+    expect(isOpenAirBath({ name: "Hallen- und Freibad Mitte", indoor: "no" })).toBe(true);
+    expect(isOpenAirBath({ name: "Freibad", covered: "yes" })).toBe(false);
+    // Only the mapper's note says Freibad for an ambiguous name: open-air (recorded Passau PEB).
+    expect(isOpenAirBath({ name: "Passauer Erlebnisbad (PEB)", note: "Freibad" })).toBe(true);
+    expect(isOpenAirBath({ name: "Erlebnisbad" })).toBe(false);
+  });
   it("open-air pools and bathing lakes count as outdoor swimming", () => {
     expect(placeGroup("swimming", { leisure: "water_park", name: "Freibad Haselbach" })).toBe("outdoor");
     expect(placeGroup("swimming", { amenity: "public_bath", name: "Raßbacher Naturbadeweiher" })).toBe("outdoor");
@@ -66,20 +88,53 @@ describe("activity catalogue", () => {
   });
 });
 
+describe("splitGroupTypes", () => {
+  it("separates the types with a Geoapify category from the Overpass-only ones, catalogue order", () => {
+    expect(splitGroupTypes("indoor", true)).toEqual({
+      geoapify: ["escape_game", "bowling", "cinema", "theatre", "climbing_hall", "swimming"],
+      overpass: ["karaoke", "indoor_play"],
+    });
+    expect(splitGroupTypes("outdoor", true).geoapify).toEqual(["boat_rental", "minigolf", "playground"]);
+    expect(splitGroupTypes("going_out", true)).toEqual({ geoapify: ["bar"], overpass: [] });
+  });
+  it("without a Geoapify key everything is Overpass", () => {
+    expect(splitGroupTypes("going_out", false)).toEqual({ geoapify: [], overpass: ["bar"] });
+    expect(splitGroupTypes("indoor", false).geoapify).toEqual([]);
+  });
+  it("the radius of a part is the largest of its own types", () => {
+    expect(radiusForGroup("outdoor", ["playground"])).toBe(3);
+    expect(radiusForGroup("indoor", splitGroupTypes("indoor", true).geoapify)).toBe(15);
+  });
+});
+
 describe("expandWish", () => {
   it("a closed wish keeps exactly its types", () => {
     expect(expandWish({ types: ["escape_game"], open: false })).toEqual(["escape_game"]);
   });
-  it("an open wish expands to the whole group (catalogue order)", () => {
+  it("an open wish expands to the whole group without family types (catalogue order)", () => {
     const t = expandWish({ types: ["escape_game"], open: true });
-    expect(t).toEqual(typesInGroup("indoor"));
+    expect(t).toEqual(adult("indoor"));
     expect(t).toContain("bowling");
     expect(t).not.toContain("minigolf");
   });
   it("an open wish without types uses its group; without either it is empty", () => {
-    expect(expandWish({ types: [], open: true, group: "outdoor" })).toEqual(typesInGroup("outdoor"));
+    expect(expandWish({ types: [], open: true, group: "outdoor" })).toEqual(adult("outdoor"));
     expect(expandWish({ types: [], open: true })).toEqual([]);
     expect(expandWish({ types: [], open: false, group: "outdoor" })).toEqual([]);
+  });
+  it("family types (QA #137): never added to adult open wishes, kept for named ones and family open wishes", () => {
+    expect(ACTIVITY_TYPES.filter((t) => ACTIVITY_SOURCES[t].family)).toEqual(["indoor_play", "swimming", "playground"]);
+    const indoor = expandWish({ types: ["escape_game"], open: true });
+    expect(indoor).not.toContain("indoor_play");
+    expect(indoor).not.toContain("swimming");
+    expect(expandWish({ types: ["rowing"], open: true })).not.toContain("playground");
+    expect(expandWish({ types: [], open: true, group: "indoor" })).not.toContain("indoor_play");
+    expect(expandWish({ types: ["indoor_play"], open: false })).toEqual(["indoor_play"]);
+    expect(expandWish({ types: ["indoor_play"], open: true })).toEqual(typesInGroup("indoor"));
+    expect(expandWish({ types: ["playground"], open: true })).toContain("minigolf");
+    // The lookup union still has them, so a named wish is served by the same group query.
+    expect(groupsForWishes([{ types: ["swimming"], open: false }])).toEqual(["indoor"]);
+    expect(typesInGroup("indoor")).toContain("indoor_play");
   });
 });
 
@@ -112,7 +167,7 @@ describe("groupsForWishes", () => {
   });
   it("with types, each type's own group is used and the entry's group is ignored", () => {
     expect(groupsForWishes([{ types: ["cinema"], open: false, group: "outdoor" }])).toEqual(["indoor"]);
-    expect(expandWish({ types: ["cinema"], open: true, group: "outdoor" })).toEqual(typesInGroup("indoor"));
+    expect(expandWish({ types: ["cinema"], open: true, group: "outdoor" })).toEqual(adult("indoor"));
   });
 });
 

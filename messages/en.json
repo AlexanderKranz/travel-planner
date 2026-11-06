@@ -973,7 +973,7 @@
     "itemsChanged": "Cost items with a time changed after this plan version. The daily plan already shows them; regenerate the plan so the activities fit around them.",
     "fixedItem": "fixed booking",
     "regenerate": {
-      "title": "Regenerate",
+      "predatesSuggestions": "This plan was made before concrete restaurant and activity suggestions. Regenerate the plan to get them.",
       "button": "Regenerate plan",
       "confirm": "Creates a new version with AI. The current one stays in the version history.",
       "confirmButton": "Yes, regenerate",

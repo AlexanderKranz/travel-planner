@@ -47,6 +47,11 @@ export const WirePlan = z.object({
   open: z.array(WireOpen),
   packing: z.array(z.string()),
 });
+/**
+ * Patch wire schema. The API allows at most 24 optional parameters per structured-output schema (HTTP 400 above);
+ * this one has 22 (unit test asserts <= 23). Prefer required fields with a neutral value (`kids: false`, `near: ""`)
+ * over new optional ones.
+ */
 export const WirePatch = z.object({
   reply: z.string(),
   days: z.array(WireDay),

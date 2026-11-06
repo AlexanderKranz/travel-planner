@@ -22,10 +22,11 @@ describe("retryKey", () => {
       retryKey({ kind: "cafes", dest }),
       retryKey({ kind: "restaurants", dest: { ...dest, kind: "region" } }),
       retryKey({ kind: "restaurants", dest, near: { lat: 49.02, lon: 12.11 } }),
-      retryKey({ kind: "activity_group", group: "indoor", dest }),
-      retryKey({ kind: "activity_group", group: "outdoor", dest }),
+      retryKey({ kind: "activity_group", group: "indoor", dest, wanted: [] }),
+      retryKey({ kind: "activity_group", group: "outdoor", dest, wanted: [] }),
+      retryKey({ kind: "activity_group", group: "indoor", dest, wanted: ["bowling"] }),
     ]);
-    expect(keys.size).toBe(6);
+    expect(keys.size).toBe(7);
   });
 });
 
@@ -47,9 +48,19 @@ describe("jobsForActivityLookups", () => {
     expect(jobs.map((j) => j.kind)).toEqual(["activity_group", "activity_group", "cafes"]);
     expect(jobs.map((j) => (j.params as { group?: string }).group)).toEqual(["indoor", "outdoor", undefined]);
   });
-  it("a partial group (ok, but one part failed) is enqueued", () => {
-    const jobs = jobsForActivityLookups(dest, { activities: [{ group: "indoor", status: "ok", places: [], partial: true } as never] });
+  it("a partial group enqueues only when a named type failed, with the wished types as `wanted`", () => {
+    const partial = { group: "indoor", status: "ok", places: [], partial: true, typeStatus: { bowling: "ok", cinema: "error" } } as never;
+    expect(jobsForActivityLookups(dest, { activities: [partial] }, undefined, { types: new Set(["bowling"]) })).toEqual([]);
+    const jobs = jobsForActivityLookups(dest, { activities: [partial] }, undefined, { types: new Set(["cinema", "bowling", "hiking" as never]) });
     expect(jobs.map((j) => j.kind)).toEqual(["activity_group"]);
+    expect((jobs[0].params as { wanted: string[] }).wanted.sort()).toEqual(["bowling", "cinema"]);
+  });
+  it("an open wish's extra types never enqueue; a group-only wish does", () => {
+    const failedExtra = { group: "indoor", status: "ok", places: [], typeStatus: { bowling: "ok", cinema: "error" } } as never;
+    expect(jobsForActivityLookups(dest, { activities: [failedExtra] }, undefined, { types: new Set(["bowling"]) })).toEqual([]);
+    const groupOnly = { group: "indoor", status: "error", places: [], typeStatus: { bowling: "error", cinema: "error" } } as never;
+    const jobs = jobsForActivityLookups(dest, { activities: [groupOnly] }, undefined, { types: new Set(), groups: new Set(["indoor"]) });
+    expect((jobs[0].params as { wanted: string[] }).wanted).toEqual([]);
   });
   it("keeps the near point of a change request and rounds it", () => {
     const [j] = jobsForActivityLookups(dest, { restaurants: { status: "error", restaurants: [] } }, { restaurants: { lat: 49.123456, lon: 12.654321 } });

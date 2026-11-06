@@ -8,7 +8,7 @@ vi.mock("./facts/activities", () => ({ getActivityGroupFacts: vi.fn(), getCafeFa
 vi.mock("./facts/places", () => ({ retryInterestLookup: vi.fn() }));
 
 import type { RetrySpec } from "@/lib/places-retry";
-import { enqueuePlaceRetries, isComplete, JOB_GRACE_MS, MIN_JOB_START_MS, processJobs, RUN_BUDGET_MS, type JobRow } from "./place-retries";
+import { enqueuePlaceRetries, groupDone, JOB_GRACE_MS, MIN_JOB_START_MS, processJobs, RUN_BUDGET_MS, type JobRow } from "./place-retries";
 
 const T0 = Date.parse("2026-11-06T12:00:00Z");
 const spec: RetrySpec = { kind: "restaurants", dest: { lat: 49, lon: 12, kind: "city" } };
@@ -97,13 +97,23 @@ describe("processJobs", () => {
   });
 });
 
-describe("isComplete", () => {
-  it("ok and empty are complete, partial ok is not, errors are not", () => {
-    expect(isComplete({ status: "ok", data: { places: [] } })).toBe(true);
-    expect(isComplete({ status: "empty", data: {} })).toBe(true);
-    expect(isComplete({ status: "ok", data: { partial: true } })).toBe(false);
-    expect(isComplete({ status: "error" })).toBe(false);
-    expect(isComplete({ status: "skipped" })).toBe(false);
+describe("groupDone", () => {
+  const fact = (status: string, typeStatus: Record<string, string>) => ({ status, data: { typeStatus, partial: true } }) as never;
+  it("ok/empty with the wanted types answered is done, even if an unwished part failed", () => {
+    expect(groupDone(fact("ok", { bowling: "ok", cinema: "error" }), ["bowling"])).toBe(true);
+    expect(groupDone(fact("empty", { bowling: "empty" }), ["bowling"])).toBe(true);
+  });
+  it("a failed or skipped wanted type keeps the job alive", () => {
+    expect(groupDone(fact("ok", { bowling: "error", cinema: "ok" }), ["bowling"])).toBe(false);
+    expect(groupDone(fact("ok", { bowling: "skipped" }), ["bowling"])).toBe(false);
+  });
+  it("no wanted types (group-only wish): every type counts", () => {
+    expect(groupDone(fact("ok", { bowling: "ok", cinema: "error" }), [])).toBe(false);
+    expect(groupDone(fact("ok", { bowling: "ok", cinema: "cut" }), [])).toBe(true);
+  });
+  it("error and skipped lookups are never done", () => {
+    expect(groupDone({ status: "error", source: "osm" } as never, ["bowling"])).toBe(false);
+    expect(groupDone({ status: "skipped", reason: "cache_only" } as never, [])).toBe(false);
   });
 });
 

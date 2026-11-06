@@ -93,6 +93,17 @@ describe("getVersionLight", () => {
     const { sb } = client({ data: row({ pending_places: ["golf"] }), error: null });
     expect((await getVersionLight(sb, "p", 3))?.pendingPlaces).toEqual(["golf"]);
   });
+  it("hasRestaurants follows the stored restaurants status (also skipped/error), false when absent", async () => {
+    expect((await getVersionLight(client({ data: row(), error: null }).sb, "p", 3))?.hasRestaurants).toBe(false);
+    for (const s of ["ok", "empty", "skipped", "error"]) {
+      expect((await getVersionLight(client({ data: row({ restaurants_status: s }), error: null }).sb, "p", 3))?.hasRestaurants).toBe(true);
+    }
+  });
+  it("selects only the restaurants status, not the block", async () => {
+    const { sb, seen } = client({ data: row(), error: null });
+    await getVersionLight(sb, "p", 3);
+    expect(seen.select).toContain("restaurants_status:input->llm->restaurants->>s");
+  });
   it("returns null for no row, an invalid plan or invalid pendingPlaces, and throws on a read error", async () => {
     expect(await getVersionLight(client({ data: null, error: null }).sb, "p", 3)).toBeNull();
     expect(await getVersionLight(client({ data: row({ plan: { nope: 1 } }), error: null }).sb, "p", 3)).toBeNull();

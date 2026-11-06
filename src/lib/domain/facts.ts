@@ -1,7 +1,7 @@
 import type { InterestKey } from "./interests";
 import type { FlightsFacts } from "./flights";
 import type { Locale } from "./profile";
-import type { ActivityGroup } from "@/lib/facts/activity-types";
+import type { ActivityGroup, ActivityType } from "@/lib/facts/activity-types";
 import type { ActivityPlace } from "@/lib/facts/activity-places";
 import type { Cafe, Restaurant } from "@/lib/facts/cuisine";
 
@@ -84,7 +84,23 @@ export type PlacesFacts = { radiusKm: number; groups: PlaceGroup[]; customIntere
 export type LookupStatus = "ok" | "empty" | "error" | "skipped";
 /** `truncated`: the source answer hit its cap (status stays ok); `reason` explains a `skipped` lookup. */
 type LookupMeta = { fetchedAt?: string; truncated?: boolean; reason?: "no_location" | "cache_only" };
-export type ActivityGroupLookup = { group: ActivityGroup; status: LookupStatus; places: ActivityPlace[] } & LookupMeta;
+/**
+ * Per-type outcome of a group lookup: a lookup status, `cut` = the answer hit its cap without this type, or
+ * `unrequested` = no wish asked for the type and its source part was not fetched (never pending, never "nothing found").
+ */
+export type ActivityTypeStatus = LookupStatus | "cut" | "unrequested";
+/**
+ * `typeStatus` (Addendum 3, per-source lookups): what each type of the group really got. `partial`: a source part
+ * failed or was skipped; the places are the other part's and the group is not complete. Both absent in lookups built
+ * before Addendum 3: the per-type status is then derived from the group status (`lookupTypeStatus`).
+ */
+export type ActivityGroupLookup = {
+  group: ActivityGroup;
+  status: LookupStatus;
+  places: ActivityPlace[];
+  typeStatus?: Partial<Record<ActivityType, ActivityTypeStatus>>;
+  partial?: true;
+} & LookupMeta;
 export type RestaurantLookup = { status: LookupStatus; restaurants: Restaurant[]; radiusKm?: number } & LookupMeta;
 /** Cafés near the destination point (addendum A2); loaded only when a wish or change request asks for them. */
 export type CafeLookup = { status: LookupStatus; cafes: Cafe[]; radiusKm?: number } & LookupMeta;

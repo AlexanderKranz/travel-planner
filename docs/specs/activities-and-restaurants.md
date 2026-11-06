@@ -340,6 +340,13 @@ Deviations:
   `placeGroup` now gives a swimming place `g = outdoor` when it is tagged `indoor=no`/`covered=no` or its name or
   note says Freibad, Strandbad, Naturbad, Waldbad, Badeweiher, Badesee, Seebad, Flussbad, lido, open-air or
   outdoor pool (`indoor=yes`/`covered=yes` win). The prompt says such places are for warm weather only.
+  After QA: a name with an indoor word (Hallen, Indoor, Therme, Sauna, Erlebnisbad, Spaßbad, Spa) counts as indoor,
+  also as a combined "Hallen- und Freibad", unless `indoor=no` or only the mapper's note says Freibad; `seebad`,
+  `lido`, `open-air` need word boundaries. Swimming places are classified before the per-type cut: indoor pools
+  first, at most 2 open-air ones, so a winter Hallenbad wish is not crowded out by near Freibäder.
+- **Family types only for family wishes** (after QA): `indoor_play`, `swimming` and `playground` carry `family`;
+  an open wish adds them as alternatives only when it names a family type itself, so an adult "escape room, only an
+  idea" never gets ball pits or playgrounds. They stay in the group's lookup union, so named wishes are served.
 - `needPlaces.restaurants.cuisine.kids` and `needPlaces.cafes.{near, kids}` are required in the wire schema
   (`kids: false` = not asked, `near: ""` = none): the API allows at most 24 optional parameters per structured-output
   schema, and optional fields would have made 25 (a live call failed with HTTP 400). A unit test now guards the
@@ -399,9 +406,13 @@ Decisions:
   is already queued changes nothing, in particular it does not extend `give_up_at`.
 - **[R4b] Cooldown.** `place_retry_enqueue` skips a key that has a `gave_up` row updated within the last 6 hours, so
   repeated user actions cannot keep one search retrying. After 6 hours a failing lookup is a new search. The window
-  itself (`created_at`, `give_up_at`) cannot be changed after creation (trigger). A group that came back `ok` but
-  `partial` (one Geoapify part failed) counts as failed: it is enqueued, and a job is `done` only for a complete
-  ok/empty result.
+  itself (`created_at`, `give_up_at`) cannot be changed after creation (trigger).
+- **[R4c] Scope of a group job.** Activity group jobs use the same blocking scope as `places_pending`
+  (`blockingScope`): only named types, and groups of group-only wishes, enqueue; an open wish's extra types never do.
+  The job stores the wished types of its group (`wanted`, part of the dedupe key) and the worker passes them to
+  `getActivityGroupFacts`, so a retry fetches only what was asked for. A job is `done` when the result is ok/empty and
+  no wanted type is `error` or `skipped` (with no wanted types, no type of the group); a failed part that holds only
+  unwished types does not keep a job alive.
 - **[R5] Trigger.** Vercel Hobby crons run once a day, so `pg_cron` calls `GET /api/cron/place-retries` through
   `pg_net` every 5 minutes. The URL and `CRON_SECRET` are read from Supabase Vault (`app_base_url`, `cron_secret`)
   inside the cron function, never from a migration. Without them (or without pg_net / vault) the function logs
@@ -427,3 +438,53 @@ Not changed: what the user sees. The plan still answers `places_pending` when pl
 
 Ratings, prices and opening-hour checks (no free reliable source); booking links; multi-anchor trips
 (`concrete-places.md` D8).
+
+## Addendum 3: Geoapify per type (lookups split per source, 2026-11-06)
+
+Overpass was too slow (504 after 45 s, mirrors 80-100 s) for the union of a whole group, and `indoor`/`outdoor` always
+went to Overpass because one type (karaoke ...) has no Geoapify category. A group is now looked up in two parts:
+
+- Types with a Geoapify category: one Geoapify request per type, with the type's own radius (playground 3 km, not the
+  group's 25 km) and the OSM filters applied in code. If Geoapify fails, those types fall back to an Overpass union of just their lines.
+- Types without a category (karaoke, indoor_play, climbing crags, rowing, canoe, karting, footgolf): one Overpass union
+  of just those lines, last, with the budget that is left. Without a Geoapify key all types are one Overpass union.
+- `climbing_hall` is now mapped to `entertainment.activity_park.climbing` (probed Munich: all hits are `sport=climbing` halls).
+- Cache version 4 for activities; each part has its own key (`part` geo/osm, `t` = its types).
+
+`LookupFact<ActivityGroupFacts>` keeps its status meaning (`ok` places found or result cut; `empty` complete, all parts,
+no match; `error`/`skipped` nothing usable) and adds `data.typeStatus` (every type of the group: `ok`, `empty`, `cut`,
+`error`, `skipped`) and `data.partial`. If one part failed and the other worked, status is `ok` with `partial: true`
+(never `empty`), the other part's places are kept and only the failed part's types are `error`/`skipped`. The plan may only say "nothing
+found" for a type with `typeStatus === "empty"`.
+
+Wiring (plan side):
+- `groupLookup` carries `typeStatus` and `partial` into `ActivityGroupLookup` (TripFacts is not persisted, so no
+  facts version; the cache version 4 above already covers the stored part results). A group that failed or was
+  skipped as a whole marks every one of its types the same. A lookup without `typeStatus` (built by older code)
+  derives it from the group status as before (`lookupTypeStatus`).
+- Pending: a group is pending when it failed, was skipped for lack of time, is `partial`, or one of its types is
+  `error` (or `skipped` in a cache-only run). Generate and the change-request path both use
+  `activityPlacesPending`. `cut` and `empty` are final. The retry re-runs only the failed part: the part that worked
+  is a cache hit under its own key.
+- Input: the status is decided per type. A `partial` group keeps the working part's places and status; the failed
+  part's types are `error`/`skipped`, `cut` stays `cut`. A type that `typeStatus` calls `ok` but whose places were
+  dropped by the group cap is sent as `cut`, never `empty`. A type whose only place is already listed under another
+  type of the wish reuses that place (before, it was reported `empty`).
+- Prompt rule 15 says the status is per type (plan-7 is not released yet, so no version bump).
+
+After QA (#139):
+- Only wished types block. The plan passes the wished types (the `expandWish` union of the wishes, or a change
+  request's types) to the group lookups and to `activityPlacesPending`. A source part with no wished type is read
+  from the cache only (no network); on a miss its types are `unrequested`, which is neither pending nor "nothing
+  found". A part's cache key stays its full type list. An escape-room-only wish therefore never waits for the
+  Overpass part (karaoke, indoor_play).
+- Open wishes do not wait for their extra types (follow-up): pending counts only the types a wish names; a wish that
+  names no type (group only) is pending only when no part of its group answered. The types `open` adds are still
+  fetched when time allows (`wanted`), but are best effort: failed or skipped, they are not offered and not mentioned
+  ("not checked" only for named types, and for group-only wishes). An open escape-room wish with a failing Overpass
+  part (karaoke) therefore uses its escape-room places at once; a named karaoke wish still waits.
+- Geoapify requests of a part run 2 at a time. After the first, a request only starts with at least one Geoapify
+  timeout (25 s) of budget left; the types not started are `skipped` and the group is `partial`. Such an incomplete
+  answer is used for the request but never cached (its credits are still logged).
+- A second part with less than MIN_QUERY_WINDOW_MS (45 s) left runs cache only: `skipped` on a miss, not `error`.
+- `GEOAPIFY_HEADROOM` is documented against the lookups that can run at the same time.

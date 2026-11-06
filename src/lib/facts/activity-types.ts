@@ -51,11 +51,20 @@ export type ActivitySource = {
   filters: readonly string[];
   /**
    * Geoapify categories, a superset of the filters. Absent = no category exists, Overpass only
-   * (karaoke, climbing, rowing, canoe, karting).
+   * (karaoke, indoor_play, climbing crags, rowing, canoe, karting, footgolf). Checked against the category list
+   * 2026-11-06: `entertainment.activity_park` was probed for indoor_play and returns playgrounds and trampoline
+   * parks but no `leisure=indoor_play`, so it is not used; there is no karaoke, kart, canoe or rowing category.
+   * A group is looked up per source: the mapped types via Geoapify, the rest via Overpass (`splitGroupTypes`).
    */
   geoapify?: readonly string[];
   /** Search radius for this type in km (capped at MAX_RADIUS_KM). */
   defaultRadiusKm: number;
+  /**
+   * Family type (indoor_play, swimming, playground): an open wish adds it as an alternative only when the wish names
+   * a family type itself, so an adult "escape room, only an idea" never gets ball pits or playgrounds. It stays in
+   * the group's lookup union, so a named family wish is served by the same query.
+   */
+  family?: true;
 };
 
 /**
@@ -70,13 +79,20 @@ export const ACTIVITY_SOURCES: Record<ActivityType, ActivitySource> = {
   cinema: { group: "indoor", filters: [`["amenity"="cinema"]`], geoapify: ["entertainment.cinema"], defaultRadiusKm: 10 }, // 32k
   theatre: { group: "indoor", filters: [`["amenity"="theatre"]`], geoapify: ["entertainment.culture.theatre"], defaultRadiusKm: 10 }, // 54k
   karaoke: { group: "indoor", filters: [`["amenity"="karaoke_box"]`], defaultRadiusKm: 10 }, // 2.9k
-  climbing_hall: { group: "indoor", filters: [`["leisure"="sports_centre"]["sport"~"(^|;) *climbing *(;|$)"]`, `["sport"~"(^|;) *climbing *(;|$)"]["indoor"="yes"]`], defaultRadiusKm: 15 }, // 5.3k + indoor
-  indoor_play: { group: "indoor", filters: [`["leisure"="indoor_play"]`], defaultRadiusKm: 15 }, // 3.6k; no Geoapify category
+  // Geoapify `entertainment.activity_park.climbing` probed 2026-11-06 (Munich, 15 km): 11 hits, all `sport=climbing` on a sports_centre (halls) plus one fitness_station. Misses a hall that is only `sport=climbing` + `indoor=yes` on another leisure tag (rare).
+  climbing_hall: {
+    group: "indoor",
+    filters: [`["leisure"="sports_centre"]["sport"~"(^|;) *climbing *(;|$)"]`, `["sport"~"(^|;) *climbing *(;|$)"]["indoor"="yes"]`],
+    geoapify: ["entertainment.activity_park.climbing"],
+    defaultRadiusKm: 15,
+  }, // 5.3k + indoor
+  indoor_play: { group: "indoor", filters: [`["leisure"="indoor_play"]`], defaultRadiusKm: 15, family: true }, // 3.6k; no Geoapify category (activity_park probed, see above)
   swimming: {
     group: "indoor",
     filters: [`["leisure"="sports_centre"]["sport"~"(^|;) *swimming *(;|$)"]`, `["leisure"="water_park"]`, `["amenity"="public_bath"]`],
     geoapify: ["sport.swimming_pool", "sport.sports_centre", "entertainment.water_park", "leisure.spa.public_bath"],
     defaultRadiusKm: 15,
+    family: true,
   }, // 2.4k + 13k + 13k
   boat_rental: { group: "outdoor", filters: [`["amenity"="boat_rental"]`], geoapify: ["rental.boat"], defaultRadiusKm: 25 }, // 6.9k
   rowing: { group: "outdoor", filters: [`["sport"~"(^|;) *rowing *(;|$)"]${notSlipway}`], defaultRadiusKm: 25 }, // 1.7k
@@ -85,7 +101,7 @@ export const ACTIVITY_SOURCES: Record<ActivityType, ActivitySource> = {
   footgolf: { group: "outdoor", filters: [`["sport"~"(^|;) *footgolf *(;|$)"]`], defaultRadiusKm: 25 }, // 11, kept on purpose (see header)
   karting: { group: "outdoor", filters: [`["sport"~"(^|;) *karting *(;|$)"]`], defaultRadiusKm: 25 }, // 11k
   climbing: { group: "outdoor", filters: [`["sport"~"(^|;) *climbing *(;|$)"]["climbing"="crag"]`], defaultRadiusKm: 25 }, // 14k
-  playground: { group: "outdoor", filters: [`["leisure"="playground"]`], geoapify: ["leisure.playground"], defaultRadiusKm: 3 }, // 1.0M, named only (see header); 3 km: dense cities would otherwise fill the outdoor union cap
+  playground: { group: "outdoor", filters: [`["leisure"="playground"]`], geoapify: ["leisure.playground"], defaultRadiusKm: 3, family: true }, // 1.0M, named only (see header); 3 km: dense cities would otherwise fill the outdoor union cap
   bar: { group: "going_out", filters: [`["amenity"~"^(bar|pub|biergarten)$"]`], geoapify: ["catering.bar", "catering.pub", "catering.biergarten"], defaultRadiusKm: 3 }, // 650k
 };
 
@@ -94,13 +110,23 @@ export const isActivityType = (s: string): s is ActivityType => (ACTIVITY_TYPES 
 export const typesInGroup = (group: ActivityGroup): ActivityType[] =>
   ACTIVITY_TYPES.filter((t) => ACTIVITY_SOURCES[t].group === group);
 
-/** Query radius of a group: the largest default radius of its types (one union query), capped at 60 km. */
-export const radiusForGroup = (group: ActivityGroup): number =>
-  Math.min(MAX_RADIUS_KM, Math.max(...typesInGroup(group).map((t) => ACTIVITY_SOURCES[t].defaultRadiusKm)));
+/** Query radius of a set of types (default: the whole group): the largest default radius, capped at 60 km. */
+export const radiusForGroup = (group: ActivityGroup, types: readonly ActivityType[] = typesInGroup(group)): number =>
+  Math.min(MAX_RADIUS_KM, Math.max(...types.map((t) => ACTIVITY_SOURCES[t].defaultRadiusKm)));
 
 /** A group's types all have a Geoapify mapping, so one Geoapify lookup would cover the whole union. */
 export const groupHasGeoapify = (group: ActivityGroup): boolean =>
   typesInGroup(group).every((t) => ACTIVITY_SOURCES[t].geoapify !== undefined);
+
+/**
+ * Types of a group split by source: those with a Geoapify category (fast, ~1 s per request) and those without
+ * (Overpass only). Without a Geoapify key everything goes to Overpass.
+ */
+export function splitGroupTypes(group: ActivityGroup, geoapifyAvailable: boolean): { geoapify: ActivityType[]; overpass: ActivityType[] } {
+  const types = typesInGroup(group);
+  if (!geoapifyAvailable) return { geoapify: [], overpass: types };
+  return { geoapify: types.filter((t) => ACTIVITY_SOURCES[t].geoapify !== undefined), overpass: types.filter((t) => ACTIVITY_SOURCES[t].geoapify === undefined) };
+}
 
 /**
  * Group a found place counts in: its type's group, except that a place tagged `indoor=yes` counts as indoor even
@@ -114,18 +140,34 @@ export function placeGroup(type: ActivityType, tags: Record<string, string>): Ac
   return g === "outdoor" && tags.indoor === "yes" ? "indoor" : g;
 }
 
-/** Open-air pool or bathing lake by tags (`indoor=no`, `covered=no`) or by name/note (de + en). */
-const OPEN_AIR = /freibad|strandbad|naturbad|waldbad|badeweiher|badesee|seebad|flussbad|lido|open[- ]air|outdoor pool/i;
+/**
+ * Open-air words. German ones without a leading word boundary, because they occur inside compounds ("Waldfreibad",
+ * "Naturbadeweiher"); short or English ones with boundaries ("Lidobar" or "Ostseebad" alone are no pool names).
+ */
+const OPEN_AIR = /freibad|strandbad|naturbad|waldbad|badeweiher|badesee|flussbad|\bseebad\b|\blido\b|\bopen[- ]air\b|\boutdoor pool\b/i;
+/** Indoor words: a name with one of them is (also) an indoor facility ("Hallen- und Freibad", "Therme"). */
+const INDOOR_HINT = /hallen|indoor|therme|sauna|erlebnisbad|spaßbad|spassbad|\bspa\b/i;
+
+/**
+ * Open-air pool or bathing lake. Order: `indoor=no`/`covered=no` -> open-air; `indoor=yes`/`covered=yes` -> indoor;
+ * a name with an indoor word is indoor (a combined "Hallen- und Freibad" counts as indoor), unless only the mapper's
+ * note says it is a Freibad; otherwise an open-air word in name or note decides.
+ */
 export function isOpenAirBath(tags: Record<string, string>): boolean {
+  if (tags.indoor === "no" || tags.covered === "no") return true;
   if (tags.indoor === "yes" || tags.covered === "yes") return false;
-  return tags.indoor === "no" || tags.covered === "no" || OPEN_AIR.test(`${tags.name ?? ""} ${tags.note ?? ""}`);
+  const name = tags.name ?? "";
+  const note = tags.note ?? "";
+  if (INDOOR_HINT.test(name)) return !OPEN_AIR.test(name) && OPEN_AIR.test(note) && !INDOOR_HINT.test(note);
+  return OPEN_AIR.test(name) || OPEN_AIR.test(note);
 }
 
 /** One purpose wish as Haiku tags it (spec section 2). */
 export type ActivityWish = { types: readonly ActivityType[]; open: boolean; group?: ActivityGroup };
 
 /**
- * Types to look up for one wish: its own types, plus (when `open`, "only an idea") every type of their group.
+ * Types to look up for one wish: its own types, plus (when `open`, "only an idea") every type of their group;
+ * family types only when the wish names one (`ActivitySource.family`).
  * An entry without types uses its `group` when `open`; an entry without types and without a valid group is
  * dropped (empty list). With types, each type's own group is used and `group` is ignored. Catalogue order.
  */
@@ -134,9 +176,16 @@ export function expandWish(wish: ActivityWish): ActivityType[] {
   if (wish.open) {
     const groups = new Set<ActivityGroup>(wish.types.map((t) => ACTIVITY_SOURCES[t].group));
     if (groups.size === 0 && wish.group && ActivityGroup.safeParse(wish.group).success) groups.add(wish.group);
-    for (const g of groups) for (const t of typesInGroup(g)) out.add(t);
+    // Family types join an open wish only when it names a family type itself (QA #137).
+    const family = wish.types.some((t) => ACTIVITY_SOURCES[t].family);
+    for (const g of groups) for (const t of typesInGroup(g)) if (family || !ACTIVITY_SOURCES[t].family) out.add(t);
   }
   return ACTIVITY_TYPES.filter((t) => out.has(t));
+}
+
+/** Every type the wishes need (the `expandWish` union): what a plan or change request waits for (QA #139). */
+export function wishedTypes(wishes: readonly ActivityWish[]): Set<ActivityType> {
+  return new Set(wishes.flatMap((w) => expandWish(w)));
 }
 
 /**

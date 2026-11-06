@@ -8,7 +8,7 @@ import type { ActionError } from "@/lib/domain";
 import { PLAN_CHIPS, type PlanChip } from "@/lib/domain/plan";
 import { editPlan } from "@/lib/server/plans";
 import { asPlanError, range, toggleIn } from "./helpers";
-import { PlanErrorBanner } from "./plan-runner";
+import { PlanErrorBanner, PlanRunner } from "./plan-runner";
 
 export type IterateBlock = null | "notLatest" | "busy" | "aiDisabled" | "budget" | "outdated";
 
@@ -49,6 +49,7 @@ export function PlanIterate({
   dayCount,
   aiBlock,
   editBlock,
+  regenerate,
 }: {
   tripId: string;
   locale: string;
@@ -58,8 +59,11 @@ export function PlanIterate({
   aiBlock: IterateBlock;
   /** Why code-only edits are disabled (null = usable). */
   editBlock: IterateBlock;
+  /** Show "Regenerate plan" (latest version, not busy; the owner and write grantees). */
+  regenerate?: { aiEnabled: boolean; predatesSuggestions: boolean };
 }) {
   const t = useTranslations("plan.iterate");
+  const tr = useTranslations("plan.regenerate");
   const router = useRouter();
   const uid = useId();
   const [chips, setChips] = useState<PlanChip[]>([]);
@@ -254,6 +258,26 @@ export function PlanIterate({
           </button>
         </fieldset>
       </div>
+
+      {regenerate && (
+        <div className="flex flex-col gap-2 border-t border-line pt-4">
+          {regenerate.predatesSuggestions && (
+            <p role="note" className="rounded-md bg-sunken p-2.5 text-sm">
+              {tr("predatesSuggestions")}
+            </p>
+          )}
+          <PlanRunner
+            tripId={tripId}
+            locale={locale}
+            label={tr("button")}
+            secondary
+            fresh
+            disabled={!regenerate.aiEnabled}
+            confirm={{ text: tr("confirm"), yes: tr("confirmButton"), no: tr("cancel") }}
+          />
+          {!regenerate.aiEnabled && <p className={`text-sm ${mutedCls}`}>{tr("disabled")}</p>}
+        </div>
+      )}
     </section>
   );
 }

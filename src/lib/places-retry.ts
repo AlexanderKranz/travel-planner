@@ -2,7 +2,8 @@ import { z } from "zod";
 import type { ActivityGroupLookup, CafeLookup, RestaurantLookup, TripFacts } from "@/lib/domain/facts";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
-import { ACTIVITY_GROUPS } from "@/lib/facts/activity-types";
+import { ACTIVITY_GROUPS, ACTIVITY_TYPES, typesInGroup, type ActivityType } from "@/lib/facts/activity-types";
+import { groupPending, type BlockingScope } from "@/lib/plan/places-pending";
 import { interestsForTrip, radiusForInterest, sourceFor, tripRadiusKm } from "@/lib/facts/interest-sources";
 
 /** A search is retried in the background for at most this long (spec activities addendum 2, R1). */
@@ -17,7 +18,9 @@ const Point = z.object({ lat: coord, lon: coord });
 /** Normalized parameters to rerun one lookup. No user, trip or text: coordinates, kinds and keys only. */
 export const RetrySpec = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("interest"), interest: z.string().min(1).max(40), lat: coord, lon: coord, radiusKm: z.number().min(1).max(200) }),
-  z.object({ kind: z.literal("activity_group"), group: z.enum(ACTIVITY_GROUPS), dest: Dest }),
+  // `wanted`: the wished types of this group (empty = a group-only wish: every part is fetched). A retry fetches only
+  // what was asked for, and the job is done when those are complete.
+  z.object({ kind: z.literal("activity_group"), group: z.enum(ACTIVITY_GROUPS), dest: Dest, wanted: z.array(z.enum(ACTIVITY_TYPES)).max(30).default([]) }),
   z.object({ kind: z.literal("restaurants"), dest: Dest, near: Point.optional() }),
   z.object({ kind: z.literal("cafes"), dest: Dest, near: Point.optional() }),
 ]);
@@ -34,7 +37,7 @@ export function retryKey(s: RetrySpec): string {
     case "interest":
       return `interest:${s.interest}:${r3(s.lat)}:${r3(s.lon)}:${s.radiusKm}`;
     case "activity_group":
-      return `activities:${s.group}:${r3(s.dest.lat)}:${r3(s.dest.lon)}`;
+      return `activities:${s.group}:${r3(s.dest.lat)}:${r3(s.dest.lon)}:${[...s.wanted].sort().join(",")}`;
     default:
       return s.near
         ? `${s.kind}:near:${r3(s.near.lat)}:${r3(s.near.lon)}`
@@ -46,8 +49,7 @@ export type RetryJob = { kind: RetrySpec["kind"]; cache_key: string; params: Ret
 const job = (s: RetrySpec): RetryJob => ({ kind: s.kind, cache_key: retryKey(s), params: s });
 
 /** Pending in the sense of `places-pending.ts`: failed, or skipped because the budget ran out. */
-const notLoaded = (l: { status: string; reason?: string; partial?: boolean }) =>
-  l.status === "error" || (l.status === "skipped" && l.reason === "cache_only") || l.partial === true;
+const notLoaded = (l: { status: string; reason?: string }) => l.status === "error" || (l.status === "skipped" && l.reason === "cache_only");
 
 const geo = (trip: Trip): DestLike | null => (trip.destination.kind === "freetext" ? null : trip.destination);
 
@@ -56,11 +58,18 @@ export function jobsForActivityLookups(
   dest: DestLike | null,
   loaded: { activities?: ActivityGroupLookup[]; restaurants?: RestaurantLookup; cafes?: CafeLookup },
   near?: { restaurants?: { lat: number; lon: number }; cafes?: { lat: number; lon: number } },
+  scope?: BlockingScope,
 ): RetryJob[] {
   if (!dest) return [];
   const d = roundDest(dest);
   const out: RetrySpec[] = [];
-  for (const g of loaded.activities ?? []) if (notLoaded(g)) out.push({ kind: "activity_group", group: g.group, dest: d });
+  // Same blocking scope as `places_pending`: named types only, open-wish extras never enqueue.
+  for (const g of loaded.activities ?? []) {
+    if (!groupPending(g, scope)) continue;
+    const inGroup = new Set(typesInGroup(g.group));
+    const wanted = scope ? [...scope.types].filter((t): t is ActivityType => inGroup.has(t)) : [];
+    out.push({ kind: "activity_group", group: g.group, dest: d, wanted });
+  }
   if (loaded.restaurants && notLoaded(loaded.restaurants)) {
     out.push({ kind: "restaurants", dest: d, ...(near?.restaurants ? { near: round(near.restaurants) } : {}) });
   }
@@ -79,6 +88,7 @@ export function jobsForTripFacts(
   trip: Trip,
   purpose: TripPurpose | null,
   facts: Pick<TripFacts, "places" | "activities" | "restaurants" | "cafes">,
+  scope?: BlockingScope,
 ): RetryJob[] {
   const dest = geo(trip);
   if (!dest) return [];
@@ -94,5 +104,5 @@ export function jobsForTripFacts(
     .map((k) => k as Parameters<typeof sourceFor>[0])
     .filter((k) => sourceFor(k).source === "osm")
     .map((k) => job({ kind: "interest", interest: k, ...round(dest), radiusKm: radiusForInterest(k, base) }));
-  return [...interests, ...jobsForActivityLookups(dest, facts)].slice(0, MAX_ENQUEUE);
+  return [...interests, ...jobsForActivityLookups(dest, facts, undefined, scope)].slice(0, MAX_ENQUEUE);
 }

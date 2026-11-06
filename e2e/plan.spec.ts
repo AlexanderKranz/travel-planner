@@ -16,6 +16,8 @@ test.describe("plan (no AI)", () => {
     await page.goto(`/de/app/trips/${seed.tripId}`);
     const remove = page.getByRole("button", { name: /^Alternative .+ entfernen$/ });
     await expect(remove).toHaveCount(1);
+    // On hover-capable pointers the button only takes width while its row is hovered or focused.
+    await page.locator(".group\\/act").filter({ has: remove }).hover();
     await remove.click();
     await withPageDump(page, () => expect(page.getByText("Ohne KI: Alternative entfernt")).toBeVisible());
     await expect(page.getByText("Versionen (2)")).toBeVisible();

@@ -9,7 +9,6 @@ import { PlanEmpty } from "./plan-empty";
 import { PlanIterate, type IterateBlock } from "./plan-iterate";
 import { PlanVersions } from "./plan-versions";
 import { PlanView } from "./plan-view";
-import { PlanRegenerate } from "./plan-regenerate";
 
 /** The plan block of the trip page: empty state, or plan + iteration + version history. */
 export async function PlanSection({
@@ -92,11 +91,15 @@ export async function PlanSection({
             dayCount={shown.plan.days.length}
             aiBlock={aiBlock}
             editBlock={editBlock}
+            regenerate={
+              state.isLatest && !state.busy
+                ? { aiEnabled: state.aiEnabled, predatesSuggestions: state.predatesSuggestions === true }
+                : undefined
+            }
           />
         )}
         <BudgetLine budget={state.budget} />
         <PlanVersions tripId={tripId} versions={state.versions} shown={shown.meta.versionNo} busy={state.busy} readOnly={readOnly} authors={authors} />
-        {!readOnly && state.isLatest && !state.busy && <PlanRegenerate tripId={tripId} locale={locale} aiEnabled={state.aiEnabled} />}
       </aside>
     </section>
   );

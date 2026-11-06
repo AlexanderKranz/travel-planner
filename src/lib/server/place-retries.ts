@@ -3,7 +3,8 @@ import { berlinToday } from "@/lib/date";
 import type { FactsCtx } from "@/lib/domain/facts";
 import { RetrySpec, type RetryJob } from "@/lib/places-retry";
 import { logEvent } from "./events";
-import { getActivityGroupFacts, getCafeFacts, getRestaurantFacts } from "./facts/activities";
+import type { ActivityType } from "@/lib/facts/activity-types";
+import { getActivityGroupFacts, getCafeFacts, getRestaurantFacts, type ActivityGroupFacts, type LookupFact } from "./facts/activities";
 import type { GeoDestination } from "./facts/common";
 import { retryInterestLookup } from "./facts/places";
 import { createSupabaseAdminClient } from "./supabase/admin";
@@ -40,13 +41,16 @@ export type JobRow = { id: string; kind: string; params: unknown; attempts: numb
 export type JobOutcome = "done" | "failed";
 
 /**
- * ok/empty and not partial. A group whose Geoapify parts partly failed (`data.partial`, per-type Geoapify change) is
- * not complete: it counts as a failed attempt, and the retry is cheap because the good parts are cached.
+ * A group retry is done when it is ok/empty and no WANTED type failed or was skipped. A failed part that holds only
+ * unwished types (`partial`) must not keep a job alive. No wanted types (group-only wish) = all types count.
  */
-export function isComplete(f: { status: string; data?: unknown }): boolean {
+export function groupDone(f: LookupFact<ActivityGroupFacts>, wanted: readonly ActivityType[]): boolean {
   if (f.status !== "ok" && f.status !== "empty") return false;
-  return (f.data as { partial?: boolean } | undefined)?.partial !== true;
+  const counted = wanted.length ? wanted : (Object.keys(f.data.typeStatus) as ActivityType[]);
+  return !counted.some((t) => f.data.typeStatus[t] === "error" || f.data.typeStatus[t] === "skipped");
 }
+
+const isDone = (f: { status: string }) => f.status === "ok" || f.status === "empty";
 
 /** Reruns one lookup with the normal cache and fetch rules. `ok` and `empty` count as done (the result is cached). */
 export async function runLookup(spec: RetrySpec, budgetMs: number, ctx: FactsCtx): Promise<JobOutcome> {
@@ -56,16 +60,16 @@ export async function runLookup(spec: RetrySpec, budgetMs: number, ctx: FactsCtx
     case "interest":
       return (await retryInterestLookup(spec.interest as Parameters<typeof retryInterestLookup>[0], spec, spec.radiusKm, ctx, budgetMs)) === "ok" ? "done" : "failed";
     case "activity_group": {
-      const f = await getActivityGroupFacts(spec.group, asDest(spec.dest), ctx, { budgetMs });
-      return isComplete(f) ? "done" : "failed";
+      const f = await getActivityGroupFacts(spec.group, asDest(spec.dest), ctx, { budgetMs, ...(spec.wanted.length ? { wanted: spec.wanted } : {}) });
+      return groupDone(f, spec.wanted) ? "done" : "failed";
     }
     case "restaurants": {
       const f = await getRestaurantFacts(asDest(spec.dest), ctx, { budgetMs, ...(spec.near ? { near: spec.near } : {}) });
-      return isComplete(f) ? "done" : "failed";
+      return isDone(f) ? "done" : "failed";
     }
     case "cafes": {
       const f = await getCafeFacts(asDest(spec.dest), ctx, { budgetMs, ...(spec.near ? { near: spec.near } : {}) });
-      return isComplete(f) ? "done" : "failed";
+      return isDone(f) ? "done" : "failed";
     }
   }
 }

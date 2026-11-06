@@ -26,6 +26,7 @@ describe.runIf(LIVE)("live purpose tag cases", () => {
     expect(process.env.ANTHROPIC_API_KEY, "ANTHROPIC_API_KEY missing").toBeTruthy();
     const cases: unknown[] = [];
     let total = 0;
+    const failedChecks: string[] = [];
     for (const c of TAGS_CASES) {
       assertBudget("purpose_tags"); // throws before any call
       const p = casePurpose(c);
@@ -40,11 +41,16 @@ describe.runIf(LIVE)("live purpose tag cases", () => {
       const u = usage;
       console.log(`${c.id}: ${r.ok ? JSON.stringify(normalizeTags(r.data)) : r.error}${u ? ` (in ${u.inputTokens}, out ${u.outputTokens}, cache read ${u.cacheReadInputTokens}, write ${u.cacheCreationInputTokens}, $${(u.costMicroUsd / 1e6).toFixed(5)})` : ""}`);
       if (r.ok) {
-        console.log(formatResults(`  ${c.id}`, c.check(normalizeTags(r.data))));
+        const results = c.check(normalizeTags(r.data));
+        console.log(formatResults(`  ${c.id}`, results));
+        if (results.some((x) => !x.ok)) failedChecks.push(c.id);
         cases.push({ id: c.id, hash: purposeTagsHash(p), wire: r.data, usage: r.usage });
       }
     }
     console.log(`total $${(total / 1e6).toFixed(5)}`);
+    // A failed case would leave the replay test without its id; keep the previous good recording.
+    expect(cases.length, "some cases failed; recording not written").toBe(TAGS_CASES.length);
+    expect(failedChecks, "some case checks failed; recording not written").toEqual([]);
     writeFileSync(
       join(RECORDED_DIR, "tags-cases.json"),
       JSON.stringify({ promptVersion: TAGS_PROMPT_VERSION, model: MODEL_TAGS, recordedAt: new Date().toISOString(), cases }, null, 2) + "\n",
