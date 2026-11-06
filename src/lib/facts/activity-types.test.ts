@@ -10,6 +10,7 @@ import {
   typesInGroup,
 } from "./activity-types";
 import { MAX_RADIUS_KM } from "./interest-sources";
+import { matchesFilter } from "./places";
 
 describe("activity catalogue", () => {
   it("every type has a group, at least one filter and a sane radius", () => {
@@ -30,6 +31,17 @@ describe("activity catalogue", () => {
     expect(typesInGroup("outdoor")).toContain("minigolf");
     expect(typesInGroup("going_out")).toEqual(["bar"]);
     expect(typesInGroup("indoor").length + typesInGroup("outdoor").length + 1).toBe(ACTIVITY_TYPES.length);
+  });
+  it("family types (addendum A1): groups, filters and Geoapify", () => {
+    expect(ACTIVITY_SOURCES.indoor_play).toMatchObject({ group: "indoor", filters: [`["leisure"="indoor_play"]`] });
+    expect(ACTIVITY_SOURCES.indoor_play.geoapify).toBeUndefined();
+    expect(ACTIVITY_SOURCES.swimming.group).toBe("indoor");
+    expect(ACTIVITY_SOURCES.swimming.filters).toContain(`["amenity"="public_bath"]`);
+    expect(ACTIVITY_SOURCES.swimming.geoapify).toContain("sport.swimming_pool");
+    expect(ACTIVITY_SOURCES.playground).toMatchObject({ group: "outdoor", filters: [`["leisure"="playground"]`], geoapify: ["leisure.playground"] });
+    expect(typesInGroup("indoor")).toEqual(expect.arrayContaining(["indoor_play", "swimming"]));
+    expect(typesInGroup("outdoor")).toContain("playground");
+    expect(placeGroup("playground", {})).toBe("outdoor");
   });
   it("indoor=yes makes an outdoor type indoor", () => {
     expect(placeGroup("minigolf", { indoor: "yes" })).toBe("indoor");
@@ -92,5 +104,31 @@ describe("groupsForWishes", () => {
   it("with types, each type's own group is used and the entry's group is ignored", () => {
     expect(groupsForWishes([{ types: ["cinema"], open: false, group: "outdoor" }])).toEqual(["indoor"]);
     expect(expandWish({ types: ["cinema"], open: true, group: "outdoor" })).toEqual(typesInGroup("indoor"));
+  });
+});
+
+describe("swimming filter (token-aware sport)", () => {
+  const hits = (tags: Record<string, string>) => ACTIVITY_SOURCES.swimming.filters.some((f) => matchesFilter({ name: "X", ...tags }, f));
+  it("matches a sports centre with swimming as one token of the list", () => {
+    expect(hits({ leisure: "sports_centre", sport: "swimming" })).toBe(true);
+    expect(hits({ leisure: "sports_centre", sport: "fitness;swimming" })).toBe(true);
+    expect(hits({ leisure: "sports_centre", sport: "swimming; sauna" })).toBe(true);
+  });
+  it("does not match other sports, look-alikes, or a plain sports centre", () => {
+    expect(hits({ leisure: "sports_centre", sport: "swimming_lessons" })).toBe(false);
+    expect(hits({ leisure: "sports_centre", sport: "nonswimming" })).toBe(false);
+    expect(hits({ leisure: "sports_centre", sport: "soccer" })).toBe(false);
+    expect(hits({ leisure: "sports_centre" })).toBe(false);
+    expect(hits({ leisure: "pitch", sport: "swimming" })).toBe(false);
+  });
+  it("water parks and public baths match without a sport tag; unnamed places never", () => {
+    expect(hits({ leisure: "water_park" })).toBe(true);
+    expect(hits({ amenity: "public_bath" })).toBe(true);
+    expect(ACTIVITY_SOURCES.swimming.filters.some((f) => matchesFilter({ leisure: "water_park" }, f))).toBe(false);
+  });
+  it("playground and indoor_play need a name", () => {
+    expect(matchesFilter({ leisure: "playground" }, ACTIVITY_SOURCES.playground.filters[0])).toBe(false);
+    expect(matchesFilter({ leisure: "playground", name: "Spielplatz Am Dom" }, ACTIVITY_SOURCES.playground.filters[0])).toBe(true);
+    expect(matchesFilter({ leisure: "indoor_play", name: "Kinderland" }, ACTIVITY_SOURCES.indoor_play.filters[0])).toBe(true);
   });
 });
