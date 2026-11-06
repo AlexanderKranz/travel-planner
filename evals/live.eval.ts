@@ -1,7 +1,9 @@
 /**
  * Live eval runner (spec 7). Real Claude calls, guarded by the cost ledger (evals/.ledger.json) before each call.
- * Run: `npm run evals:live` with optional EVAL_FIXTURE=golf|cruise and EVAL_TASK=drive|tags|generate|patch
- * (comma-separated; default tags,generate,patch). Usage goes to the ledger, not to ai_usage. Writes
+ * Run: `npm run evals:live` with optional EVAL_FIXTURE=golf|cruise|wuerzburg and
+ * EVAL_TASK=drive|tags|generate|needbase|patch|familypatch (comma-separated; default tags,generate,needbase,patch;
+ * familypatch = the addendum-1 indoor playground request on the recorded cruise generation, uncoveredpatch = a
+ * children's farm request (no catalogue type, A3); both cruise only). Usage goes to the ledger, not to ai_usage. Writes
  * evals/recorded/*.json. `drive` makes one live OpenRouteService matrix call (no Anthropic cost) for the places
  * of the current input and records it; run it after tags and before generate when the place selection changed.
  */
@@ -12,12 +14,16 @@ import type { LlmPatch, LlmPlan, PurposeTags } from "@/lib/domain/plan";
 import { planInputHash, purposeTagsHash, canonicalJson } from "@/lib/plan/hash";
 import { composePlan, patchPlan } from "@/lib/server/ai/compose";
 import { tagPurpose } from "@/lib/server/ai/purpose-tags";
-import { buildEvalInput, evalDrivePicks, evalPurpose, FIXTURE_IDS, PATCH_FEEDBACK, type DriveRecording, type FixtureId } from "./build-input";
+import {
+  buildEvalInput, evalDrivePicks, evalPurpose, FAMILY_PATCH_FEEDBACK, FIXTURE_IDS, PATCH_FEEDBACK, UNCOVERED_PATCH_FEEDBACK, type DriveRecording, type FixtureId,
+} from "./build-input";
 import { fetchDriveMatrix } from "@/lib/integrations/openrouteservice";
 import { recordingPath } from "./recorded";
 import { writeFileSync } from "node:fs";
 import {
   assembleNeedBase,
+  evaluateFamilyPatch,
+  evaluateUncoveredPatch,
   evaluateGenerate,
   evaluateNeedPatch,
   evaluatePatch,
@@ -41,7 +47,7 @@ const pick = <T extends string>(env: string | undefined, all: readonly T[]): T[]
   env ? (env.split(",").map((s) => s.trim()).filter((s) => (all as readonly string[]).includes(s)) as T[]) : [...all];
 const fixtures = pick<FixtureId>(process.env.EVAL_FIXTURE, FIXTURE_IDS);
 const tasks = process.env.EVAL_TASK
-  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "needbase", "patch"])
+  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "needbase", "patch", "familypatch", "uncoveredpatch"])
   : (["tags", "generate", "needbase", "patch"] as RecordedTask[]);
 
 const usd = (micro: number) => `$${(micro / 1e6).toFixed(4)}`;
@@ -151,6 +157,43 @@ describe.runIf(LIVE)("live evals", () => {
           console.log(`[${id}] reply: ${r.data.reply}`);
           console.log(formatResults(`[${id}] patch`, evaluatePatch(id, tags, g.plan, r.data as LlmPatch).results));
         } else console.log(`[${id}] patch failed: ${r.error}`);
+      }
+
+      // 3c. Addendum 1: "concrete indoor playground examples on day 1" on the cruise (toddler) generation. The input
+      // has no indoor_play places, so the first call should ask for them; the second runs on the recorded Passau lookup.
+      if (id === "cruise" && tasks.includes("familypatch") && llmPlan) {
+        const g = evaluateGenerate(id, tags, llmPlan);
+        if (!g.plan) throw new Error("base plan does not assemble");
+        const feedback = FAMILY_PATCH_FEEDBACK;
+        const first = await patchPlan({ llm: g.built.stored.llm, plan: g.plan, index: g.built.stored.index, feedback }, ctxFor(id, "plan_patch", usage));
+        if (!first.ok) console.log(`[${id}] family patch 1 failed: ${first.error}`);
+        else {
+          console.log(`[${id}] family patch 1 needPlaces ${canonicalJson(first.data.needPlaces ?? null)}; reply: ${first.data.reply}`);
+          const extended = needPatchInput(id, g.built.stored, first.data);
+          const second = extended
+            ? await patchPlan({ llm: extended.llm, plan: g.plan, index: extended.index, feedback, loaded: true }, ctxFor(id, "plan_patch", usage))
+            : null;
+          if (second && !second.ok) console.log(`[${id}] family patch 2 failed: ${second.error}`);
+          const rec: NeedPatchRecording = { first: first.data, second: second?.ok ? second.data : null, firstUsage: first.usage };
+          const inputHash = createHash("sha256").update(canonicalJson({ base: planInputHash(g.built.stored.llm), feedback })).digest("hex");
+          writeRecording(id, "familypatch", { promptVersion: PLAN_PROMPT_VERSION, model: MODEL_PLAN, inputHash, output: rec, usage: second?.ok ? second.usage : first.usage, recordedAt });
+          if (second?.ok) console.log(`[${id}] family reply: ${second.data.reply}\n${canonicalJson(second.data.days)}`);
+          console.log(formatResults(`[${id}] family patch`, evaluateFamilyPatch(tags, llmPlan, rec).results));
+        }
+      }
+
+      // 3d. Addendum A3: a kind no catalogue type covers (children's farm). One call; nothing to load.
+      if (id === "cruise" && tasks.includes("uncoveredpatch") && llmPlan) {
+        const g = evaluateGenerate(id, tags, llmPlan);
+        if (!g.plan) throw new Error("base plan does not assemble");
+        const feedback = UNCOVERED_PATCH_FEEDBACK;
+        const r = await patchPlan({ llm: g.built.stored.llm, plan: g.plan, index: g.built.stored.index, feedback }, ctxFor(id, "plan_patch", usage));
+        if (r.ok) {
+          const inputHash = createHash("sha256").update(canonicalJson({ base: planInputHash(g.built.stored.llm), feedback })).digest("hex");
+          writeRecording(id, "uncoveredpatch", { promptVersion: PLAN_PROMPT_VERSION, model: MODEL_PLAN, inputHash, output: r.data, usage: r.usage, recordedAt });
+          console.log(`[${id}] uncovered reply: ${r.data.reply}\n${canonicalJson(r.data.days)}\nneedPlaces ${canonicalJson(r.data.needPlaces ?? null)}`);
+          console.log(formatResults(`[${id}] uncovered patch`, evaluateUncoveredPatch(tags, llmPlan, r.data).results));
+        } else console.log(`[${id}] uncovered patch failed: ${r.error}`);
       }
 
       const total = usage.reduce((s, u) => s + u.costMicroUsd, 0);

@@ -63,22 +63,31 @@ export const restaurantSchema = z.object({
   distanceKm: z.number(),
   website: z.string().optional(),
   hasOpeningHours: z.boolean(),
+  /** `kids_area=yes`, `highchair=yes` (or a count) or `changing_table=yes` is tagged (addendum A4). Sparse in OSM. */
+  kidsTagged: z.boolean(),
   wikidata: z.string().optional(),
   osmUrl: z.string(),
 });
 export type Restaurant = z.infer<typeof restaurantSchema>;
+
+/** A child-related amenity tag is set (taginfo 2026-11-06: kids_area=yes 1.5k, highchair=yes 6.8k, changing_table=yes 30k). */
+export function isKidsTagged(tags: Record<string, string>): boolean {
+  const yes = (v: string | undefined) => v?.trim().toLowerCase() === "yes";
+  return yes(tags.kids_area) || yes(tags.changing_table) || yes(tags.highchair) || /^[1-9]\d*$/.test(tags.highchair?.trim() ?? "");
+}
 
 /** Named restaurants within `maxKm` of the anchor, one per OSM element. No ranking or cap here, see selectRestaurants. */
 export function toRestaurants(
   elements: readonly RawOsmElement[],
   anchor: { lat: number; lon: number },
   maxKm?: number,
+  amenity: "restaurant" | "cafe" = "restaurant",
 ): Restaurant[] {
   const out: Restaurant[] = [];
   const seen = new Set<string>();
   for (const e of elements) {
     const name = e.tags.name?.trim();
-    if (!name || e.tags.amenity !== "restaurant") continue;
+    if (!name || e.tags.amenity !== amenity) continue;
     const id = `${e.type}/${e.id}`;
     if (seen.has(id)) continue;
     const distance = haversineKm(anchor, e);
@@ -94,6 +103,7 @@ export function toRestaurants(
       lon: e.lon,
       distanceKm: Math.round(distance * 10) / 10,
       hasOpeningHours: Boolean(e.tags.opening_hours),
+      kidsTagged: isKidsTagged(e.tags),
       osmUrl: `https://www.openstreetmap.org/${e.type}/${e.id}`,
     };
     if (website && /^https?:\/\//i.test(website)) r.website = website;
@@ -103,7 +113,15 @@ export function toRestaurants(
   return out;
 }
 
-export type CuisineWish = { local?: boolean; include?: readonly string[]; exclude?: readonly string[] };
+/** A café has the same shape as a restaurant (`cuisine` holds `coffee_shop`, `cake` ...). */
+export const cafeSchema = restaurantSchema;
+export type Cafe = Restaurant;
+/** Named `amenity=cafe` elements within `maxKm` of the anchor. */
+export const toCafes = (elements: readonly RawOsmElement[], anchor: { lat: number; lon: number }, maxKm?: number): Cafe[] =>
+  toRestaurants(elements, anchor, maxKm, "cafe");
+
+/** `kids`: the purpose or request explicitly asked for child-friendly places; tagged ones rank first, none are dropped. */
+export type CuisineWish = { local?: boolean; include?: readonly string[]; exclude?: readonly string[]; kids?: boolean };
 
 export const MAX_RESTAURANTS = 12;
 /** Fewer matches than this are reported as `tooFew` (the plan says so instead of padding). */
@@ -129,7 +147,8 @@ export const completeness = (r: Restaurant): number =>
  * 3. Fast-food cuisines (pizza, burger ...) are dropped unless `include` or the local set names them (pizza is local in Italy);
  *    a place also stays when `include` names one of its non-fast-food cuisines (`include: italian` keeps `italian;pizza`). So "local" never returns a
  *    pizzeria even when it is tagged `german;pizza`. Untagged restaurants are kept unless a cuisine was asked for.
- * Ranking: completeness, then distance, then name. At most MAX_RESTAURANTS.
+ * Ranking: completeness, then distance, then name. At most MAX_RESTAURANTS. With `wish.kids`, kids-tagged places
+ * rank first (nothing is filtered out: the tags are sparse); without it, ranking ignores them.
  */
 export function selectRestaurants(
   restaurants: readonly Restaurant[],
@@ -148,6 +167,18 @@ export function selectRestaurants(
     if (r.cuisines.some((c) => FAST_FOOD_CUISINES.has(c) && !include.has(c) && !local.has(c))) return false;
     return true;
   });
-  kept.sort((a, b) => completeness(b) - completeness(a) || a.distanceKm - b.distanceKm || a.name.localeCompare(b.name));
+  const kids = wish?.kids === true;
+  kept.sort((a, b) => (kids ? Number(b.kidsTagged) - Number(a.kidsTagged) : 0) || completeness(b) - completeness(a) || a.distanceKm - b.distanceKm || a.name.localeCompare(b.name));
   return { restaurants: kept.slice(0, MAX_RESTAURANTS), matched: kept.length, tooFew: kept.length < MIN_RESTAURANTS };
+}
+
+export const MAX_CAFES = 6;
+
+/** Cafés ranked like restaurants (kids-tagged first only with `kids`), at most MAX_CAFES. Pure. */
+export function selectCafes(cafes: readonly Cafe[], wish?: { kids?: boolean } | null): { cafes: Cafe[]; matched: number } {
+  const kids = wish?.kids === true;
+  const sorted = [...cafes].sort(
+    (a, b) => (kids ? Number(b.kidsTagged) - Number(a.kidsTagged) : 0) || completeness(b) - completeness(a) || a.distanceKm - b.distanceKm || a.name.localeCompare(b.name),
+  );
+  return { cafes: sorted.slice(0, MAX_CAFES), matched: sorted.length };
 }

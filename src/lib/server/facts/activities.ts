@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { FactsCtx } from "@/lib/domain/facts";
 import { activityPlaceSchema, activityPlacesForGroup, type ActivityPlace } from "@/lib/facts/activity-places";
 import { ACTIVITY_SOURCES, groupHasGeoapify, radiusForGroup, typesInGroup, type ActivityGroup } from "@/lib/facts/activity-types";
-import { restaurantSchema, toRestaurants, type Restaurant } from "@/lib/facts/cuisine";
+import { cafeSchema, restaurantSchema, toCafes, toRestaurants, type Cafe, type Restaurant } from "@/lib/facts/cuisine";
 import { matchesFilter } from "@/lib/facts/places";
 import { GEOAPIFY_LIMIT, fetchPlaces, hasGeoapifyKey } from "@/lib/integrations/geoapify";
 import { OVERPASS_CLIENT_TIMEOUT_MS, buildQuery, runQuery, type RawOsmElement } from "@/lib/integrations/overpass";
@@ -19,8 +19,9 @@ const TTL_SECONDS = 30 * 86400;
  * Version of the cache keys below. MUST be bumped whenever the processed shape, the filters, the radii or the caps
  * change: old rows are keyed by the old version and would otherwise be served with the wrong shape for 30 days.
  * 2: batches `{items, truncated}`, places with `types[]`, sport token regex, raised caps.
+ * 3: new catalogue types (indoor_play, swimming, playground), `kidsTagged` on restaurants, cafe lookup.
  */
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 /** Restaurants within 2.5 km of a city centre, 5 km for a region (spec section 3). */
 export const RESTAURANT_RADIUS_KM = { city: 2.5, region: 5 } as const;
 /**
@@ -39,7 +40,11 @@ export const GEOAPIFY_RESTAURANT_LIMIT = 200;
 export const RESTAURANT_POOL = 150;
 
 export type ActivityGroupFacts = { group: ActivityGroup; radiusKm: number; places: ActivityPlace[]; truncated: boolean };
+export type CafeFacts = { radiusKm: number; cafes: Cafe[]; truncated: boolean };
 export type RestaurantFacts = { radiusKm: number; restaurants: Restaurant[]; truncated: boolean };
+
+/** Nearest cafés kept in the cache; ranking and the cap of 6 happen in `selectCafes`. */
+export const CAFE_POOL = 60;
 
 /** Restaurants within this radius of a given place (change requests, spec section 4). */
 export const RESTAURANT_NEAR_RADIUS_KM = 1.5;
@@ -80,6 +85,8 @@ type Spec<T> = {
   /** For the truncation log event. */
   kind: string;
   filters: readonly string[];
+  /** Own Overpass radius (km) per filter line; absent = `radiusKm`. */
+  filterRadiusKm?: (filter: string) => number | undefined;
   /** Geoapify category groups; null = Overpass only (no or incomplete mapping, or no key). */
   geoapify: readonly (readonly string[])[] | null;
   geoapifyLimit?: number;
@@ -123,7 +130,10 @@ async function lookup<T>(s: Spec<T>): Promise<{ res: CachedResult<Batch<T>>; att
       fetchAllowed,
       fetcher: async () => {
         attempted = true;
-        const r = await runQuery(buildQuery(s.filters, s.anchor, s.radiusKm * 1000, OVERPASS_LIMIT), { deadline });
+        const r = await runQuery(buildQuery(s.filters, s.anchor, s.radiusKm * 1000, OVERPASS_LIMIT, (f) => {
+          const km = s.filterRadiusKm?.(f);
+          return km === undefined ? undefined : km * 1000;
+        }), { deadline });
         const truncated = r.elements.length >= OVERPASS_LIMIT;
         if (truncated) await truncatedEvent("overpass", OVERPASS_LIMIT);
         return { data: { items: s.process(r.elements), truncated }, status: r.status, latencyMs: r.latencyMs, variant: r.mirror };
@@ -182,6 +192,11 @@ export async function getActivityGroupFacts(
       keyParams: { kind: "activities", group, lat: anchor.lat, lon: anchor.lon, r: radiusKm },
       kind: `activities:${group}`,
       filters: types.flatMap((t) => ACTIVITY_SOURCES[t].filters),
+      // Each line searches only its own type's radius: dense playgrounds (3 km) must not fill the cap of a 25 km union.
+      filterRadiusKm: (f) => {
+        const t = types.find((x) => ACTIVITY_SOURCES[x].filters.includes(f));
+        return t && Math.min(ACTIVITY_SOURCES[t].defaultRadiusKm, radiusKm);
+      },
       geoapify: groupHasGeoapify(group) ? types.map((t) => ACTIVITY_SOURCES[t].geoapify!) : null,
       radiusKm,
       anchor,
@@ -196,6 +211,14 @@ export async function getActivityGroupFacts(
   }
 }
 
+/** Radius and anchor of a restaurant or café lookup: `near` wins (1.5 km), else the destination (2.5 km city, 5 km region). */
+function eatingSpot(dest: GeoDestination | null, near?: { lat: number; lon: number }) {
+  const point = near ?? dest;
+  if (!point) return null;
+  const radiusKm = near ? RESTAURANT_NEAR_RADIUS_KM : RESTAURANT_RADIUS_KM[dest!.kind];
+  return { radiusKm, anchor: { lat: Number(point.lat.toFixed(3)), lon: Number(point.lon.toFixed(3)) } };
+}
+
 /**
  * Named restaurants around the destination (2.5 km city, 5 km region), or within 1.5 km of `opts.near` (change
  * requests; cache key = rounded point + radius). Unfiltered, nearest RESTAURANT_POOL: cuisine filtering and ranking
@@ -206,11 +229,10 @@ export async function getRestaurantFacts(
   ctx: FactsCtx,
   opts: Opts & { near?: { lat: number; lon: number } } = {},
 ): Promise<LookupFact<RestaurantFacts>> {
-  const radiusKm = opts.near ? RESTAURANT_NEAR_RADIUS_KM : dest ? RESTAURANT_RADIUS_KM[dest.kind] : 0;
-  const point = opts.near ?? dest;
-  if (!point) return { status: "skipped", reason: "no_location" };
+  const spot = eatingSpot(dest, opts.near);
+  if (!spot) return { status: "skipped", reason: "no_location" };
+  const { radiusKm, anchor } = spot;
   try {
-    const anchor = { lat: Number(point.lat.toFixed(3)), lon: Number(point.lon.toFixed(3)) };
     const looked = await lookup<Restaurant>({
       keyParams: { kind: "restaurants", lat: anchor.lat, lon: anchor.lon, r: radiusKm },
       kind: "restaurants",
@@ -228,6 +250,41 @@ export async function getRestaurantFacts(
       budgetMs: opts.budgetMs ?? VIEW_BUDGET_MS,
     });
     return toLookupFact(looked, (b) => ({ radiusKm, restaurants: b.items, truncated: b.truncated }));
+  } catch {
+    return { status: "error", source: "osm" };
+  }
+}
+
+/**
+ * Named cafés (`amenity=cafe`) around the destination or within 1.5 km of `opts.near`, same radii, statuses and
+ * caching as restaurants (own cache key). Nearest CAFE_POOL, unranked beyond distance: `selectCafes` ranks and
+ * caps at 6. Loaded only when a wish or change request asks for cafés (addendum A2).
+ */
+export async function getCafeFacts(
+  dest: GeoDestination | null,
+  ctx: FactsCtx,
+  opts: Opts & { near?: { lat: number; lon: number } } = {},
+): Promise<LookupFact<CafeFacts>> {
+  const spot = eatingSpot(dest, opts.near);
+  if (!spot) return { status: "skipped", reason: "no_location" };
+  const { radiusKm, anchor } = spot;
+  try {
+    const looked = await lookup<Cafe>({
+      keyParams: { kind: "cafes", lat: anchor.lat, lon: anchor.lon, r: radiusKm },
+      kind: "cafes",
+      filters: [`["amenity"="cafe"]`],
+      geoapify: [["catering.cafe"]],
+      radiusKm,
+      anchor,
+      process: (els) =>
+        toCafes(els, anchor, radiusKm)
+          .sort((a, b) => a.distanceKm - b.distanceKm || a.name.localeCompare(b.name))
+          .slice(0, CAFE_POOL),
+      schema: batchSchema(cafeSchema),
+      ctx,
+      budgetMs: opts.budgetMs ?? VIEW_BUDGET_MS,
+    });
+    return toLookupFact(looked, (b) => ({ radiusKm, cafes: b.items, truncated: b.truncated }));
   } catch {
     return { status: "error", source: "osm" };
   }

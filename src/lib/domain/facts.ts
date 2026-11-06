@@ -3,7 +3,7 @@ import type { FlightsFacts } from "./flights";
 import type { Locale } from "./profile";
 import type { ActivityGroup } from "@/lib/facts/activity-types";
 import type { ActivityPlace } from "@/lib/facts/activity-places";
-import type { Restaurant } from "@/lib/facts/cuisine";
+import type { Cafe, Restaurant } from "@/lib/facts/cuisine";
 
 export type SourceId = "open_meteo" | "geonames" | "osm" | "wikivoyage" | "wikipedia" | "wikimedia" | "rest_countries" | "suncalc" | "aerodatabox" | "openrouteservice" | "ourairports";
 
@@ -86,6 +86,8 @@ export type LookupStatus = "ok" | "empty" | "error" | "skipped";
 type LookupMeta = { fetchedAt?: string; truncated?: boolean; reason?: "no_location" | "cache_only" };
 export type ActivityGroupLookup = { group: ActivityGroup; status: LookupStatus; places: ActivityPlace[] } & LookupMeta;
 export type RestaurantLookup = { status: LookupStatus; restaurants: Restaurant[]; radiusKm?: number } & LookupMeta;
+/** Cafés near the destination point (addendum A2); loaded only when a wish or change request asks for them. */
+export type CafeLookup = { status: LookupStatus; cafes: Cafe[]; radiusKm?: number } & LookupMeta;
 
 export type TripFacts = {
   tripId: string;
@@ -101,6 +103,8 @@ export type TripFacts = {
   activities?: ActivityGroupLookup[];
   /** Restaurants near the destination point (activities spec section 3); absent in older callers. */
   restaurants?: RestaurantLookup;
+  /** Cafés (addendum A2); absent unless the purpose asks for cafés. */
+  cafes?: CafeLookup;
 };
 
 /** Context for facts functions. `userId` is for api_calls logging (null for cron/seed). */

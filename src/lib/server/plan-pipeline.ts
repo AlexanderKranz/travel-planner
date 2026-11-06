@@ -539,6 +539,7 @@ async function patchWithPlaces(
         ? { near: { lat: need.restaurants.near.lat, lon: need.restaurants.near.lon } }
         : {}
       : false,
+    cafes: need.cafes ? (need.cafes.near ? { near: { lat: need.cafes.near.lat, lon: need.cafes.near.lon } } : {}) : false,
   };
   const factsCtx = { userId: c.session.userId, locale: base.plan.locale as Locale, today: berlinToday() };
   await logEvent({
@@ -549,6 +550,7 @@ async function patchWithPlaces(
       types: need.types.join(","),
       restaurants: !!need.restaurants,
       near: !!need.restaurants?.near,
+      cafes: !!need.cafes,
       budgetMs: Math.max(0, placesBudget),
     },
   });

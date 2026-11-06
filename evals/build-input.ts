@@ -9,6 +9,7 @@ import wuerzburgJson from "./fixtures/gruppenwochenende-wuerzburg.json";
 import indoorWue from "@/lib/integrations/__fixtures__/overpass/indoor-wuerzburg-15km.json";
 import outdoorWue from "@/lib/integrations/__fixtures__/overpass/outdoor-wuerzburg-25km.json";
 import restaurantsWue from "@/lib/integrations/__fixtures__/overpass/restaurants-wuerzburg-2.5km.json";
+import indoorPassau from "@/lib/integrations/__fixtures__/overpass/indoor-passau-15km.json";
 import { activityPlacesForGroup } from "@/lib/facts/activity-places";
 import { groupsForWishes, type ActivityGroup } from "@/lib/facts/activity-types";
 import { toRestaurants } from "@/lib/facts/cuisine";
@@ -102,11 +103,13 @@ const OSM: Record<FixtureId, Partial<Record<InterestOrGeneral, unknown>>> = {
 
 /**
  * Recorded activity-group and restaurant responses (activities spec; overpass-api.de, 2026-11-06, the production
- * union queries around Würzburg). A group without a recording counts as `error`. Golf and cruise have none, so
- * their inputs carry no activities or restaurants blocks.
+ * union queries around Würzburg; addendum 1: the indoor union with indoor_play and swimming around Passau, for the
+ * cruise family patch eval). A group without a recording counts as `error`. Golf has none, and the cruise purpose
+ * names no activity wish, so their generation inputs carry no activities or restaurants blocks.
  */
 const ACTIVITY_OSM: Partial<Record<FixtureId, { groups: Partial<Record<ActivityGroup, unknown>>; restaurants?: unknown }>> = {
   wuerzburg: { groups: { indoor: indoorWue, outdoor: outdoorWue }, restaurants: restaurantsWue },
+  cruise: { groups: { indoor: indoorPassau } },
 };
 
 /**
@@ -118,6 +121,15 @@ export const PATCH_FEEDBACK: Record<FixtureId, PlanFeedback> = {
   golf: { chips: ["redo_day"], days: [4] },
   wuerzburg: { chips: [], days: [1], text: "mache konkrete Vorschläge für Escape Rooms am Tag 1" },
 };
+
+/**
+ * Addendum 1 patch eval on the cruise (family with toddler): the Limburg feedback, adapted to day 1 in Passau. The
+ * input has no indoor_play places, so the first call should ask for them (needPlaces); the answer must end with an
+ * indoor_play or swimming ref or the honest wording, never an invented name.
+ */
+export const FAMILY_PATCH_FEEDBACK: PlanFeedback = { chips: [], days: [1], text: "Gib konkrete Beispiele für einen Indoorspielplatz an Tag 1, falls es regnet" };
+/** Addendum A3: a kind no catalogue type covers. The plan keeps it as an idea and says the sources do not cover it. */
+export const UNCOVERED_PATCH_FEEDBACK: PlanFeedback = { chips: [], days: [1], text: "Gib konkrete Beispiele für einen Kinderbauernhof an Tag 1" };
 
 /** Recorded lookups for the given groups (and restaurants), as the data layer would return them. */
 export function evalActivityLookups(id: FixtureId, groups: readonly ActivityGroup[]): { activities: ActivityGroupLookup[]; restaurants?: RestaurantLookup } {
@@ -303,7 +315,7 @@ export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null
     summary: { status: "unavailable", reason: "not_found" },
     // Recorded flights (golf only), built by the pure builder. Cruise has flights: false.
     ...(flights ? { flights } : {}),
-    ...(acts ? { ...(acts.activities.length ? { activities: acts.activities } : {}), restaurants: acts.restaurants } : {}),
+    ...(acts ? { ...(acts.activities.length ? { activities: acts.activities } : {}), ...(ACTIVITY_OSM[id]?.restaurants ? { restaurants: acts.restaurants } : {}) } : {}),
     places: {
       status: "ok",
       data: { radiusKm: a.radiusKm, groups, customInterests },

@@ -2,7 +2,7 @@
 
 Status: decisions accepted by Alex 2026-11-06; groups changed to indoor/outdoor. Data layer on
 `feat/activities-data`; purpose tags v2, pipeline wiring, prompt and change requests implemented on
-`feat/activities-plan` (2026-11-06, see "What changed"). Follows user feedback from the live site (2026-11-06). A group-trip purpose asked for an
+`feat/activities-plan` (2026-11-06, see "What changed"). Addendum 1 (family places, cafés, wording) on `feat/family-places`. Follows user feedback from the live site (2026-11-06). A group-trip purpose asked for an
 evening event on Friday ("escape rooms, but only an idea, suggest what the city offers"), a main event on Saturday
 (rowing or footgolf, "suggest what suits the city") and restaurants for both evenings. The plan wrote
 "Freitagabend-Event: Escape Room oder Kneipentour" and "Abendessen in der Innenstadt (Restaurantvorschlag)".
@@ -271,6 +271,120 @@ The golf and cruise inputs are unchanged apart from the prompt; their extra cost
 prompt and longer answers. Rules 15 and 16 were reworded once more after the golf and cruise runs; those rules do
 not apply to the two fixtures, which carry no activities or restaurants blocks (no recorded restaurant data for
 Marbella and Passau). The Würzburg rows are from the re-run after the #132 fixes (multi-type places, `cut`).
+
+## Addendum 1: family places, cafés and wording (2026-11-06)
+
+Feedback from a family trip to Limburg (toddler, 2.5 years): a change request for "concrete examples for the indoor
+playground" answered "Keine geprüften Orte gefunden … Namen vor Ort recherchieren". Indoor playgrounds, playgrounds
+and swimming pools were not in the catalogue, so the model could not request them and nothing was searched. Day 1
+also kept "Spielplatz oder Café in der Altstadt (Idee)".
+
+- **[A1] New catalogue types.**
+  - `indoor`:
+    - `indoor_play`: `leisure=indoor_play`
+    - `swimming`: `leisure=sports_centre` or `leisure=water_park` with `sport~swimming` (token-aware), or
+      `amenity=public_bath`
+  - `outdoor`:
+    - `playground`: `leisure=playground` with a name. Unnamed playgrounds are very common but cannot be shown as a
+      verified place.
+
+  The implementer checks the tags on taginfo as before.
+- **[A2] Cafés as their own small group `cafe`** (`amenity=cafe`, named), loaded like restaurants near the
+  destination point (or `near` a place) and ranked by data completeness and distance, at most 6. They are loaded
+  only when a wish or change request asks for cafés, not for every plan. They are not restaurants: meals still use
+  restaurants.
+- **[A3] Honest wording for types outside the catalogue.** When a wish or request names something no catalogue type
+  covers, the plan says it is not covered by the verified sources (de: "nicht in den geprüften Quellen enthalten")
+  and keeps it as an idea. It never says "no verified places found". "Nothing found nearby in OpenStreetMap" stays
+  reserved for an `empty` lookup of a catalogue type.
+- **[A4] Child-friendly restaurants only when asked.** Families are not steered to special restaurants by default
+  (Alex: many restaurants welcome children; families do not necessarily look for something special).
+  - When the purpose or a change request explicitly asks for child-friendly places, the cuisine wish gets
+    `kids: true`.
+  - With `kids`, restaurants tagged `kids_area=yes`, `highchair=yes` or `changing_table=yes` rank first. Nothing is
+    filtered out, because these tags are sparse in OSM.
+  - The plan does not claim a restaurant is child-friendly unless one of those tags is set.
+  - Without an explicit ask, the travel group never changes restaurant selection.
+- **[A5] Display:** the gap between alternatives ("oder: X ⎵⎵⎵ · Y") comes from space reserved for a drive time.
+  Restaurants have no drive time, so that space is only reserved when a drive time is shown.
+- Tags: `TAGS_PROMPT_VERSION` and `PLAN_PROMPT_VERSION` are bumped for A1–A4; the activity cache key version is
+  bumped for the new types.
+- Evals: the cruise (family) fixture gets a check that a toddler-related indoor wish yields an `indoor_play` or
+  `swimming` ref when the recording has one, and that no restaurant is described as child-friendly without a tag.
+  A new tags case checks that a family group alone does not set `kids`.
+
+### What changed (Addendum 1, `feat/family-places`)
+
+- Data: `indoor_play`, `swimming`, `playground` in the catalogue, per-line radius in the group union, `kidsTagged` on
+  restaurants and cafés, `getCafeFacts` (pool 60, `selectCafes` max 6), cache version 3. `playground` searches 3 km
+  (not 5): a dense city would otherwise fill the outdoor union's element cap.
+- Tags **`tags-3`** (`TAGS_RULES`): indoor playground → `indoor_play`, Hallenbad/Schwimmbad/Spaßbad → `swimming`,
+  Spielplatz → `playground`; `cafes: true` for a café wish; `cuisine.kids` only for an explicit ask for
+  child-friendly restaurants or cafés. The tags call never sees the group, and the rule says children or a family
+  trip alone never set it. Stored tags-2 tags still parse (`v` stays 2; both fields are optional).
+- Wiring: cafés load only when the tags or a change request ask (`loadActivityLookups({cafes})`, last in the shared
+  budget; `error`/`cache_only` make Generate and the iterate request answer `places_pending`, as for restaurants).
+  Input block `cafes` (`c1..`, `s`, `near`, `kids`, list like restaurants), validated through the shared index
+  (category `amenity=cafe`). Restaurants and cafés carry `k` (kids-tagged) and `ask.kids` only when `kids` is set.
+  `needPlaces` gains `cafes: {near, kids}` and `restaurants.cuisine.kids`; `mergeCuisine` keeps an earlier `kids`;
+  cafés near a place replace the `cafes` block (old café refs stay valid through the index).
+- Prompt **`plan-7`**: rule 15 (A3) keeps a kind no list covers as an idea and says in that day's note that the
+  verified sources do not cover it (de "nicht in den geprüften Quellen enthalten"), never "no verified places
+  found"; "nothing found in OpenStreetMap" stays reserved for an `empty` type. Rule 16 (A4): child-friendly wording
+  only with `k`; with `kids` prefer `k`; otherwise the group never changes the choice. The patch addendum may not
+  ask for a kind no type covers.
+
+Deviations:
+- **Open-air pools count as outdoor.** `leisure=water_park` and `amenity=public_bath` also cover open-air pools and
+  bathing lakes: the recorded Passau indoor union had 11 swimming places, 9 of them a "Freibad" or "Badeweiher".
+  `placeGroup` now gives a swimming place `g = outdoor` when it is tagged `indoor=no`/`covered=no` or its name or
+  note says Freibad, Strandbad, Naturbad, Waldbad, Badeweiher, Badesee, Seebad, Flussbad, lido, open-air or
+  outdoor pool (`indoor=yes`/`covered=yes` win). The prompt says such places are for warm weather only.
+  After QA: a name with an indoor word (Hallen, Indoor, Therme, Sauna, Erlebnisbad, Spaßbad, Spa) counts as indoor,
+  also as a combined "Hallen- und Freibad", unless `indoor=no` or only the mapper's note says Freibad; `seebad`,
+  `lido`, `open-air` need word boundaries. Swimming places are classified before the per-type cut: indoor pools
+  first, at most 2 open-air ones, so a winter Hallenbad wish is not crowded out by near Freibäder.
+- **Family types only for family wishes** (after QA): `indoor_play`, `swimming` and `playground` carry `family`;
+  an open wish adds them as alternatives only when it names a family type itself, so an adult "escape room, only an
+  idea" never gets ball pits or playgrounds. They stay in the group's lookup union, so named wishes are served.
+- `needPlaces.restaurants.cuisine.kids` and `needPlaces.cafes.{near, kids}` are required in the wire schema
+  (`kids: false` = not asked, `near: ""` = none): the API allows at most 24 optional parameters per structured-output
+  schema, and optional fields would have made 25 (a live call failed with HTTP 400). A unit test now guards the
+  limit for the plan, patch and tags schemas. A request can therefore not switch `kids` off again.
+- Cafés inherit `kids` from the restaurant wish (the purpose has one `cuisine.kids` for both).
+- A5 (display gap) is not part of this change.
+
+Evals (live, 2026-11-06; ledger $1.583 → $1.685, this change $0.102 including a $0.009 estimate charged for the
+failed HTTP 400 call, which the API does not bill):
+- Tag cases (`evals/tags-cases.ts`, 6 Haiku calls, $0.0008): the cruise purpose ("mit Kleinkind") and an English
+  family text with "good local food" set no `kids`; "kinderfreundliches Restaurant mit Spielecke" sets it;
+  "Indoorspielplatz … Spielplatz am Fluss" gives `indoor_play` + `playground`; "Hallenbad oder Spaßbad" gives
+  `swimming`; "Kaffee und Kuchen in einem gemütlichen Café" gives `cafes`. All pass.
+- Family patch on the cruise (`cruise.familypatch.json`, "konkrete Beispiele für einen Indoorspielplatz an Tag 1",
+  recorded Passau indoor union from overpass-api.de): the first call asked for `indoor_play`, the second set a rain
+  alternative on day 1 with the only listed `indoor_play` place as ref. All checks pass.
+- A3 patch on the cruise (`cruise.uncoveredpatch.json`, "Kinderbauernhof"): no `needPlaces`; the first wording put
+  "nicht in den geprüften Quellen enthalten" only into `reply`, so rule 15 now asks for the day's note; the re-run
+  wrote it there and offered a listed zoo as the idea. All checks pass.
+- Golf, cruise and Würzburg generations were not re-recorded for plan-7 (their recordings now warn as stale and
+  skip the fresh-only checks).
+
+| Call | Before (plan-6 / tags-2) | After (plan-7 / tags-3) |
+|---|---|---|
+| plan system prompt (count_tokens) | 2795 | 3130 (+335, about +$0.0008 per cache write) |
+| patch system prompt + addendum | 3477 | 3885 (+408) |
+| tags system prompt | 848 (1791 with schema, as billed) | 1000 (2010 with schema) |
+| cruise patch, 1st call (needPlaces) | | 989 in / 269 out / 8106 write, $0.0249 |
+| cruise patch, 2nd call (indoor_play loaded) | | 996 in / 762 out / 2719 write + 5499 read, $0.0175 |
+| cruise A3 patch (one call) | | 982 in / 761 out / 8118 write, $0.0299 |
+| tags case (cached) | | 60-96 in / 94-235 out / 2010 read, $0.00007-0.00015 |
+
+Known failure modes:
+- OSM tags can mislabel: the only `leisure=indoor_play` near Passau is named "Indoor Inhalatorium" and may not be a
+  playground. The plan names it as one; code cannot check this.
+- The open-air detection is a name list (mostly German); an open-air pool with another name still counts as indoor.
+- The model may name a verified place in a note instead of setting a ref (seen once: the A3 note named the zoo).
+- The family patch recording was made before the last A3 wording change in rule 15 (same prompt version plan-7).
 
 ## Out of scope
 

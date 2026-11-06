@@ -63,7 +63,9 @@ import {
   OVERPASS_LIMIT,
   RESTAURANT_NEAR_RADIUS_KM,
   RESTAURANT_POOL,
+  CAFE_POOL,
   getActivityGroupFacts,
+  getCafeFacts,
   getRestaurantFacts,
 } from "./activities";
 import type { GeoDestination } from "./common";
@@ -107,7 +109,7 @@ describe("getActivityGroupFacts", () => {
     expect(h.runQuery).toHaveBeenCalledTimes(1);
     const q = h.runQuery.mock.calls[0][0] as string;
     const lines = q.split("\n").filter((l) => l.startsWith("  nwr"));
-    expect(lines.length).toBe(7); // escape_game, bowling, cinema, theatre, karaoke, climbing_hall x2
+    expect(lines.length).toBe(11); // escape_game, bowling, cinema, theatre, karaoke, climbing_hall x2, indoor_play, swimming x3
     for (const l of lines) expect(l).toContain('["name"]');
     expect(q).toContain(`out center tags ${OVERPASS_LIMIT};`);
     expect(f.status).toBe("ok");
@@ -116,7 +118,7 @@ describe("getActivityGroupFacts", () => {
     expect(f.data).toMatchObject({ group: "indoor", radiusKm: 15, truncated: false });
     expect(f.data.places.some((p) => p.types.includes("escape_game"))).toBe(true);
     expect(h.calls.map((c) => `${c.provider}:${c.allowed}`)).toEqual(["overpass:false", "overpass:true"]);
-    expect(h.calls[0].key).toContain("interpreter:v2:");
+    expect(h.calls[0].key).toContain("interpreter:v3:");
   });
 
   it("a cached result is served without a query (the fetcher is not run on a hit)", async () => {
@@ -295,5 +297,98 @@ describe("getRestaurantFacts", () => {
     expect(key).toContain('"lat":49.792');
     expect(key).toContain('"lon":9.954');
     expect(key).toContain('"r":1.5');
+  });
+});
+
+const cafeOverpass = (...extra: { id: number; tags: Record<string, string>; lat?: number }[]) => ({
+  elements: [
+    { type: "node" as const, id: 1, lat: 49.7915, lon: 9.9536, tags: { name: "Café Central", amenity: "cafe", website: "https://c.test", opening_hours: "Mo-Su 09:00-18:00" } },
+    { type: "node" as const, id: 2, lat: 49.7916, lon: 9.9537, tags: { name: "Kinder Café", amenity: "cafe", kids_area: "yes" } },
+    { type: "node" as const, id: 3, lat: 49.7917, lon: 9.9538, tags: { amenity: "cafe" } }, // unnamed
+    { type: "node" as const, id: 4, lat: 49.7918, lon: 9.9539, tags: { name: "Restaurant", amenity: "restaurant" } },
+    ...extra.map((e) => ({ type: "node" as const, id: e.id, lat: e.lat ?? 49.7915, lon: 9.9536, tags: e.tags })),
+  ],
+  status: 200, latencyMs: 5, mirror: "overpass-api.de",
+});
+
+describe("getCafeFacts", () => {
+  it("named amenity=cafe only, 2.5 km city, own versioned cache key, kidsTagged parsed", async () => {
+    h.runQuery.mockResolvedValue(cafeOverpass());
+    const f = await getCafeFacts(dest("city"), ctx);
+    expect(h.runQuery.mock.calls[0][0]).toContain('nwr["amenity"="cafe"]["name"]');
+    expect(f.status).toBe("ok");
+    if (f.status !== "ok") return;
+    expect(f).toMatchObject({ source: "osm", stale: false });
+    expect(f.data).toMatchObject({ radiusKm: 2.5, truncated: false });
+    expect(f.data.cafes.map((c) => [c.name, c.kidsTagged])).toEqual([["Café Central", false], ["Kinder Café", true]]);
+    const key = h.calls.find((c) => c.provider === "overpass")!.key;
+    expect(key).toContain("interpreter:v3:");
+    expect(key).toContain('"kind":"cafes"');
+  });
+  it("region 5 km; near 1.5 km works without a destination", async () => {
+    h.runQuery.mockResolvedValue({ elements: [], status: 200, latencyMs: 1, mirror: "m" });
+    const r = await getCafeFacts(dest("region"), ctx);
+    expect(r.status === "empty" && r.data.radiusKm).toBe(5);
+    const n = await getCafeFacts(null, ctx, { near: { lat: 49.79234, lon: 9.95391 } });
+    expect(n.status === "empty" && n.data.radiusKm).toBe(1.5);
+    expect(h.calls.map((c) => c.key).at(-1)).toContain('"lat":49.792');
+  });
+  it("pool is capped at the nearest CAFE_POOL", async () => {
+    const many = Array.from({ length: CAFE_POOL + 20 }, (_, i) => ({ id: 100 + i, lat: 49.7913 + i * 0.00005, tags: { name: `C${i}`, amenity: "cafe" } }));
+    h.runQuery.mockResolvedValue(cafeOverpass(...many));
+    const f = await getCafeFacts(dest("city"), ctx);
+    expect(f.status === "ok" && f.data.cafes).toHaveLength(CAFE_POOL);
+  });
+  it("empty: a complete lookup without a café", async () => {
+    h.runQuery.mockResolvedValue({ elements: [], status: 200, latencyMs: 1, mirror: "m" });
+    expect(await getCafeFacts(dest("city"), ctx)).toMatchObject({ status: "empty", data: { cafes: [], truncated: false } });
+  });
+  it("a capped answer with no café is ok + truncated, never empty", async () => {
+    h.runQuery.mockResolvedValue(cappedAnswer());
+    const f = await getCafeFacts(dest("city"), ctx);
+    expect(f).toMatchObject({ status: "ok", data: { truncated: true } });
+    expect(h.events.some((e) => e.event === "places.truncated" && e.props?.kind === "cafes")).toBe(true);
+  });
+  it("error when the fetch fails; skipped without a point and when cache-only with nothing cached", async () => {
+    h.runQuery.mockRejectedValue(new Error("down"));
+    expect(await getCafeFacts(dest("city"), ctx)).toEqual({ status: "error", source: "osm" });
+    expect(await getCafeFacts(null, ctx)).toEqual({ status: "skipped", reason: "no_location" });
+    h.runQuery.mockClear();
+    expect(await getCafeFacts(dest("city"), ctx, { budgetMs: 0 })).toEqual({ status: "skipped", reason: "cache_only" });
+    expect(h.runQuery).not.toHaveBeenCalled();
+  });
+  it("a fresh cached batch is served without a query; Geoapify answers with the cafe category when keyed", async () => {
+    freshOverpass([]);
+    expect(await getCafeFacts(dest("city"), ctx)).toMatchObject({ status: "empty" });
+    expect(h.runQuery).not.toHaveBeenCalled();
+    h.store.clear();
+    vi.stubEnv("GEOAPIFY_API_KEY", "k");
+    h.fetchPlaces.mockResolvedValue({
+      elements: [
+        { type: "node", id: 1, lat: 49.7915, lon: 9.9536, tags: { name: "Bohne", amenity: "cafe" } },
+        { type: "node", id: 2, lat: 49.7915, lon: 9.9536, tags: { name: "Eis", amenity: "ice_cream" } },
+      ],
+      status: 200, latencyMs: 5, credits: 1, truncated: false,
+    });
+    const f = await getCafeFacts(dest("city"), ctx);
+    expect(h.fetchPlaces.mock.calls[0][0]).toEqual([["catering.cafe"]]);
+    expect(f.status === "ok" && f.data.cafes.map((c) => c.name)).toEqual(["Bohne"]);
+  });
+});
+
+describe("per-line radius in the group union", () => {
+  it("outdoor: playground lines use 3 km, the other types their own radius", async () => {
+    h.runQuery.mockResolvedValue({ elements: [], status: 200, latencyMs: 1, mirror: "m" });
+    await getActivityGroupFacts("outdoor", dest("city"), ctx);
+    const q = h.runQuery.mock.calls[0][0] as string;
+    const lines = q.split("\n").filter((l) => l.startsWith("  nwr"));
+    const south = (l: string) => Number(/\(([-\d.]+),/.exec(l)![1]);
+    const halfHeightKm = (l: string) => (49.791 - south(l)) * 111.32;
+    const playground = lines.find((l) => l.includes('"playground"'))!;
+    const rowing = lines.find((l) => l.includes("rowing"))!;
+    const minigolf = lines.find((l) => l.includes("miniature_golf"))!;
+    expect(halfHeightKm(playground)).toBeCloseTo(3, 0);
+    expect(halfHeightKm(rowing)).toBeCloseTo(25, 0);
+    expect(halfHeightKm(minigolf)).toBeCloseTo(15, 0);
   });
 });

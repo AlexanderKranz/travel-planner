@@ -6,7 +6,7 @@ import { canonicalJson } from "@/lib/plan/hash";
 import { overlapsSlot } from "@/lib/plan/fixed-items";
 import type { PlanInputStored } from "@/lib/plan/input";
 import type { EvalFixture, FixtureId, ScheduleEntry } from "./build-input";
-import { ACTIVITY_SOURCES, type ActivityType } from "@/lib/facts/activity-types";
+import { ACTIVITY_SOURCES, isOpenAirBath, type ActivityType } from "@/lib/facts/activity-types";
 import { FAST_FOOD_CUISINES, LOCAL_CUISINE } from "@/lib/facts/cuisine";
 
 export type CheckResult = { name: string; ok: boolean; detail?: string };
@@ -81,7 +81,27 @@ export function genericChecks(a: {
   }
   // The best day is set by the user only (patch-safety [D8]); the model output never carries one.
   r.push(check("no best day from the model", plan.days.every((d) => !d.best)));
+  r.push(...kidsClaimChecks(plan, stored));
   return r;
+}
+
+/** Child-friendliness wording (de + en) that only a kids-tagged restaurant or café may carry (addendum A4). */
+export const KIDS_CLAIM = /kinderfreundlich|kindgerecht|familienfreundlich|child[- ]friendly|kid[- ]friendly|family[- ]friendly|hochstuhl|high ?chair|wickeltisch|changing table|spielecke|kinderecke|kids? (area|corner)/i;
+
+/** Addendum A4: no restaurant or café is called child-friendly unless its input entry carries `k`. */
+export function kidsClaimChecks(plan: Plan, stored: PlanInputStored): CheckResult[] {
+  const tagged = new Set<string>();
+  const eating = new Set<string>();
+  for (const block of [stored.llm.restaurants, stored.llm.restaurantsNear, stored.llm.cafes]) {
+    for (const e of block?.list ?? []) {
+      const key = stored.index[e.id]?.key as string | undefined;
+      if (!key) continue;
+      eating.add(key);
+      if (e.k) tagged.add(key);
+    }
+  }
+  const bad = allActs(plan).filter(({ a }) => a.ref && eating.has(a.ref) && !tagged.has(a.ref) && KIDS_CLAIM.test(a.text));
+  return [check("no restaurant or café called child-friendly without a kids tag", bad.length === 0, bad.map(({ d, a }) => `d${d} ${a.text}`).join(" | "))];
 }
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -369,6 +389,62 @@ export function activityChecks(plan: Plan, stored: PlanInputStored): CheckResult
     r.push(check("missing footgolf is stated", stated, proseOf(plan).filter((t) => /footgolf/i.test(t)).join(" | ") || "footgolf not mentioned"));
   }
   return r;
+}
+
+/** Indoor family venues for the addendum-1 patch eval: indoor playgrounds and pools by OSM tag. */
+const FAMILY_INDOOR_CATS = new Set(["leisure=indoor_play", "leisure=water_park", "amenity=public_bath", "leisure=sports_centre"]);
+const FAMILY_INDOOR_TEXT = /indoor|spielplatz|spielhalle|hallenbad|schwimmbad|erlebnisbad|spaßbad|therme|playground|soft play|swimming|pool/i;
+/** A3 / D6 wording: not covered by the verified sources, or nothing found nearby in OpenStreetMap. */
+export const HONEST_WORDING = /geprüften quellen|openstreetmap|nicht gefunden|keine?n? .*(gefunden|gelistet|verzeichnet)|not covered|not found|no .* listed/i;
+const FALSE_WORDING = /keine geprüften orte|no verified places/i;
+
+/**
+ * Addendum 1 patch eval (cruise, toddler): "concrete indoor playground examples on day 1". Day 1 ends with a ref to
+ * an indoor_play or (covered) swimming place, or says honestly that none is listed / covered; no open-air pool in
+ * December; never "keine geprüften Orte gefunden"; every day-1 activity about such a venue either has a ref or the
+ * day states the honest wording (no generic venue presented as a suggestion).
+ */
+export function familyPatchChecks(a: { first: LlmPatch; next: Plan; stored: PlanInputStored }): CheckResult[] {
+  const day = a.next.days[0];
+  const acts = day?.stops.flatMap((s) => s.acts) ?? [];
+  const byKey = new Map(Object.values(a.stored.index).map((e) => [e.key as string, e.place]));
+  const venue = (ref: string | undefined) => (ref ? byKey.get(ref) : undefined);
+  const indoorRefs = acts.filter((x) => {
+    const p = venue(x.ref);
+    return !!p && FAMILY_INDOOR_CATS.has(p.category) && !isOpenAirBath({ name: p.name });
+  });
+  const openAir = acts.filter((x) => {
+    const p = venue(x.ref);
+    return !!p && FAMILY_INDOOR_CATS.has(p.category) && isOpenAirBath({ name: p.name });
+  });
+  const dayProse = day ? [day.title, day.note ?? "", day.warn ?? "", ...acts.map((x) => x.text)] : [];
+  const honest = dayProse.some((t) => HONEST_WORDING.test(t)) || a.next.notes.some((n) => HONEST_WORDING.test(n.text));
+  const generic = acts.filter((x) => !x.ref && FAMILY_INDOOR_TEXT.test(x.text));
+  const show = (xs: typeof acts) => xs.map((x) => `${x.text}${x.ref ? ` [${venue(x.ref)?.name}]` : ""}`).join(" | ");
+  return [
+    check("first call requests indoor_play places (needPlaces)", (a.first.needPlaces?.types ?? []).includes("indoor_play"), JSON.stringify(a.first.needPlaces ?? null)),
+    check("day 1: indoor play/pool ref or honest wording", indoorRefs.length > 0 || honest, show(acts)),
+    check("day 1: no open-air pool ref in December", openAir.length === 0, show(openAir)),
+    check("never 'keine geprüften Orte gefunden'", !proseOf(a.next).some((t) => FALSE_WORDING.test(t)), proseOf(a.next).filter((t) => FALSE_WORDING.test(t)).join(" | ")),
+    check("generic indoor venue only with the honest wording", generic.length === 0 || honest, show(generic)),
+  ];
+}
+
+/**
+ * Addendum A3 patch eval (cruise): "concrete examples for a children's farm on day 1". No catalogue type covers it:
+ * no loadable needPlaces, the day keeps it as an idea and says the verified sources do not cover it, never "keine
+ * geprüften Orte gefunden" and never "nothing found in OpenStreetMap" (that is reserved for an empty lookup).
+ */
+export function uncoveredPatchChecks(a: { first: LlmPatch; next: Plan; changedDays: number[] }): CheckResult[] {
+  const days = a.next.days.filter((d) => a.changedDays.includes(d.n));
+  const prose = [...days.flatMap((d) => [d.title, d.note ?? "", d.warn ?? "", ...d.stops.flatMap((s) => s.acts.map((x) => x.text))]), ...a.next.notes.map((n) => n.text)];
+  const covered = /geprüften quellen|verified sources/i;
+  return [
+    check("no loadable needPlaces for an uncovered kind", !a.first.needPlaces, JSON.stringify(a.first.needPlaces ?? null)),
+    check("says the verified sources do not cover it", prose.some((t) => covered.test(t)), prose.filter((t) => /bauernhof|farm/i.test(t)).join(" | ")),
+    check("never 'keine geprüften Orte gefunden'", !proseOf(a.next).some((t) => FALSE_WORDING.test(t))),
+    check("no OpenStreetMap 'nothing found' claim", !prose.some((t) => /openstreetmap/i.test(t)), prose.filter((t) => /openstreetmap/i.test(t)).join(" | ")),
+  ];
 }
 
 /** Patch eval: the change request asked for escape rooms on a plan without them; day 1 ends with an escape room ref. */

@@ -47,6 +47,11 @@ export const WirePlan = z.object({
   open: z.array(WireOpen),
   packing: z.array(z.string()),
 });
+/**
+ * Patch wire schema. The API allows at most 24 optional parameters per structured-output schema (HTTP 400 above);
+ * this one has 22 (unit test asserts <= 23). Prefer required fields with a neutral value (`kids: false`, `near: ""`)
+ * over new optional ones.
+ */
 export const WirePatch = z.object({
   reply: z.string(),
   days: z.array(WireDay),
@@ -59,11 +64,13 @@ export const WirePatch = z.object({
       restaurants: z
         .object({
           cuisine: z
-            .object({ local: z.boolean().optional(), include: z.array(z.string()).optional(), exclude: z.array(z.string()).optional() })
+            // kids is required (false = not asked): the API allows at most 24 optional parameters per schema.
+            .object({ local: z.boolean().optional(), include: z.array(z.string()).optional(), exclude: z.array(z.string()).optional(), kids: z.boolean() })
             .optional(),
           near: z.string().optional(),
         })
         .optional(),
+      cafes: z.object({ near: z.string().describe("place id or empty"), kids: z.boolean() }).optional(),
     })
     .optional(),
 });
@@ -107,15 +114,19 @@ function needPlacesOf(n: z.infer<typeof WirePatch>["needPlaces"]): NeedPlaces | 
     const c = n.restaurants.cuisine;
     const include = cuisineList(c?.include);
     const exclude = cuisineList(c?.exclude);
+    const kids = c?.kids === true;
     out.restaurants = {
       // `local` only when the model set it, so extendInput can keep the earlier wish otherwise.
-      ...(c && (c.local !== undefined || include.length || exclude.length)
-        ? { cuisine: { ...(c.local !== undefined ? { local: c.local } : {}), include, exclude } }
+      ...(c && (c.local !== undefined || include.length || exclude.length || kids)
+        ? { cuisine: { ...(c.local !== undefined ? { local: c.local } : {}), include, exclude, ...(kids ? { kids } : {}) } }
         : {}),
       ...(n.restaurants.near?.trim() ? { near: n.restaurants.near.trim() } : {}),
     };
   }
-  return out.types || out.restaurants ? out : undefined;
+  if (n.cafes) {
+    out.cafes = { ...(n.cafes.kids === true ? { kids: true } : {}), ...(n.cafes.near?.trim() ? { near: n.cafes.near.trim() } : {}) };
+  }
+  return out.types || out.restaurants || out.cafes ? out : undefined;
 }
 
 export const inputBlock = (llm: PlanInput) => "INPUT\n" + canonicalJson(llm);

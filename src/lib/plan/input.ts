@@ -12,10 +12,12 @@ import { fixedItemsOf, fixedSlots, type FixedSlot } from "./fixed-items";
 import type { SharedItem } from "@/lib/domain/items";
 import {
   activitiesInput,
+  cafesInput,
   restaurantsInput,
   safeUrl,
   selectWishPlaces,
   type ActivitiesInput,
+  type CafesInput,
   type RestaurantsInput,
 } from "./activities-input";
 
@@ -78,6 +80,8 @@ export type PlanInput = {
   restaurants?: RestaurantsInput;
   /** Restaurants around one place of the plan, loaded for a change request (`needPlaces.restaurants.near`). */
   restaurantsNear?: RestaurantsInput;
+  /** Cafés (addendum A2), only when the purpose or a change request asks for them. Ids `c1..`. */
+  cafes?: CafesInput;
 };
 type Dow = "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su";
 
@@ -372,6 +376,8 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
     known,
     startN: 0,
   });
+  for (const [id, e] of Object.entries(rest.index)) known.set(e.key, id);
+  const cafes = cafesInput(facts.cafes, { kids: purpose?.tags?.cuisine?.kids, known, startN: 0 });
 
   const llm: PlanInput = {
     v: 1,
@@ -411,6 +417,7 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
     fixed,
     activities: acts.block,
     restaurants: rest.block,
+    cafes: cafes.block,
   };
 
   const header: Omit<PlanHeader, "generatedAt" | "model"> = {
@@ -460,7 +467,7 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   if (facts.places.status === "ok") digest.placesFetchedAt = facts.places.fetchedAt;
 
   return {
-    stored: { llm: stripUndefined(llm), index: { ...pl.index, ...acts.index, ...rest.index } },
+    stored: { llm: stripUndefined(llm), index: { ...pl.index, ...acts.index, ...rest.index, ...cafes.index } },
     header,
     digest,
     flights: fl.snapshot ? stripUndefined(fl.snapshot) : undefined,

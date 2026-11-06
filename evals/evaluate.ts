@@ -6,8 +6,8 @@ import { assemblePlan, type AssembleIssues } from "@/lib/plan/assemble";
 import { applyPatch } from "@/lib/plan/patch";
 import type { PlanInputStored } from "@/lib/plan/input";
 import { extendInput, resolveNeedPlaces } from "@/lib/plan/need-places";
-import { buildEvalInput, evalActivityLookups, FIXTURES, PATCH_FEEDBACK, type FixtureId } from "./build-input";
-import { genericChecks, needPatchChecks, patchChecks, planChecks, rawRefs, tagChecks, type CheckResult } from "./checks";
+import { buildEvalInput, evalActivityLookups, FAMILY_PATCH_FEEDBACK, FIXTURES, PATCH_FEEDBACK, UNCOVERED_PATCH_FEEDBACK, type FixtureId } from "./build-input";
+import { uncoveredPatchChecks, familyPatchChecks, genericChecks, needPatchChecks, patchChecks, planChecks, rawRefs, tagChecks, type CheckResult } from "./checks";
 
 export const RECORDED_GENERATED_AT = "2026-10-28T00:00:00.000Z";
 
@@ -125,6 +125,45 @@ export function evaluateNeedPatch(id: FixtureId, tags: PurposeTags | null, baseL
     ...needPatchChecks({ first: rec.first, next: res.plan, stored: extended }),
   ];
   return { plan: res.plan, extended, results };
+}
+
+/**
+ * Addendum 1 patch eval on the cruise generation: the first call (needPlaces for indoor_play, or a direct answer),
+ * then the second call on the input extended with the recorded Passau indoor lookup.
+ */
+export function evaluateFamilyPatch(tags: PurposeTags | null, baseLlm: LlmPlan, rec: NeedPatchRecording) {
+  const g = evaluateGenerate("cruise", tags, baseLlm);
+  if (!g.plan) return { plan: null, results: [{ name: "assemble base", ok: false, detail: "cruise generation does not assemble" }] as CheckResult[] };
+  const extended = needPatchInput("cruise", g.built.stored, rec.first);
+  const stored = extended ?? g.built.stored;
+  const patch = extended ? rec.second : rec.first;
+  if (!patch) return { plan: null, results: [{ name: "second call made", ok: false, detail: JSON.stringify(rec.first.needPlaces ?? null) }] as CheckResult[] };
+  const scope = FAMILY_PATCH_FEEDBACK.days;
+  const res = applyPatch({ base: g.plan, patch, stored, scope });
+  if (!res.ok) return { plan: null, results: [{ name: "applyPatch", ok: false, detail: res.reason }] as CheckResult[] };
+  const results: CheckResult[] = [
+    { name: "applyPatch", ok: true },
+    ...patchChecks({ id: "cruise", base: g.plan, next: res.plan, changedDays: res.changedDays, scope }),
+    ...genericChecks({ plan: res.plan, stored, rawRefs: rawRefs(patch.days), issues: res.issues }),
+    ...familyPatchChecks({ first: rec.first, next: res.plan, stored }),
+  ];
+  return { plan: res.plan, extended, stored, base: g.built.stored, results };
+}
+
+/** Addendum A3 patch eval on the cruise generation: one call, no places to load. */
+export function evaluateUncoveredPatch(tags: PurposeTags | null, baseLlm: LlmPlan, patch: LlmPatch) {
+  const g = evaluateGenerate("cruise", tags, baseLlm);
+  if (!g.plan) return { plan: null, results: [{ name: "assemble base", ok: false, detail: "cruise generation does not assemble" }] as CheckResult[] };
+  const scope = UNCOVERED_PATCH_FEEDBACK.days;
+  const res = applyPatch({ base: g.plan, patch, stored: g.built.stored, scope });
+  if (!res.ok) return { plan: null, results: [{ name: "applyPatch", ok: false, detail: res.reason }] as CheckResult[] };
+  const results: CheckResult[] = [
+    { name: "applyPatch", ok: true },
+    ...patchChecks({ id: "cruise", base: g.plan, next: res.plan, changedDays: res.changedDays, scope }),
+    ...genericChecks({ plan: res.plan, stored: g.built.stored, rawRefs: rawRefs(patch.days), issues: res.issues }),
+    ...uncoveredPatchChecks({ first: patch, next: res.plan, changedDays: res.changedDays }),
+  ];
+  return { plan: res.plan, results };
 }
 
 export const formatResults = (title: string, rs: CheckResult[]) =>
