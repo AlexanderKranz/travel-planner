@@ -93,10 +93,10 @@ is used.
 - A per-country table `LOCAL_CUISINE` (`src/lib/facts/cuisine.ts`, new) lists the cuisine values that count as
   local. For example, `DE`: german, regional, bavarian, swabian, franconian…; `ES`: spanish, tapas, regional,
   andalusian…; `AT`: austrian, regional…. A country without an entry uses `regional` only.
-- Filter, in this order:
-  1. With `cuisine.local`, keep restaurants whose cuisine is in the country's local set.
-  2. With `include`, keep restaurants whose cuisine matches.
-  3. `exclude` always drops matches.
+- Filter:
+  1. `local` and `include` are alternatives: keep restaurants whose cuisine is in the country's local set **or**
+     in `include` ("local or Italian food" keeps both).
+  2. `exclude` always drops matches.
   4. Without any cuisine wish, drop fast-food-style cuisines (`pizza`, `burger`, `kebab`, `sandwich`,
      `chicken`, `fast_food`) but keep untagged restaurants.
   5. If a filter leaves fewer than 3, the input marks that ("only 2 local restaurants found"), and the plan says
@@ -124,6 +124,8 @@ is used.
   The restaurant cache holds the nearest restaurants unfiltered, so a new cuisine wish is usually a re-filter of
   cached data, not a new query.
 - The first call's other output is discarded in that case. The second call cannot request places again.
+- **Budget.** Before the second call, `checkBudget(c, RESERVE_PATCH)` runs again with the first call's cost
+  counted. If it blocks, the request ends with the usual budget answer and no new version.
 - **Deadline.** The iterate route has `maxDuration = 300` s and the plan lock lasts `LOCK_MS` = 5 min. The whole
   request shares one deadline of 270 s from its start:
   - places get `min(60 s, remaining − 160 s)`, cache hits always served
@@ -144,10 +146,12 @@ is used.
 - Rules:
   - An activity for a wish with places sets `ref`; with `open`, `alts` should come from other types of the group
     where possible, so the user sees different kinds of options.
-  - Every lunch or dinner with restaurants available sets `ref` + `alts`.
-  - When every relevant lookup succeeded and found nothing (`empty`), write "found nothing nearby in
-    OpenStreetMap". When a lookup failed or was skipped (free-text destination, "Generate anyway"), say the
-    places could not be checked. Never invent themes or venues.
+  - Every lunch or dinner near the destination (the restaurant radius) with restaurants available sets
+    `ref` + `alts`. A meal next to a far activity stays generic (§3).
+  - Each **named** type is reported on its own: if footgolf is `empty` but rowing has places, the plan says "no
+    footgolf found nearby in OpenStreetMap" and offers rowing. "Nothing found" is used only for an `empty` lookup;
+    when a lookup failed or was skipped (free-text destination, "Generate anyway"), the plan says the places could
+    not be checked. Never invent themes or venues.
 - `PLAN_PROMPT_VERSION` is bumped. Existing plans keep working; new versions use plan-4.
 
 ### 6. Limits and cost
