@@ -889,6 +889,8 @@
       "title": "Adjust the plan",
       "done": "The plan was updated.",
       "noChange": "Nothing changed.",
+      "placesPending": "The places for this change could not be loaded yet (OpenStreetMap is slow right now). They keep loading in the background: please apply the change again in a minute.",
+      "placesNotLoadable": "Nothing changed: the places this change needs are not available in the app. Try a different wording or another kind of place.",
       "saved": "Saved.",
       "chipsLabel": "What should change?",
       "scopeLabel": "Which days?",

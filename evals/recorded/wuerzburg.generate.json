@@ -1,0 +1,208 @@
+{
+  "promptVersion": "plan-6",
+  "model": "claude-sonnet-5-5",
+  "inputHash": "ad8c7f24ffec9123d83cef42d86575f992268d7daaf1214ddab474d25737b6dc",
+  "output": {
+    "summary": "Wochenende in Würzburg mit Freunden: Freitagabend ein gemeinsames Indoor-Event, Samstag Wasseraktivität auf dem Main und am Abend fränkische Küche. Der Sonntag bleibt entspannt zum Ausklang.",
+    "days": [
+      {
+        "n": 1,
+        "title": "Anreise & Abend-Event",
+        "stops": [
+          {
+            "place": "Würzburg",
+            "acts": [
+              {
+                "at": "15:00",
+                "kind": "travel",
+                "text": "Anreise, Check-in im Hotel"
+              },
+              {
+                "at": "16:30",
+                "until": "18:00",
+                "kind": "see",
+                "text": "Bummel durch die Altstadt, Main-Ufer"
+              },
+              {
+                "at": "18:15",
+                "until": "19:45",
+                "kind": "food",
+                "text": "Abendessen mit fränkischer Küche",
+                "ref": "r2",
+                "alts": [
+                  "r3",
+                  "r1"
+                ]
+              },
+              {
+                "at": "20:15",
+                "until": "22:00",
+                "kind": "do",
+                "text": "Gemeinsames Event: Escape Room (Idee)",
+                "ref": "a1",
+                "alts": [
+                  "a2",
+                  "a7"
+                ]
+              }
+            ]
+          }
+        ],
+        "note": "Alternativen zum Escape Room: Bowling, Bouldern, Kino oder Theater.",
+        "warn": "Für Abendessen und Event vorab reservieren."
+      },
+      {
+        "n": 2,
+        "title": "Auf dem Wasser & fränkischer Abend",
+        "stops": [
+          {
+            "place": "Würzburg",
+            "acts": [
+              {
+                "at": "09:00",
+                "until": "10:00",
+                "kind": "food",
+                "text": "Frühstück im Hotel oder Café"
+              },
+              {
+                "at": "10:30",
+                "until": "13:00",
+                "kind": "sport",
+                "text": "Kanu auf dem Main, gemeinsame Tour",
+                "ref": "a12",
+                "alts": [
+                  "a9",
+                  "a10"
+                ]
+              },
+              {
+                "at": "13:15",
+                "until": "14:30",
+                "kind": "food",
+                "text": "Mittagessen, leichte Küche",
+                "ref": "r8",
+                "alts": [
+                  "r7",
+                  "r9"
+                ]
+              },
+              {
+                "at": "15:00",
+                "until": "16:30",
+                "kind": "see",
+                "text": "Residenz und Hofgarten"
+              },
+              {
+                "at": "16:30",
+                "until": "17:30",
+                "kind": "rest",
+                "text": "Pause im Hotel"
+              },
+              {
+                "at": "19:00",
+                "until": "21:00",
+                "kind": "food",
+                "text": "Abendessen mit Frankenwein und Regionalem",
+                "ref": "r4",
+                "alts": [
+                  "r11",
+                  "r1"
+                ]
+              }
+            ]
+          }
+        ],
+        "note": "Footgolf: In OpenStreetMap ist kein Anbieter in der Nähe gelistet. Angeboten werden stattdessen Kanu, Rudern, Bootsverleih, Minigolf und Karting.",
+        "warn": "Sonnenschutz auf dem Wasser einplanen."
+      },
+      {
+        "n": 3,
+        "title": "Entspannter Ausklang",
+        "stops": [
+          {
+            "place": "Würzburg",
+            "acts": [
+              {
+                "at": "09:30",
+                "until": "10:30",
+                "kind": "food",
+                "text": "Langes Frühstück"
+              },
+              {
+                "at": "11:00",
+                "until": "12:30",
+                "kind": "see",
+                "text": "Spaziergang Alte Mainbrücke, Weinberge"
+              },
+              {
+                "at": "12:45",
+                "until": "14:00",
+                "kind": "food",
+                "text": "Später Mittagsimbiss, regional",
+                "ref": "r5",
+                "alts": [
+                  "r6",
+                  "r10"
+                ]
+              },
+              {
+                "at": "14:30",
+                "kind": "travel",
+                "text": "Abreise"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "notes": [
+      {
+        "kind": "tip",
+        "text": "Abendprogramm und Restaurants für Freitag und Samstag früh reservieren."
+      },
+      {
+        "kind": "tip",
+        "text": "Für Kanu oder Boot Anbieter vorab anfragen."
+      }
+    ],
+    "open": [
+      {
+        "text": "Tisch für Freitagabend (fränkisch) reservieren",
+        "day": 1
+      },
+      {
+        "text": "Kanu-Tour beim Kanu-Club buchen und Verfügbarkeit prüfen",
+        "day": 2
+      },
+      {
+        "text": "Tisch für Samstagabend reservieren",
+        "day": 2
+      },
+      {
+        "text": "Öffnungszeiten und Buchung des Escape Rooms prüfen",
+        "day": 1
+      }
+    ],
+    "packing": [
+      "Sonnencreme",
+      "Sonnenhut",
+      "Wechselkleidung",
+      "Wasserfeste Schuhe",
+      "Regenjacke",
+      "Bequeme Wanderschuhe",
+      "Sonnenbrille"
+    ]
+  },
+  "usage": {
+    "task": "plan_generate",
+    "model": "claude-sonnet-5-5",
+    "status": "ok",
+    "inputTokens": 2185,
+    "outputTokens": 1394,
+    "cacheCreationInputTokens": 3939,
+    "cacheReadInputTokens": 0,
+    "costMicroUsd": 28158,
+    "latencyMs": 9647
+  },
+  "recordedAt": "2026-11-06T07:41:46.826Z"
+}

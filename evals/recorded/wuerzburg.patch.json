@@ -1,0 +1,111 @@
+{
+  "promptVersion": "plan-6",
+  "model": "claude-sonnet-5-5",
+  "inputHash": "ae37c6ff06ad9a04773cdfa37d6035a72fc5fcd0c577f93991406a949bd51538",
+  "output": {
+    "first": {
+      "reply": "Für konkrete Escape-Room-Vorschläge lade ich zuerst passende Anbieter in Würzburg.",
+      "days": [],
+      "needPlaces": {
+        "types": [
+          "escape_game"
+        ]
+      }
+    },
+    "second": {
+      "reply": "Freitagabend enthält jetzt einen konkreten Escape-Room-Vorschlag (TeamEscape) mit Alternativen.",
+      "days": [
+        {
+          "n": 1,
+          "title": "Ankunft & Freitagabend",
+          "stops": [
+            {
+              "place": "Würzburg",
+              "acts": [
+                {
+                  "at": "15:00",
+                  "kind": "travel",
+                  "text": "Anreise, Check-in im Hotel"
+                },
+                {
+                  "at": "16:30",
+                  "kind": "see",
+                  "text": "Bummel: Altstadt, Alte Mainbrücke, Dom",
+                  "ref": "",
+                  "alts": []
+                },
+                {
+                  "at": "18:15",
+                  "kind": "free",
+                  "text": "Aperitif, Weinschorle am Main",
+                  "ref": "",
+                  "alts": []
+                },
+                {
+                  "at": "19:30",
+                  "until": "21:30",
+                  "kind": "food",
+                  "text": "Gemeinsames Abendessen, fränkische Küche",
+                  "ref": "r2",
+                  "alts": [
+                    "r1",
+                    "r3"
+                  ]
+                },
+                {
+                  "at": "21:45",
+                  "kind": "do",
+                  "text": "Gemeinsames Event: Escape Room für die Gruppe",
+                  "ref": "a1"
+                }
+              ]
+            }
+          ],
+          "note": "TeamEscape ist als einziger Escape Room in der Nähe verifiziert; Alternativen wären Weinprobe oder Nachtwächter-Rundgang.",
+          "warn": "Wein und Altstadtpflaster: Rückweg zum Hotel vorab klären."
+        }
+      ],
+      "open": [
+        {
+          "text": "Tisch für Freitagabend reservieren",
+          "day": 1
+        },
+        {
+          "text": "Escape Room bei TeamEscape für 6 Personen buchen, Programm und Zeit prüfen",
+          "day": 1
+        },
+        {
+          "text": "Anbieter für Boot, Rudern oder Footgolf buchen",
+          "day": 2
+        },
+        {
+          "text": "Tisch für Samstagabend reservieren",
+          "day": 2
+        }
+      ]
+    },
+    "firstUsage": {
+      "task": "plan_patch",
+      "model": "claude-sonnet-5-5",
+      "status": "ok",
+      "inputTokens": 725,
+      "outputTokens": 156,
+      "cacheCreationInputTokens": 5919,
+      "cacheReadInputTokens": 0,
+      "costMicroUsd": 17808,
+      "latencyMs": 2560
+    }
+  },
+  "usage": {
+    "task": "plan_patch",
+    "model": "claude-sonnet-5-5",
+    "status": "ok",
+    "inputTokens": 732,
+    "outputTokens": 590,
+    "cacheCreationInputTokens": 1108,
+    "cacheReadInputTokens": 4916,
+    "costMicroUsd": 11117,
+    "latencyMs": 4767
+  },
+  "recordedAt": "2026-11-06T07:41:46.826Z"
+}

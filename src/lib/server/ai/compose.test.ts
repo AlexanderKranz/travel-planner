@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import golf from "@/lib/plan/__fixtures__/plan-golf.json";
-import { Plan, type PlanFeedback } from "@/lib/domain/plan";
+import { Plan, PurposeTags, type PlanFeedback } from "@/lib/domain/plan";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import { SYSTEM_RULES } from "@/lib/plan/prompt";
 import type { PlanInputStored } from "@/lib/plan/input";
-import { composeRequest, generateMaxTokens, normalizePatch, normalizePlan, patchBlocks, patchRequest, patchScope } from "./compose";
+import { composeRequest, generateMaxTokens, normalizePatch, normalizePlan, patchBlocks, patchPlan, patchRequest, patchScope } from "./compose";
 import { needsTags, normalizeTags, tagsRequest } from "./purpose-tags";
 
 vi.mock("server-only", () => ({}));
@@ -81,13 +81,103 @@ describe("purpose tags", () => {
 
   it("request: Haiku, low effort, compact PURPOSE block", () => {
     const r = tagsRequest(purpose({ text: "Golf", constraints: ["flat"], guided: { interests: ["golf", "Pilze"] } }));
-    expect(r).toMatchObject({ task: "purpose_tags", model: "claude-haiku-5-5", effort: "low", maxTokens: 1500 });
+    expect(r).toMatchObject({ task: "purpose_tags", model: "claude-haiku-5-5", effort: "low", maxTokens: 3000 });
     expect(r.blocks[0].text).toBe('PURPOSE\n{"constraints":["flat"],"custom":["Pilze"],"text":"Golf"}');
   });
 
   it("normalize drops unknown keys, bad pace, duplicates and caps lengths", () => {
     const t = normalizeTags({ v: 2, interests: ["golf", "golfing", "golf"], custom: [" a ", "A"], pace: "fast", hard: ["x".repeat(300)], soft: [], summary: "s".repeat(400) });
-    expect(t).toEqual({ v: 1, interests: ["golf"], custom: ["a"], hard: ["x".repeat(200)], soft: [], summary: "s".repeat(300) });
+    expect(t).toEqual({ v: 2, interests: ["golf"], custom: ["a"], hard: ["x".repeat(200)], soft: [], summary: "s".repeat(300) });
+  });
+
+  const base = { v: 2, interests: [], custom: ["escape room"], hard: [], soft: [], summary: "" };
+  it("v2: activity wishes keep catalogue types, drop unknown ones and entries with nothing to load", () => {
+    const t = normalizeTags({
+      ...base,
+      activities: [
+        { types: ["escape_game", "laser_maze", "escape_game"], open: true, group: "outdoor", label: "  Friday   evening event " },
+        { types: ["rowing", "footgolf"], open: false },
+        { types: [], open: false, group: "indoor" },
+        { types: ["unknown"], open: true },
+        { types: [], open: true, group: "spa" },
+        { types: ["bar"], open: false },
+        { types: ["cinema"], open: false },
+      ],
+    });
+    expect(t.activities).toEqual([
+      { types: ["escape_game"], open: true, label: "Friday evening event" },
+      { types: ["rowing", "footgolf"], open: false },
+      { types: [], open: true, group: "indoor" },
+      { types: ["bar"], open: false },
+    ]);
+  });
+
+  it("v2: cuisine keeps known values only and is omitted when empty", () => {
+    expect(normalizeTags({ ...base, cuisine: { local: true, include: ["German", "schnitzel"], exclude: ["pizza", "german"] } }).cuisine).toEqual({
+      local: true,
+      include: ["german"],
+      exclude: ["pizza"],
+    });
+    expect(normalizeTags({ ...base, cuisine: { local: false, include: ["xyz"], exclude: [] } }).cuisine).toBeUndefined();
+  });
+
+  it("stored v1 tags (tags-1, no activities or cuisine) still parse", () => {
+    expect(PurposeTags.safeParse({ v: 1, interests: ["golf"], custom: [], hard: [], soft: [], summary: "" }).success).toBe(true);
+  });
+
+  it("the tags prompt lists the activity types and cuisines", () => {
+    const r = tagsRequest(purpose({ text: "x" }));
+    expect(r.system).toContain("escape_game");
+    expect(r.system).toContain("franconian");
+  });
+});
+
+describe("needPlaces (activities spec section 4)", () => {
+  const wire = { reply: "r", days: [] };
+  it("keeps catalogue types, known cuisines and near; drops an empty request", () => {
+    const p = normalizePatch({ ...wire, needPlaces: { types: ["escape_game", "x"], restaurants: { cuisine: { local: true, include: ["sushi", "q"] }, near: " a2 " } } });
+    expect(p.needPlaces).toEqual({ types: ["escape_game"], restaurants: { cuisine: { local: true, include: ["sushi"], exclude: [] }, near: "a2" } });
+    expect(normalizePatch({ ...wire, needPlaces: { types: ["x"] } }).needPlaces).toBeUndefined();
+    expect(normalizePatch(wire).needPlaces).toBeUndefined();
+  });
+
+  it("flags a request with nothing loadable as unusable; keeps `local` unset when the model did not set it", () => {
+    expect(normalizePatch({ ...wire, needPlaces: { types: ["laser_maze"] } }).needPlacesUnusable).toBe(true);
+    expect(normalizePatch(wire).needPlacesUnusable).toBeUndefined();
+    const p = normalizePatch({ ...wire, needPlaces: { restaurants: { cuisine: { exclude: ["pizza"] } } } });
+    expect(p.needPlaces).toEqual({ restaurants: { cuisine: { include: [], exclude: ["pizza"] } } });
+  });
+
+  it("patchPlan with loaded drops a repeated needPlaces and flags it", async () => {
+    const answer = { reply: "noch mehr laden", days: [], needPlaces: { types: ["bowling"] } };
+    const client = {
+      messages: {
+        create: async () => ({
+          stop_reason: "end_turn",
+          content: [{ type: "text", text: JSON.stringify(answer) }],
+          usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+        }),
+      },
+    };
+    const ctx = { onUsage: async () => {}, client: client as never };
+    const second = await patchPlan({ llm, plan, index, feedback: fb({ text: "x" }), loaded: true }, ctx);
+    expect(second.ok && second.data.needPlaces).toBeFalsy();
+    expect(second.ok && second.data.needPlacesUnusable).toBe(true);
+    const first = await patchPlan({ llm, plan, index, feedback: fb({ text: "x" }) }, ctx);
+    expect(first.ok && first.data.needPlaces).toEqual({ types: ["bowling"] });
+  });
+
+  it("the second call marks FEEDBACK as loaded and passes the deadline as timeout", () => {
+    const r = patchRequest({ llm, plan, index, feedback: fb({ text: "Escape Rooms" }), loaded: true, timeoutMs: 90_000 });
+    expect(r.blocks[2].text).toContain('"loaded":true');
+    expect(r.timeoutMs).toBe(90_000);
+    expect(patchRequest({ llm, plan, index, feedback: fb({ text: "x" }) }).blocks[2].text).not.toContain("loaded");
+  });
+
+  it("the patch addendum explains needPlaces and forbids it after loading", () => {
+    const r = patchRequest({ llm, plan, index, feedback: fb({ text: "x" }) });
+    expect(r.system).toContain("needPlaces");
+    expect(r.system).toContain("FEEDBACK.loaded");
   });
 });
 

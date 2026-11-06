@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { LlmPatch, LlmPlan, PurposeTags } from "@/lib/domain/plan";
 import { canonicalJson, planInputHash, purposeTagsHash } from "@/lib/plan/hash";
 import { buildEvalInput, evalPurpose, FIXTURE_IDS, PATCH_FEEDBACK } from "./build-input";
-import { evaluateGenerate, evaluatePatch, evaluateTags, formatResults } from "./evaluate";
+import { evaluateGenerate, evaluateNeedPatch, evaluatePatch, evaluateTags, formatResults, type NeedPatchRecording } from "./evaluate";
 import { readRecording } from "./recorded";
 import { familyPlaceChecks, golfPlaceChecks } from "./checks";
 import type { Plan } from "@/lib/domain/plan";
@@ -29,7 +29,9 @@ describe.each(FIXTURE_IDS)("eval %s", (id) => {
     expect(planInputHash(a.stored.llm)).toBe(planInputHash(b.stored.llm));
     const json = canonicalJson(a.stored.llm);
     expect(json).not.toMatch(/birth|fetchedAt|generatedAt/i);
-    if (tags) expect(a.stored.llm.places.length).toBeGreaterThan(0);
+    // Würzburg has no recorded interest places; its places are activity places and restaurants.
+    if (tags) expect(a.stored.llm.places.length + (a.stored.llm.activities?.places.length ?? 0)).toBeGreaterThan(0);
+    if (tags && id === "wuerzburg") expect(a.stored.llm.restaurants?.list.length).toBeGreaterThan(0);
     expect(a.stored.llm.places.length).toBeLessThanOrEqual(40);
   });
 
@@ -46,7 +48,13 @@ describe.each(FIXTURE_IDS)("eval %s", (id) => {
     expect(failed(g.results), formatResults(`${id} generate`, g.results)).toEqual([]);
   });
 
-  it.runIf(!!genRec && !!patchRec)("recorded patch changes only the scoped days", () => {
+  const baseRec = readRecording<LlmPlan>(id, "needbase");
+  it.runIf(id === "wuerzburg" && !!baseRec && !!patchRec)("recorded needPlaces patch loads escape rooms and patches day 1", () => {
+    const p = evaluateNeedPatch(id, tags, baseRec!.output, patchRec!.output as unknown as NeedPatchRecording);
+    expect(failed(p.results), formatResults(`${id} needPlaces patch`, p.results)).toEqual([]);
+  });
+
+  it.runIf(id !== "wuerzburg" && !!genRec && !!patchRec)("recorded patch changes only the scoped days", () => {
     const g = evaluateGenerate(id, tags, genRec!.output, { recordedHash: genRec!.inputHash });
     const feedback = PATCH_FEEDBACK[id];
     const hash = createHash("sha256").update(canonicalJson({ base: planInputHash(g.built.stored.llm), feedback })).digest("hex");

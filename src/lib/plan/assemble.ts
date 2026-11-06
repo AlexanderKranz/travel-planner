@@ -95,6 +95,12 @@ export function noteTimes(notes: string | undefined): Set<string> {
 
 export const MAX_ALTS = 2;
 
+/** Index entry for a model-supplied id; own keys only, so "constructor" or "__proto__" never resolve. */
+export function indexHit(index: PlanInputStored["index"], id: string): PlanInputStored["index"][string] | undefined {
+  const k = String(id).trim();
+  return Object.hasOwn(index, k) ? index[k] : undefined;
+}
+
 /**
  * Alternative place ids → OSM keys, validated like `ref`: unknown ids are dropped (and counted as invalid_ref),
  * the ref itself and duplicates are skipped, at most MAX_ALTS kept. Alternatives without a valid ref are ignored
@@ -108,7 +114,7 @@ export function resolveAlts(
 ): OsmKey[] | undefined {
   const out: OsmKey[] = [];
   for (const raw of ids ?? []) {
-    const hit = index[String(raw).trim()];
+    const hit = indexHit(index, raw);
     if (!hit) {
       issues.invalid_ref += 1;
       continue;
@@ -143,7 +149,7 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
       let ref: OsmKey | undefined;
       let refName: string | undefined;
       if (a.ref) {
-        const hit = ctx.index[a.ref.trim()];
+        const hit = indexHit(ctx.index, a.ref);
         if (hit) {
           ref = hit.key;
           refName = hit.place.name;

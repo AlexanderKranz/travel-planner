@@ -22,6 +22,8 @@ export type StructuredRequest<S extends z.ZodType> = {
   system: string;
   /** User content blocks in order; `cache: true` adds an ephemeral cache breakpoint. */
   blocks: { text: string; cache?: boolean }[];
+  /** Per-call client timeout, at most CLIENT_TIMEOUT_MS (a request with a shared deadline passes what is left). */
+  timeoutMs?: number;
 };
 
 /**
@@ -30,6 +32,12 @@ export type StructuredRequest<S extends z.ZodType> = {
  */
 export const CLIENT_TIMEOUT_MS = 140_000;
 export const CLIENT_MAX_RETRIES = 0;
+
+/** Per-call request options: a given timeout is clamped to 1 ms .. CLIENT_TIMEOUT_MS; NaN/Infinity count as not given. */
+export function clientOptions(timeoutMs: number | undefined): { timeout: number } | undefined {
+  if (timeoutMs === undefined || !Number.isFinite(timeoutMs)) return undefined;
+  return { timeout: Math.max(1, Math.min(timeoutMs, CLIENT_TIMEOUT_MS)) };
+}
 
 let shared: Anthropic | null = null;
 function defaultClient(): Anthropic {
@@ -130,7 +138,7 @@ export async function callStructured<S extends z.ZodType>(
       ],
       ...(req.noThinking ? { thinking: { type: "disabled" as const } } : {}),
       output_config: { format: { type: "json_schema", schema: jsonSchema }, effort: req.effort },
-    });
+    }, clientOptions(req.timeoutMs));
   } catch (e) {
     const usage = record("error", null, errorCode(e));
     usage.costMicroUsd = estimateFailedCostMicroUsd(req);

@@ -5,8 +5,9 @@ import { planInputHash } from "@/lib/plan/hash";
 import { assemblePlan, type AssembleIssues } from "@/lib/plan/assemble";
 import { applyPatch } from "@/lib/plan/patch";
 import type { PlanInputStored } from "@/lib/plan/input";
-import { buildEvalInput, FIXTURES, PATCH_FEEDBACK, type FixtureId } from "./build-input";
-import { genericChecks, patchChecks, planChecks, rawRefs, tagChecks, type CheckResult } from "./checks";
+import { extendInput, resolveNeedPlaces } from "@/lib/plan/need-places";
+import { buildEvalInput, evalActivityLookups, FIXTURES, PATCH_FEEDBACK, type FixtureId } from "./build-input";
+import { genericChecks, needPatchChecks, patchChecks, planChecks, rawRefs, tagChecks, type CheckResult } from "./checks";
 
 export const RECORDED_GENERATED_AT = "2026-10-28T00:00:00.000Z";
 
@@ -69,6 +70,61 @@ export function evaluatePatch(id: FixtureId, tags: PurposeTags | null, base: Pla
     results.push(...planChecks(id, FIXTURES[id], res.plan, fresh, built.stored, res.issues, raw.ok ? raw.plan : undefined));
   }
   return { plan: res.plan, changedDays: res.changedDays, results };
+}
+
+/** Tags as stored before tags-2 learned activity wishes: the base of the needPlaces patch eval. */
+export function withoutActivities(tags: PurposeTags | null): PurposeTags | null {
+  if (!tags) return null;
+  const copy = { ...tags };
+  delete copy.activities;
+  return copy;
+}
+
+/** Plan generated from an input without activity places (`needbase` recording). */
+export function assembleNeedBase(id: FixtureId, tags: PurposeTags | null, llm: LlmPlan) {
+  const built = buildEvalInput(id, withoutActivities(tags));
+  const res = assemblePlan({
+    llm,
+    stored: built.stored,
+    header: { ...built.header, generatedAt: RECORDED_GENERATED_AT, model: MODEL_PLAN },
+    digest: built.digest,
+    locale: FIXTURES[id].locale,
+    flights: built.flights,
+  });
+  return { built, plan: res.ok ? res.plan : null, reason: res.ok ? undefined : res.reason };
+}
+
+/** The input of the second patch call: base input + the places the first call asked for (recorded lookups). */
+export function needPatchInput(id: FixtureId, stored: PlanInputStored, first: LlmPatch): PlanInputStored | null {
+  const req = resolveNeedPlaces(first.needPlaces, stored);
+  if (!req) return null;
+  const loaded = evalActivityLookups(id, req.groups);
+  return extendInput(stored, req, { activities: loaded.activities, restaurants: req.restaurants ? loaded.restaurants : undefined }, {
+    lang: FIXTURES[id].locale,
+    countryCode: FIXTURES[id].trip.anchor.countryCode,
+  });
+}
+
+export type NeedPatchRecording = { first: LlmPatch; second: LlmPatch | null; firstUsage?: unknown };
+
+/** Activities spec patch eval: needPlaces on the first call, then the second call's patch applied and checked. */
+export function evaluateNeedPatch(id: FixtureId, tags: PurposeTags | null, baseLlm: LlmPlan, rec: NeedPatchRecording) {
+  const base = assembleNeedBase(id, tags, baseLlm);
+  if (!base.plan) return { plan: null, results: [{ name: "assemble base", ok: false, detail: base.reason }] as CheckResult[] };
+  const extended = needPatchInput(id, base.built.stored, rec.first);
+  if (!extended || !rec.second) {
+    return { plan: null, results: [{ name: "needPlaces requested and second call made", ok: false, detail: JSON.stringify(rec.first.needPlaces ?? null) }] as CheckResult[] };
+  }
+  const scope = PATCH_FEEDBACK[id].days;
+  const res = applyPatch({ base: base.plan, patch: rec.second, stored: extended, scope });
+  if (!res.ok) return { plan: null, results: [{ name: "applyPatch", ok: false, detail: res.reason }] as CheckResult[] };
+  const results: CheckResult[] = [
+    { name: "applyPatch", ok: true },
+    ...patchChecks({ id, base: base.plan, next: res.plan, changedDays: res.changedDays, scope }),
+    ...genericChecks({ plan: res.plan, stored: extended, rawRefs: rawRefs(rec.second.days), issues: res.issues }),
+    ...needPatchChecks({ first: rec.first, next: res.plan, stored: extended }),
+  ];
+  return { plan: res.plan, extended, results };
 }
 
 export const formatResults = (title: string, rs: CheckResult[]) =>

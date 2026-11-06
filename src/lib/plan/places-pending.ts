@@ -1,4 +1,4 @@
-import type { Fact, PlacesFacts } from "@/lib/domain/facts";
+import type { Fact, PlacesFacts, TripFacts } from "@/lib/domain/facts";
 import { sourceFor } from "@/lib/facts/interest-sources";
 
 /**
@@ -12,4 +12,23 @@ export function placesPending(places: Fact<PlacesFacts>): string[] | null {
     .filter((g) => g.status === "error" && sourceFor(g.interest).source === "osm")
     .map((g) => g.interest);
   return pending.length ? pending : null;
+}
+
+/**
+ * Activity groups and restaurants that did not load, labelled `activities:<group>` and `restaurants`: `error`, and
+ * `skipped` because the shared budget ran out (`cache_only`: network denied, nothing cached). Same rule as for
+ * interests: the pipeline asks the user to retry [D2] and the retry or warm-up completes them. Never pending:
+ * `empty`, and a free-text destination (`no_location`). "Generate anyway" (`force`) passes through in the caller.
+ */
+const notLoaded = (l: { status: string; reason?: string }) => l.status === "error" || (l.status === "skipped" && l.reason === "cache_only");
+export function activityPlacesPending(facts: Pick<TripFacts, "activities" | "restaurants">): string[] {
+  const out = (facts.activities ?? []).filter(notLoaded).map((g) => `activities:${g.group}`);
+  if (facts.restaurants && notLoaded(facts.restaurants)) out.push("restaurants");
+  return out;
+}
+
+/** Interests, activity groups and restaurants that did not load; null when nothing is pending. */
+export function allPlacesPending(facts: Pick<TripFacts, "places" | "activities" | "restaurants">): string[] | null {
+  const all = [...(placesPending(facts.places) ?? []), ...activityPlacesPending(facts)];
+  return all.length ? all : null;
 }

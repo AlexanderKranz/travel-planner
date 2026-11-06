@@ -16,7 +16,17 @@ import { buildEvalInput, evalDrivePicks, evalPurpose, FIXTURE_IDS, PATCH_FEEDBAC
 import { fetchDriveMatrix } from "@/lib/integrations/openrouteservice";
 import { recordingPath } from "./recorded";
 import { writeFileSync } from "node:fs";
-import { evaluateGenerate, evaluatePatch, evaluateTags, formatResults } from "./evaluate";
+import {
+  assembleNeedBase,
+  evaluateGenerate,
+  evaluateNeedPatch,
+  evaluatePatch,
+  evaluateTags,
+  formatResults,
+  needPatchInput,
+  withoutActivities,
+  type NeedPatchRecording,
+} from "./evaluate";
 import { assertBudget, readLedger, recordSpend } from "./ledger";
 import { readRecording, writeRecording, type RecordedTask } from "./recorded";
 import { createHash } from "node:crypto";
@@ -31,8 +41,8 @@ const pick = <T extends string>(env: string | undefined, all: readonly T[]): T[]
   env ? (env.split(",").map((s) => s.trim()).filter((s) => (all as readonly string[]).includes(s)) as T[]) : [...all];
 const fixtures = pick<FixtureId>(process.env.EVAL_FIXTURE, FIXTURE_IDS);
 const tasks = process.env.EVAL_TASK
-  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "patch"])
-  : (["tags", "generate", "patch"] as RecordedTask[]);
+  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "needbase", "patch"])
+  : (["tags", "generate", "needbase", "patch"] as RecordedTask[]);
 
 const usd = (micro: number) => `$${(micro / 1e6).toFixed(4)}`;
 const fmtUsage = (u: AiUsageRecord) =>
@@ -95,8 +105,42 @@ describe.runIf(LIVE)("live evals", () => {
         } else console.log(`[${id}] generate failed: ${r.error}`);
       }
 
+      // 2b/3b. Activities spec: a plan WITHOUT activity places (tags as before tags-2), then the change request
+      // "concrete escape rooms on day 1" must ask for places (needPlaces), code loads them and the patch runs again.
+      if (id === "wuerzburg") {
+        let baseLlm = readRecording<LlmPlan>(id, "needbase")?.output ?? null;
+        if (tasks.includes("needbase")) {
+          const built = buildEvalInput(id, withoutActivities(tags));
+          const r = await composePlan(built.stored.llm, ctxFor(id, "plan_generate", usage));
+          if (r.ok) {
+            baseLlm = r.data;
+            writeRecording(id, "needbase", { promptVersion: PLAN_PROMPT_VERSION, model: MODEL_PLAN, inputHash: planInputHash(built.stored.llm), output: r.data, usage: r.usage, recordedAt });
+          } else console.log(`[${id}] needbase failed: ${r.error}`);
+        }
+        if (tasks.includes("patch") && baseLlm) {
+          const base = assembleNeedBase(id, tags, baseLlm);
+          if (!base.plan) throw new Error("needbase plan does not assemble");
+          const feedback = PATCH_FEEDBACK[id];
+          const first = await patchPlan({ llm: base.built.stored.llm, plan: base.plan, index: base.built.stored.index, feedback }, ctxFor(id, "plan_patch", usage));
+          if (!first.ok) console.log(`[${id}] patch 1 failed: ${first.error}`);
+          else {
+            console.log(`[${id}] patch 1 needPlaces ${canonicalJson(first.data.needPlaces ?? null)}; reply: ${first.data.reply}`);
+            const extended = needPatchInput(id, base.built.stored, first.data);
+            const second = extended
+              ? await patchPlan({ llm: extended.llm, plan: base.plan, index: extended.index, feedback, loaded: true }, ctxFor(id, "plan_patch", usage))
+              : null;
+            if (second && !second.ok) console.log(`[${id}] patch 2 failed: ${second.error}`);
+            const rec: NeedPatchRecording = { first: first.data, second: second?.ok ? second.data : null, firstUsage: first.usage };
+            const inputHash = createHash("sha256").update(canonicalJson({ base: planInputHash(base.built.stored.llm), feedback })).digest("hex");
+            writeRecording(id, "patch", { promptVersion: PLAN_PROMPT_VERSION, model: MODEL_PLAN, inputHash, output: rec, usage: second?.ok ? second.usage : first.usage, recordedAt });
+            if (second?.ok) console.log(`[${id}] reply: ${second.data.reply}`);
+            console.log(formatResults(`[${id}] needPlaces patch`, evaluateNeedPatch(id, tags, baseLlm, rec).results));
+          }
+        }
+      }
+
       // 3. Patch (Sonnet), on the recorded or fresh generation
-      if (tasks.includes("patch") && llmPlan) {
+      if (tasks.includes("patch") && llmPlan && id !== "wuerzburg") {
         const g = evaluateGenerate(id, tags, llmPlan);
         if (!g.plan) throw new Error("base plan does not assemble");
         const feedback = PATCH_FEEDBACK[id];

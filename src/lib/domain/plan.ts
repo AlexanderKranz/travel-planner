@@ -3,6 +3,8 @@ import { IsoDate, optionalText } from "./common";
 import { IataCode } from "./flights";
 import { Locale } from "./profile";
 import { INTEREST_KEYS } from "./interests";
+import { ActivityGroup, ActivityType } from "@/lib/facts/activity-types";
+import { Cuisine } from "@/lib/facts/cuisine";
 import type { Access } from "./sharing";
 
 export const PLAN_SCHEMA_VERSION = 1;
@@ -311,21 +313,60 @@ export const LlmPlan = z.object({
   packing: z.array(z.string()),
 });
 export type LlmPlan = z.infer<typeof LlmPlan>;
+/**
+ * Places a change request needs that the input lacks (activities spec section 4, option A). Code loads them and runs
+ * the patch once more. `near` = an input place id ("a3", "p2"): restaurants are then loaded around that place.
+ * Code-normalized (compose.ts): only catalogue types and known cuisines remain.
+ */
+export const NeedPlaces = z.object({
+  types: z.array(ActivityType).optional(),
+  restaurants: z
+    .object({
+      cuisine: z.object({ local: z.boolean().optional(), include: z.array(Cuisine).optional(), exclude: z.array(Cuisine).optional() }).optional(),
+      near: z.string().optional(),
+    })
+    .optional(),
+});
+export type NeedPlaces = z.infer<typeof NeedPlaces>;
 export const LlmPatch = z.object({
   reply: z.string(), // one sentence for the user
   days: z.array(LlmDay), // ONLY changed days, each a full replacement
   summary: z.string().optional(),
   notes: LlmPlan.shape.notes.optional(),
   open: LlmPlan.shape.open.optional(),
+  needPlaces: NeedPlaces.optional(),
+  /** Set by code: the model asked for places that cannot be loaded (unknown kinds, or again after loading). */
+  needPlacesUnusable: z.boolean().optional(),
 });
 export type LlmPatch = z.infer<typeof LlmPatch>;
+
+/**
+ * One concrete activity wish of a purpose (activities spec section 2). Unknown values are dropped in code before
+ * saving (purpose-tags.ts); a stored entry with a type that left the catalogue fails to parse, which makes the
+ * purpose re-tag once (the same path as a prompt version bump).
+ */
+export const ActivityWishTag = z.object({
+  types: z.array(ActivityType),
+  open: z.boolean(),
+  group: ActivityGroup.optional(),
+  /** What the travellers asked for, 1-5 English words ("Friday evening event"); lets the plan place the wish. */
+  label: z.string().max(60).optional(),
+});
+export type ActivityWishTag = z.infer<typeof ActivityWishTag>;
+export const CuisineTag = z.object({ local: z.boolean(), include: z.array(Cuisine), exclude: z.array(Cuisine) });
+export type CuisineTag = z.infer<typeof CuisineTag>;
+export const MAX_ACTIVITY_WISHES = 4;
+
+/** v1 = tags-1 (no activities/cuisine); v2 = tags-2. Both parse. */
 export const PurposeTags = z.object({
-  v: z.literal(1),
+  v: z.union([z.literal(1), z.literal(2)]),
   interests: z.array(z.enum(INTEREST_KEYS)), // mapped from free text + custom interests
   custom: z.array(z.string()), // interests with no key, short English
   pace: z.enum(["relaxed", "balanced", "packed"]).optional(),
   hard: z.array(z.string()), // must-haves, short English, one requirement each
   soft: z.array(z.string()), // preferences
   summary: z.string(), // <= 300 chars, English, anything else that matters
+  activities: z.array(ActivityWishTag).max(MAX_ACTIVITY_WISHES).optional(), // tags-2
+  cuisine: CuisineTag.optional(), // tags-2
 });
 export type PurposeTags = z.infer<typeof PurposeTags>;

@@ -10,6 +10,14 @@ import { resolveGroup, type GroupSource } from "@/lib/group-text";
 import { gatewayAirports, nearestGatewayKm } from "./airports";
 import { fixedItemsOf, fixedSlots, type FixedSlot } from "./fixed-items";
 import type { SharedItem } from "@/lib/domain/items";
+import {
+  activitiesInput,
+  restaurantsInput,
+  safeUrl,
+  selectWishPlaces,
+  type ActivitiesInput,
+  type RestaurantsInput,
+} from "./activities-input";
 
 /** What Sonnet sees (spec 3.1). Canonical JSON, compact keys, no timestamps or other volatile values. */
 export type PlanInput = {
@@ -64,6 +72,12 @@ export type PlanInput = {
   noSource: string[];
   /** The user's booked/planned items with a day and start time (plan-4). Code renders them; the model plans around. */
   fixed?: FixedSlot[];
+  /** Purpose activity wishes with their places and lookup status (plan-6, activities spec section 5). */
+  activities?: ActivitiesInput;
+  /** Restaurants near the destination point, filtered by the cuisine wish (plan-6). Not counted in MAX_PLACES. */
+  restaurants?: RestaurantsInput;
+  /** Restaurants around one place of the plan, loaded for a change request (`needPlaces.restaurants.near`). */
+  restaurantsNear?: RestaurantsInput;
 };
 type Dow = "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su";
 
@@ -161,16 +175,6 @@ export function localHhmm(instant: string | null, timeZone: string): string | un
   const h = parts.find((p) => p.type === "hour")?.value;
   const m = parts.find((p) => p.type === "minute")?.value;
   return h && m ? `${h}:${m}` : undefined;
-}
-
-function safeUrl(u: string | undefined): string | undefined {
-  if (!u) return undefined;
-  try {
-    const url = new URL(u);
-    return url.protocol === "http:" || url.protocol === "https:" ? url.toString() : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 function groupInput(
@@ -358,6 +362,16 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   if (verified.length) gateways = verified;
   const fallbackKeys = interestsForTrip(purpose?.guided, purpose?.tags).keys;
   const pl = placesInput(facts, locale, gateways, fallbackKeys, a.drive);
+  // Activity wishes and restaurants (plan-6): own id ranges (a.., r..), a place already listed keeps its p id.
+  const known = new Map(Object.entries(pl.index).map(([id, v]) => [v.key as string, id]));
+  const acts = activitiesInput(selectWishPlaces(facts.activities, purpose?.tags?.activities), { lang: locale, drive: a.drive, known, startN: 0 });
+  for (const [id, e] of Object.entries(acts.index)) known.set(e.key, id);
+  const rest = restaurantsInput(facts.restaurants, {
+    cuisine: purpose?.tags?.cuisine,
+    countryCode: geo?.countryCode ?? country?.code,
+    known,
+    startN: 0,
+  });
 
   const llm: PlanInput = {
     v: 1,
@@ -395,6 +409,8 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
     places: pl.places,
     noSource: pl.noSource,
     fixed,
+    activities: acts.block,
+    restaurants: rest.block,
   };
 
   const header: Omit<PlanHeader, "generatedAt" | "model"> = {
@@ -444,7 +460,7 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   if (facts.places.status === "ok") digest.placesFetchedAt = facts.places.fetchedAt;
 
   return {
-    stored: { llm: stripUndefined(llm), index: pl.index },
+    stored: { llm: stripUndefined(llm), index: { ...pl.index, ...acts.index, ...rest.index } },
     header,
     digest,
     flights: fl.snapshot ? stripUndefined(fl.snapshot) : undefined,

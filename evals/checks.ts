@@ -1,11 +1,13 @@
 /** Deterministic eval checks (spec 7). Pure: no network, no model. */
-import type { LlmPlan, Plan, PlanDay, PurposeTags } from "@/lib/domain/plan";
+import type { LlmPatch, LlmPlan, Plan, PlanDay, PurposeTags } from "@/lib/domain/plan";
 import type { AssembleIssues } from "@/lib/plan/assemble";
 import { addDays } from "@/lib/facts/trip-timing";
 import { canonicalJson } from "@/lib/plan/hash";
 import { overlapsSlot } from "@/lib/plan/fixed-items";
 import type { PlanInputStored } from "@/lib/plan/input";
 import type { EvalFixture, FixtureId, ScheduleEntry } from "./build-input";
+import { ACTIVITY_SOURCES, type ActivityType } from "@/lib/facts/activity-types";
+import { FAST_FOOD_CUISINES, LOCAL_CUISINE } from "@/lib/facts/cuisine";
 
 export type CheckResult = { name: string; ok: boolean; detail?: string };
 
@@ -251,6 +253,16 @@ export function cruiseChecks(plan: Plan, c: EvalFixture["checks"], schedule: Sch
 }
 
 export function tagChecks(id: FixtureId, tags: PurposeTags): CheckResult[] {
+  if (id === "wuerzburg") {
+    const wishes = tags.activities ?? [];
+    const water = ["rowing", "footgolf", "boat_rental", "canoe"];
+    return [
+      check("tags: v2", tags.v === 2),
+      check("tags: open escape room wish", wishes.some((w) => w.types.includes("escape_game") && w.open), JSON.stringify(wishes)),
+      check("tags: water/footgolf wish", wishes.some((w) => w.types.some((t) => water.includes(t))), JSON.stringify(wishes)),
+      check("tags: local cuisine", tags.cuisine?.local === true, JSON.stringify(tags.cuisine ?? null)),
+    ];
+  }
   if (id === "golf") {
     return [
       check("tags: interests contain golf", tags.interests.includes("golf"), tags.interests.join(",")),
@@ -270,6 +282,7 @@ export function planChecks(
   raw?: Plan,
 ): CheckResult[] {
   if (id === "golf") return golfChecks(plan, fixture.checks, fresh, stored, issues, raw);
+  if (id === "wuerzburg") return stored && fresh && fixture.checks.activities ? activityChecks(plan, stored) : [];
   const r = cruiseChecks(plan, fixture.checks, fixture.fixedSchedule ?? []);
   // Only for a recording made from the current input: an older one never saw the family places.
   if (stored && fresh) r.push(...familyPlaceChecks(plan, stored));
@@ -300,3 +313,74 @@ export function patchChecks(a: {
 /** All `ref` values of the raw model days. */
 export const rawRefs = (days: LlmPlan["days"]) =>
   days.flatMap((d) => d.stops.flatMap((s) => s.acts.flatMap((a) => (a.ref ? [a.ref] : []))));
+
+const EVENING = "17:00";
+
+/** OSM key -> activity type / effective group, and restaurant key -> cuisines, from the stored input. */
+function inputMaps(stored: PlanInputStored) {
+  const keyOf = (id: string) => stored.index[id]?.key as string | undefined;
+  const acts = new Map<string, { t: ActivityType[]; g: string }>();
+  for (const p of stored.llm.activities?.places ?? []) {
+    const k = keyOf(p.id);
+    if (k) acts.set(k, { t: p.t, g: p.g });
+  }
+  const rest = new Map<string, string[]>();
+  for (const block of [stored.llm.restaurants, stored.llm.restaurantsNear]) {
+    for (const r of block?.list ?? []) {
+      const k = keyOf(r.id);
+      if (k) rest.set(k, r.c ? r.c.split(";") : []);
+    }
+  }
+  return { acts, rest };
+}
+
+/**
+ * Activities spec (Evals): Friday evening = an indoor venue with an alternative of another type; Saturday = an
+ * outdoor type; every dinner on days 1-2 names a restaurant with local cuisine (when asked); no fast-food ref
+ * without a wish for it; a footgolf wish without places is stated, not invented.
+ */
+export function activityChecks(plan: Plan, stored: PlanInputStored): CheckResult[] {
+  const { acts, rest } = inputMaps(stored);
+  const r: CheckResult[] = [];
+  r.push(check("activity places reach the model", acts.size > 0, "none in input"));
+  r.push(check("restaurants reach the model", rest.size > 0, "none in input"));
+  const actsOf = (n: number) => plan.days[n - 1]?.stops.flatMap((s) => s.acts) ?? [];
+  const evening = actsOf(1).find((a) => a.ref && acts.has(a.ref) && (!a.at || a.at >= EVENING));
+  const ev = evening?.ref ? acts.get(evening.ref) : undefined;
+  r.push(check("day 1 evening: indoor venue ref", ev?.g === "indoor", evening ? `${evening.at} ${evening.text} -> ${ev?.t}/${ev?.g}` : "no evening activity with an activity ref"));
+  const altTypes = (evening?.alts ?? []).map((k) => acts.get(k)?.t ?? []);
+  // Another kind: an alternative with a type the venue itself does not have.
+  r.push(check("day 1 evening: an alternative of another type", altTypes.some((ts) => ts.some((t) => !ev?.t.includes(t))), `ref ${ev?.t}, alts ${altTypes.map((ts) => ts.join("+")).join(",")}`));
+  const sat = actsOf(2).filter((a) => a.ref && acts.has(a.ref)).map((a) => acts.get(a.ref!)!);
+  r.push(check("day 2: an outdoor type", sat.some((x) => x.t.some((t) => ACTIVITY_SOURCES[t].group === "outdoor")), sat.map((x) => x.t.join("+")).join(",") || "no activity ref"));
+  const ask = stored.llm.restaurants?.ask;
+  const local = new Set(LOCAL_CUISINE.DE);
+  for (const n of [1, 2]) {
+    const dinners = actsOf(n).filter((a) => a.kind === "food" && a.at && a.at >= EVENING);
+    const ok = dinners.length > 0 && dinners.every((a) => a.ref && rest.has(a.ref) && (!ask?.local || rest.get(a.ref)!.some((c) => local.has(c))));
+    r.push(check(`day ${n} dinner: restaurant ref${ask?.local ? " with local cuisine" : ""}`, ok, dinners.map((a) => `${a.at} ${a.text} ${a.ref ? rest.get(a.ref)?.join(";") ?? "not a restaurant" : "no ref"}`).join(" | ") || "no dinner"));
+  }
+  const include = new Set(ask?.include ?? []);
+  const fast = plan.days.flatMap((d) => d.stops.flatMap((s) => s.acts)).filter((a) => a.ref && rest.get(a.ref)?.some((c) => FAST_FOOD_CUISINES.has(c) && !include.has(c)));
+  r.push(check("no pizza/burger restaurant without a wish for it", fast.length === 0, fast.map((a) => a.text).join(" | ")));
+  const footgolfEmpty = stored.llm.activities?.wishes.some((w) => w.types.some((t) => t.t === "footgolf" && t.s === "empty"));
+  if (footgolfEmpty) {
+    const stated = proseOf(plan).some((t) => /footgolf/i.test(t) && /openstreetmap|nicht gefunden|keine?n?\b|not found|no footgolf/i.test(t));
+    r.push(check("missing footgolf is stated", stated, proseOf(plan).filter((t) => /footgolf/i.test(t)).join(" | ") || "footgolf not mentioned"));
+  }
+  return r;
+}
+
+/** Patch eval: the change request asked for escape rooms on a plan without them; day 1 ends with an escape room ref. */
+export function needPatchChecks(a: { first: LlmPatch; next: Plan; stored: PlanInputStored }): CheckResult[] {
+  const types = a.first.needPlaces?.types ?? [];
+  const day1 = a.next.days[0]?.stops.flatMap((s) => s.acts) ?? [];
+  const escapeKeys = new Set<string>(
+    Object.values(a.stored.index ?? {}).flatMap((e) => (e.place.category === "leisure=escape_game" ? [e.key] : [])),
+  );
+  const hit = day1.find((x) => x.ref && escapeKeys.has(x.ref));
+  return [
+    check("first call requests escape_game places (needPlaces)", types.includes("escape_game"), JSON.stringify(a.first.needPlaces ?? null)),
+    check("day 1 has an escape room ref after loading", !!hit, day1.map((x) => `${x.text}${x.ref ? ` [${x.ref}]` : ""}`).join(" | ")),
+  ];
+}

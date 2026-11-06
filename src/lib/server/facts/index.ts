@@ -7,6 +7,7 @@ import { getCountryFacts } from "./country";
 import { getDaylightFacts } from "./daylight";
 import { getFlightsFacts } from "./flights";
 import { getDestinationPicture, getSharedDestinationPicture } from "./picture";
+import { getTripActivityFacts } from "./activity-lookups";
 import { getPlacesFacts } from "./places";
 import { getSummaryFacts } from "./summary";
 import { getWeatherFacts } from "./weather";
@@ -27,7 +28,7 @@ async function collect(
   placesBudgetMs?: number,
   withFlights?: { homeAirports: string[] },
 ): Promise<TripFacts> {
-  const [weather, daylight, country, summary, places, flights] = await Promise.all([
+  const [weather, daylight, country, summary, places, flights, acts] = await Promise.all([
     safe(getWeatherFacts(trip, ctx)),
     safe(getDaylightFacts(trip, ctx)),
     safe(getCountryFacts(trip, ctx)),
@@ -36,6 +37,8 @@ async function collect(
     withFlights && trip.wantsFlights
       ? safe(getFlightsFacts(trip, { homeAirports: withFlights.homeAirports, purpose, ctx, budgetMs: FLIGHTS_PLAN_BUDGET_MS }))
       : Promise.resolve(undefined),
+    // Activity groups + restaurants (activities spec): same places budget, in parallel with the interest lookups.
+    getTripActivityFacts(trip, purpose, ctx, placesBudgetMs).catch(() => ({})),
   ]);
   return {
     tripId: trip.id,
@@ -47,6 +50,7 @@ async function collect(
     summary,
     places,
     ...(flights ? { flights } : {}),
+    ...acts,
   };
 }
 

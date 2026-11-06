@@ -1,0 +1,58 @@
+{
+  "promptVersion": "tags-2",
+  "model": "claude-haiku-5-5",
+  "inputHash": "1322d7779b5b2253c0bc5fa46a981c73960da9c4b482ca4461fb2795bf0c468b",
+  "output": {
+    "v": 2,
+    "interests": [],
+    "custom": [],
+    "hard": [
+      "Friday evening shared group event",
+      "Saturday main event: rowing or footgolf or other water activity",
+      "Restaurant with local cuisine on Friday evening",
+      "Restaurant with local cuisine on Saturday evening"
+    ],
+    "soft": [
+      "Escape room is only an idea; suggest what the city offers for Friday",
+      "Other water activity fitting the city is welcome",
+      "Sunday relaxed to wind down"
+    ],
+    "summary": "Weekend trip with friends. Friday evening shared event, Saturday main event on the water, Sunday relaxed wind-down. Dinner with local cuisine both Friday and Saturday evening.",
+    "activities": [
+      {
+        "types": [
+          "escape_game"
+        ],
+        "open": true,
+        "label": "Friday evening event"
+      },
+      {
+        "types": [
+          "rowing",
+          "footgolf",
+          "canoe",
+          "boat_rental"
+        ],
+        "open": true,
+        "label": "Saturday main event"
+      }
+    ],
+    "cuisine": {
+      "local": true,
+      "include": [],
+      "exclude": []
+    }
+  },
+  "usage": {
+    "task": "purpose_tags",
+    "model": "claude-haiku-5-5",
+    "status": "ok",
+    "inputTokens": 206,
+    "outputTokens": 1204,
+    "cacheCreationInputTokens": 0,
+    "cacheReadInputTokens": 1791,
+    "costMicroUsd": 641,
+    "latencyMs": 7108
+  },
+  "recordedAt": "2026-11-06T05:56:42.233Z"
+}
