@@ -50,6 +50,7 @@ export type ActivitySource = {
   defaultRadiusKm: number;
 };
 
+/** OSM `sport` is a semicolon list (`climbing;fitness`): every sport filter matches a whole token. */
 const notSlipway = `["leisure"!~"^(slipway|marina)$"]`;
 
 export const ACTIVITY_SOURCES: Record<ActivityType, ActivitySource> = {
@@ -58,14 +59,14 @@ export const ACTIVITY_SOURCES: Record<ActivityType, ActivitySource> = {
   cinema: { group: "indoor", filters: [`["amenity"="cinema"]`], geoapify: ["entertainment.cinema"], defaultRadiusKm: 10 }, // 32k
   theatre: { group: "indoor", filters: [`["amenity"="theatre"]`], geoapify: ["entertainment.culture.theatre"], defaultRadiusKm: 10 }, // 54k
   karaoke: { group: "indoor", filters: [`["amenity"="karaoke_box"]`], defaultRadiusKm: 10 }, // 2.9k
-  climbing_hall: { group: "indoor", filters: [`["leisure"="sports_centre"]["sport"="climbing"]`, `["sport"="climbing"]["indoor"="yes"]`], defaultRadiusKm: 15 }, // 5.3k + indoor
+  climbing_hall: { group: "indoor", filters: [`["leisure"="sports_centre"]["sport"~"(^|;)climbing(;|$)"]`, `["sport"~"(^|;)climbing(;|$)"]["indoor"="yes"]`], defaultRadiusKm: 15 }, // 5.3k + indoor
   boat_rental: { group: "outdoor", filters: [`["amenity"="boat_rental"]`], geoapify: ["rental.boat"], defaultRadiusKm: 25 }, // 6.9k
-  rowing: { group: "outdoor", filters: [`["sport"="rowing"]${notSlipway}`], defaultRadiusKm: 25 }, // 1.7k
-  canoe: { group: "outdoor", filters: [`["sport"="canoe"]${notSlipway}`], defaultRadiusKm: 25 }, // 3.1k
+  rowing: { group: "outdoor", filters: [`["sport"~"(^|;)rowing(;|$)"]${notSlipway}`], defaultRadiusKm: 25 }, // 1.7k
+  canoe: { group: "outdoor", filters: [`["sport"~"(^|;)canoe(;|$)"]${notSlipway}`], defaultRadiusKm: 25 }, // 3.1k
   minigolf: { group: "outdoor", filters: [`["leisure"="miniature_golf"]`], geoapify: ["entertainment.miniature_golf"], defaultRadiusKm: 15 }, // 11k
-  footgolf: { group: "outdoor", filters: [`["sport"="footgolf"]`], defaultRadiusKm: 25 }, // 11, kept on purpose (see header)
-  karting: { group: "outdoor", filters: [`["sport"="karting"]`], defaultRadiusKm: 25 }, // 11k
-  climbing: { group: "outdoor", filters: [`["sport"="climbing"]["climbing"="crag"]`], defaultRadiusKm: 25 }, // 14k
+  footgolf: { group: "outdoor", filters: [`["sport"~"(^|;)footgolf(;|$)"]`], defaultRadiusKm: 25 }, // 11, kept on purpose (see header)
+  karting: { group: "outdoor", filters: [`["sport"~"(^|;)karting(;|$)"]`], defaultRadiusKm: 25 }, // 11k
+  climbing: { group: "outdoor", filters: [`["sport"~"(^|;)climbing(;|$)"]["climbing"="crag"]`], defaultRadiusKm: 25 }, // 14k
   bar: { group: "going_out", filters: [`["amenity"~"^(bar|pub|biergarten)$"]`], geoapify: ["catering.bar", "catering.pub", "catering.biergarten"], defaultRadiusKm: 3 }, // 650k
 };
 

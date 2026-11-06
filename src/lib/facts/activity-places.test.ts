@@ -43,6 +43,21 @@ describe("outdoor group (recorded Overpass response, Wuerzburg, 25 km)", () => {
     expect(types.has("canoe") || types.has("rowing") || types.has("boat_rental")).toBe(true);
     expect(places.length).toBeLessThanOrEqual(MAX_PER_GROUP);
   });
+  it("sport is a semicolon list: multi-value tags match, look-alike tokens do not", () => {
+    const el = (id: number, sport: string, extra: Record<string, string> = {}) => ({
+      type: "node" as const, id, lat: 49.79, lon: 9.95, tags: { name: `Place ${id}`, sport, ...extra },
+    });
+    const hall = (sport: string) => activityPlacesForGroup("indoor", [el(1, sport, { leisure: "sports_centre" })], WUERZBURG).map((p) => p.type);
+    expect(hall("climbing;fitness")).toEqual(["climbing_hall"]);
+    expect(hall("fitness;climbing")).toEqual(["climbing_hall"]);
+    expect(hall("climbing_adventure")).toEqual([]);
+    const out = (sport: string) => activityPlacesForGroup("outdoor", [el(2, sport)], WUERZBURG).map((p) => p.type);
+    expect(out("canoe;kayak")).toEqual(["canoe"]);
+    expect(out("swimming;rowing")).toEqual(["rowing"]);
+    expect(out("karting;go_kart")).toEqual(["karting"]);
+    expect(out("footgolf")).toEqual(["footgolf"]);
+    expect(out("canoe_polo")).toEqual([]);
+  });
   it("an outdoor type tagged indoor=yes counts as indoor", () => {
     const e = { type: "node" as const, id: 1, lat: 49.79, lon: 9.95, tags: { name: "Indoor Minigolf", leisure: "miniature_golf", indoor: "yes" } };
     const [p] = activityPlacesForGroup("outdoor", [e], WUERZBURG);

@@ -55,7 +55,7 @@ export async function SharePanel({
       </div>
       {hasPlan && <p className={`-mt-2 text-sm ${mutedCls}`}>{t("pdfHint")}</p>}
       <PeopleBox resource="trip" resourceId={tripId} isDemo={isDemo} isAdmin={isAdmin} />
-      <h3 className="text-base font-semibold">{t("linksTitle")}</h3>
+      <h3 className="border-t border-line pt-4 text-base font-semibold">{t("linksTitle")}</h3>
       <ShareCreate tripId={tripId} disabledReason={reason} />
       {!res.ok && <ErrorBanner error={res.error} />}
       {links.length > 0 && (
