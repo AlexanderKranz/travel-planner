@@ -7,6 +7,7 @@ import { ACTIVITY_GROUPS, ACTIVITY_TYPES, ActivityGroup, isActivityType } from "
 import { CUISINES, type Cuisine } from "@/lib/facts/cuisine";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import { isInterestKey } from "@/lib/facts/interest-sources";
+import { withFamilyFallback } from "@/lib/plan/family-mention";
 import { canonicalJson, customGuidedInterests } from "@/lib/plan/hash";
 import { TAGS_RULES } from "@/lib/plan/prompt";
 import { callStructured, type StructuredRequest } from "./client";
@@ -116,7 +117,12 @@ export function tagsRequest(p: TripPurpose): StructuredRequest<typeof WireTags> 
   };
 }
 
+/** Wire tags → stored tags: normalizeTags, then the deterministic family fallback on the user's text (issue #142). */
+export function finishTags(w: z.infer<typeof WireTags>, p: Pick<TripPurpose, "text" | "constraints">): PurposeTags {
+  return withFamilyFallback(normalizeTags(w), [p.text, ...p.constraints]);
+}
+
 export async function tagPurpose(p: TripPurpose, ctx: AiCtx): Promise<AiResult<PurposeTags>> {
   const r = await callStructured(tagsRequest(p), ctx);
-  return r.ok ? { ...r, data: normalizeTags(r.data) } : r;
+  return r.ok ? { ...r, data: finishTags(r.data, p) } : r;
 }

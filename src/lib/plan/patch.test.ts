@@ -207,3 +207,22 @@ describe("assemblePlan guards fixed items", () => {
     expect(r.plan.days[1].stops[0].acts).toHaveLength(1);
   });
 });
+
+describe("applyPatch issue #142 guards", () => {
+  it("guards patched days like generated ones (open-air pool out of season, distance in prose)", () => {
+    const st = storedFor(3, "2038-12-20");
+    const bath = { ...st.index.p1.place, name: "Freibad Haselbach", category: "leisure=water_park", lat: 48.5 };
+    const s2: PlanInputStored = { ...st, index: { ...st.index, p9: { key: "way/9", place: bath } } };
+    const g = assemblePlan({ llm: llmPlan(3), stored: s2, header: header(3), digest: {}, locale: "de" });
+    if (!g.ok) throw new Error(g.reason);
+    const p: LlmPatch = {
+      reply: "ok",
+      days: [llmDay(2, { note: "Nur 500 m vom Hafen.", stops: [{ place: "Passau", acts: [{ at: "10:00", kind: "do", text: "Baden", ref: "p9", alts: ["p2"] }] }] })],
+    };
+    const r = applyPatch({ base: g.plan, patch: p, stored: s2, scope: [2] });
+    if (!r.ok) throw new Error(r.reason);
+    expect(r.plan.days[1].stops[0].acts[0]).toEqual({ at: "10:00", kind: "do", text: "Baden", ref: "way/2" });
+    expect(r.plan.days[1].note).toBe("vom Hafen.");
+    expect(r.issues).toMatchObject({ open_air: 1, distance_text: 1 });
+  });
+});

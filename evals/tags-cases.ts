@@ -11,23 +11,25 @@ export type TagsCase = { id: string; text: string; check: (t: PurposeTags) => Ch
 const check = (name: string, ok: boolean, detail?: string): CheckResult => (ok ? { name, ok } : { name, ok, detail });
 const types = (t: PurposeTags) => (t.activities ?? []).flatMap((w) => w.types);
 const noKids = (t: PurposeTags) => check("no cuisine.kids", t.cuisine?.kids !== true, JSON.stringify(t.cuisine ?? null));
+/** Issue #142: a child in the text always yields family_activities (code fallback after Haiku). */
+const family = (t: PurposeTags) => check("family_activities", t.interests.includes("family_activities"), t.interests.join(","));
 
 export const TAGS_CASES: TagsCase[] = [
   {
     // The cruise fixture's purpose: a toddler travels, nothing asks for special restaurants.
     id: "family-alone-de",
     text: "Advents-Flusskreuzfahrt mit Kleinkind. Weihnachtsmärkte, entspanntes Tempo, Mittagsschlaf an Bord einplanen.",
-    check: (t) => [noKids(t), check("no cafes", t.cafes !== true)],
+    check: (t) => [noKids(t), check("no cafes", t.cafes !== true), family(t)],
   },
   {
     id: "family-food-en",
     text: "Family holiday with our two kids (4 and 7). We love good local food and easy walks.",
-    check: (t) => [noKids(t), check("cuisine.local", t.cuisine?.local === true, JSON.stringify(t.cuisine ?? null))],
+    check: (t) => [noKids(t), check("cuisine.local", t.cuisine?.local === true, JSON.stringify(t.cuisine ?? null)), family(t)],
   },
   {
     id: "kids-restaurant-de",
     text: "Wochenende in Limburg mit Kleinkind. Abends bitte ein kinderfreundliches Restaurant mit Spielecke.",
-    check: (t) => [check("cuisine.kids", t.cuisine?.kids === true, JSON.stringify(t.cuisine ?? null))],
+    check: (t) => [check("cuisine.kids", t.cuisine?.kids === true, JSON.stringify(t.cuisine ?? null)), family(t)],
   },
   {
     id: "indoor-play-de",
@@ -41,7 +43,7 @@ export const TAGS_CASES: TagsCase[] = [
   {
     id: "swimming-de",
     text: "Familienurlaub, die Kinder wollen unbedingt ins Hallenbad oder Spaßbad.",
-    check: (t) => [check("swimming wish", types(t).includes("swimming"), JSON.stringify(t.activities ?? null)), noKids(t)],
+    check: (t) => [check("swimming wish", types(t).includes("swimming"), JSON.stringify(t.activities ?? null)), noKids(t), family(t)],
   },
   {
     id: "cafe-de",

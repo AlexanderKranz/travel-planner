@@ -6,7 +6,10 @@ vi.mock("./supabase/admin", () => ({ createSupabaseAdminClient: () => ({}) }));
 import golf from "./__fixtures__/plan-document-golf.json";
 import { readFileSync } from "node:fs";
 import { MAX_VERSIONS_KEPT } from "@/lib/domain/plan";
-import { acquireLock, getVersionLight, hasBusyPlan, isBusy, LOCK_MS, pruneVersions, releaseLock } from "./plan-store";
+import { acquireLock, getVersionLight, hasBusyPlan, isBusy, LOCK_MS, pruneVersions, releaseLock, StoredInput } from "./plan-store";
+import { planInputHash } from "@/lib/plan/hash";
+import type { PlanInputStored } from "@/lib/plan/input";
+import { storedFor } from "@/lib/plan/test-helpers";
 
 describe("generation lock expiry (stale lock recovery)", () => {
   const now = Date.parse("2026-10-31T12:00:00Z");
@@ -147,5 +150,19 @@ describe("pruneVersions (through the definer function)", () => {
     const sql = readFileSync(new URL("../../../supabase/migrations/20261110120035_sharing.sql", import.meta.url), "utf8");
     const m = /version_no <= v_latest - (\d+)/.exec(sql);
     expect(m && Number(m[1])).toBe(MAX_VERSIONS_KEPT);
+  });
+});
+
+describe("stored input round trip (issue #142)", () => {
+  const st = storedFor(3);
+  const input: PlanInputStored = { ...st, index: { ...st.index, p9: { key: "way/9", place: { ...st.index.p1.place, category: "leisure=water_park" }, g: "outdoor" } } };
+  it("keeps the index `g` of a bath when the input is reloaded for a patch; the hash is unchanged", () => {
+    const parsed = StoredInput.parse(JSON.parse(JSON.stringify(input)));
+    expect(parsed.index.p9.g).toBe("outdoor");
+    expect(parsed).toEqual(JSON.parse(JSON.stringify(input)));
+    expect(planInputHash(parsed.llm as PlanInputStored["llm"])).toBe(planInputHash(input.llm));
+  });
+  it("older rows without `g` still parse", () => {
+    expect(StoredInput.safeParse(JSON.parse(JSON.stringify(st))).success).toBe(true);
   });
 });

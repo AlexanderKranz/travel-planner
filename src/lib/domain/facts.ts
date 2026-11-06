@@ -69,6 +69,7 @@ export type PlaceCandidate = {
   wikipedia?: string;                             // "de:Passauer Dom"
   website?: string;
   osmUrl: string;                                 // https://www.openstreetmap.org/{type}/{id}
+  openAir?: true;                                 // bath category and `isOpenAirBath` (name, note, indoor/covered tags); issue #142
 };
 export type PlaceGroup =
   | { interest: InterestOrGeneral; status: "ok"; candidates: PlaceCandidate[]; fetchedAt: string; stale: boolean }

@@ -426,6 +426,64 @@ later calls read the cache. Notes:
   looks at refs, not at alternatives. The generation itself also uses the PEB as an alternative for "Spielen mit
   Kleinkind, drinnen" on days 1 and 5.
 
+### Issue #142: eval gaps closed in code (2026-11-06)
+
+The four problems from the re-recording above are now caught by eval checks and fixed by deterministic code after
+Zod validation. No prompt text changed, so `plan-7` / `tags-3` and every recording stay current (no stale input
+hash). Each guard counts what it did in the assemble issues, which `plan.generated` / `plan.patched` log to
+`app_events` (`invented_time`, `distance_text`, `open_air`).
+
+1. **Invented time at a scheduled stop** (`src/lib/plan/schedule-times.ts`). At a stop whose place the trip notes
+   name (whole word, accents ignored), a `travel` activity about the arrival or departure (Ankunft, Anlegen,
+   Ausschiffen, Ablegen, Abfahrt, arrival, departure, disembark ...) loses `at`/`until` that are not in the notes.
+   "Anreise"/"Abreise" (the travellers' own trip) and all other activities keep their times: those are the plan's
+   suggestions, not schedule facts. Eval: cruise "no invented time" for every schedule entry without a clock time
+   (window times and arrival/departure times at that stop must be in the notes). The recorded cruise generation's
+   "09:00 Ankunft, Ausschiffen" on the last day now loses its time.
+2. **Distances in prose** (`src/lib/plan/distance-text.ts`). Every model prose field (titles, stop places,
+   activity texts, notes, warnings, open items, packing, summary; never verified place names) has number + unit
+   (km, m, Kilometer, Meter, miles, Meilen, also "5-km-Runde") removed together with an approximation word ("etwa",
+   "ca.", "ca.15", "about" ...). Ranges go as a whole ("10-15 km", "2 bis 3 km", "zwischen 2 und 3 km"). "15 km entfernt" / "15 km away" becomes "weiter entfernt" / "further away", "(15 km)"
+   disappears. Chosen over dropping the sentence (loses the warning) and over logging only (the user would still
+   read an unverified distance); the rest of the sentence keeps its meaning. Speeds (km/h) and minutes are not
+   touched. Eval: generic check "no distances in prose" (same regex). The Würzburg warning now reads "Rudervereine
+   liegen weiter entfernt; …".
+3. **Flaky family tags** (`src/lib/plan/family-mention.ts`, applied in `finishTags` after `normalizeTags`). If the
+   purpose text or a constraint mentions Kleinkind, Kind (capitalized), Kinder, Familie(n…), Baby, toddler, kid(s),
+   child(ren) or family/families as whole words, `family_activities` is put first (added, or moved to the front if
+   Haiku had it later), so the MAX_INTEREST_QUERIES cap never drops it; guided interests still come before all tag
+   interests. Tochter/Sohn/Enkel(in)/daughter/son/grandchild count only with a child age (under 14) next to them
+   ("Tochter (2,5)", "2-jährige Tochter", "son, 3 years old"). Negated mentions ("ohne Kinder", "keine kleinen
+   Kinder", "no kids", "without children") and "-frei/-free/-los" ("kinderfrei", "child-free") do not count, nor
+   compounds with Kind-/Kinder- (Kindergeburtstag, Kinderbuch, Kindheit): they name a thing, not who travels;
+   "Familien…" compounds do (Familienurlaub; known false positive: Familienforschung). Only `interests` changes: `cuisine.kids`
+   and `cafes` stay an explicit ask (A4). Applied to new tags only; purposes tagged before keep their cached tags
+   until their text changes. Eval: the cruise tags check and four tag cases require `family_activities`; the
+   recorded `family-alone-de` case (Haiku left it out) now passes through the fallback.
+4. **Open-air pool as indoor option** (`src/lib/plan/open-air.ts`). Interest candidates in a bath category
+   (water_park, public_bath, swimming_pool, swimming_area) carry `openAir` from their OSM tags (`isOpenAirBath`,
+   note "Freibad" included); the plan index stores `g` (outdoor/indoor) for them. Older cached candidates without
+   the flag fall back to the name. Assembly removes an open-air bath from `ref` and `alts` when the activity is
+   indoor (wording such as drinnen/indoor/bei Regen, or an indoor ref) or out of season (climate month tmax below
+   18 °C; without climate data the local winter months at the bath's latitude, from 35°; a trip with months only:
+   when every selected month is out of season). A removed ref is replaced by the first remaining alternative. If
+   the activity text names a removed place, the name becomes the new ref's name (ref swapped) or is cut out with its
+   preposition/connector ("im", "oder", "at the" ...); no new wording, so no message key is needed. An activity
+   whose text was only that name is dropped. The index `g` survives the stored-input reload for patches
+   (`StoredInput` in plan-store; optional, older rows parse; not hashed). Eval: the cruise generation and the family patch check refs and alts with
+   the input's classification. The recorded PEB alternatives (days 1 and 5, family patch day 1) are now removed.
+
+Not done, on purpose:
+- `g` is not sent to the model for family-interest places. It would change INPUT and the places legend in the
+  prompt, so the prompt version would bump and all generation recordings would go stale. The code guard makes it
+  unnecessary for correctness; worth doing with the next prompt change that needs a re-recording anyway.
+- No prompt tightening: rule 4 (no distances) and rule 5 (no time that is not in the notes) already say it.
+- A model stop marked `fixed` with a window time not in the notes still only loses `fixed` (unchanged); the new
+  guard is about arrival/departure activities.
+
+Known failure modes: an arrival worded without one of the listed words keeps its time; a distance written as words
+("fünfzehn Kilometer") is not found; an open-air pool whose OSM data has no open-air hint counts as indoor.
+
 ## Addendum 2: background place retries (2026-11-06)
 
 Overpass is sometimes slow for minutes. A lookup that ends `error` (or `skipped` because the shared budget ran out)

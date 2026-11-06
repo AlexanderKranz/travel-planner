@@ -9,7 +9,8 @@ import { canonicalJson, planInputHash, purposeTagsHash } from "@/lib/plan/hash";
 import { buildEvalInput, evalPurpose, FIXTURE_IDS, PATCH_FEEDBACK } from "./build-input";
 import { evaluateFamilyPatch, evaluateUncoveredPatch, evaluateGenerate, evaluateNeedPatch, evaluatePatch, evaluateTags, formatResults, type NeedPatchRecording } from "./evaluate";
 import { readRecording } from "./recorded";
-import { HONEST_WORDING, familyPatchChecks, familyPlaceChecks, golfPlaceChecks, kidsClaimChecks } from "./checks";
+import { HONEST_WORDING, familyPatchChecks, familyPlaceChecks, golfPlaceChecks, kidsClaimChecks, openAirChecks, scheduleTimeChecks } from "./checks";
+import { scheduleNotes } from "./build-input";
 import type { Plan } from "@/lib/domain/plan";
 import type { PlanInputStored } from "@/lib/plan/input";
 
@@ -85,7 +86,13 @@ describe("concrete-place checks", () => {
     }) as unknown as Plan;
   const stored = {
     llm: { places: [{ id: "p1", i: "golf" }, { id: "p2", i: "family_activities" }, { id: "p3", i: "general" }] },
-    index: { p1: { key: "way/1" }, p2: { key: "way/2" }, p3: { key: "way/3" } },
+    index: {
+      p1: { key: "way/1", place: place("leisure=golf_course") },
+      p2: { key: "way/2", place: place("tourism=zoo") },
+      p3: { key: "way/3", place: place("tourism=attraction") },
+      p4: { key: "way/4", place: { ...place("leisure=water_park"), name: "Passauer Erlebnisbad" }, g: "outdoor" },
+      p5: { key: "way/5", place: { ...place("leisure=water_park"), name: "Therme" }, g: "indoor" },
+    },
   } as unknown as PlanInputStored;
 
   it("golf: generic or non-golf sport activities fail", () => {
@@ -107,6 +114,12 @@ describe("concrete-place checks", () => {
     }
     const none = { ...stored, llm: { places: [] } } as unknown as PlanInputStored;
     expect(failed(familyPlaceChecks(planWith([]), none))).toHaveLength(1);
+  });
+
+  it("issue #142: an open-air pool (by its input classification) fails as ref and as alternative", () => {
+    expect(failed(openAirChecks(planWith([{ kind: "do", text: "Baden", ref: "way/5", alts: ["way/2"] }]), stored))).toEqual([]);
+    expect(failed(openAirChecks(planWith([{ kind: "do", text: "Spielen, drinnen", ref: "way/2", alts: ["way/4"] }]), stored))).toHaveLength(1);
+    expect(failed(openAirChecks(planWith([{ kind: "do", text: "Baden", ref: "way/4" }]), stored))).toHaveLength(1);
   });
 });
 
@@ -136,12 +149,31 @@ describe("addendum 1 checks", () => {
     const honest = planWith([{ kind: "do", text: "Indoorspielplatz (Idee)" }], "Kein Indoorspielplatz in OpenStreetMap in der Nähe gelistet.");
     expect(failed(familyPatchChecks({ first, next: honest, stored }))).toEqual([]);
     const names = (next: Plan) => familyPatchChecks({ first, next, stored }).filter((r) => !r.ok).map((r) => r.name);
-    expect(names(planWith([{ kind: "do", text: "Baden", ref: "way/4" }]))).toContain("day 1: no open-air pool ref in December");
+    expect(names(planWith([{ kind: "do", text: "Baden", ref: "way/4" }]))).toContain("day 1: no open-air pool as ref or alternative in December");
+    // Issue #142: an open-air pool as an alternative of an indoor playground fails too.
+    const withAlt = planWith([{ kind: "do", text: "Toben bei Regen", ref: "node/3", alts: ["way/4"] } as never]);
+    expect(names(withAlt)).toEqual(["day 1: no open-air pool as ref or alternative in December"]);
     expect(names(planWith([{ kind: "do", text: "Indoorspielplatz" }], "Keine geprüften Orte gefunden"))).toContain("never 'keine geprüften Orte gefunden'");
     expect(names(planWith([{ kind: "do", text: "Indoorspielplatz Kinderwelt" }]))).toEqual([
       "day 1: indoor play/pool ref or honest wording",
       "generic indoor venue only with the honest wording",
     ]);
     expect(HONEST_WORDING.test("Indoorspielplätze sind nicht in den geprüften Quellen enthalten")).toBe(true);
+  });
+});
+
+describe("issue #142 schedule times", () => {
+  const schedule = [
+    { date: "2037-12-19", place: "Passau", depart: "16:00" },
+    { date: "2037-12-23", place: "Passau", arrive: "morning" },
+  ];
+  const notes = scheduleNotes(schedule);
+  const plan = (stop: object) =>
+    ({ days: [{ n: 5, date: "2037-12-23", title: "t", stops: [{ place: "Passau", acts: [], ...stop }] }] }) as unknown as Plan;
+
+  it("an untimed arrival never gets a time; other activity times are fine", () => {
+    expect(failed(scheduleTimeChecks(plan({ acts: [{ kind: "travel", text: "Ankunft, Ausschiffen" }, { at: "10:30", kind: "do", text: "Spielen" }] }), schedule, notes))).toEqual([]);
+    expect(failed(scheduleTimeChecks(plan({ acts: [{ at: "09:00", kind: "travel", text: "Ankunft, Ausschiffen, Gepäck" }] }), schedule, notes))).toHaveLength(1);
+    expect(failed(scheduleTimeChecks(plan({ from: "08:00", fixed: true }), schedule, notes))).toHaveLength(1);
   });
 });

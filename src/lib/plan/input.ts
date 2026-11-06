@@ -4,6 +4,7 @@ import type { GroupSummary, OsmKey, PlanFlights, PlanFactsDigest, PlanHeader, Pl
 import type { Locale } from "@/lib/domain/profile";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
+import { BATH_CATEGORIES, isOpenAirBath, type ActivityGroup } from "@/lib/facts/activity-types";
 import { tripRadiusKm, interestsForTrip, isInterestKey } from "@/lib/facts/interest-sources";
 import { addDays, ageReferenceDate, selectedMonths } from "@/lib/facts/trip-timing";
 import { resolveGroup, type GroupSource } from "@/lib/group-text";
@@ -89,8 +90,24 @@ type Dow = "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su";
 export type PlanInputStored = {
   /** Set by the pipeline when the plan was written although these interests had no places (not hashed, not sent to the model). */
   pendingPlaces?: string[];
-  llm: PlanInput; index: Record<string /* p1 */, { key: OsmKey; place: PlanPlace }>;
+  llm: PlanInput; index: Record<string /* p1 */, PlanIndexEntry>;
 };
+
+/**
+ * One index entry. `g`: indoor/outdoor of an interest place that is a bath (issue #142), for the open-air guard
+ * in assembly; not sent to the model (activity places carry their `g` in `llm.activities.places`).
+ */
+export type PlanIndexEntry = { key: OsmKey; place: PlanPlace; g?: ActivityGroup };
+
+/**
+ * Indoor/outdoor of an interest place, like `placeGroup` does for swimming: only baths are classified. An open-air
+ * pool or bathing lake is outdoor (the `openAir` flag from its OSM tags, or the name for candidates cached before
+ * the flag existed), any other bath indoor.
+ */
+export function interestPlaceGroup(c: Pick<PlaceCandidate, "category" | "name" | "openAir">): ActivityGroup | undefined {
+  if (!BATH_CATEGORIES.has(c.category)) return undefined;
+  return c.openAir || isOpenAirBath({ name: c.name }) ? "outdoor" : "indoor";
+}
 
 /**
  * What the plan needs to know about the travellers: a saved group (TravelGroup fits), or the one-off group of a trip
@@ -297,7 +314,8 @@ function placesInput(
       drive: d && drive ? { min: d.min, km: d.km, source: "openrouteservice", fetchedAt: drive.fetchedAt } : undefined,
     };
     for (const k of Object.keys(place) as (keyof PlanPlace)[]) if (place[k] === undefined) delete place[k];
-    out.index[id] = { key, place };
+    const g = interestPlaceGroup(c);
+    out.index[id] = g ? { key, place, g } : { key, place };
   }
   return out;
 }

@@ -5,9 +5,13 @@ import { addDays } from "@/lib/facts/trip-timing";
 import { canonicalJson } from "@/lib/plan/hash";
 import { overlapsSlot } from "@/lib/plan/fixed-items";
 import type { PlanInputStored } from "@/lib/plan/input";
-import type { EvalFixture, FixtureId, ScheduleEntry } from "./build-input";
+import { scheduleNotes, type EvalFixture, type FixtureId, type ScheduleEntry } from "./build-input";
 import { ACTIVITY_SOURCES, isOpenAirBath, type ActivityType } from "@/lib/facts/activity-types";
 import { FAST_FOOD_CUISINES, LOCAL_CUISINE } from "@/lib/facts/cuisine";
+import { noteTimes } from "@/lib/plan/assemble";
+import { DISTANCE_TEXT } from "@/lib/plan/distance-text";
+import { isOpenAirPlace, placeClasses } from "@/lib/plan/open-air";
+import { ARRIVAL_DEPARTURE } from "@/lib/plan/schedule-times";
 
 export type CheckResult = { name: string; ok: boolean; detail?: string };
 
@@ -69,6 +73,8 @@ export function genericChecks(a: {
     ["no flight numbers", FLIGHT_NO],
     ["no prices", MONEY],
     ["no opening-hours ranges", HOURS_RANGE],
+    // Issue #142: the app shows verified distances and drive times; prose never states one.
+    ["no distances in prose", DISTANCE_TEXT],
   ] as const) {
     const hits = prose.filter((t) => re.test(t));
     r.push(check(name, hits.length === 0, hits.slice(0, 3).join(" | ")));
@@ -162,7 +168,39 @@ export function familyPlaceChecks(plan: Plan, stored: PlanInputStored): CheckRes
   return [
     check("family places reach the model", available > 0, "none in input"),
     check("zoo/park activities name a verified family place (ref)", generic.length === 0, generic.map(({ d, a }) => `d${d} ${a.text}`).slice(0, 3).join(" | ")),
+    ...openAirChecks(plan, stored),
   ];
+}
+
+/**
+ * Issue #142: no open-air pool (by its OSM classification: name, note, indoor/covered tags) as ref or alternative
+ * in winter (every fixture day with open-air checks is in December) or for an indoor activity.
+ */
+export function openAirChecks(plan: Plan, stored: PlanInputStored, days?: number[]): CheckResult[] {
+  const c = placeClasses(stored);
+  const bad = allActs(plan)
+    .filter(({ d }) => !days || days.includes(d))
+    .flatMap(({ d, a }) => [a.ref, ...(a.ref ? (a.alts ?? []) : [])].filter((k): k is string => !!k && isOpenAirPlace(k, c)).map((k) => `d${d} ${a.text} [${c.name.get(k)}]`));
+  return [check("no open-air pool as ref or alternative in December", bad.length === 0, bad.slice(0, 4).join(" | "))];
+}
+
+/**
+ * Issue #142 (prompt rule 5, D9): a schedule entry without a clock time ("Passau an morgens") never gets one. At a
+ * stop of that place on that day: no window time and no arrival/departure activity time that is not in the notes.
+ */
+export function scheduleTimeChecks(plan: Plan, schedule: ScheduleEntry[], notes: string | undefined): CheckResult[] {
+  const times = noteTimes(notes);
+  const r: CheckResult[] = [];
+  for (const e of schedule.filter((x) => (x.arrive && !isHhmm(x.arrive)) || (x.depart && !isHhmm(x.depart)))) {
+    const day = plan.days.find((d) => d.date === e.date);
+    const stops = day?.stops.filter((s) => placeMatches(s.place, e.place)) ?? [];
+    const bad = stops.flatMap((s) => [
+      ...[s.from, s.to].filter((t) => t && !times.has(t)).map((t) => `${s.place} window ${t}`),
+      ...s.acts.filter((a) => ARRIVAL_DEPARTURE.test(a.text) && [a.at, a.until].some((t) => t && !times.has(t))).map((a) => `${a.at} ${a.text}`),
+    ]);
+    r.push(check(`no invented time: ${e.date} ${e.place} ${e.arrive ?? ""}${e.depart ?? ""}`, bad.length === 0, bad.join(" | ")));
+  }
+  return r;
 }
 
 /** Timed activities of one day: [start, end] in minutes (end = until, else start). */
@@ -235,8 +273,8 @@ function placeMatches(stopPlace: string, wanted: string): boolean {
   return a.includes(b) || b.includes(a);
 }
 
-export function cruiseChecks(plan: Plan, c: EvalFixture["checks"], schedule: ScheduleEntry[]): CheckResult[] {
-  const r: CheckResult[] = [];
+export function cruiseChecks(plan: Plan, c: EvalFixture["checks"], schedule: ScheduleEntry[], notes?: string): CheckResult[] {
+  const r: CheckResult[] = [...scheduleTimeChecks(plan, schedule, notes)];
   if (c.restWindow) {
     const [from, to] = c.restWindow;
     const missing = plan.days
@@ -289,7 +327,11 @@ export function tagChecks(id: FixtureId, tags: PurposeTags): CheckResult[] {
       check("tags: >= 3 hard constraints", tags.hard.length >= 3, String(tags.hard.length)),
     ];
   }
-  return [check("tags: interests contain christmas_markets", tags.interests.includes("christmas_markets"), tags.interests.join(","))];
+  return [
+    check("tags: interests contain christmas_markets", tags.interests.includes("christmas_markets"), tags.interests.join(",")),
+    // Issue #142: "mit Kleinkind" always brings family places (code fallback after Haiku).
+    check("tags: interests contain family_activities", tags.interests.includes("family_activities"), tags.interests.join(",")),
+  ];
 }
 
 export function planChecks(
@@ -303,7 +345,7 @@ export function planChecks(
 ): CheckResult[] {
   if (id === "golf") return golfChecks(plan, fixture.checks, fresh, stored, issues, raw);
   if (id === "wuerzburg") return stored && fresh && fixture.checks.activities ? activityChecks(plan, stored) : [];
-  const r = cruiseChecks(plan, fixture.checks, fixture.fixedSchedule ?? []);
+  const r = cruiseChecks(plan, fixture.checks, fixture.fixedSchedule ?? [], stored?.llm.trip.notes ?? scheduleNotes(fixture.fixedSchedule ?? []));
   // Only for a recording made from the current input: an older one never saw the family places.
   if (stored && fresh) r.push(...familyPlaceChecks(plan, stored));
   return r;
@@ -413,10 +455,9 @@ export function familyPatchChecks(a: { first: LlmPatch; next: Plan; stored: Plan
     const p = venue(x.ref);
     return !!p && FAMILY_INDOOR_CATS.has(p.category) && !isOpenAirBath({ name: p.name });
   });
-  const openAir = acts.filter((x) => {
-    const p = venue(x.ref);
-    return !!p && FAMILY_INDOOR_CATS.has(p.category) && isOpenAirBath({ name: p.name });
-  });
+  // Issue #142: alternatives count too, and the classification is the input's (OSM note "Freibad" included).
+  const classes = placeClasses(a.stored);
+  const openAir = acts.filter((x) => !!x.ref && [x.ref, ...(x.alts ?? [])].some((k) => isOpenAirPlace(k, classes)));
   const dayProse = day ? [day.title, day.note ?? "", day.warn ?? "", ...acts.map((x) => x.text)] : [];
   const honest = dayProse.some((t) => HONEST_WORDING.test(t)) || a.next.notes.some((n) => HONEST_WORDING.test(n.text));
   const generic = acts.filter((x) => !x.ref && FAMILY_INDOOR_TEXT.test(x.text));
@@ -424,7 +465,7 @@ export function familyPatchChecks(a: { first: LlmPatch; next: Plan; stored: Plan
   return [
     check("first call requests indoor_play places (needPlaces)", (a.first.needPlaces?.types ?? []).includes("indoor_play"), JSON.stringify(a.first.needPlaces ?? null)),
     check("day 1: indoor play/pool ref or honest wording", indoorRefs.length > 0 || honest, show(acts)),
-    check("day 1: no open-air pool ref in December", openAir.length === 0, show(openAir)),
+    check("day 1: no open-air pool as ref or alternative in December", openAir.length === 0, show(openAir)),
     check("never 'keine geprüften Orte gefunden'", !proseOf(a.next).some((t) => FALSE_WORDING.test(t)), proseOf(a.next).filter((t) => FALSE_WORDING.test(t)).join(" | ")),
     check("generic indoor venue only with the honest wording", generic.length === 0 || honest, show(generic)),
   ];

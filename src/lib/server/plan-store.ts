@@ -12,6 +12,7 @@ import {
   type PlanVersionMeta,
   type PurposeTags,
 } from "@/lib/domain/plan";
+import { ActivityGroup } from "@/lib/facts/activity-types";
 import type { PlanInputStored } from "@/lib/plan/input";
 import { createSupabaseAdminClient } from "./supabase/admin";
 
@@ -42,11 +43,12 @@ export type NewVersion = {
   costMicroUsd?: number;
 };
 
-const StoredInput = z.object({
+export const StoredInput = z.object({
   /** Interests whose places did not load when the plan was written (never part of the hash or the LLM input). */
   pendingPlaces: z.array(z.string()).optional(),
   llm: z.looseObject({ v: z.literal(1) }),
-  index: z.record(z.string(), z.object({ key: OsmKey, place: PlanPlace })),
+  // `g`: indoor/outdoor of a bath (issue #142), read by the open-air guard on patches; optional for older rows.
+  index: z.record(z.string(), z.object({ key: OsmKey, place: PlanPlace, g: ActivityGroup.optional() })),
 });
 
 const META_COLUMNS = "version_no, kind, created_at, feedback, restored_from, changed_days, model, created_by";
