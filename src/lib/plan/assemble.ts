@@ -15,10 +15,25 @@ import {
   type PlanPlace,
   type PlanStop,
 } from "@/lib/domain/plan";
+import { stripDistances } from "./distance-text";
 import { dropOverlaps } from "./fixed-items";
 import type { PlanInputStored } from "./input";
+import { guardOpenAir, placeClasses, type PlaceClass } from "./open-air";
+import { guardScheduleTimes } from "./schedule-times";
 
-export type AssembleIssue = "invalid_ref" | "bad_time" | "truncated" | "extra_best" | "window_violation" | "fixed_overlap";
+export type AssembleIssue =
+  | "invalid_ref"
+  | "bad_time"
+  | "truncated"
+  | "extra_best"
+  | "window_violation"
+  | "fixed_overlap"
+  /** Issue #142: arrival/departure time at a scheduled stop that is not in the notes (dropped). */
+  | "invented_time"
+  /** Issue #142: a prose field that stated a distance (number + unit removed). */
+  | "distance_text"
+  /** Issue #142: an open-air bath removed from ref/alts of an indoor activity or on a cold day. */
+  | "open_air";
 export type AssembleIssues = Record<AssembleIssue, number>;
 
 export const LIMITS = {
@@ -46,6 +61,9 @@ export const emptyIssues = (): AssembleIssues => ({
   extra_best: 0,
   window_violation: 0,
   fixed_overlap: 0,
+  invented_time: 0,
+  distance_text: 0,
+  open_air: 0,
 });
 
 /** Code guard [D6]: timed activities that overlap a fixed item of their day are dropped and counted. */
@@ -62,6 +80,14 @@ export function clampText(s: string | undefined, max: number, issues: AssembleIs
   if (t.length <= max) return t;
   issues.truncated += 1;
   return t.slice(0, max - 1).trimEnd() + "…";
+}
+
+/** Model prose (not place names): distances removed (issue #142), then clamped like `clampText`. */
+export function proseText(s: string | undefined, max: number, issues: AssembleIssues): string | undefined {
+  if (!s) return clampText(s, max, issues);
+  const r = stripDistances(s);
+  if (r.hit) issues.distance_text += 1;
+  return clampText(r.text, max, issues);
 }
 
 function time(s: string | undefined, issues: AssembleIssues): string | undefined {
@@ -134,7 +160,18 @@ export type DayCtx = {
   noteTimes: Set<string>;
   /** Patch only: text of the base day's activity at the same place, used when the model left text empty. */
   baseText?: Map<OsmKey, string>;
+  /** The user's trip notes: arrival/departure times at a place they name must come from them (issue #142). */
+  notes?: string;
+  /** Indoor/outdoor and category per OSM key, for the open-air guard (issue #142). */
+  places?: PlaceClass;
+  /** Climate months of the input: an open-air pool is out of season below OPEN_AIR_MIN_TMAX. */
+  climate?: PlanInputStored["llm"]["climate"];
 };
+
+/** The per-plan part of DayCtx that the guards of issue #142 need. */
+export function guardCtx(stored: PlanInputStored): Pick<DayCtx, "notes" | "places" | "climate"> {
+  return { notes: stored.llm.trip.notes, places: placeClasses(stored), climate: stored.llm.climate };
+}
 
 /** One model day → stored day (spec 4.5). The best-day highlight is never model output (patch-safety [D8]). */
 export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
@@ -159,8 +196,8 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
       // An empty text with a valid ref falls back to the base day's text for that place, then to the place name
       // (both seen live in patches, spec patch-safety [D6]); else the act is dropped.
       const text =
-        clampText(a.text, LIMITS.text, issues) ??
-        clampText(ref ? ctx.baseText?.get(ref) : undefined, LIMITS.text, issues) ??
+        proseText(a.text, LIMITS.text, issues) ??
+        proseText(ref ? ctx.baseText?.get(ref) : undefined, LIMITS.text, issues) ??
         clampText(refName, LIMITS.text, issues);
       if (!text) continue;
       const at = time(a.at, issues);
@@ -168,27 +205,36 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
       if ((from || to) && ((at && !inside(at, from, to)) || (until && !inside(until, from, to)))) {
         issues.window_violation += 1;
       }
-      acts.push(defined({ at, until, kind: ACT_KINDS.has(a.kind) ? a.kind : "do", text, ref, alts }) as PlanActivity);
+      let act = defined({ at, until, kind: ACT_KINDS.has(a.kind) ? a.kind : "do", text, ref, alts }) as PlanActivity;
+      if (ctx.places) {
+        const g = guardOpenAir(act, ctx.places, ctx.date, ctx.climate);
+        issues.open_air += g.dropped;
+        act = g.act;
+      }
+      acts.push(act);
     }
+    const place = proseText(s.place, LIMITS.place, issues) ?? ctx.fallbackPlace;
+    const sched = guardScheduleTimes(acts, place, ctx.notes, ctx.noteTimes);
+    issues.invented_time += sched.dropped;
     return defined({
-      place: clampText(s.place, LIMITS.place, issues) ?? ctx.fallbackPlace,
+      place,
       from,
       to,
       // "From your notes" is a claim about user input: only trust it when the user actually wrote both times.
       // A one-sided window ("departs 16:00") is fine; every time it does give must be in the notes.
       fixed:
         s.fixed === true && (from || to) && [from, to].every((t) => !t || ctx.noteTimes.has(t)) ? true : undefined,
-      acts,
+      acts: sched.acts,
     });
   });
-  const title = clampText(d.title, LIMITS.title, issues) ?? stops[0]?.place ?? ctx.fallbackPlace;
+  const title = proseText(d.title, LIMITS.title, issues) ?? stops[0]?.place ?? ctx.fallbackPlace;
   return defined({
     n: d.n,
     date: ctx.date,
     title,
     stops: stops.length ? stops : [{ place: title.slice(0, LIMITS.place), acts: [] }],
-    note: clampText(d.note, LIMITS.dayNote, issues),
-    warn: clampText(d.warn, LIMITS.dayNote, issues),
+    note: proseText(d.note, LIMITS.dayNote, issues),
+    warn: proseText(d.warn, LIMITS.dayNote, issues),
   });
 }
 
@@ -207,7 +253,7 @@ export function keepOneBest(days: PlanDay[], issues: AssembleIssues, keep?: numb
 export function assembleNotes(notes: LlmPlan["notes"], issues: AssembleIssues): PlanNote[] {
   if (notes.length > LIMITS.notes) issues.truncated += 1;
   return notes.slice(0, LIMITS.notes).flatMap((n) => {
-    const text = clampText(n.text, LIMITS.noteText, issues);
+    const text = proseText(n.text, LIMITS.noteText, issues);
     return text ? [{ kind: n.kind === "warning" ? "warning" : "tip", text } as PlanNote] : [];
   });
 }
@@ -215,7 +261,7 @@ export function assembleNotes(notes: LlmPlan["notes"], issues: AssembleIssues): 
 export function assembleOpen(open: LlmPlan["open"], days: number, issues: AssembleIssues): OpenItem[] {
   if (open.length > LIMITS.open) issues.truncated += 1;
   return open.slice(0, LIMITS.open).flatMap((o) => {
-    const text = clampText(o.text, LIMITS.openText, issues);
+    const text = proseText(o.text, LIMITS.openText, issues);
     if (!text) return [];
     const day = Number.isInteger(o.day) && o.day! >= 1 && o.day! <= days ? o.day : undefined;
     return [defined({ text, day })];
@@ -225,7 +271,7 @@ export function assembleOpen(open: LlmPlan["open"], days: number, issues: Assemb
 export function assemblePacking(items: string[], issues: AssembleIssues): string[] {
   const out: string[] = [];
   for (const p of items) {
-    const t = clampText(p, LIMITS.packingText, issues);
+    const t = proseText(p, LIMITS.packingText, issues);
     if (t && !out.some((x) => x.toLowerCase() === t.toLowerCase())) out.push(t);
   }
   if (out.length > LIMITS.packing) issues.truncated += 1;
@@ -276,9 +322,17 @@ export function assemblePlan(a: {
   const fallbackPlace = stored.llm.trip.dest.slice(0, LIMITS.place);
   const sorted = [...llm.days].sort((x, y) => x.n - y.n);
   const times = noteTimes(stored.llm.trip.notes);
+  const guards = guardCtx(stored);
   const days = sorted.map((d) =>
     guardFixed(
-      assembleDay(d, { date: dayList[d.n - 1]?.date ?? null, index: stored.index, fallbackPlace, issues, noteTimes: times }),
+      assembleDay(d, {
+        date: dayList[d.n - 1]?.date ?? null,
+        index: stored.index,
+        fallbackPlace,
+        issues,
+        noteTimes: times,
+        ...guards,
+      }),
       stored.llm.fixed,
       issues,
     ),
@@ -287,7 +341,7 @@ export function assemblePlan(a: {
     v: 1 as const,
     locale: a.locale,
     header: a.header,
-    summary: clampText(llm.summary, LIMITS.summary, issues) ?? "",
+    summary: proseText(llm.summary, LIMITS.summary, issues) ?? "",
     days,
     notes: assembleNotes(llm.notes, issues),
     openItems: assembleOpen(llm.open, dayList.length, issues),

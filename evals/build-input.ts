@@ -291,7 +291,7 @@ export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null
     if (src.source === "none") return { interest, status: "no_source" };
     const raw = OSM[id][interest];
     if (!raw) return { interest, status: "error" };
-    const candidates = rankCandidates(parseElements(raw), src.filters, anchor, src.exclude, radiusForInterest(interest, a.radiusKm));
+    const candidates = rankCandidates(parseElements(raw), src.filters, anchor, src.exclude, radiusForInterest(interest, a.radiusKm), { markOpenAir: true });
     return candidates.length
       ? { interest, status: "ok", candidates, fetchedAt: EVAL_FETCHED_AT, stale: false }
       : { interest, status: "empty", fetchedAt: EVAL_FETCHED_AT, stale: false };

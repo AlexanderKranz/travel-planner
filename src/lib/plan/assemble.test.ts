@@ -181,3 +181,40 @@ describe("alternatives (alts)", () => {
     expect(Plan.safeParse(bad).success).toBe(false);
   });
 });
+
+describe("issue #142 guards in assemblePlan", () => {
+  const NOTES = "Schiff, feste Hafenzeiten:\n2038-03-13 Passau ab 16:00\n2038-03-15 Passau an morgens";
+  const st = storedFor(3);
+  const bath = { ...st.index.p1.place, name: "Passauer Erlebnisbad (PEB)", category: "leisure=water_park", lat: 48.5 };
+  const stored: PlanInputStored = {
+    llm: { ...st.llm, trip: { ...st.llm.trip, notes: NOTES } },
+    index: { ...st.index, p9: { key: "way/9", place: bath, g: "outdoor" } },
+  };
+
+  it("drops an invented arrival time, strips distances from prose and removes an open-air pool alternative", () => {
+    const p = llmPlan(3, { notes: [{ kind: "warning", text: "Rudervereine liegen etwa 15 km entfernt." }] });
+    p.days[2] = llmDay(3, {
+      warn: "Der Zoo liegt 12 km außerhalb.",
+      stops: [
+        {
+          place: "Passau",
+          acts: [
+            { at: "09:00", kind: "travel", text: "Ankunft, Ausschiffen" },
+            { at: "10:30", kind: "do", text: "Spielen, drinnen", ref: "p2", alts: ["p9"] },
+          ],
+        },
+      ],
+    });
+    const r = run(p, stored);
+    if (!r.ok) throw new Error(r.reason);
+    const d = r.plan.days[2];
+    expect(d.stops[0].acts).toEqual([
+      { kind: "travel", text: "Ankunft, Ausschiffen" },
+      { at: "10:30", kind: "do", text: "Spielen, drinnen", ref: "way/2" },
+    ]);
+    expect(d.warn).toBe("Der Zoo liegt außerhalb.");
+    expect(r.plan.notes[0].text).toBe("Rudervereine liegen weiter entfernt.");
+    expect(r.plan.places["way/9"]).toBeUndefined();
+    expect(r.issues).toMatchObject({ invented_time: 1, distance_text: 2, open_air: 1 });
+  });
+});

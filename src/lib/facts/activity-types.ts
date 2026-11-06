@@ -162,6 +162,9 @@ export function isOpenAirBath(tags: Record<string, string>): boolean {
   return OPEN_AIR.test(name) || OPEN_AIR.test(note);
 }
 
+/** OSM categories of swimming places (pools, water parks, baths) whose open-air status matters (issue #142). */
+export const BATH_CATEGORIES: ReadonlySet<string> = new Set(["leisure=water_park", "amenity=public_bath", "leisure=swimming_pool", "leisure=swimming_area"]);
+
 /** One purpose wish as Haiku tags it (spec section 2). */
 export type ActivityWish = { types: readonly ActivityType[]; open: boolean; group?: ActivityGroup };
 

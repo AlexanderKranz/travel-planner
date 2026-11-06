@@ -1,4 +1,5 @@
 import type { PlaceCandidate } from "@/lib/domain/facts";
+import { BATH_CATEGORIES, isOpenAirBath } from "@/lib/facts/activity-types";
 import type { InterestExclude } from "@/lib/facts/interest-sources";
 import type { RawOsmElement } from "@/lib/integrations/overpass";
 
@@ -72,8 +73,11 @@ export function rankCandidates(
   anchor: { lat: number; lon: number },
   exclude?: InterestExclude,
   maxKm?: number,
-  /** `distinct`: keep every OSM element (no same-name-within-200-m merge), for counting separate things such as lifts. */
-  opts: { distinct?: boolean } = {},
+  /**
+   * `distinct`: keep every OSM element (no same-name-within-200-m merge), for counting separate things such as lifts.
+   * `markOpenAir`: set `openAir` on open-air pools and bathing lakes (interest places, issue #142).
+   */
+  opts: { distinct?: boolean; markOpenAir?: boolean } = {},
 ): PlaceCandidate[] {
   const all: PlaceCandidate[] = [];
   const nameRe = exclude?.nameRegex ? new RegExp(exclude.nameRegex, "i") : null;
@@ -104,6 +108,8 @@ export function rankCandidates(
     if (e.tags.wikipedia) c.wikipedia = e.tags.wikipedia;
     const website = e.tags.website ?? e.tags["contact:website"];
     if (website && /^https?:\/\//i.test(website)) c.website = website;
+    // Interest places only (activity places classify via placeGroup): the tags are gone after ranking (issue #142).
+    if (opts.markOpenAir && BATH_CATEGORIES.has(c.category) && isOpenAirBath(e.tags)) c.openAir = true;
     all.push(c);
   }
   const score = (c: PlaceCandidate) => (c.wikidata ? 0 : 2) + (c.wikipedia ? 0 : 1);

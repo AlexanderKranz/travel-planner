@@ -31,6 +31,7 @@ const candidateSchema = z.object({
   wikipedia: z.string().optional(),
   website: z.string().optional(),
   osmUrl: z.string(),
+  openAir: z.literal(true).optional(),
 });
 const candidatesSchema = z.array(candidateSchema);
 /** Empty results are cached too. */
@@ -91,7 +92,7 @@ function fromOverpass(l: Lookup, filters: readonly string[], exclude: InterestEx
     fetchAllowed,
     fetcher: async () => {
       const r = await runQuery(buildQuery(filters, l.anchor, l.radiusKm * 1000), { deadline });
-      return { data: rankCandidates(r.elements, filters, l.anchor, exclude, l.radiusKm), status: r.status, latencyMs: r.latencyMs, variant: r.mirror };
+      return { data: rankCandidates(r.elements, filters, l.anchor, exclude, l.radiusKm, { markOpenAir: true }), status: r.status, latencyMs: r.latencyMs, variant: r.mirror };
     },
   });
 }
@@ -128,7 +129,7 @@ function fastCandidates(l: Lookup, networkAllowed: boolean): Promise<CachedResul
         await assertGeoapifyQuota();
         const r = await fetchPlaces(groups, l.anchor, l.radiusKm * 1000);
         const matching = r.elements.filter((e) => src.filters.some((f) => matchesFilter(e.tags, f)));
-        return { data: rankCandidates(matching, src.filters, l.anchor, src.exclude, l.radiusKm, { distinct: src.distinct }), status: r.status, latencyMs: r.latencyMs, units: r.credits };
+        return { data: rankCandidates(matching, src.filters, l.anchor, src.exclude, l.radiusKm, { distinct: src.distinct, markOpenAir: true }), status: r.status, latencyMs: r.latencyMs, units: r.credits };
       },
     });
     // Discover: the minimum must never be applied to an expired list after a failed refresh ("not checked" instead).

@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from "vitest";
 import { MODEL_TAGS, TAGS_PROMPT_VERSION, type AiUsageRecord } from "@/lib/domain/ai";
 import { purposeTagsHash } from "@/lib/plan/hash";
 import { callStructured } from "@/lib/server/ai/client";
-import { normalizeTags, tagsRequest } from "@/lib/server/ai/purpose-tags";
+import { finishTags, tagsRequest } from "@/lib/server/ai/purpose-tags";
 import { formatResults } from "./evaluate";
 import { assertBudget, recordSpend } from "./ledger";
 import { RECORDED_DIR } from "./recorded";
@@ -39,9 +39,9 @@ describe.runIf(LIVE)("live purpose tag cases", () => {
         },
       });
       const u = usage;
-      console.log(`${c.id}: ${r.ok ? JSON.stringify(normalizeTags(r.data)) : r.error}${u ? ` (in ${u.inputTokens}, out ${u.outputTokens}, cache read ${u.cacheReadInputTokens}, write ${u.cacheCreationInputTokens}, $${(u.costMicroUsd / 1e6).toFixed(5)})` : ""}`);
+      console.log(`${c.id}: ${r.ok ? JSON.stringify(finishTags(r.data, p)) : r.error}${u ? ` (in ${u.inputTokens}, out ${u.outputTokens}, cache read ${u.cacheReadInputTokens}, write ${u.cacheCreationInputTokens}, $${(u.costMicroUsd / 1e6).toFixed(5)})` : ""}`);
       if (r.ok) {
-        const results = c.check(normalizeTags(r.data));
+        const results = c.check(finishTags(r.data, p));
         console.log(formatResults(`  ${c.id}`, results));
         if (results.some((x) => !x.ok)) failedChecks.push(c.id);
         cases.push({ id: c.id, hash: purposeTagsHash(p), wire: r.data, usage: r.usage });

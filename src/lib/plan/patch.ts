@@ -4,10 +4,11 @@ import {
   assembleDay,
   assembleNotes,
   assembleOpen,
-  clampText,
   emptyIssues,
+  guardCtx,
   guardFixed,
   noteTimes,
+  proseText,
   referencedPlaces,
   type AssembleIssues,
 } from "./assemble";
@@ -77,6 +78,7 @@ export function applyPatch(a: {
   const issues = emptyIssues();
   const fallbackPlace = stored.llm.trip.dest.slice(0, LIMITS.place);
   const times = noteTimes(stored.llm.trip.notes);
+  const guards = guardCtx(stored);
   const replaced = new Map<number, PlanDay>();
   for (const d of inScope) {
     if (replaced.has(d.n)) continue; // first wins
@@ -87,6 +89,7 @@ export function applyPatch(a: {
       issues,
       noteTimes: times,
       baseText: baseTexts(base.days[d.n - 1]),
+      ...guards,
     });
     replaced.set(d.n, guardFixed(keepFixedStops(base.days[d.n - 1], day), "fixed" in a ? a.fixed : stored.llm.fixed, issues));
   }
@@ -117,7 +120,7 @@ export function applyPatch(a: {
     places: referencedPlaces(days, stored.index, base.places),
     summary:
       !scoped && patch.summary !== undefined
-        ? (clampText(patch.summary, LIMITS.summary, issues) ?? base.summary)
+        ? (proseText(patch.summary, LIMITS.summary, issues) ?? base.summary)
         : base.summary,
     notes: !scoped && patch.notes !== undefined && patch.notes.length > 0 ? assembleNotes(patch.notes, issues) : base.notes,
     openItems,
