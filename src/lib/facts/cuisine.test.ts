@@ -75,6 +75,14 @@ describe("selectRestaurants", () => {
     const s = selectRestaurants(pool, { include: ["pizza"] }, "DE");
     expect(names(s).sort()).toEqual(["Bella Napoli", "Deutsch-Pizza", "Pizzeria Roma"]);
   });
+  it("include: italian keeps italian;pizza; plain local still drops german;pizza", () => {
+    const inc = names(selectRestaurants(pool, { include: ["italian"] }, "DE"));
+    expect(inc).toContain("Bella Napoli");
+    expect(inc).toContain("Trattoria");
+    expect(inc).not.toContain("Pizzeria Roma");
+    expect(names(selectRestaurants(pool, { local: true }, "DE"))).not.toContain("Deutsch-Pizza");
+    expect(names(selectRestaurants(pool, null, "DE"))).not.toContain("Bella Napoli");
+  });
   it("local + include is a union", () => {
     const s = selectRestaurants(pool, { local: true, include: ["sushi"] }, "DE");
     expect(names(s)).toContain("Sushi Bar");

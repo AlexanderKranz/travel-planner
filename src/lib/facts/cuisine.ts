@@ -126,7 +126,8 @@ export const completeness = (r: Restaurant): number =>
  * 1. `local`: keep restaurants with a cuisine of the country's local set. `include` adds its own matches (a union:
  *    "local food, and Italian one night" must not end up empty). Without either, everything passes.
  * 2. `exclude` always drops matches.
- * 3. Fast-food cuisines (pizza, burger ...) are dropped unless `include` or the local set names them (pizza is local in Italy), so "local" never returns a
+ * 3. Fast-food cuisines (pizza, burger ...) are dropped unless `include` or the local set names them (pizza is local in Italy);
+ *    a place also stays when `include` names one of its non-fast-food cuisines (`include: italian` keeps `italian;pizza`). So "local" never returns a
  *    pizzeria even when it is tagged `german;pizza`. Untagged restaurants are kept unless a cuisine was asked for.
  * Ranking: completeness, then distance, then name. At most MAX_RESTAURANTS.
  */
@@ -142,6 +143,8 @@ export function selectRestaurants(
   const kept = restaurants.filter((r) => {
     if (asked && !r.cuisines.some((c) => local.has(c) || include.has(c))) return false;
     if (r.cuisines.some((c) => exclude.has(c))) return false;
+    // `include: italian` keeps `italian;pizza`; plain `local` still drops `german;pizza`.
+    if (r.cuisines.some((c) => include.has(c) && !FAST_FOOD_CUISINES.has(c))) return true;
     if (r.cuisines.some((c) => FAST_FOOD_CUISINES.has(c) && !include.has(c) && !local.has(c))) return false;
     return true;
   });

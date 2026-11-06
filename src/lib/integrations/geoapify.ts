@@ -44,12 +44,12 @@ export function hasGeoapifyKey(env: Record<string, string | undefined> = process
   return Boolean(env.GEOAPIFY_API_KEY?.trim());
 }
 
-export function placesUrl(categories: readonly string[], center: { lat: number; lon: number }, radiusM: number, key: string): string {
+export function placesUrl(categories: readonly string[], center: { lat: number; lon: number }, radiusM: number, key: string, limit = GEOAPIFY_LIMIT): string {
   const u = new URL(GEOAPIFY_PLACES_URL);
   u.searchParams.set("categories", categories.join(","));
   u.searchParams.set("filter", `circle:${center.lon.toFixed(5)},${center.lat.toFixed(5)},${Math.round(radiusM)}`);
   u.searchParams.set("bias", `proximity:${center.lon.toFixed(5)},${center.lat.toFixed(5)}`);
-  u.searchParams.set("limit", String(GEOAPIFY_LIMIT));
+  u.searchParams.set("limit", String(limit));
   u.searchParams.set("apiKey", key);
   return u.toString();
 }
@@ -83,18 +83,22 @@ export async function fetchPlaces(
   groups: readonly (readonly string[])[],
   center: { lat: number; lon: number },
   radiusM: number,
-): Promise<{ elements: RawOsmElement[]; status: number; latencyMs: number; credits: number }> {
+  /** Places per request (default GEOAPIFY_LIMIT; Geoapify allows up to 500). */
+  limit = GEOAPIFY_LIMIT,
+): Promise<{ elements: RawOsmElement[]; status: number; latencyMs: number; credits: number; truncated: boolean }> {
   const key = process.env.GEOAPIFY_API_KEY?.trim();
   if (!key) throw new Error("GEOAPIFY_API_KEY missing");
   const byId = new Map<string, RawOsmElement>();
   let latencyMs = 0;
   let credits = 0;
   let status = 200;
+  let truncated = false;
   for (const categories of groups) {
     try {
-      const r = await fetchJson(placesUrl(categories, center, radiusM, key), { timeoutMs: GEOAPIFY_TIMEOUT_MS });
+      const r = await fetchJson(placesUrl(categories, center, radiusM, key, limit), { timeoutMs: GEOAPIFY_TIMEOUT_MS });
       const features = Response.parse(r.body).features.length;
       credits += geoapifyCredits(features);
+      if (features >= limit) truncated = true;
       for (const e of toOsmElements(r.body)) byId.set(`${e.type}/${e.id}`, e);
       latencyMs += r.latencyMs;
       status = r.status;
@@ -103,5 +107,5 @@ export async function fetchPlaces(
       throw err;
     }
   }
-  return { elements: [...byId.values()], status, latencyMs, credits };
+  return { elements: [...byId.values()], status, latencyMs, credits, truncated };
 }
