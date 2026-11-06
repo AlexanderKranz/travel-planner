@@ -298,3 +298,35 @@ describe("group from text [group-text D5]", () => {
     expect(stored.llm.group!.notes).toBe("Buggy");
   });
 });
+
+describe("cafés and kids tags in the built input (addendum 1)", () => {
+  const spot = (id: number, name: string, kidsTagged: boolean) => ({
+    osmType: "node" as const, osmId: id, name, cuisines: ["german"], lat: 36.5, lon: -4.9, distanceKm: 0.5, hasOpeningHours: false, kidsTagged,
+    osmUrl: `https://www.openstreetmap.org/node/${id}`,
+  });
+  const extra = {
+    restaurants: { status: "ok" as const, restaurants: [spot(1, "Plain", false), spot(2, "Kids", true)], radiusKm: 2.5, fetchedAt: T },
+    cafes: { status: "ok" as const, cafes: [spot(3, "Bohne", false), spot(4, "Kinderkaffee", true)], radiusKm: 2.5, fetchedAt: T },
+  };
+  const tags = { v: 2 as const, interests: [], custom: [], hard: [], soft: [], summary: "", cafes: true as const };
+  const run = (kids: boolean) =>
+    buildPlanInput({
+      trip: trip(), group, purpose: purpose({ tags: { ...tags, cuisine: { local: false, include: [], exclude: [], ...(kids ? { kids: true } : {}) } } }),
+      profileBirthdate: null, facts: { ...facts(trip(), []), ...extra }, locale: "de", today: "2026-10-28",
+    }).stored;
+  it("tags.cuisine.kids reaches cafes.kids, ask.kids and k; tagged places first", () => {
+    const s = run(true);
+    expect(s.llm.cafes).toMatchObject({ s: "ok", kids: true });
+    expect(s.llm.cafes!.list[0]).toEqual({ id: "c1", name: "Kinderkaffee", c: "german", km: 0.5, k: true });
+    expect(s.llm.restaurants!.ask).toEqual({ kids: true });
+    expect(s.llm.restaurants!.list[0]).toMatchObject({ name: "Kids", k: true });
+    expect(s.index.c1.place.category).toBe("amenity=cafe");
+  });
+  it("without kids no k anywhere and the group does not change the ranking", () => {
+    const s = run(false);
+    expect(s.llm.cafes!.kids).toBeUndefined();
+    expect(JSON.stringify(s.llm.cafes)).not.toContain('"k"');
+    expect(JSON.stringify(s.llm.restaurants)).not.toContain('"k"');
+    expect(s.llm.restaurants!.ask).toBeUndefined();
+  });
+});

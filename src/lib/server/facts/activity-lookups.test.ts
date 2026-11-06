@@ -45,8 +45,7 @@ describe("loadActivityLookups", () => {
     let t = 1_000_000;
     const now = vi.spyOn(Date, "now").mockImplementation(() => t);
     h.rest.mockImplementation(async () => ((t += 20_000), ok({ radiusKm: 2.5, restaurants: [], truncated: false })));
-    h.cafe.mockImplementation(async () => (h.order.push("cafes"), ok({ radiusKm: 2.5, cafes: [{ name: "C" }] })));
-  h.group.mockImplementation(async () => ((t += 30_000), ok({ group: "indoor", radiusKm: 15, places: [], truncated: false })));
+    h.group.mockImplementation(async () => ((t += 30_000), ok({ group: "indoor", radiusKm: 15, places: [], truncated: false })));
     await loadActivityLookups(dest, { groups: ["indoor", "outdoor", "going_out"] }, ctx, 60_000);
     now.mockRestore();
     expect(h.rest.mock.calls[0][2]).toMatchObject({ budgetMs: 60_000 });
