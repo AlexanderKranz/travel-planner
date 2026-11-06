@@ -105,7 +105,7 @@ const OSM: Record<FixtureId, Partial<Record<InterestOrGeneral, unknown>>> = {
  * union queries around Würzburg). A group without a recording counts as `error`. Golf and cruise have none, so
  * their inputs carry no activities or restaurants blocks.
  */
-const ACTIVITY_OSM: Partial<Record<FixtureId, { groups: Partial<Record<ActivityGroup, unknown>>; restaurants: unknown }>> = {
+const ACTIVITY_OSM: Partial<Record<FixtureId, { groups: Partial<Record<ActivityGroup, unknown>>; restaurants?: unknown }>> = {
   wuerzburg: { groups: { indoor: indoorWue, outdoor: outdoorWue }, restaurants: restaurantsWue },
 };
 
@@ -131,6 +131,8 @@ export function evalActivityLookups(id: FixtureId, groups: readonly ActivityGrou
     const places = activityPlacesForGroup(group, parseElements(raw), anchor);
     return { group, status: places.length ? "ok" : "empty", places, fetchedAt: EVAL_FETCHED_AT };
   });
+  // No restaurant recording counts as a failed lookup, like a missing group (never a parse error).
+  if (!rec.restaurants) return { activities, restaurants: { status: "error", restaurants: [] } };
   const radiusKm = RESTAURANT_RADIUS_KM[FIXTURES[id].trip.destination.kind];
   const list = toRestaurants(parseElements(rec.restaurants), anchor, radiusKm)
     .sort((x, y) => x.distanceKm - y.distanceKm || x.name.localeCompare(y.name))

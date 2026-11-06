@@ -145,7 +145,7 @@ is used.
 - Cost: no extra call when places are present; one more Sonnet patch call when they are missing. The request
   that triggered it takes a few seconds longer (or up to the places budget on a cold cache).
 
-### 5. Prompt plan-4 (Sonnet)
+### 5. Prompt plan-6 (Sonnet)
 
 - New input blocks `ACTIVITIES` (per purpose wish: the loaded places and the lookup status by type, and `open`)
   and `RESTAURANTS` (places, status, `tooFew`). Status is `ok`, `empty`, `error` or `skipped` (no coordinates,
@@ -159,7 +159,8 @@ is used.
     footgolf venue listed nearby in OpenStreetMap" (the filters require a name, so unnamed entries do not count) and offers rowing. "Nothing found" is used only for an `empty` lookup;
     when a lookup failed or was skipped (free-text destination, "Generate anyway"), the plan says the places could
     not be checked. Never invent themes or venues.
-- `PLAN_PROMPT_VERSION` is bumped. Existing plans keep working; new versions use plan-4.
+- `PLAN_PROMPT_VERSION` is bumped to `plan-6` (`plan-4` and `plan-5` were already taken, see "What changed").
+  Existing plans keep working; new versions use plan-6.
 
 ### 6. Limits and cost
 

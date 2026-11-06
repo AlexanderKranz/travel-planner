@@ -375,7 +375,10 @@ export function activityChecks(plan: Plan, stored: PlanInputStored): CheckResult
 export function needPatchChecks(a: { first: LlmPatch; next: Plan; stored: PlanInputStored }): CheckResult[] {
   const types = a.first.needPlaces?.types ?? [];
   const day1 = a.next.days[0]?.stops.flatMap((s) => s.acts) ?? [];
-  const hit = day1.find((x) => x.ref && a.stored.index && Object.values(a.stored.index).some((e) => e.key === x.ref && e.place.category === "leisure=escape_game"));
+  const escapeKeys = new Set<string>(
+    Object.values(a.stored.index ?? {}).flatMap((e) => (e.place.category === "leisure=escape_game" ? [e.key] : [])),
+  );
+  const hit = day1.find((x) => x.ref && escapeKeys.has(x.ref));
   return [
     check("first call requests escape_game places (needPlaces)", types.includes("escape_game"), JSON.stringify(a.first.needPlaces ?? null)),
     check("day 1 has an escape room ref after loading", !!hit, day1.map((x) => `${x.text}${x.ref ? ` [${x.ref}]` : ""}`).join(" | ")),

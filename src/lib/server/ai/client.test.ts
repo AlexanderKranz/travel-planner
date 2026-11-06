@@ -3,9 +3,21 @@ import { LlmPatch, LlmPlan, PurposeTags } from "@/lib/domain/plan";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { AiUsageRecord } from "@/lib/domain/ai";
-import { CLIENT_MAX_RETRIES, CLIENT_TIMEOUT_MS, callStructured, estimateFailedCostMicroUsd, outputFormat } from "./client";
+import { CLIENT_MAX_RETRIES, CLIENT_TIMEOUT_MS, callStructured, clientOptions, estimateFailedCostMicroUsd, outputFormat } from "./client";
 
 vi.mock("server-only", () => ({}));
+
+describe("clientOptions (per-call timeout)", () => {
+  it("clamps a given timeout to 1 ms .. CLIENT_TIMEOUT_MS and ignores NaN or Infinity", () => {
+    expect(clientOptions(undefined)).toBeUndefined();
+    expect(clientOptions(Number.NaN)).toBeUndefined();
+    expect(clientOptions(Number.POSITIVE_INFINITY)).toBeUndefined();
+    expect(clientOptions(90_000)).toEqual({ timeout: 90_000 });
+    expect(clientOptions(500_000)).toEqual({ timeout: CLIENT_TIMEOUT_MS });
+    expect(clientOptions(0)).toEqual({ timeout: 1 });
+    expect(clientOptions(-5)).toEqual({ timeout: 1 });
+  });
+});
 
 // Verifies the SDK's zodOutputFormat accepts our Zod 4 schemas (spec 4.2). No API call.
 describe("outputFormat", () => {
