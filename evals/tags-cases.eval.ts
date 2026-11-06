@@ -45,6 +45,8 @@ describe.runIf(LIVE)("live purpose tag cases", () => {
       }
     }
     console.log(`total $${(total / 1e6).toFixed(5)}`);
+    // A failed case would leave the replay test without its id; keep the previous good recording.
+    expect(cases.length, "some cases failed; recording not written").toBe(TAGS_CASES.length);
     writeFileSync(
       join(RECORDED_DIR, "tags-cases.json"),
       JSON.stringify({ promptVersion: TAGS_PROMPT_VERSION, model: MODEL_TAGS, recordedAt: new Date().toISOString(), cases }, null, 2) + "\n",
