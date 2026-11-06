@@ -183,6 +183,11 @@ export function expandWish(wish: ActivityWish): ActivityType[] {
   return ACTIVITY_TYPES.filter((t) => out.has(t));
 }
 
+/** Every type the wishes need (the `expandWish` union): what a plan or change request waits for (QA #139). */
+export function wishedTypes(wishes: readonly ActivityWish[]): Set<ActivityType> {
+  return new Set(wishes.flatMap((w) => expandWish(w)));
+}
+
 /**
  * Groups to query for a set of wishes (one Overpass union query each, spec section 6): the group of each wish type
  * (an entry without types: its valid `group`, else nothing). All needed groups, at most three (the whole catalogue).

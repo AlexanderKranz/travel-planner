@@ -2,7 +2,7 @@ import "server-only";
 import type { ActivityGroupLookup, CafeLookup, FactsCtx, RestaurantLookup } from "@/lib/domain/facts";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
-import { groupsForWishes, typesInGroup, type ActivityGroup } from "@/lib/facts/activity-types";
+import { groupsForWishes, typesInGroup, wishedTypes, type ActivityGroup, type ActivityType } from "@/lib/facts/activity-types";
 import { getActivityGroupFacts, getCafeFacts, getRestaurantFacts, type ActivityGroupFacts, type CafeFacts, type LookupFact, type RestaurantFacts } from "./activities";
 import { geoDestination, type GeoDestination } from "./common";
 import { PLACES_CACHE_ONLY, VIEW_BUDGET_MS } from "./places";
@@ -57,6 +57,8 @@ export type ActivityLookupRequest = {
   restaurants?: { near?: { lat: number; lon: number } } | false;
   /** Cafés only when asked for (addendum A2): absent or false = none; `near` as for restaurants. */
   cafes?: { near?: { lat: number; lon: number } } | false;
+  /** The wished types (QA #139): a source part with none of them is not fetched. Absent = every type. */
+  wanted?: readonly ActivityType[];
 };
 
 /**
@@ -79,7 +81,7 @@ export async function loadActivityLookups(
   }
   const activities: ActivityGroupLookup[] = [];
   for (const group of req.groups) {
-    const f = await getActivityGroupFacts(group, dest, ctx, { budgetMs: remaining(budgetMs, started) }).catch(() => failed);
+    const f = await getActivityGroupFacts(group, dest, ctx, { budgetMs: remaining(budgetMs, started), ...(req.wanted ? { wanted: req.wanted } : {}) }).catch(() => failed);
     activities.push(groupLookup(group, f));
   }
   let cafes: CafeLookup | undefined;
@@ -99,7 +101,8 @@ export async function getTripActivityFacts(
   budgetMs: number = VIEW_BUDGET_MS,
 ): Promise<{ activities?: ActivityGroupLookup[]; restaurants?: RestaurantLookup; cafes?: CafeLookup }> {
   const groups = groupsForWishes(purpose?.tags?.activities ?? []);
-  const r = await loadActivityLookups(geoDestination(trip), { groups, cafes: purpose?.tags?.cafes === true ? {} : false }, ctx, budgetMs);
+  const wanted = [...wishedTypes(purpose?.tags?.activities ?? [])];
+  const r = await loadActivityLookups(geoDestination(trip), { groups, wanted, cafes: purpose?.tags?.cafes === true ? {} : false }, ctx, budgetMs);
   return {
     ...(r.activities.length ? { activities: r.activities } : {}),
     ...(r.restaurants ? { restaurants: r.restaurants } : {}),

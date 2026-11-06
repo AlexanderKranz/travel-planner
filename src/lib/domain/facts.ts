@@ -84,8 +84,11 @@ export type PlacesFacts = { radiusKm: number; groups: PlaceGroup[]; customIntere
 export type LookupStatus = "ok" | "empty" | "error" | "skipped";
 /** `truncated`: the source answer hit its cap (status stays ok); `reason` explains a `skipped` lookup. */
 type LookupMeta = { fetchedAt?: string; truncated?: boolean; reason?: "no_location" | "cache_only" };
-/** Per-type outcome of a group lookup: a lookup status, or `cut` = the answer hit its cap without this type. */
-export type ActivityTypeStatus = LookupStatus | "cut";
+/**
+ * Per-type outcome of a group lookup: a lookup status, `cut` = the answer hit its cap without this type, or
+ * `unrequested` = no wish asked for the type and its source part was not fetched (never pending, never "nothing found").
+ */
+export type ActivityTypeStatus = LookupStatus | "cut" | "unrequested";
 /**
  * `typeStatus` (Addendum 3, per-source lookups): what each type of the group really got. `partial`: a source part
  * failed or was skipped; the places are the other part's and the group is not complete. Both absent in lookups built

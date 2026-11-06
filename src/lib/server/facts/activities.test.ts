@@ -22,6 +22,7 @@ const h = vi.hoisted(() => ({
   events: [] as { event: string; props?: Record<string, unknown> }[],
   runQuery: vi.fn(),
   fetchPlaces: vi.fn(),
+  quota: vi.fn(),
 }));
 vi.mock("../api-cache", () => ({
   cacheKey: (e: string, v: number, p: Record<string, string | number>) => `${e}:v${v}:${JSON.stringify(p)}`,
@@ -53,7 +54,7 @@ vi.mock("../api-cache", () => ({
   },
 }));
 vi.mock("../events", () => ({ logEvent: async (e: { event: string; props?: Record<string, unknown> }) => void h.events.push(e) }));
-vi.mock("./geoapify-quota", () => ({ assertGeoapifyQuota: async () => {} }));
+vi.mock("./geoapify-quota", () => ({ assertGeoapifyQuota: () => h.quota() }));
 vi.mock("@/lib/integrations/geoapify", async (orig) => ({
   ...(await orig<typeof import("@/lib/integrations/geoapify")>()),
   fetchPlaces: h.fetchPlaces,
@@ -71,6 +72,7 @@ import {
   RESTAURANT_NEAR_RADIUS_KM,
   RESTAURANT_POOL,
   CAFE_POOL,
+  GEOAPIFY_CONCURRENCY,
   getActivityGroupFacts,
   getCafeFacts,
   getRestaurantFacts,
@@ -107,6 +109,7 @@ beforeEach(() => {
   h.events = [];
   h.runQuery.mockReset();
   h.fetchPlaces.mockReset();
+  h.quota.mockReset();
   vi.stubEnv("GEOAPIFY_API_KEY", "");
 });
 afterEach(() => vi.unstubAllEnvs());
@@ -600,5 +603,96 @@ describe("mergeGroupParts", () => {
     expect(Object.entries(ACTIVITY_SOURCES).filter(([, v]) => v.geoapify).map(([k]) => k).sort()).toEqual(
       ["bar", "boat_rental", "bowling", "cinema", "climbing_hall", "escape_game", "minigolf", "playground", "swimming", "theatre"],
     );
+  });
+});
+
+describe("QA #139: wished types, concurrency, budget", () => {
+  const geoNode = (id: number, tags: Record<string, string>) => ({ type: "node" as const, id, lat: 49.792, lon: 9.954, tags: { name: `p${id}`, ...tags } });
+  const geoOk = (elements: ReturnType<typeof geoNode>[] = []) => ({ elements, status: 200, latencyMs: 5, credits: 1, truncated: false });
+  const emptyOverpass = { elements: [], status: 200, latencyMs: 1, mirror: "m" };
+  beforeEach(() => vi.stubEnv("GEOAPIFY_API_KEY", "k"));
+
+  it("an escape-room-only wish never runs the Overpass part; its types are unrequested, the group is complete", async () => {
+    h.fetchPlaces.mockImplementation(async (groups: string[][]) => geoOk(groups[0][0] === "entertainment.escape_game" ? [geoNode(1, { leisure: "escape_game" })] : []));
+    h.runQuery.mockRejectedValue(new Error("504"));
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx, { wanted: ["escape_game"] });
+    expect(h.runQuery).not.toHaveBeenCalled();
+    expect(f).toMatchObject({ status: "ok", data: { partial: false, typeStatus: { escape_game: "ok", bowling: "empty", karaoke: "unrequested", indoor_play: "unrequested" } } });
+    // The cache key of the skipped part is the full part list (stable); it was only read.
+    const op = h.calls.filter((c) => c.provider === "overpass" && c.key.includes('"part":"osm"'));
+    expect(op.every((c) => c.key.includes('"t":"karaoke,indoor_play"') && c.allowed !== true)).toBe(true);
+  });
+
+  it("an unrequested part with a cached row still uses it", async () => {
+    h.store.set('overpass#"part":"osm"', { data: { items: [], truncated: false }, expired: false });
+    h.fetchPlaces.mockResolvedValue(geoOk());
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx, { wanted: ["cinema"] });
+    expect(f).toMatchObject({ status: "empty", data: { typeStatus: { cinema: "empty", karaoke: "empty" } } });
+  });
+
+  it("a karaoke-only wish never calls Geoapify; the Geoapify types are unrequested", async () => {
+    h.runQuery.mockResolvedValue({ elements: [geoNode(3, { amenity: "karaoke_box" })], status: 200, latencyMs: 1, mirror: "m" });
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx, { wanted: ["karaoke"] });
+    expect(h.fetchPlaces).not.toHaveBeenCalled();
+    expect(f).toMatchObject({ status: "ok", data: { partial: false, typeStatus: { karaoke: "ok", cinema: "unrequested", escape_game: "unrequested" } } });
+  });
+
+  it("Geoapify requests run at most GEOAPIFY_CONCURRENCY at a time, results in catalogue order", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    h.fetchPlaces.mockImplementation(async (groups: string[][]) => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((r) => setTimeout(r, groups[0][0] === "entertainment.escape_game" ? 15 : 2));
+      inFlight -= 1;
+      return geoOk();
+    });
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(GEOAPIFY_CONCURRENCY).toBe(2);
+    expect(peak).toBe(2);
+    expect(h.fetchPlaces).toHaveBeenCalledTimes(6);
+  });
+
+  it("budget: no new Geoapify request with less than one timeout left; unstarted types are skipped, nothing is cached, the second part is cache only", async () => {
+    let t = 1_000_000;
+    const now = vi.spyOn(Date, "now").mockImplementation(() => t);
+    h.fetchPlaces.mockImplementation(async () => (await Promise.resolve(), (t += 10_000), geoOk()));
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx, { budgetMs: 30_000 });
+    now.mockRestore();
+    expect(h.fetchPlaces).toHaveBeenCalledTimes(2);
+    expect(h.runQuery).not.toHaveBeenCalled();
+    expect([...h.store.keys()].some((k) => k.startsWith("geoapify#"))).toBe(false);
+    expect(f).toMatchObject({
+      status: "ok",
+      data: { partial: true, typeStatus: { escape_game: "empty", bowling: "empty", cinema: "skipped", swimming: "skipped", karaoke: "skipped", indoor_play: "skipped" } },
+    });
+    expect(h.calls.find((c) => c.provider === "geoapify")?.units).toBeUndefined();
+    expect(h.errors[0]).toMatchObject({ name: "IncompleteAnswer", units: 2 });
+  });
+
+  it("the second part runs cache only when the first left less than one query window (skipped, not error)", async () => {
+    let t = 1_000_000;
+    const now = vi.spyOn(Date, "now").mockImplementation(() => t);
+    h.fetchPlaces.mockImplementation(async () => ((t += 1_000), geoOk()));
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx, { budgetMs: 40_000 });
+    now.mockRestore();
+    expect(h.runQuery).not.toHaveBeenCalled();
+    expect(f).toMatchObject({ status: "ok", data: { partial: true, typeStatus: { cinema: "empty", karaoke: "skipped", indoor_play: "skipped" } } });
+  });
+
+  it("QuotaGuardError on the Geoapify part falls back to Overpass, written under its own part: geo key", async () => {
+    h.quota.mockRejectedValue(Object.assign(new Error("quota"), { name: "QuotaGuardError" }));
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(h.fetchPlaces).not.toHaveBeenCalled();
+    expect(h.runQuery).toHaveBeenCalledTimes(2);
+    expect(h.runQuery.mock.calls[0][0] as string).toMatch(/escape_game/);
+    const written = [...h.store.keys()].filter((k) => k.startsWith("overpass#"));
+    expect(written.some((k) => k.includes('"part":"geo","t":"escape_game,bowling,cinema,theatre,climbing_hall,swimming"'))).toBe(true);
+    expect(written.some((k) => k.includes('"part":"osm","t":"karaoke,indoor_play"'))).toBe(true);
+    expect(f).toMatchObject({ status: "empty", data: { partial: false } });
   });
 });

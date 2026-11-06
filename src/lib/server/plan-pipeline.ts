@@ -21,6 +21,7 @@ import { canonicalJson, planInputHash } from "@/lib/plan/hash";
 import { tripGroupSource } from "@/lib/group-text";
 import { buildPlanInput, type GroupContext } from "@/lib/plan/input";
 import { allPlacesPending, activityPlacesPending } from "@/lib/plan/places-pending";
+import { wishedTypes } from "@/lib/facts/activity-types";
 import { drivePicks } from "@/lib/plan/drive-picks";
 import { extendInput, resolveNeedPlaces, type NeedPlacesRequest } from "@/lib/plan/need-places";
 import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
@@ -393,7 +394,8 @@ export async function generatePlan(
         withFlights: c.trip.wantsFlights ? { homeAirports: c.homeAirports } : undefined,
       },
     );
-    const pending = allPlacesPending(facts);
+    // Only wished activity types can block (QA #139): a failed part with unwished types never does.
+    const pending = allPlacesPending(facts, wishedTypes(purpose?.tags?.activities ?? []));
     // `fresh` (regenerate) never blocks on places: an earlier version exists and the user wants a new one.
     if (pending && !opts.force && !opts.fresh) {
       const gone = opts.clientGone?.() === true;
@@ -540,6 +542,7 @@ async function patchWithPlaces(
         : {}
       : false,
     cafes: need.cafes ? (need.cafes.near ? { near: { lat: need.cafes.near.lat, lon: need.cafes.near.lon } } : {}) : false,
+    wanted: need.types,
   };
   const factsCtx = { userId: c.session.userId, locale: base.plan.locale as Locale, today: berlinToday() };
   await logEvent({
@@ -556,7 +559,7 @@ async function patchWithPlaces(
   });
   const loaded = await loadActivityLookups(dest, req, factsCtx, Math.max(PLACES_CACHE_ONLY, placesBudget));
   // `error`, and `skipped` for lack of time (cache-only miss): retry after warming. A free-text destination passes.
-  const missing = activityPlacesPending(loaded);
+  const missing = activityPlacesPending(loaded, new Set(need.types));
   const tooLate = left() < SECOND_PATCH_MIN_MS;
   if (missing.length || tooLate) {
     if (missing.length) scheduleActivityWarm(dest, req, factsCtx, AFTER_LIMIT_MS - (Date.now() - a.started));

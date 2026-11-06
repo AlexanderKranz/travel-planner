@@ -1,3 +1,4 @@
+import type { ActivityType } from "@/lib/facts/activity-types";
 import type { ActivityGroupLookup, Fact, PlacesFacts, TripFacts } from "@/lib/domain/facts";
 import { sourceFor } from "@/lib/facts/interest-sources";
 
@@ -22,21 +23,29 @@ export function placesPending(places: Fact<PlacesFacts>): string[] | null {
  */
 const notLoaded = (l: { status: string; reason?: string }) => l.status === "error" || (l.status === "skipped" && l.reason === "cache_only");
 /**
- * A group is also pending when it is `partial` (Addendum 3: one source part failed or was skipped, the other's
- * places are valid) or a type has `error` / cache-only `skipped`. `cut` is final. The retry re-runs only the failed
+ * With per-type status (Addendum 3) a group is pending when a wished type is `error` or `skipped` (a `partial` group
+ * whose failed part holds only unwished types is complete enough). `cut` is final. The retry re-runs only the failed
  * part: each part has its own cache key, so the part that worked is a cache hit.
  */
-const groupPending = (g: ActivityGroupLookup) =>
-  notLoaded(g) || g.partial === true || Object.values(g.typeStatus ?? {}).some((s) => s === "error" || (s === "skipped" && g.reason === "cache_only"));
-export function activityPlacesPending(facts: Pick<TripFacts, "activities" | "restaurants" | "cafes">): string[] {
-  const out = (facts.activities ?? []).filter(groupPending).map((g) => `activities:${g.group}`);
+const groupPending = (g: ActivityGroupLookup, wanted?: ReadonlySet<ActivityType>) => {
+  // Lookups built before Addendum 3 carry no per-type status: the group status decides.
+  if (!g.typeStatus) return notLoaded(g);
+  // Per wished type (QA #139): a failed or skipped type nobody wished never blocks; `unrequested`, `cut`, `empty` never do.
+  // A skipped type is pending unless the whole group was skipped for lack of coordinates.
+  return Object.entries(g.typeStatus).some(
+    ([t, s]) => (!wanted || wanted.has(t as ActivityType)) && (s === "error" || (s === "skipped" && g.reason !== "no_location")),
+  );
+};
+/** `wanted`: the wished types (`wishedTypes`, or a change request's types); absent = every type of the group counts. */
+export function activityPlacesPending(facts: Pick<TripFacts, "activities" | "restaurants" | "cafes">, wanted?: ReadonlySet<ActivityType>): string[] {
+  const out = (facts.activities ?? []).filter((g) => groupPending(g, wanted)).map((g) => `activities:${g.group}`);
   if (facts.restaurants && notLoaded(facts.restaurants)) out.push("restaurants");
   if (facts.cafes && notLoaded(facts.cafes)) out.push("cafes");
   return out;
 }
 
 /** Interests, activity groups and restaurants that did not load; null when nothing is pending. */
-export function allPlacesPending(facts: Pick<TripFacts, "places" | "activities" | "restaurants" | "cafes">): string[] | null {
-  const all = [...(placesPending(facts.places) ?? []), ...activityPlacesPending(facts)];
+export function allPlacesPending(facts: Pick<TripFacts, "places" | "activities" | "restaurants" | "cafes">, wanted?: ReadonlySet<ActivityType>): string[] | null {
+  const all = [...(placesPending(facts.places) ?? []), ...activityPlacesPending(facts, wanted)];
   return all.length ? all : null;
 }

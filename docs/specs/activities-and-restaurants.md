@@ -423,3 +423,15 @@ Wiring (plan side):
   dropped by the group cap is sent as `cut`, never `empty`. A type whose only place is already listed under another
   type of the wish reuses that place (before, it was reported `empty`).
 - Prompt rule 15 says the status is per type (plan-7 is not released yet, so no version bump).
+
+After QA (#139):
+- Only wished types block. The plan passes the wished types (the `expandWish` union of the wishes, or a change
+  request's types) to the group lookups and to `activityPlacesPending`. A source part with no wished type is read
+  from the cache only (no network); on a miss its types are `unrequested`, which is neither pending nor "nothing
+  found". A part's cache key stays its full type list. An escape-room-only wish therefore never waits for the
+  Overpass part (karaoke, indoor_play); an open escape-room wish still does, because karaoke is one of its options.
+- Geoapify requests of a part run 2 at a time. After the first, a request only starts with at least one Geoapify
+  timeout (25 s) of budget left; the types not started are `skipped` and the group is `partial`. Such an incomplete
+  answer is used for the request but never cached (its credits are still logged).
+- A second part with less than MIN_QUERY_WINDOW_MS (45 s) left runs cache only: `skipped` on a miss, not `error`.
+- `GEOAPIFY_HEADROOM` is documented against the lookups that can run at the same time.

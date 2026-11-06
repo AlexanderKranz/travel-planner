@@ -5,7 +5,10 @@ import type { Restaurant } from "@/lib/facts/cuisine";
 import { MAX_CAFES } from "@/lib/facts/cuisine";
 import { cafesInput, lookupTypeStatus, restaurantsInput, selectWishPlaces } from "./activities-input";
 import { extendInput, mergeCuisine, resolveNeedPlaces } from "./need-places";
-import { activityPlacesPending } from "./places-pending";
+import { activityPlacesPending, allPlacesPending } from "./places-pending";
+import { wishedTypes } from "@/lib/facts/activity-types";
+
+const placesOk = { places: { status: "ok" as const, data: { radiusKm: 15, groups: [], customInterests: [] }, source: "osm" as const, fetchedAt: "2026-11-06T00:00:00.000Z", stale: false } };
 import { storedFor } from "./test-helpers";
 
 vi.mock("server-only", () => ({}));
@@ -139,6 +142,17 @@ describe("per-type status (Addendum 3)", () => {
     expect(activityPlacesPending({ activities: [partial] })).toEqual(["activities:indoor"]);
     expect(activityPlacesPending({ activities: [{ ...partial, partial: undefined, typeStatus: { escape_game: "ok", karaoke: "error" } }] })).toEqual(["activities:indoor"]);
     expect(activityPlacesPending({ activities: [{ ...partial, partial: undefined, typeStatus: { escape_game: "ok", cinema: "cut", bowling: "empty" } }] })).toEqual([]);
-    expect(activityPlacesPending({ activities: [{ ...partial, partial: undefined, typeStatus: { karaoke: "skipped" } }] })).toEqual([]); // skipped without cache_only (no location) never blocks
+    // A part skipped for lack of time blocks; a group skipped for lack of coordinates never does.
+    expect(activityPlacesPending({ activities: [{ ...partial, partial: undefined, typeStatus: { karaoke: "skipped" } }] })).toEqual(["activities:indoor"]);
+    expect(activityPlacesPending({ activities: [{ group: "indoor", status: "skipped", reason: "no_location", places: [], typeStatus: { karaoke: "skipped" } }] })).toEqual([]);
+    expect(activityPlacesPending({ activities: [{ ...partial, typeStatus: { escape_game: "ok", karaoke: "unrequested" } }] })).toEqual([]);
+  });
+  it("QA #139: only wished types can block (escape room wish, failed Overpass part with karaoke/indoor_play)", () => {
+    const look: ActivityGroupLookup = { ...partial, typeStatus: { escape_game: "ok", bowling: "empty", karaoke: "error", indoor_play: "error" } };
+    expect(activityPlacesPending({ activities: [look] }, new Set(["escape_game"] as const))).toEqual([]);
+    expect(activityPlacesPending({ activities: [look] }, new Set(["escape_game", "karaoke"] as const))).toEqual(["activities:indoor"]);
+    expect(allPlacesPending({ ...placesOk, activities: [look] }, wishedTypes([{ types: ["escape_game"], open: false }]))).toBeNull();
+    // An open escape room wish also wants karaoke (an indoor alternative): then the failed part blocks.
+    expect(allPlacesPending({ ...placesOk, activities: [look] }, wishedTypes([{ types: ["escape_game"], open: true }]))).toEqual(["activities:indoor"]);
   });
 });

@@ -88,6 +88,11 @@ describe("getTripActivityFacts", () => {
     expect(h.order).toEqual(["restaurants", "indoor", "outdoor"]);
     expect(r.activities).toHaveLength(2);
   });
+  it("passes the wished types (expandWish union) to the group lookups (QA #139)", async () => {
+    const tags = { v: 2, interests: [], custom: [], hard: [], soft: [], summary: "", activities: [{ types: ["escape_game"], open: false }] };
+    await getTripActivityFacts(trip, { tags } as never, ctx, 1000);
+    expect(h.group.mock.calls[0][3]).toMatchObject({ wanted: ["escape_game"] });
+  });
   it("cafés only when the purpose tags ask for them (tags-3 `cafes`)", async () => {
     const tags = { v: 2, interests: [], custom: [], hard: [], soft: [], summary: "" };
     expect((await getTripActivityFacts(trip, { tags } as never, ctx, 1000)).cafes).toBeUndefined();

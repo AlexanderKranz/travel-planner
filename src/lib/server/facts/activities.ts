@@ -2,10 +2,10 @@ import "server-only";
 import { z } from "zod";
 import type { FactsCtx } from "@/lib/domain/facts";
 import { activityPlaceSchema, activityPlacesForGroup, mergeActivityPlaces, type ActivityPlace } from "@/lib/facts/activity-places";
-import { ACTIVITY_SOURCES, radiusForGroup, splitGroupTypes, type ActivityGroup, type ActivityType } from "@/lib/facts/activity-types";
+import { ACTIVITY_SOURCES, radiusForGroup, splitGroupTypes, typesInGroup, type ActivityGroup, type ActivityType } from "@/lib/facts/activity-types";
 import { cafeSchema, restaurantSchema, toCafes, toRestaurants, type Cafe, type Restaurant } from "@/lib/facts/cuisine";
 import { matchesFilter } from "@/lib/facts/places";
-import { GEOAPIFY_LIMIT, fetchPlaces, hasGeoapifyKey } from "@/lib/integrations/geoapify";
+import { GEOAPIFY_LIMIT, GEOAPIFY_TIMEOUT_MS, fetchPlaces, hasGeoapifyKey } from "@/lib/integrations/geoapify";
 import { OVERPASS_CLIENT_TIMEOUT_MS, buildQuery, runQuery, type RawOsmElement } from "@/lib/integrations/overpass";
 import { cacheKey, cached, type CachedResult } from "../api-cache";
 import { logEvent } from "../events";
@@ -46,8 +46,12 @@ export const GEOAPIFY_RESTAURANT_LIMIT = 200;
 /** Nearest restaurants kept in the cache; the cuisine filter and the cap of 12 are applied by the caller. */
 export const RESTAURANT_POOL = 150;
 
-/** Outcome per catalogue type of a group lookup (see `ActivityGroupFacts.typeStatus`). */
-export type TypeStatus = "ok" | "empty" | "error" | "skipped" | "cut";
+/**
+ * Outcome per catalogue type of a group lookup (see `ActivityGroupFacts.typeStatus`). `unrequested` = no wish asked
+ * for the type and its source part was not fetched (only a cached row would have been used): neither pending nor
+ * "nothing found".
+ */
+export type TypeStatus = "ok" | "empty" | "error" | "skipped" | "cut" | "unrequested";
 export type ActivityGroupFacts = {
   group: ActivityGroup;
   radiusKm: number;
@@ -57,7 +61,8 @@ export type ActivityGroupFacts = {
    * Per type of the group (every type is present), so the plan can tell what was really checked:
    * `ok` = at least one place of the type found; `empty` = its source answered completely with none ("nothing
    * found" may be claimed); `cut` = its answer hit the query cap without one (unknown, never "nothing found");
-   * `error` = its source failed; `skipped` = not attempted (cache-only run / budget, nothing cached).
+   * `error` = its source failed; `skipped` = not attempted (cache-only run / budget, nothing cached);
+   * `unrequested` = no wish asked for it, so its part was not fetched.
    */
   typeStatus: Record<ActivityType, TypeStatus>;
   /** true = at least one source part failed or was skipped: `places` are the other part's, never read `empty` into the missing types. */
@@ -84,10 +89,22 @@ export type LookupFact<D> =
   | { status: "skipped"; reason: "no_location" | "cache_only" };
 const OSM_URL = "https://www.openstreetmap.org/copyright";
 
-/** What is cached: the processed items, whether the source answer hit its cap and (Geoapify per-type requests) which types did. */
-type Batch<T> = { items: T[]; truncated: boolean; cutTypes?: string[] };
+/**
+ * What is cached: the processed items, whether the source answer hit its cap and (Geoapify per-type requests) which
+ * types did. `skippedTypes` (types whose request was not started for lack of budget) only ever appears in an
+ * uncached result: such a batch is never written to the cache.
+ */
+type Batch<T> = { items: T[]; truncated: boolean; cutTypes?: string[]; skippedTypes?: string[] };
 const batchSchema = <T>(item: z.ZodType<T>): z.ZodType<Batch<T>> =>
-  z.object({ items: z.array(item), truncated: z.boolean(), cutTypes: z.array(z.string()).optional() });
+  z.object({ items: z.array(item), truncated: z.boolean(), cutTypes: z.array(z.string()).optional(), skippedTypes: z.array(z.string()).optional() });
+
+/** Thrown by a fetcher whose answer is incomplete (types not started): `cached()` then stores nothing but logs the credits. */
+class IncompleteAnswer extends Error {
+  constructor(readonly units: number) {
+    super("incomplete");
+    this.name = "IncompleteAnswer";
+  }
+}
 
 /** `skipped` only when the network was not allowed (cache-only run / budget) and nothing was cached; any other failure is `error`. */
 function toLookupFact<T, D>(
@@ -103,7 +120,7 @@ function toLookupFact<T, D>(
 }
 
 type Opts = { budgetMs?: number };
-type GeoapifyAnswer = { elements: RawOsmElement[]; status: number; latencyMs: number; credits: number; truncated: boolean; cutTypes?: string[] };
+type GeoapifyAnswer = { elements: RawOsmElement[]; status: number; latencyMs: number; credits: number; truncated: boolean; cutTypes?: string[]; skippedTypes?: string[] };
 type Spec<T> = {
   /** Cache key parts (anchor already rounded). */
   keyParams: Record<string, string | number>;
@@ -115,8 +132,11 @@ type Spec<T> = {
   /** Geoapify category groups; null = Overpass only (no or incomplete mapping, or no key). */
   geoapify: readonly (readonly string[])[] | null;
   geoapifyLimit?: number;
-  /** Own Geoapify fetch (activity parts: one request per type); default one request per category group in `geoapify`. */
-  geoapifyFetch?: (limit: number) => Promise<GeoapifyAnswer>;
+  /**
+   * Own Geoapify fetch (activity parts: one request per type, `deadline` = end of this lookup's budget); default one
+   * request per category group in `geoapify`.
+   */
+  geoapifyFetch?: (limit: number, deadline: number) => Promise<GeoapifyAnswer>;
   /** Cache version of this lookup's keys; default CACHE_VERSION. */
   cacheVersion?: number;
   radiusKm: number;
@@ -175,6 +195,8 @@ async function lookup<T>(s: Spec<T>): Promise<{ res: CachedResult<Batch<T>>; att
   const groups = s.geoapify;
   if (groups && hasGeoapifyKey()) {
     const limit = s.geoapifyLimit ?? GEOAPIFY_LIMIT;
+    // An answer with types left unstarted (budget) is used for this request but never cached.
+    let incomplete: Batch<T> | null = null;
     const res = await cached({
       provider: "geoapify",
       endpoint: "places",
@@ -186,14 +208,20 @@ async function lookup<T>(s: Spec<T>): Promise<{ res: CachedResult<Batch<T>>; att
       fetcher: async () => {
         attempted = true;
         await assertGeoapifyQuota();
-        const r: GeoapifyAnswer = s.geoapifyFetch ? await s.geoapifyFetch(limit) : await fetchPlaces(groups, s.anchor, s.radiusKm * 1000, limit);
+        const r: GeoapifyAnswer = s.geoapifyFetch ? await s.geoapifyFetch(limit, started + s.budgetMs) : await fetchPlaces(groups, s.anchor, s.radiusKm * 1000, limit);
         const cutTypes = r.cutTypes;
         const matching = r.elements.filter((e) => s.filters.some((f) => matchesFilter(e.tags, f)));
         if (r.truncated) await truncatedEvent("geoapify", limit);
-        return { data: { items: s.process(matching), truncated: r.truncated, ...(cutTypes ? { cutTypes } : {}) }, status: r.status, latencyMs: r.latencyMs, units: r.credits };
+        const data: Batch<T> = { items: s.process(matching), truncated: r.truncated, ...(cutTypes ? { cutTypes } : {}) };
+        if (r.skippedTypes?.length) {
+          incomplete = { ...data, skippedTypes: r.skippedTypes };
+          throw new IncompleteAnswer(r.credits);
+        }
+        return { data, status: r.status, latencyMs: r.latencyMs, units: r.credits };
       },
     });
     if (res.ok) return { res, attempted, denied };
+    if (incomplete) return { res: { ok: true, data: incomplete, fetchedAt: new Date().toISOString(), stale: false, cache: "miss" }, attempted, denied };
   }
   const res = await overpass(started + s.budgetMs, gate);
   if (!res.ok && hit.ok) return { res: hit, attempted, denied };
@@ -203,8 +231,12 @@ async function lookup<T>(s: Spec<T>): Promise<{ res: CachedResult<Batch<T>>; att
 const roundAnchor = (d: GeoDestination) => ({ lat: Number(d.lat.toFixed(3)), lon: Number(d.lon.toFixed(3)) });
 
 /** One source part of a group lookup: the types it covers and its own outcome. */
-type PartData = { places: ActivityPlace[]; truncated: boolean; cutTypes?: string[] };
-export type GroupPart = { types: ActivityType[]; fact: LookupFact<PartData> };
+type PartData = { places: ActivityPlace[]; truncated: boolean; cutTypes?: string[]; skippedTypes?: string[] };
+/** `unrequested`: no wished type in this part, so it was read from the cache only; a miss is not a failure. */
+export type GroupPart = { types: ActivityType[]; fact: LookupFact<PartData>; unrequested?: true };
+
+/** Geoapify requests of one part run at most this many at a time (free plan: 5 requests/s; several lookups may overlap). */
+export const GEOAPIFY_CONCURRENCY = 2;
 
 /**
  * Geoapify for several types: one request per type, each with the type's own categories and its own radius (a
@@ -212,29 +244,57 @@ export type GroupPart = { types: ActivityType[]; fact: LookupFact<PartData> };
  * return a dense type (theatres) cannot fill the page and crowd out a sparse one (escape rooms), and `cutTypes`
  * names exactly the types whose page was full. A failure after earlier types succeeded carries their credits as
  * `units`, so the daily cap still counts them.
+ * Requests run GEOAPIFY_CONCURRENCY at a time. The first one always starts (like the lookup gate); a later one only
+ * with at least one GEOAPIFY_TIMEOUT_MS left before `deadline`. Types never started are `skippedTypes`.
  */
-async function fetchGeoapifyTypes(types: readonly ActivityType[], anchor: { lat: number; lon: number }, groupRadiusKm: number, limit: number) {
+async function fetchGeoapifyTypes(types: readonly ActivityType[], anchor: { lat: number; lon: number }, groupRadiusKm: number, limit: number, deadline: number) {
+  const answers = new Map<ActivityType, Awaited<ReturnType<typeof fetchPlaces>>>();
+  let credits = 0;
+  let failure: unknown = null;
+  let next = 0;
+  let started = 0;
+  const worker = async () => {
+    while (failure === null && next < types.length) {
+      if (started > 0 && deadline - Date.now() < GEOAPIFY_TIMEOUT_MS) return;
+      const t = types[next++];
+      started += 1;
+      const { geoapify, defaultRadiusKm } = ACTIVITY_SOURCES[t];
+      try {
+        const r = await fetchPlaces([geoapify!], anchor, Math.min(defaultRadiusKm, groupRadiusKm) * 1000, limit);
+        credits += r.credits;
+        answers.set(t, r);
+      } catch (err) {
+        credits += err !== null && typeof err === "object" && "units" in err && typeof err.units === "number" ? err.units : 0;
+        if (failure === null) failure = err ?? new Error("geoapify");
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(GEOAPIFY_CONCURRENCY, types.length) }, worker));
+  if (failure !== null) {
+    if (credits > 0 && typeof failure === "object") Object.assign(failure as object, { units: credits });
+    throw failure;
+  }
   const byId = new Map<string, RawOsmElement>();
   const cutTypes: ActivityType[] = [];
-  let credits = 0;
+  const skippedTypes: ActivityType[] = [];
   let latencyMs = 0;
   let status = 200;
+  // Catalogue order, independent of which request finished first.
   for (const t of types) {
-    const { geoapify, defaultRadiusKm } = ACTIVITY_SOURCES[t];
-    try {
-      const r = await fetchPlaces([geoapify!], anchor, Math.min(defaultRadiusKm, groupRadiusKm) * 1000, limit);
-      credits += r.credits;
-      latencyMs += r.latencyMs;
-      status = r.status;
-      if (r.truncated) cutTypes.push(t);
-      for (const e of r.elements) byId.set(`${e.type}/${e.id}`, e);
-    } catch (err) {
-      const own = err !== null && typeof err === "object" && "units" in err && typeof err.units === "number" ? err.units : 0;
-      if (credits + own > 0 && err !== null && typeof err === "object") Object.assign(err, { units: credits + own });
-      throw err;
+    const r = answers.get(t);
+    if (!r) {
+      skippedTypes.push(t);
+      continue;
     }
+    latencyMs = Math.max(latencyMs, r.latencyMs);
+    status = r.status;
+    if (r.truncated) cutTypes.push(t);
+    for (const e of r.elements) byId.set(`${e.type}/${e.id}`, e);
   }
-  return { elements: [...byId.values()], status, latencyMs, credits, truncated: cutTypes.length > 0, cutTypes };
+  return {
+    elements: [...byId.values()], status, latencyMs, credits, truncated: cutTypes.length > 0, cutTypes,
+    ...(skippedTypes.length ? { skippedTypes } : {}),
+  };
 }
 
 /**
@@ -261,7 +321,7 @@ async function lookupPart(
       return t && Math.min(ACTIVITY_SOURCES[t].defaultRadiusKm, radiusKm);
     },
     geoapify: viaGeoapify ? types.map((t) => ACTIVITY_SOURCES[t].geoapify!) : null,
-    geoapifyFetch: (limit) => fetchGeoapifyTypes(types, anchor, radiusKm, limit),
+    geoapifyFetch: (limit, deadline) => fetchGeoapifyTypes(types, anchor, radiusKm, limit, deadline),
     cacheVersion: ACTIVITY_CACHE_VERSION,
     radiusKm,
     anchor,
@@ -270,7 +330,15 @@ async function lookupPart(
     ctx,
     budgetMs,
   });
-  return { types, fact: toLookupFact(looked, (b) => ({ places: b.items, truncated: b.truncated, ...(b.cutTypes ? { cutTypes: b.cutTypes } : {}) })) };
+  return {
+    types,
+    fact: toLookupFact(looked, (b) => ({
+      places: b.items,
+      truncated: b.truncated,
+      ...(b.cutTypes ? { cutTypes: b.cutTypes } : {}),
+      ...(b.skippedTypes ? { skippedTypes: b.skippedTypes } : {}),
+    })),
+  };
 }
 
 /**
@@ -279,19 +347,25 @@ async function lookupPart(
  * - some part ok/empty, another error/skipped: `ok` with `partial: true` (never `empty`), the failed part's types
  *   `error`/`skipped` in `typeStatus`;
  * - nothing succeeded: `skipped` when every part was skipped, else `error`.
+ * An unrequested part (no wished type, cache only) that missed gives its types `unrequested` and counts for nothing
+ * else: not partial, not failed. Types a part left unstarted (`skippedTypes`) are `skipped` and make it partial.
  */
 export function mergeGroupParts(group: ActivityGroup, radiusKm: number, parts: readonly GroupPart[]): LookupFact<ActivityGroupFacts> {
+  const notAsked = (p: GroupPart) => p.unrequested === true && p.fact.status !== "ok" && p.fact.status !== "empty";
+  const asked = parts.filter((p) => !notAsked(p));
   const done: { fact: Extract<LookupFact<PartData>, { status: "ok" | "empty" }> }[] = [];
-  for (const p of parts) if (p.fact.status === "ok" || p.fact.status === "empty") done.push({ fact: p.fact });
+  for (const p of asked) if (p.fact.status === "ok" || p.fact.status === "empty") done.push({ fact: p.fact });
   if (done.length === 0) {
-    const skipped = parts.every((p) => p.fact.status === "skipped");
+    const skipped = asked.every((p) => p.fact.status === "skipped");
     return skipped ? { status: "skipped", reason: "cache_only" } : { status: "error", source: "osm" };
   }
   const typeStatus = {} as Record<ActivityType, TypeStatus>;
   for (const p of parts) {
     const f = p.fact;
     for (const t of p.types) {
-      if (f.status === "error" || f.status === "skipped") typeStatus[t] = f.status;
+      if (notAsked(p)) typeStatus[t] = "unrequested";
+      else if (f.status === "error" || f.status === "skipped") typeStatus[t] = f.status;
+      else if (f.data.skippedTypes?.includes(t)) typeStatus[t] = "skipped";
       else {
         const found = f.data.places.some((pl) => pl.types.includes(t));
         const cut = f.data.cutTypes ? f.data.cutTypes.includes(t) : f.data.truncated;
@@ -299,7 +373,7 @@ export function mergeGroupParts(group: ActivityGroup, radiusKm: number, parts: r
       }
     }
   }
-  const partial = done.length < parts.length;
+  const partial = done.length < asked.length || done.some((d) => (d.fact.data.skippedTypes?.length ?? 0) > 0);
   const places = mergeActivityPlaces(group, done.map((d) => d.fact.data.places));
   const truncated = done.some((d) => d.fact.data.truncated);
   return {
@@ -318,12 +392,15 @@ export function mergeGroupParts(group: ActivityGroup, radiusKm: number, parts: r
  * fails), then the remaining types in one Overpass union (the slow one, last, with what is left of the budget).
  * Without a key it is one Overpass union of all types. The caller keeps the types it needs (`expandWish`) and reads
  * `data.typeStatus` to see which of them were really checked. `dest` null (free-text destination) = skipped.
+ * `opts.wanted`: the wished types; a part with none of them is read from the cache only (no network) and its types
+ * are `unrequested` on a miss. Cache keys stay per part (the full type list of the part), wanted or not.
+ * A second part with less than MIN_QUERY_WINDOW_MS left is cache only too (`skipped` on a miss, not `error`).
  */
 export async function getActivityGroupFacts(
   group: ActivityGroup,
   dest: GeoDestination | null,
   ctx: FactsCtx,
-  opts: Opts = {},
+  opts: Opts & { wanted?: readonly ActivityType[] } = {},
 ): Promise<LookupFact<ActivityGroupFacts>> {
   if (!dest) return { status: "skipped", reason: "no_location" };
   try {
@@ -331,12 +408,20 @@ export async function getActivityGroupFacts(
     const started = Date.now();
     const budgetMs = opts.budgetMs ?? VIEW_BUDGET_MS;
     const split = splitGroupTypes(group, hasGeoapifyKey());
+    // Wishes that name nothing of this group (should not happen) fall back to the whole group.
+    const wanted = opts.wanted?.some((t) => typesInGroup(group).includes(t)) ? new Set(opts.wanted) : null;
+    const isWanted = (types: readonly ActivityType[]) => !wanted || types.some((t) => wanted.has(t));
+    const part = async (types: ActivityType[], viaGeoapify: boolean, budget: number): Promise<GroupPart> =>
+      isWanted(types)
+        ? lookupPart(group, types, viaGeoapify, anchor, ctx, budget)
+        : { ...(await lookupPart(group, types, viaGeoapify, anchor, ctx, PLACES_CACHE_ONLY)), unrequested: true };
     const parts: GroupPart[] = [];
-    if (split.geoapify.length) parts.push(await lookupPart(group, split.geoapify, true, anchor, ctx, budgetMs));
+    if (split.geoapify.length) parts.push(await part(split.geoapify, true, budgetMs));
     if (split.overpass.length) {
-      // Cache only stays cache only; a budget used up by the first part leaves the second one cache only too.
-      const left = budgetMs === PLACES_CACHE_ONLY ? PLACES_CACHE_ONLY : Math.max(PLACES_CACHE_ONLY, budgetMs - (Date.now() - started));
-      parts.push(await lookupPart(group, split.overpass, false, anchor, ctx, left));
+      // Cache only stays cache only; after a first part, less than one query window left is cache only as well.
+      const rest = budgetMs - (Date.now() - started);
+      const left = budgetMs === PLACES_CACHE_ONLY || (parts.length > 0 && rest < MIN_QUERY_WINDOW_MS) ? PLACES_CACHE_ONLY : Math.max(PLACES_CACHE_ONLY, rest);
+      parts.push(await part(split.overpass, false, left));
     }
     return mergeGroupParts(group, radiusForGroup(group), parts);
   } catch {
