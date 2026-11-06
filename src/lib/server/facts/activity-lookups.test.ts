@@ -5,7 +5,8 @@ const h = vi.hoisted(() => ({ group: vi.fn(), rest: vi.fn(), cafe: vi.fn(), orde
 vi.mock("./activities", () => ({ getActivityGroupFacts: h.group, getRestaurantFacts: h.rest, getCafeFacts: h.cafe }));
 
 import type { Trip } from "@/lib/domain/trip";
-import { getTripActivityFacts, loadActivityLookups } from "./activity-lookups";
+import { typesInGroup } from "@/lib/facts/activity-types";
+import { getTripActivityFacts, groupLookup, loadActivityLookups } from "./activity-lookups";
 import { PLACES_CACHE_ONLY } from "./places";
 
 const ctx = { userId: "u", locale: "de" as const, today: "2026-11-06" };
@@ -27,7 +28,7 @@ describe("loadActivityLookups", () => {
     expect(r.restaurants).toEqual({ status: "ok", restaurants: [{ name: "R" }], radiusKm: 2.5, fetchedAt: "f" });
     expect(r.activities).toEqual([
       { group: "indoor", status: "ok", places: [], fetchedAt: "f" },
-      { group: "outdoor", status: "error", places: [] },
+      { group: "outdoor", status: "error", places: [], typeStatus: Object.fromEntries(typesInGroup("outdoor").map((t) => [t, "error"])) },
     ]);
   });
 
@@ -98,5 +99,19 @@ describe("getTripActivityFacts", () => {
     const r = await getTripActivityFacts(trip, null, ctx, 1000);
     expect(r.activities).toBeUndefined();
     expect(r.restaurants?.status).toBe("ok");
+  });
+});
+
+describe("groupLookup: per-type status and partial (Addendum 3)", () => {
+  const typeStatus = Object.fromEntries(typesInGroup("indoor").map((t) => [t, t === "karaoke" ? "error" : t === "escape_game" ? "ok" : "empty"]));
+  it("carries typeStatus and partial from a split lookup", () => {
+    const l = groupLookup("indoor", ok({ group: "indoor", radiusKm: 15, places: [], truncated: false, typeStatus, partial: true }) as never);
+    expect(l).toMatchObject({ group: "indoor", status: "ok", partial: true, typeStatus: { karaoke: "error", escape_game: "ok", bowling: "empty" } });
+  });
+  it("a complete lookup has no partial flag; a failed or skipped group marks all its types", () => {
+    expect(groupLookup("indoor", ok({ group: "indoor", radiusKm: 15, places: [], truncated: false, typeStatus, partial: false }) as never).partial).toBeUndefined();
+    const skipped = groupLookup("outdoor", { status: "skipped", reason: "cache_only" });
+    expect(new Set(Object.values(skipped.typeStatus!))).toEqual(new Set(["skipped"]));
+    expect(Object.keys(skipped.typeStatus!)).toEqual(typesInGroup("outdoor"));
   });
 });

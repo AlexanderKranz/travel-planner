@@ -2,17 +2,31 @@ import "server-only";
 import type { ActivityGroupLookup, CafeLookup, FactsCtx, RestaurantLookup } from "@/lib/domain/facts";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
-import { groupsForWishes, type ActivityGroup } from "@/lib/facts/activity-types";
+import { groupsForWishes, typesInGroup, type ActivityGroup } from "@/lib/facts/activity-types";
 import { getActivityGroupFacts, getCafeFacts, getRestaurantFacts, type ActivityGroupFacts, type CafeFacts, type LookupFact, type RestaurantFacts } from "./activities";
 import { geoDestination, type GeoDestination } from "./common";
 import { PLACES_CACHE_ONLY, VIEW_BUDGET_MS } from "./places";
 
-/** LookupFact (data layer) -> the compact lookup kept in TripFacts. */
+/**
+ * LookupFact (data layer) -> the compact lookup kept in TripFacts, with the per-type status and `partial` (Addendum 3).
+ * A group that failed or was skipped as a whole marks every one of its types the same.
+ */
 export function groupLookup(group: ActivityGroup, f: LookupFact<ActivityGroupFacts>): ActivityGroupLookup {
   if (f.status === "ok" || f.status === "empty") {
-    return { group, status: f.status, places: f.data.places, fetchedAt: f.fetchedAt, ...(f.data.truncated ? { truncated: true } : {}) };
+    return {
+      group,
+      status: f.status,
+      places: f.data.places,
+      fetchedAt: f.fetchedAt,
+      ...(f.data.truncated ? { truncated: true } : {}),
+      ...(f.data.typeStatus ? { typeStatus: { ...f.data.typeStatus } } : {}),
+      ...(f.data.partial ? { partial: true as const } : {}),
+    };
   }
-  return f.status === "skipped" ? { group, status: "skipped", places: [], reason: f.reason } : { group, status: "error", places: [] };
+  const typeStatus = Object.fromEntries(typesInGroup(group).map((t) => [t, f.status]));
+  return f.status === "skipped"
+    ? { group, status: "skipped", places: [], reason: f.reason, typeStatus }
+    : { group, status: "error", places: [], typeStatus };
 }
 
 export function restaurantLookup(f: LookupFact<RestaurantFacts>): RestaurantLookup {

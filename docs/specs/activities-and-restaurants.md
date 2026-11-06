@@ -391,7 +391,7 @@ Known failure modes:
 Ratings, prices and opening-hour checks (no free reliable source); booking links; multi-anchor trips
 (`concrete-places.md` D8).
 
-## Addendum 2: lookups split per source (Geoapify per type, 2026-11-06)
+## Addendum 3: Geoapify per type (lookups split per source, 2026-11-06)
 
 Overpass was too slow (504 after 45 s, mirrors 80-100 s) for the union of a whole group, and `indoor`/`outdoor` always
 went to Overpass because one type (karaoke ...) has no Geoapify category. A group is now looked up in two parts:
@@ -408,3 +408,18 @@ no match; `error`/`skipped` nothing usable) and adds `data.typeStatus` (every ty
 `error`, `skipped`) and `data.partial`. If one part failed and the other worked, status is `ok` with `partial: true`
 (never `empty`), the other part's places are kept and only the failed part's types are `error`/`skipped`. The plan may only say "nothing
 found" for a type with `typeStatus === "empty"`.
+
+Wiring (plan side):
+- `groupLookup` carries `typeStatus` and `partial` into `ActivityGroupLookup` (TripFacts is not persisted, so no
+  facts version; the cache version 4 above already covers the stored part results). A group that failed or was
+  skipped as a whole marks every one of its types the same. A lookup without `typeStatus` (built by older code)
+  derives it from the group status as before (`lookupTypeStatus`).
+- Pending: a group is pending when it failed, was skipped for lack of time, is `partial`, or one of its types is
+  `error` (or `skipped` in a cache-only run). Generate and the change-request path both use
+  `activityPlacesPending`. `cut` and `empty` are final. The retry re-runs only the failed part: the part that worked
+  is a cache hit under its own key.
+- Input: the status is decided per type. A `partial` group keeps the working part's places and status; the failed
+  part's types are `error`/`skipped`, `cut` stays `cut`. A type that `typeStatus` calls `ok` but whose places were
+  dropped by the group cap is sent as `cut`, never `empty`. A type whose only place is already listed under another
+  type of the wish reuses that place (before, it was reported `empty`).
+- Prompt rule 15 says the status is per type (plan-7 is not released yet, so no version bump).

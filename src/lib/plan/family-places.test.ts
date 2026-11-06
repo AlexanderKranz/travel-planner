@@ -1,9 +1,9 @@
 /** Addendum 1 wiring (activities spec): cafés block, kids tags only when asked, needPlaces for cafés and kids. */
 import { describe, expect, it, vi } from "vitest";
-import type { CafeLookup, RestaurantLookup } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, CafeLookup, RestaurantLookup } from "@/lib/domain/facts";
 import type { Restaurant } from "@/lib/facts/cuisine";
 import { MAX_CAFES } from "@/lib/facts/cuisine";
-import { cafesInput, restaurantsInput } from "./activities-input";
+import { cafesInput, lookupTypeStatus, restaurantsInput, selectWishPlaces } from "./activities-input";
 import { extendInput, mergeCuisine, resolveNeedPlaces } from "./need-places";
 import { activityPlacesPending } from "./places-pending";
 import { storedFor } from "./test-helpers";
@@ -103,5 +103,42 @@ describe("resolveNeedPlaces with the wire defaults (QA #137)", () => {
     const base = storedFor(2);
     expect(resolveNeedPlaces({ cafes: { near: "", kids: false } }, base)).toEqual({ types: [], groups: [], cafes: {} });
     expect(resolveNeedPlaces({ restaurants: { near: "", cuisine: { kids: false } } }, base)).toEqual({ types: [], groups: [], restaurants: {} });
+  });
+});
+
+describe("per-type status (Addendum 3)", () => {
+  const place = (osmId: number, types: ("escape_game" | "karaoke" | "bowling")[]) => ({
+    types, group: "indoor" as const, osmType: "node" as const, osmId, name: `P${osmId}`, names: {}, category: "leisure=escape_game",
+    lat: 50, lon: 8, distanceKm: 1, osmUrl: `https://www.openstreetmap.org/node/${osmId}`,
+  });
+  const partial: ActivityGroupLookup = {
+    group: "indoor", status: "ok", partial: true, fetchedAt: T, places: [place(1, ["escape_game"])],
+    typeStatus: { escape_game: "ok", bowling: "empty", karaoke: "error", cinema: "cut" },
+  };
+  const wish = { types: ["escape_game", "karaoke", "bowling", "cinema"] as const, open: false };
+  const statuses = (look: ActivityGroupLookup) =>
+    Object.fromEntries(selectWishPlaces([look], [{ ...wish, types: [...wish.types] }])[0].types.map((t) => [t.t, [t.s, t.places.length]]));
+
+  it("a partial group keeps the working part's places; each type gets its own status", () => {
+    expect(statuses(partial)).toEqual({ escape_game: ["ok", 1], karaoke: ["error", 0], bowling: ["empty", 0], cinema: ["cut", 0] });
+  });
+  it("old lookups without typeStatus derive it from the group status", () => {
+    expect(lookupTypeStatus({ group: "indoor", status: "ok", places: [place(1, ["escape_game"])] }, "bowling")).toBe("empty");
+    expect(lookupTypeStatus({ group: "indoor", status: "ok", truncated: true, places: [] }, "bowling")).toBe("cut");
+    expect(lookupTypeStatus({ group: "indoor", status: "error", places: [] }, "bowling")).toBe("error");
+    expect(lookupTypeStatus(undefined, "bowling")).toBe("skipped");
+  });
+  it("typeStatus ok without a place in the list (group cap) is never a false empty", () => {
+    expect(statuses({ ...partial, partial: undefined, typeStatus: { escape_game: "ok", karaoke: "ok", bowling: "ok", cinema: "ok" } }).bowling).toEqual(["cut", 0]);
+  });
+  it("a type whose only place is listed under another type reuses it (no false empty)", () => {
+    const shared: ActivityGroupLookup = { group: "indoor", status: "ok", fetchedAt: T, places: [place(1, ["escape_game", "bowling"])] };
+    expect(statuses(shared).bowling).toEqual(["ok", 1]);
+  });
+  it("partial groups and per-type errors are pending; cut is final", () => {
+    expect(activityPlacesPending({ activities: [partial] })).toEqual(["activities:indoor"]);
+    expect(activityPlacesPending({ activities: [{ ...partial, partial: undefined, typeStatus: { escape_game: "ok", karaoke: "error" } }] })).toEqual(["activities:indoor"]);
+    expect(activityPlacesPending({ activities: [{ ...partial, partial: undefined, typeStatus: { escape_game: "ok", cinema: "cut", bowling: "empty" } }] })).toEqual([]);
+    expect(activityPlacesPending({ activities: [{ ...partial, partial: undefined, typeStatus: { karaoke: "skipped" } }] })).toEqual([]); // skipped without cache_only (no location) never blocks
   });
 });

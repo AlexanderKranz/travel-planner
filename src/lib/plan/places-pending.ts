@@ -1,4 +1,4 @@
-import type { Fact, PlacesFacts, TripFacts } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, Fact, PlacesFacts, TripFacts } from "@/lib/domain/facts";
 import { sourceFor } from "@/lib/facts/interest-sources";
 
 /**
@@ -21,8 +21,15 @@ export function placesPending(places: Fact<PlacesFacts>): string[] | null {
  * `empty`, and a free-text destination (`no_location`). "Generate anyway" (`force`) passes through in the caller.
  */
 const notLoaded = (l: { status: string; reason?: string }) => l.status === "error" || (l.status === "skipped" && l.reason === "cache_only");
+/**
+ * A group is also pending when it is `partial` (Addendum 3: one source part failed or was skipped, the other's
+ * places are valid) or a type has `error` / cache-only `skipped`. `cut` is final. The retry re-runs only the failed
+ * part: each part has its own cache key, so the part that worked is a cache hit.
+ */
+const groupPending = (g: ActivityGroupLookup) =>
+  notLoaded(g) || g.partial === true || Object.values(g.typeStatus ?? {}).some((s) => s === "error" || (s === "skipped" && g.reason === "cache_only"));
 export function activityPlacesPending(facts: Pick<TripFacts, "activities" | "restaurants" | "cafes">): string[] {
-  const out = (facts.activities ?? []).filter(notLoaded).map((g) => `activities:${g.group}`);
+  const out = (facts.activities ?? []).filter(groupPending).map((g) => `activities:${g.group}`);
   if (facts.restaurants && notLoaded(facts.restaurants)) out.push("restaurants");
   if (facts.cafes && notLoaded(facts.cafes)) out.push("cafes");
   return out;
