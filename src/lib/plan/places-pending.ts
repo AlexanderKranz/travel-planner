@@ -42,7 +42,7 @@ export function blockingScope(wishes: readonly ActivityWish[]): BlockingScope {
  * group answered at all. `cut` is final. The retry re-runs only the failed part: each part has its own cache key,
  * so the part that worked is a cache hit.
  */
-const groupPending = (g: ActivityGroupLookup, scope?: BlockingScope) => {
+export const groupPending = (g: ActivityGroupLookup, scope?: BlockingScope) => {
   // Lookups built before Addendum 3 carry no per-type status: the group status decides.
   if (!g.typeStatus) return notLoaded(g);
   if (scope?.groups?.has(g.group) && notLoaded(g)) return true;

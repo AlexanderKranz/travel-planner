@@ -552,3 +552,44 @@ The daily budget cron raises `feedback_delivery` (section 10) when a GitHub auth
 | Reports `pending` after many hours, ceiling not reached | In the Supabase SQL editor: `select ref, attempts, next_attempt_at, lease_until, last_error from feedback where status = 'pending';`. A `next_attempt_at` in the future (1 hour after a GitHub error) is normal. |
 
 Retry a stuck row by hand: `update feedback set next_attempt_at = now(), lease_until = null where ref = 'FB-xxxxxxxx' and status = 'pending';`, then run the cron. Rows disappear by themselves after 365 days (`pending`/`failed`) or 180 days (`created`); screenshots are deleted after 90 days. Deleting an account removes its screenshots first.
+
+## 19. Background place retries (pg_cron + pg_net)
+
+When a place lookup (interests, activity groups, restaurants, cafés) fails or times out because Overpass is slow, the app keeps retrying it in the background for **at most 30 minutes per search**, then stops (spec: `docs/specs/activities-and-restaurants.md`, addendum 2). Vercel Hobby crons run only once a day, so the trigger lives in the database: `pg_cron` calls `GET /api/cron/place-retries` every 5 minutes through `pg_net`, with `Authorization: Bearer <CRON_SECRET>`. It calls only while at least one job is queued.
+
+### Setting up (Alex, once, after the migration `20261111120036_place_retry_jobs.sql` is deployed)
+
+The secret and the app URL are read from Supabase Vault; they are never in a migration. Supabase -> **SQL Editor** -> run (replace both values; the secret must be the same as `CRON_SECRET` in Vercel; the URL is the production URL without a trailing slash):
+
+```sql
+select vault.create_secret('<the CRON_SECRET value>', 'cron_secret');
+select vault.create_secret('https://<your-production-domain>', 'app_base_url');
+```
+
+To change a value later, update instead of creating again:
+
+```sql
+select vault.update_secret(id, '<new value>') from vault.secrets where name = 'cron_secret';
+```
+
+Without these two secrets the job does nothing and writes `places.retry_cron_unconfigured` to `app_events` (at most once an hour). That is also what you see if you skip this step: nothing breaks, the retries just never run.
+
+### Check that it runs
+
+1. Supabase -> SQL Editor: `select jobid, schedule, active from cron.job where jobname = 'place-retries';` shows the job (`*/5 * * * *`, active).
+2. `select status, return_message, start_time from cron.job_run_details where jobid = (select jobid from cron.job where jobname = 'place-retries') order by start_time desc limit 5;` shows `succeeded` runs (they fire every 5 minutes even when nothing is queued).
+3. `select status_code, created from net._http_response order by created desc limit 5;` shows the answers of the route: `200` is fine, `401` means the secret in Vault differs from `CRON_SECRET` in Vercel.
+4. Admin page -> Health -> **Place retries** shows queued / done / gave up (last 24 h). `app_events` has `places.retry_done` and `places.retry_gave_up` rows.
+5. To try it by hand: `select private.run_place_retries();` (returns `true` if it called the route, `false` if nothing is queued or the secrets are missing).
+
+### Disable or enable
+
+- Disable: `select cron.unschedule('place-retries');`. Queued jobs stay in the table and nothing runs them (clean up with the last line below); the app works as before, a failed lookup is retried by the user's next request.
+- Enable again: `select cron.schedule('place-retries', '*/5 * * * *', 'select private.run_place_retries()');`
+- Stop the queue only: `update place_retry_jobs set status = 'gave_up' where status = 'queued';`
+
+### Limits
+
+Cooldown: a search that was given up is not queued again for 6 hours, however often the user retries. Expiry also happens inside `private.run_place_retries()`, before it looks for work.
+
+Per run: up to 5 jobs, one after another, at most 240 s in total (the route allows 300 s). A job only starts with at least 45 s left. Geoapify's daily credit cap and the Overpass politeness rules (one query at a time) apply as everywhere else. Finished jobs are deleted after 7 days. The table holds no user content (coordinates, radius, group or interest key).

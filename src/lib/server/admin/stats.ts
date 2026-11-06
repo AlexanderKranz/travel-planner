@@ -2,6 +2,7 @@ import "server-only";
 import { isAiEnabled } from "../ai-usage";
 import { isDemoEnabled } from "../demo";
 import { checkDb } from "../health";
+import { getPlaceRetryStats } from "../place-retries";
 import { createSupabaseAdminClient } from "../supabase/admin";
 import { readBudgetConfig } from "./config";
 import { requireAdmin } from "./gate";
@@ -69,8 +70,11 @@ export async function getHealthInfo(envArg?: Env) {
   } catch {
     lastCronAt = null;
   }
+  // Counts only (queued now; done and gave up in the last 24 h). A failure must not take the page down.
+  const placeRetries = await getPlaceRetryStats().catch(() => null);
   return {
     db,
+    placeRetries,
     aiEnabled: isAiEnabled(env),
     demoEnabled: isDemoEnabled(env),
     commit: env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local",

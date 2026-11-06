@@ -42,6 +42,13 @@ export async function AdminDashboard({
           <Stat label={t("health.aiEnabled")} value={health.aiEnabled ? t("health.on") : t("health.off")} />
           <Stat label={t("health.demoEnabled")} value={health.demoEnabled ? t("health.on") : t("health.off")} />
           <Stat label={t("health.lastCron")} value={health.lastCronAt ? when(health.lastCronAt) : t("health.never")} />
+          {health.placeRetries && (
+            <Stat
+              label={t("health.placeRetries")}
+              value={t("health.placeRetriesValue", health.placeRetries)}
+              hint={t("health.placeRetriesHint")}
+            />
+          )}
           <Stat label={t("health.commit")} value={health.commit} />
         </Stats>
         <h3 className={labelCls}>{t("health.keys")}</h3>

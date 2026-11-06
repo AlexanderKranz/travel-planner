@@ -3,6 +3,8 @@ import type { Fact, FactsCtx, TripFacts } from "@/lib/domain/facts";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
 import { referenceDates } from "@/lib/facts/trip-timing";
+import { jobsForTripFacts } from "@/lib/places-retry";
+import { enqueuePlaceRetries } from "../place-retries";
 import { getCountryFacts } from "./country";
 import { getDaylightFacts } from "./daylight";
 import { getFlightsFacts } from "./flights";
@@ -74,10 +76,12 @@ export async function warmTripFacts(
   options: { budgetMs?: number } = {},
 ): Promise<void> {
   try {
-    await Promise.all([
+    const [facts] = await Promise.all([
       collect(trip, purpose, ctx, options.budgetMs ?? WARM_BUDGET_MS),
       getDestinationPicture(trip, ctx), // fills api_cache so the share page (cache-only) can show it
     ]);
+    // What still failed after this first attempt is retried in the background for at most 30 minutes.
+    await enqueuePlaceRetries(jobsForTripFacts(trip, purpose, facts));
   } catch {
     // warming is best effort
   }

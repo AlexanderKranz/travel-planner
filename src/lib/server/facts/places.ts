@@ -178,6 +178,30 @@ function overpassCandidates(l: Lookup, deadline: number, fetchAllowed: () => boo
 }
 
 /**
+ * One interest lookup for the background retry worker: cache, then Geoapify, then one Overpass query over the
+ * network within `budgetMs`. Same keys and rules as `getPlacesFacts`. Never throws.
+ */
+export async function retryInterestLookup(
+  interest: InterestOrGeneral,
+  point: { lat: number; lon: number },
+  radiusKm: number,
+  ctx: FactsCtx,
+  budgetMs: number,
+): Promise<"ok" | "failed"> {
+  try {
+    const l: Lookup = { interest, anchor: { lat: Number(point.lat.toFixed(3)), lon: Number(point.lon.toFixed(3)) }, radiusKm, ctx };
+    if (sourceFor(interest).source !== "osm") return "failed";
+    const fast = await fastCandidates(l, true);
+    if (fast?.ok) return "ok";
+    let queried = false;
+    const res = await overpassCandidates(l, Date.now() + budgetMs, () => (queried ? false : (queried = true)));
+    return res.ok ? "ok" : "failed";
+  } catch {
+    return "failed";
+  }
+}
+
+/**
  * Geoapify (and cached results) for all interests in parallel first; whatever is still missing then goes to
  * Overpass one interest at a time, on purpose: Overpass allows 2 slots per IP and is slow (see research doc).
  */
