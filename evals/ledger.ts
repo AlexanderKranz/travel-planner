@@ -6,7 +6,7 @@ import type { AiTask } from "@/lib/domain/ai";
 
 /** EVAL_LEDGER points a worktree at the shared ledger of the main checkout. */
 export const LEDGER_PATH = process.env.EVAL_LEDGER || join(dirname(fileURLToPath(import.meta.url)), ".ledger.json");
-export const DEFAULT_CAP_MICRO_USD = 2_000_000; // raised from $1 by Alex, 2026-10-28
+export const DEFAULT_CAP_MICRO_USD = 3_000_000; // raised from $2 by Alex, 2026-11-06 (from $1 on 2026-10-28)
 /** Reserve per task: the worst case we accept before the call (spec 7). */
 export const RESERVE_MICRO_USD: Record<AiTask, number> = { purpose_tags: 2_000, group_parse: 2_000, destination_ideas: 20_000, plan_generate: 150_000, plan_patch: 50_000 };
 
