@@ -1,13 +1,13 @@
-import type { ActivityGroupLookup, LookupStatus, RestaurantLookup } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, CafeLookup, LookupStatus, RestaurantLookup } from "@/lib/domain/facts";
 import type { ActivityWishTag, OsmKey, PlanPlace } from "@/lib/domain/plan";
 import type { Locale } from "@/lib/domain/profile";
 import type { ActivityPlace } from "@/lib/facts/activity-places";
 import { ACTIVITY_SOURCES, expandWish, type ActivityGroup, type ActivityType } from "@/lib/facts/activity-types";
-import { selectRestaurants, type CuisineWish, type Restaurant } from "@/lib/facts/cuisine";
+import { selectCafes, selectRestaurants, type CuisineWish, type Restaurant } from "@/lib/facts/cuisine";
 
 /**
  * LLM input blocks for purpose activity wishes and restaurants (activities spec section 5). Pure.
- * Ids: activity places `a1..`, restaurants `r1..`; a place that is already in `places` keeps its `p` id.
+ * Ids: activity places `a1..`, restaurants `r1..`, cafés `c1..`; a place that is already in `places` keeps its `p` id.
  */
 export type ActivitiesInput = {
   /** g = effective group (an outdoor type tagged indoor=yes counts as indoor). km straight line, min drive minutes. */
@@ -21,14 +21,20 @@ export type TypeStatus = LookupStatus | "cut";
 export type RestaurantsInput = {
   s: LookupStatus;
   /** The cuisine wish the list was filtered with. */
-  ask?: { local?: true; include?: string[]; exclude?: string[] };
+  ask?: { local?: true; include?: string[]; exclude?: string[]; kids?: true };
   /** Id of the place the list is around (change requests); absent = the destination point. */
   near?: string;
   /** Fewer than 3 restaurants match the wish. */
   tooFew?: true;
-  /** c = OSM cuisine values, km = straight line from the destination point (or `near`). */
-  list: { id: string; name: string; c?: string; km: number }[];
+  /**
+   * c = OSM cuisine values, km = straight line from the destination point (or `near`), k = kids-tagged; k is sent
+   * only with `ask.kids` (addendum A4: the model never sees, or claims, child-friendliness otherwise).
+   */
+  list: RestaurantsInputEntry[];
 };
+type RestaurantsInputEntry = { id: string; name: string; c?: string; km: number; k?: true };
+/** Cafés (addendum A2), loaded only when asked for. `kids` = child-friendly places were asked for; k as above. */
+export type CafesInput = { s: LookupStatus; near?: string; kids?: true; list: RestaurantsInputEntry[] };
 
 export type IndexEntry = { key: OsmKey; place: PlanPlace };
 type DriveByKey = { byKey: Record<string, { min: number; km: number }>; fetchedAt: string } | null | undefined;
@@ -172,9 +178,15 @@ export function restaurantsInput(
   if (!look) return { index: {} };
   const index: Record<string, IndexEntry> = {};
   const c = a.cuisine;
+  const kids = c?.kids === true;
   const ask =
-    c && (c.local || c.include?.length || c.exclude?.length)
-      ? defined({ local: c.local ? (true as const) : undefined, include: c.include?.length ? [...c.include] : undefined, exclude: c.exclude?.length ? [...c.exclude] : undefined })
+    c && (c.local || c.include?.length || c.exclude?.length || kids)
+      ? defined({
+          local: c.local ? (true as const) : undefined,
+          include: c.include?.length ? [...c.include] : undefined,
+          exclude: c.exclude?.length ? [...c.exclude] : undefined,
+          kids: kids ? (true as const) : undefined,
+        })
       : undefined;
   const block: RestaurantsInput = defined({ s: look.status, ask, near: a.near, list: [] as RestaurantsInput["list"] });
   if (look.status !== "ok") return { block, index };
@@ -185,16 +197,42 @@ export function restaurantsInput(
   for (const r of sel.restaurants) {
     const key = keyOf(r);
     const id = a.known.get(key) ?? `r${++n}`;
-    block.list.push(defined({ id, name: r.name, c: r.cuisines.length ? r.cuisines.join(";") : undefined, km: round1(r.distanceKm) }));
+    block.list.push(entry(id, r, kids));
     if (!a.known.has(key)) index[id] = { key, place: restaurantPlace(r, look.fetchedAt ?? "") };
   }
   return { block, index };
 }
 
-function restaurantPlace(r: Restaurant, fetchedAt: string): PlanPlace {
+const entry = (id: string, r: Restaurant, kids: boolean): RestaurantsInputEntry =>
+  defined({ id, name: r.name, c: r.cuisines.length ? r.cuisines.join(";") : undefined, km: round1(r.distanceKm), k: kids && r.kidsTagged ? (true as const) : undefined });
+
+/**
+ * Café lookup -> CAFES block + index entries (addendum A2): ranking in `selectCafes` (kids-tagged first only with
+ * `kids`), at most 6, ids `c1..`. Validated through the shared index like restaurants.
+ */
+export function cafesInput(
+  look: CafeLookup | undefined,
+  a: { kids?: boolean; known: Map<string, string>; startN: number; near?: string },
+): { block?: CafesInput; index: Record<string, IndexEntry> } {
+  if (!look) return { index: {} };
+  const kids = a.kids === true;
+  const block: CafesInput = defined({ s: look.status, near: a.near, kids: kids ? (true as const) : undefined, list: [] as CafesInput["list"] });
+  const index: Record<string, IndexEntry> = {};
+  if (look.status !== "ok") return { block, index };
+  let n = a.startN;
+  for (const r of selectCafes(look.cafes, { kids }).cafes) {
+    const key = keyOf(r);
+    const id = a.known.get(key) ?? `c${++n}`;
+    block.list.push(entry(id, r, kids));
+    if (!a.known.has(key)) index[id] = { key, place: restaurantPlace(r, look.fetchedAt ?? "", "amenity=cafe") };
+  }
+  return { block, index };
+}
+
+function restaurantPlace(r: Restaurant, fetchedAt: string, category = "amenity=restaurant"): PlanPlace {
   return defined({
     name: r.name,
-    category: "amenity=restaurant",
+    category,
     lat: r.lat,
     lon: r.lon,
     distanceKm: round1(r.distanceKm),

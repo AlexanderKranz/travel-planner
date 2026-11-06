@@ -85,7 +85,7 @@ export const ACTIVITY_SOURCES: Record<ActivityType, ActivitySource> = {
   footgolf: { group: "outdoor", filters: [`["sport"~"(^|;) *footgolf *(;|$)"]`], defaultRadiusKm: 25 }, // 11, kept on purpose (see header)
   karting: { group: "outdoor", filters: [`["sport"~"(^|;) *karting *(;|$)"]`], defaultRadiusKm: 25 }, // 11k
   climbing: { group: "outdoor", filters: [`["sport"~"(^|;) *climbing *(;|$)"]["climbing"="crag"]`], defaultRadiusKm: 25 }, // 14k
-  playground: { group: "outdoor", filters: [`["leisure"="playground"]`], geoapify: ["leisure.playground"], defaultRadiusKm: 5 }, // 1.0M, named only (see header)
+  playground: { group: "outdoor", filters: [`["leisure"="playground"]`], geoapify: ["leisure.playground"], defaultRadiusKm: 3 }, // 1.0M, named only (see header); 3 km: dense cities would otherwise fill the outdoor union cap
   bar: { group: "going_out", filters: [`["amenity"~"^(bar|pub|biergarten)$"]`], geoapify: ["catering.bar", "catering.pub", "catering.biergarten"], defaultRadiusKm: 3 }, // 650k
 };
 
@@ -104,11 +104,21 @@ export const groupHasGeoapify = (group: ActivityGroup): boolean =>
 
 /**
  * Group a found place counts in: its type's group, except that a place tagged `indoor=yes` counts as indoor even
- * when its type is outdoor (indoor minigolf).
+ * when its type is outdoor (indoor minigolf). A swimming place that is an open-air pool or bathing lake counts as
+ * outdoor: `leisure=water_park` and `amenity=public_bath` also cover those (recorded Passau 2026-11-06: 9 of 11
+ * swimming places were a "Freibad" or "Badeweiher"), and the plan must not send a toddler there in December.
  */
 export function placeGroup(type: ActivityType, tags: Record<string, string>): ActivityGroup {
   const g = ACTIVITY_SOURCES[type].group;
+  if (type === "swimming" && isOpenAirBath(tags)) return "outdoor";
   return g === "outdoor" && tags.indoor === "yes" ? "indoor" : g;
+}
+
+/** Open-air pool or bathing lake by tags (`indoor=no`, `covered=no`) or by name/note (de + en). */
+const OPEN_AIR = /freibad|strandbad|naturbad|waldbad|badeweiher|badesee|seebad|flussbad|lido|open[- ]air|outdoor pool/i;
+export function isOpenAirBath(tags: Record<string, string>): boolean {
+  if (tags.indoor === "yes" || tags.covered === "yes") return false;
+  return tags.indoor === "no" || tags.covered === "no" || OPEN_AIR.test(`${tags.name ?? ""} ${tags.note ?? ""}`);
 }
 
 /** One purpose wish as Haiku tags it (spec section 2). */

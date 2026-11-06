@@ -1,0 +1,236 @@
+{
+  "promptVersion": "tags-3",
+  "model": "claude-haiku-5-5",
+  "recordedAt": "2026-11-06T11:45:19.071Z",
+  "cases": [
+    {
+      "id": "family-alone-de",
+      "hash": "b308c671a64d4e444da9c37aa563426dcd27f46b35d53ac31eab189f69ede451",
+      "wire": {
+        "v": 2,
+        "interests": [
+          "christmas_markets",
+          "cruise"
+        ],
+        "custom": [],
+        "pace": "relaxed",
+        "hard": [
+          "midday nap for toddler"
+        ],
+        "soft": [
+          "relaxed pace"
+        ],
+        "summary": "Advent river cruise with a toddler. Plan Christmas markets and a midday nap on board.",
+        "activities": [],
+        "cafes": false
+      },
+      "usage": {
+        "task": "purpose_tags",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 96,
+        "outputTokens": 117,
+        "cacheCreationInputTokens": 2010,
+        "cacheReadInputTokens": 0,
+        "costMicroUsd": 319,
+        "latencyMs": 5343
+      }
+    },
+    {
+      "id": "family-food-en",
+      "hash": "bcd0c37c4cb2429fac73b0e5b2d9d9c96ab208591a0433ffe62a077def1a7adf",
+      "wire": {
+        "v": 2,
+        "interests": [
+          "family_activities",
+          "nature_wildlife",
+          "food_wine"
+        ],
+        "custom": [],
+        "hard": [],
+        "soft": [
+          "good local food",
+          "easy walks"
+        ],
+        "summary": "Family holiday with two kids aged 4 and 7. Wants good local food and easy walks.",
+        "activities": [],
+        "cuisine": {
+          "local": true,
+          "include": [],
+          "exclude": [],
+          "kids": false
+        }
+      },
+      "usage": {
+        "task": "purpose_tags",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 60,
+        "outputTokens": 131,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 2010,
+        "costMicroUsd": 92,
+        "latencyMs": 2978
+      }
+    },
+    {
+      "id": "kids-restaurant-de",
+      "hash": "e9960289a55789713488c0aea5da8912793571b3b35ca644ba9014f4c015955a",
+      "wire": {
+        "v": 2,
+        "interests": [
+          "family_activities"
+        ],
+        "custom": [],
+        "hard": [],
+        "soft": [
+          "weekend trip",
+          "toddler-friendly evenings"
+        ],
+        "summary": "Weekend trip to Limburg with a toddler. Evenings need a child-friendly restaurant with a play corner.",
+        "cuisine": {
+          "local": false,
+          "include": [],
+          "exclude": [],
+          "kids": true
+        }
+      },
+      "usage": {
+        "task": "purpose_tags",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 80,
+        "outputTokens": 128,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 2010,
+        "costMicroUsd": 92,
+        "latencyMs": 1786
+      }
+    },
+    {
+      "id": "indoor-play-de",
+      "hash": "c647762b18218fbfd217fde2ed2b7aef3d00a1aad074918f805d14272bf0fe8c",
+      "wire": {
+        "v": 2,
+        "interests": [
+          "family_activities",
+          "nature_wildlife"
+        ],
+        "custom": [],
+        "hard": [],
+        "soft": [
+          "child aged 2.5 along",
+          "indoor playground when raining, otherwise playground by the river"
+        ],
+        "summary": "Family trip with a 2.5-year-old daughter. On rainy days go to an indoor playground; otherwise a riverside playground.",
+        "activities": [
+          {
+            "types": [
+              "indoor_play"
+            ],
+            "open": true,
+            "group": "indoor",
+            "label": "Rainy day"
+          },
+          {
+            "types": [
+              "playground"
+            ],
+            "open": true,
+            "group": "outdoor",
+            "label": "Sunny day by river"
+          }
+        ],
+        "cuisine": {
+          "local": false,
+          "include": [],
+          "exclude": [],
+          "kids": false
+        },
+        "cafes": false
+      },
+      "usage": {
+        "task": "purpose_tags",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 84,
+        "outputTokens": 235,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 2010,
+        "costMicroUsd": 146,
+        "latencyMs": 3295
+      }
+    },
+    {
+      "id": "swimming-de",
+      "hash": "ee4157c3422e191b7e083d916440b6a0aa78325fd600f7bad360b02e640b8ce9",
+      "wire": {
+        "v": 2,
+        "interests": [
+          "family_activities"
+        ],
+        "custom": [],
+        "pace": "",
+        "hard": [],
+        "soft": [],
+        "summary": "Family vacation. The children really want to go to an indoor swimming pool or fun pool (Spaßbad).",
+        "activities": [
+          {
+            "types": [
+              "swimming"
+            ],
+            "open": false,
+            "group": "indoor",
+            "label": "Indoor pool or fun pool"
+          }
+        ],
+        "cuisine": {
+          "local": false,
+          "include": [],
+          "exclude": [],
+          "kids": false
+        },
+        "cafes": false
+      },
+      "usage": {
+        "task": "purpose_tags",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 70,
+        "outputTokens": 164,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 2010,
+        "costMicroUsd": 109,
+        "latencyMs": 1448
+      }
+    },
+    {
+      "id": "cafe-de",
+      "hash": "d4e8a02d9dc630ed74fc87f49034fd176048ad06a017e28e9358d000182d573e",
+      "wire": {
+        "v": 2,
+        "interests": [
+          "city_sightseeing"
+        ],
+        "custom": [],
+        "hard": [],
+        "soft": [
+          "cozy café afternoon coffee and cake"
+        ],
+        "summary": "City trip for two people. Wants afternoon coffee and cake in a cozy café.",
+        "cafes": true
+      },
+      "usage": {
+        "task": "purpose_tags",
+        "model": "claude-haiku-5-5",
+        "status": "ok",
+        "inputTokens": 72,
+        "outputTokens": 94,
+        "cacheCreationInputTokens": 0,
+        "cacheReadInputTokens": 2010,
+        "costMicroUsd": 74,
+        "latencyMs": 1256
+      }
+    }
+  ]
+}

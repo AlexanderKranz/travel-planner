@@ -322,10 +322,14 @@ export const NeedPlaces = z.object({
   types: z.array(ActivityType).optional(),
   restaurants: z
     .object({
-      cuisine: z.object({ local: z.boolean().optional(), include: z.array(Cuisine).optional(), exclude: z.array(Cuisine).optional() }).optional(),
+      cuisine: z
+        .object({ local: z.boolean().optional(), include: z.array(Cuisine).optional(), exclude: z.array(Cuisine).optional(), kids: z.boolean().optional() })
+        .optional(),
       near: z.string().optional(),
     })
     .optional(),
+  /** Cafés (addendum A2); `kids` only when the request explicitly asks for child-friendly places (A4). */
+  cafes: z.object({ near: z.string().optional(), kids: z.boolean().optional() }).optional(),
 });
 export type NeedPlaces = z.infer<typeof NeedPlaces>;
 export const LlmPatch = z.object({
@@ -353,11 +357,12 @@ export const ActivityWishTag = z.object({
   label: z.string().max(60).optional(),
 });
 export type ActivityWishTag = z.infer<typeof ActivityWishTag>;
-export const CuisineTag = z.object({ local: z.boolean(), include: z.array(Cuisine), exclude: z.array(Cuisine) });
+/** `kids` (addendum A4): set only when the text explicitly asks for child-friendly restaurants or cafés, never for a family alone. */
+export const CuisineTag = z.object({ local: z.boolean(), include: z.array(Cuisine), exclude: z.array(Cuisine), kids: z.boolean().optional() });
 export type CuisineTag = z.infer<typeof CuisineTag>;
 export const MAX_ACTIVITY_WISHES = 4;
 
-/** v1 = tags-1 (no activities/cuisine); v2 = tags-2. Both parse. */
+/** v1 = tags-1 (no activities/cuisine); v2 = tags-2 and tags-3 (optional `cafes`, `cuisine.kids`). Both parse. */
 export const PurposeTags = z.object({
   v: z.union([z.literal(1), z.literal(2)]),
   interests: z.array(z.enum(INTEREST_KEYS)), // mapped from free text + custom interests
@@ -368,5 +373,7 @@ export const PurposeTags = z.object({
   summary: z.string(), // <= 300 chars, English, anything else that matters
   activities: z.array(ActivityWishTag).max(MAX_ACTIVITY_WISHES).optional(), // tags-2
   cuisine: CuisineTag.optional(), // tags-2
+  /** The text asks for cafés (addendum A2, tags-3): only then are cafés loaded. */
+  cafes: z.literal(true).optional(), // tags-3
 });
 export type PurposeTags = z.infer<typeof PurposeTags>;

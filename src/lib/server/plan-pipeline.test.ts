@@ -547,7 +547,7 @@ describe("iteratePlan: change requests that need places (activities spec section
     h.patch.mockResolvedValueOnce(ask).mockResolvedValueOnce(answer);
     const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "konkrete Escape Rooms" }, "de");
     expect(r).toMatchObject({ ok: true, data: { reply: "Escape Room an Tag 1" } });
-    expect(h.lookups).toHaveBeenCalledWith(h.trip.destination, { groups: ["indoor"], restaurants: false }, expect.anything(), 60_000);
+    expect(h.lookups).toHaveBeenCalledWith(h.trip.destination, { groups: ["indoor"], restaurants: false, cafes: false }, expect.anything(), 60_000);
     expect(h.patch).toHaveBeenCalledTimes(2);
     const second = h.patch.mock.calls[1][0] as { loaded: boolean; timeoutMs: number; llm: { activities: { wishes: { w: string }[] } }; index: Record<string, unknown> };
     expect(second.loaded).toBe(true);
@@ -586,7 +586,17 @@ describe("iteratePlan: change requests that need places (activities spec section
     h.lookups.mockResolvedValue({ activities: [], restaurants: { status: "skipped", reason: "cache_only", restaurants: [] } });
     const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "Restaurant beim Klettern" }, "de");
     expect(r).toMatchObject({ ok: false, error: "places_pending" });
-    expect(h.lookups.mock.calls[0][1]).toEqual({ groups: [], restaurants: { near: { lat: 49.7, lon: 9.8 } } });
+    expect(h.lookups.mock.calls[0][1]).toEqual({ groups: [], restaurants: { near: { lat: 49.7, lon: 9.8 } }, cafes: false });
+  });
+
+  it("cafés (addendum A2): loaded only on request, near a place, pending like restaurants when they fail", async () => {
+    h.latest = { ...stored("hash-old", 1), plan: basePlan, input: { llm: { v: 1 }, index: { a3: { key: "node/9", place: { lat: 49.7, lon: 9.8 } } } } };
+    h.patch.mockResolvedValueOnce({ ok: true, data: { reply: "x", days: [], needPlaces: { cafes: { near: "a3", kids: true } } }, usage: {} });
+    h.lookups.mockResolvedValue({ activities: [], cafes: { status: "error", cafes: [] } });
+    const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "kinderfreundliches Café beim Spielplatz" }, "de");
+    expect(r).toMatchObject({ ok: false, error: "places_pending" });
+    expect(h.lookups.mock.calls[0][1]).toEqual({ groups: [], restaurants: false, cafes: { near: { lat: 49.7, lon: 9.8 } } });
+    expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "plan.patch_need_places", props: expect.objectContaining({ cafes: true }) }));
   });
 
   it("too little time left for the second call: places_pending, no second call", async () => {

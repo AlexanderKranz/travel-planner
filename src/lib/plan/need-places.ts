@@ -1,9 +1,9 @@
-import type { ActivityGroupLookup, RestaurantLookup } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, CafeLookup, RestaurantLookup } from "@/lib/domain/facts";
 import type { NeedPlaces } from "@/lib/domain/plan";
 import type { Locale } from "@/lib/domain/profile";
 import { groupsForWishes, isActivityType, type ActivityGroup, type ActivityType } from "@/lib/facts/activity-types";
 import { CUISINES, type CuisineWish } from "@/lib/facts/cuisine";
-import { activitiesInput, maxId, restaurantsInput, selectWishPlaces } from "./activities-input";
+import { activitiesInput, cafesInput, maxId, restaurantsInput, selectWishPlaces } from "./activities-input";
 import type { PlanInputStored } from "./input";
 
 /** Label of the wish a change request adds to the input (the model links it to FEEDBACK). */
@@ -14,6 +14,8 @@ export type NeedPlacesRequest = {
   types: ActivityType[];
   groups: ActivityGroup[];
   restaurants?: { cuisine?: CuisineWish; near?: { id: string; lat: number; lon: number } };
+  /** Cafés (addendum A2); `kids` only when the request explicitly asked for child-friendly places. */
+  cafes?: { kids?: boolean; near?: { id: string; lat: number; lon: number } };
 };
 
 const cuisines = (xs: readonly string[] | undefined) =>
@@ -26,6 +28,12 @@ const cuisines = (xs: readonly string[] | undefined) =>
  */
 export function resolveNeedPlaces(need: NeedPlaces | undefined, stored: PlanInputStored): NeedPlacesRequest | null {
   if (!need) return null;
+  // Own keys only: a model-supplied "constructor" or "__proto__" must never resolve.
+  const nearOf = (raw: string | undefined) => {
+    const id = raw?.trim();
+    const hit = id && Object.hasOwn(stored.index, id) ? stored.index[id] : undefined;
+    return hit && id ? { near: { id, lat: hit.place.lat, lon: hit.place.lon } } : {};
+  };
   const types = [...new Set((need.types ?? []).map((t) => String(t).trim()).filter(isActivityType))];
   const groups = groupsForWishes([{ types, open: false }]);
   let restaurants: NeedPlacesRequest["restaurants"];
@@ -33,20 +41,16 @@ export function resolveNeedPlaces(need: NeedPlaces | undefined, stored: PlanInpu
     const c = need.restaurants.cuisine;
     const include = cuisines(c?.include);
     const exclude = cuisines(c?.exclude);
+    const kids = c?.kids === true;
     const cuisine =
-      c && (c.local !== undefined || include.length || exclude.length)
-        ? { ...(c.local !== undefined ? { local: c.local } : {}), include, exclude }
+      c && (c.local !== undefined || include.length || exclude.length || kids)
+        ? { ...(c.local !== undefined ? { local: c.local } : {}), include, exclude, ...(kids ? { kids } : {}) }
         : undefined;
-    const nearId = need.restaurants.near?.trim();
-    // Own keys only: a model-supplied "constructor" or "__proto__" must never resolve.
-    const hit = nearId && Object.hasOwn(stored.index, nearId) ? stored.index[nearId] : undefined;
-    restaurants = {
-      ...(cuisine ? { cuisine } : {}),
-      ...(hit && nearId ? { near: { id: nearId, lat: hit.place.lat, lon: hit.place.lon } } : {}),
-    };
+    restaurants = { ...(cuisine ? { cuisine } : {}), ...nearOf(need.restaurants.near) };
   }
-  if (!types.length && !restaurants) return null;
-  return { types, groups, ...(restaurants ? { restaurants } : {}) };
+  const cafes: NeedPlacesRequest["cafes"] = need.cafes ? { ...(need.cafes.kids === true ? { kids: true } : {}), ...nearOf(need.cafes.near) } : undefined;
+  if (!types.length && !restaurants && !cafes) return null;
+  return { types, groups, ...(restaurants ? { restaurants } : {}), ...(cafes ? { cafes } : {}) };
 }
 
 /**
@@ -54,14 +58,16 @@ export function resolveNeedPlaces(need: NeedPlaces | undefined, stored: PlanInpu
  * unset are kept ("and no pizza" keeps "local food"). Pure.
  */
 export function mergeCuisine(
-  prev: { local?: boolean; include?: string[]; exclude?: string[] } | undefined,
+  prev: { local?: boolean; include?: string[]; exclude?: string[]; kids?: boolean } | undefined,
   next: CuisineWish | undefined,
 ): CuisineWish | undefined {
   if (!prev && !next) return undefined;
+  const kids = next?.kids ?? prev?.kids === true;
   return {
     local: next?.local ?? prev?.local === true,
     include: next?.include?.length ? [...next.include] : [...(prev?.include ?? [])],
     exclude: next?.exclude?.length ? [...next.exclude] : [...(prev?.exclude ?? [])],
+    ...(kids ? { kids } : {}),
   };
 }
 
@@ -69,12 +75,13 @@ export function mergeCuisine(
  * Stored input + loaded places -> the input of the new version (pure). Activity places of the requested types are
  * added as one more wish labelled FEEDBACK_WISH. Restaurants around the destination replace the RESTAURANTS block
  * (the request's cuisine merged with the old block's wish, `mergeCuisine`); restaurants around a
- * place go into `restaurantsNear`. Every old index entry stays, so refs of untouched days remain valid.
+ * place go into `restaurantsNear`. Cafés replace the CAFES block (around `near` when given; `kids` from the request
+ * or the earlier block or restaurant wish). Every old index entry stays, so refs of untouched days remain valid.
  */
 export function extendInput(
   stored: PlanInputStored,
   req: NeedPlacesRequest,
-  loaded: { activities: ActivityGroupLookup[]; restaurants?: RestaurantLookup },
+  loaded: { activities: ActivityGroupLookup[]; restaurants?: RestaurantLookup; cafes?: CafeLookup },
   a: { lang: Locale; countryCode?: string | null },
 ): PlanInputStored {
   const known = new Map(Object.entries(stored.index).map(([id, v]) => [v.key as string, id]));
@@ -103,6 +110,15 @@ export function extendInput(
       if (req.restaurants.near) llm.restaurantsNear = rest.block;
       else llm.restaurants = rest.block;
       added = { ...added, ...rest.index };
+      for (const [id, e] of Object.entries(rest.index)) known.set(e.key, id);
+    }
+  }
+  if (req.cafes && loaded.cafes) {
+    const kids = req.cafes.kids === true || stored.llm.cafes?.kids === true || llm.restaurants?.ask?.kids === true;
+    const cafes = cafesInput(loaded.cafes, { kids, known, startN: maxId(stored.index, "c"), near: req.cafes.near?.id });
+    if (cafes.block) {
+      llm.cafes = cafes.block;
+      added = { ...added, ...cafes.index };
     }
   }
   return { ...stored, llm: JSON.parse(JSON.stringify(llm)) as PlanInputStored["llm"], index: { ...stored.index, ...added } };

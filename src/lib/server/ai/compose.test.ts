@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import golf from "@/lib/plan/__fixtures__/plan-golf.json";
 import { Plan, PurposeTags, type PlanFeedback } from "@/lib/domain/plan";
 import type { TripPurpose } from "@/lib/domain/purpose";
-import { SYSTEM_RULES } from "@/lib/plan/prompt";
+import { PATCH_ADDENDUM, SYSTEM_RULES } from "@/lib/plan/prompt";
 import type { PlanInputStored } from "@/lib/plan/input";
-import { composeRequest, generateMaxTokens, normalizePatch, normalizePlan, patchBlocks, patchPlan, patchRequest, patchScope } from "./compose";
+import { WirePatch, WirePlan, composeRequest, generateMaxTokens, normalizePatch, normalizePlan, patchBlocks, patchPlan, patchRequest, patchScope } from "./compose";
+import { outputFormat } from "./client";
 import { needsTags, normalizeTags, tagsRequest } from "./purpose-tags";
 
 vi.mock("server-only", () => ({}));
@@ -121,6 +122,31 @@ describe("purpose tags", () => {
     expect(normalizeTags({ ...base, cuisine: { local: false, include: ["xyz"], exclude: [] } }).cuisine).toBeUndefined();
   });
 
+  it("tags-3: kids only when the model set it true; cafes only when true (addendum A2/A4)", () => {
+    expect(normalizeTags({ ...base, cuisine: { local: false, include: [], exclude: [], kids: true } }).cuisine).toEqual({ local: false, include: [], exclude: [], kids: true });
+    expect(normalizeTags({ ...base, cuisine: { local: true, include: [], exclude: [], kids: false } }).cuisine).toEqual({ local: true, include: [], exclude: [] });
+    expect(normalizeTags({ ...base, cuisine: { local: false, include: [], exclude: [], kids: false } }).cuisine).toBeUndefined();
+    expect(normalizeTags({ ...base, cafes: true }).cafes).toBe(true);
+    expect("cafes" in normalizeTags({ ...base, cafes: false })).toBe(false);
+    expect(normalizeTags({ ...base, activities: [{ types: ["indoor_play", "swimming"], open: false }, { types: ["playground"], open: false }] }).activities).toEqual([
+      { types: ["indoor_play", "swimming"], open: false },
+      { types: ["playground"], open: false },
+    ]);
+  });
+
+  it("stored tags-2 tags (no cafes, no kids) still parse", () => {
+    expect(PurposeTags.safeParse({ ...base, cuisine: { local: true, include: [], exclude: [] } }).success).toBe(true);
+  });
+
+  it("the tags prompt maps family places and limits kids to an explicit ask", () => {
+    const r = tagsRequest(purpose({ text: "x" }));
+    expect(r.system).toContain("Indoorspielplatz = indoor_play");
+    expect(r.system).toContain("Spielplatz = playground");
+    expect(r.system).toMatch(/kids = true only if the text explicitly asks/);
+    expect(r.system).toMatch(/family trip alone never set it/);
+    expect(r.system).toContain("cafes: true only if");
+  });
+
   it("stored v1 tags (tags-1, no activities or cuisine) still parse", () => {
     expect(PurposeTags.safeParse({ v: 1, interests: ["golf"], custom: [], hard: [], soft: [], summary: "" }).success).toBe(true);
   });
@@ -135,16 +161,36 @@ describe("purpose tags", () => {
 describe("needPlaces (activities spec section 4)", () => {
   const wire = { reply: "r", days: [] };
   it("keeps catalogue types, known cuisines and near; drops an empty request", () => {
-    const p = normalizePatch({ ...wire, needPlaces: { types: ["escape_game", "x"], restaurants: { cuisine: { local: true, include: ["sushi", "q"] }, near: " a2 " } } });
+    const p = normalizePatch({ ...wire, needPlaces: { types: ["escape_game", "x"], restaurants: { cuisine: { local: true, include: ["sushi", "q"], kids: false }, near: " a2 " } } });
     expect(p.needPlaces).toEqual({ types: ["escape_game"], restaurants: { cuisine: { local: true, include: ["sushi"], exclude: [] }, near: "a2" } });
     expect(normalizePatch({ ...wire, needPlaces: { types: ["x"] } }).needPlaces).toBeUndefined();
     expect(normalizePatch(wire).needPlaces).toBeUndefined();
   });
 
+  it("cafés and kids (addendum A2/A4): kept only when set; a cafés-only request counts", () => {
+    expect(normalizePatch({ ...wire, needPlaces: { cafes: { near: " a1 ", kids: true } } }).needPlaces).toEqual({ cafes: { near: "a1", kids: true } });
+    expect(normalizePatch({ ...wire, needPlaces: { cafes: { near: " ", kids: false } } }).needPlaces).toEqual({ cafes: {} });
+    expect(normalizePatch({ ...wire, needPlaces: { restaurants: { cuisine: { kids: true } } } }).needPlaces).toEqual({
+      restaurants: { cuisine: { include: [], exclude: [], kids: true } },
+    });
+  });
+
+  it("both wire schemas stay within the API limit of 24 optional parameters", () => {
+    const optionals = (node: unknown): number => {
+      if (!node || typeof node !== "object") return 0;
+      const o = node as { properties?: Record<string, unknown>; required?: string[] };
+      const own = o.properties ? Object.keys(o.properties).filter((k) => !(o.required ?? []).includes(k)).length : 0;
+      return own + Object.values(o).reduce<number>((n, v) => n + (Array.isArray(v) ? v.reduce<number>((m, x) => m + optionals(x), 0) : optionals(v)), 0);
+    };
+    expect(optionals(outputFormat(WirePatch).schema)).toBeLessThanOrEqual(24);
+    expect(optionals(outputFormat(WirePlan).schema)).toBeLessThanOrEqual(24);
+    expect(optionals(outputFormat(tagsRequest(purpose({ text: "x" })).schema).schema)).toBeLessThanOrEqual(24);
+  });
+
   it("flags a request with nothing loadable as unusable; keeps `local` unset when the model did not set it", () => {
     expect(normalizePatch({ ...wire, needPlaces: { types: ["laser_maze"] } }).needPlacesUnusable).toBe(true);
     expect(normalizePatch(wire).needPlacesUnusable).toBeUndefined();
-    const p = normalizePatch({ ...wire, needPlaces: { restaurants: { cuisine: { exclude: ["pizza"] } } } });
+    const p = normalizePatch({ ...wire, needPlaces: { restaurants: { cuisine: { exclude: ["pizza"], kids: false } } } });
     expect(p.needPlaces).toEqual({ restaurants: { cuisine: { include: [], exclude: ["pizza"] } } });
   });
 
@@ -199,5 +245,14 @@ describe("patch with fixed items", () => {
     expect(SYSTEM_RULES).toMatch(/fixed items are shown by the app/);
     expect(SYSTEM_RULES).toMatch(/at least 90 min after its to/);
     expect(SYSTEM_RULES).toMatch(/at least 150 min before its from/);
+  });
+  it("plan-7 states A3 (not covered by the verified sources) and A4 (child-friendly only with k)", () => {
+    expect(SYSTEM_RULES).toContain("nicht in den geprüften Quellen enthalten");
+    expect(SYSTEM_RULES).toMatch(/never write that no verified places were found/);
+    expect(SYSTEM_RULES).toMatch(/Never call a restaurant or café child-friendly .* unless it has k/);
+    expect(SYSTEM_RULES).toMatch(/Otherwise the group never changes which restaurants or cafés are chosen/);
+    expect(SYSTEM_RULES).toContain("cafes (c..)");
+    expect(PATCH_ADDENDUM).toMatch(/cafes = \{ near, kids \}/);
+    expect(PATCH_ADDENDUM).toMatch(/never set needPlaces for it/);
   });
 });

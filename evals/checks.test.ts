@@ -7,9 +7,9 @@ import { describe, expect, it, vi } from "vitest";
 import type { LlmPatch, LlmPlan, PurposeTags } from "@/lib/domain/plan";
 import { canonicalJson, planInputHash, purposeTagsHash } from "@/lib/plan/hash";
 import { buildEvalInput, evalPurpose, FIXTURE_IDS, PATCH_FEEDBACK } from "./build-input";
-import { evaluateGenerate, evaluateNeedPatch, evaluatePatch, evaluateTags, formatResults, type NeedPatchRecording } from "./evaluate";
+import { evaluateFamilyPatch, evaluateUncoveredPatch, evaluateGenerate, evaluateNeedPatch, evaluatePatch, evaluateTags, formatResults, type NeedPatchRecording } from "./evaluate";
 import { readRecording } from "./recorded";
-import { familyPlaceChecks, golfPlaceChecks } from "./checks";
+import { HONEST_WORDING, familyPatchChecks, familyPlaceChecks, golfPlaceChecks, kidsClaimChecks } from "./checks";
 import type { Plan } from "@/lib/domain/plan";
 import type { PlanInputStored } from "@/lib/plan/input";
 
@@ -54,6 +54,18 @@ describe.each(FIXTURE_IDS)("eval %s", (id) => {
     expect(failed(p.results), formatResults(`${id} needPlaces patch`, p.results)).toEqual([]);
   });
 
+  const familyRec = readRecording<NeedPatchRecording>(id, "familypatch");
+  it.runIf(id === "cruise" && !!genRec && !!familyRec)("recorded family patch (addendum 1): indoor playground ref or honest wording", () => {
+    const p = evaluateFamilyPatch(tags, genRec!.output, familyRec!.output);
+    expect(failed(p.results), formatResults(`${id} family patch`, p.results)).toEqual([]);
+  });
+
+  const uncoveredRec = readRecording<LlmPatch>(id, "uncoveredpatch");
+  it.runIf(id === "cruise" && !!genRec && !!uncoveredRec)("recorded uncovered patch (addendum A3): kept as an idea, honest wording", () => {
+    const p = evaluateUncoveredPatch(tags, genRec!.output, uncoveredRec!.output);
+    expect(failed(p.results), formatResults(`${id} uncovered patch`, p.results)).toEqual([]);
+  });
+
   it.runIf(id !== "wuerzburg" && !!genRec && !!patchRec)("recorded patch changes only the scoped days", () => {
     const g = evaluateGenerate(id, tags, genRec!.output, { recordedHash: genRec!.inputHash });
     const feedback = PATCH_FEEDBACK[id];
@@ -95,5 +107,41 @@ describe("concrete-place checks", () => {
     }
     const none = { ...stored, llm: { places: [] } } as unknown as PlanInputStored;
     expect(failed(familyPlaceChecks(planWith([]), none))).toHaveLength(1);
+  });
+});
+
+describe("addendum 1 checks", () => {
+  const p = (name: string, category: string) => ({ name, category, lat: 0, lon: 0, distanceKm: 1, osmUrl: "u", source: "osm" as const, fetchedAt: "f" });
+  const planWith = (acts: { kind: string; text: string; ref?: string }[], note?: string) =>
+    ({ summary: "s", days: [{ n: 1, date: null, title: "Passau", note, stops: [{ place: "p", acts }] }], notes: [], openItems: [], packing: [] }) as unknown as Plan;
+  const stored = {
+    llm: { places: [], restaurants: { s: "ok", list: [{ id: "r1", name: "A", km: 1, k: true }, { id: "r2", name: "B", km: 1 }] } },
+    index: {
+      r1: { key: "node/1", place: p("A", "amenity=restaurant") },
+      r2: { key: "node/2", place: p("B", "amenity=restaurant") },
+      a1: { key: "node/3", place: p("Kinderland", "leisure=indoor_play") },
+      a2: { key: "way/4", place: p("Freibad Haselbach", "leisure=water_park") },
+    },
+  } as unknown as PlanInputStored;
+
+  it("A4: child-friendly wording only on a kids-tagged restaurant", () => {
+    expect(failed(kidsClaimChecks(planWith([{ kind: "food", text: "Abendessen, kinderfreundlich", ref: "node/1" }]), stored))).toEqual([]);
+    expect(failed(kidsClaimChecks(planWith([{ kind: "food", text: "Abendessen mit Hochstuhl", ref: "node/2" }]), stored))).toHaveLength(1);
+    expect(failed(kidsClaimChecks(planWith([{ kind: "food", text: "Regionale Küche", ref: "node/2" }]), stored))).toEqual([]);
+  });
+
+  it("family patch: an indoor play ref or honest wording passes; an open-air pool or the false wording fails", () => {
+    const first = { reply: "r", days: [], needPlaces: { types: ["indoor_play" as const] } };
+    expect(failed(familyPatchChecks({ first, next: planWith([{ kind: "do", text: "Toben bei Regen", ref: "node/3" }]), stored }))).toEqual([]);
+    const honest = planWith([{ kind: "do", text: "Indoorspielplatz (Idee)" }], "Kein Indoorspielplatz in OpenStreetMap in der Nähe gelistet.");
+    expect(failed(familyPatchChecks({ first, next: honest, stored }))).toEqual([]);
+    const names = (next: Plan) => familyPatchChecks({ first, next, stored }).filter((r) => !r.ok).map((r) => r.name);
+    expect(names(planWith([{ kind: "do", text: "Baden", ref: "way/4" }]))).toContain("day 1: no open-air pool ref in December");
+    expect(names(planWith([{ kind: "do", text: "Indoorspielplatz" }], "Keine geprüften Orte gefunden"))).toContain("never 'keine geprüften Orte gefunden'");
+    expect(names(planWith([{ kind: "do", text: "Indoorspielplatz Kinderwelt" }]))).toEqual([
+      "day 1: indoor play/pool ref or honest wording",
+      "generic indoor venue only with the honest wording",
+    ]);
+    expect(HONEST_WORDING.test("Indoorspielplätze sind nicht in den geprüften Quellen enthalten")).toBe(true);
   });
 });

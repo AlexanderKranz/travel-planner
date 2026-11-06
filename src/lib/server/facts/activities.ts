@@ -192,7 +192,7 @@ export async function getActivityGroupFacts(
       keyParams: { kind: "activities", group, lat: anchor.lat, lon: anchor.lon, r: radiusKm },
       kind: `activities:${group}`,
       filters: types.flatMap((t) => ACTIVITY_SOURCES[t].filters),
-      // Each line searches only its own type's radius: dense playgrounds (5 km) must not fill the cap of a 25 km union.
+      // Each line searches only its own type's radius: dense playgrounds (3 km) must not fill the cap of a 25 km union.
       filterRadiusKm: (f) => {
         const t = types.find((x) => ACTIVITY_SOURCES[x].filters.includes(f));
         return t && Math.min(ACTIVITY_SOURCES[t].defaultRadiusKm, radiusKm);

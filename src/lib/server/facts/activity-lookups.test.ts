@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-const h = vi.hoisted(() => ({ group: vi.fn(), rest: vi.fn(), order: [] as string[] }));
-vi.mock("./activities", () => ({ getActivityGroupFacts: h.group, getRestaurantFacts: h.rest }));
+const h = vi.hoisted(() => ({ group: vi.fn(), rest: vi.fn(), cafe: vi.fn(), order: [] as string[] }));
+vi.mock("./activities", () => ({ getActivityGroupFacts: h.group, getRestaurantFacts: h.rest, getCafeFacts: h.cafe }));
 
 import type { Trip } from "@/lib/domain/trip";
 import { getTripActivityFacts, loadActivityLookups } from "./activity-lookups";
@@ -16,6 +16,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   h.order = [];
   h.rest.mockImplementation(async () => (h.order.push("restaurants"), ok({ radiusKm: 2.5, restaurants: [{ name: "R" }] })));
+  h.cafe.mockImplementation(async () => (h.order.push("cafes"), ok({ radiusKm: 2.5, cafes: [{ name: "C" }] })));
   h.group.mockImplementation(async (g: string) => (h.order.push(g), g === "outdoor" ? { status: "error", source: "osm" } : ok({ group: g, radiusKm: 15, places: [] })));
 });
 
@@ -44,7 +45,8 @@ describe("loadActivityLookups", () => {
     let t = 1_000_000;
     const now = vi.spyOn(Date, "now").mockImplementation(() => t);
     h.rest.mockImplementation(async () => ((t += 20_000), ok({ radiusKm: 2.5, restaurants: [], truncated: false })));
-    h.group.mockImplementation(async () => ((t += 30_000), ok({ group: "indoor", radiusKm: 15, places: [], truncated: false })));
+    h.cafe.mockImplementation(async () => (h.order.push("cafes"), ok({ radiusKm: 2.5, cafes: [{ name: "C" }] })));
+  h.group.mockImplementation(async () => ((t += 30_000), ok({ group: "indoor", radiusKm: 15, places: [], truncated: false })));
     await loadActivityLookups(dest, { groups: ["indoor", "outdoor", "going_out"] }, ctx, 60_000);
     now.mockRestore();
     expect(h.rest.mock.calls[0][2]).toMatchObject({ budgetMs: 60_000 });
@@ -57,6 +59,19 @@ describe("loadActivityLookups", () => {
     const r = await loadActivityLookups(dest, { groups: ["indoor"] }, ctx, 1000);
     expect(r.restaurants).toEqual({ status: "skipped", restaurants: [], reason: "cache_only" });
     expect(r.activities[0]).toMatchObject({ status: "ok", truncated: true });
+  });
+
+  it("cafés only when asked, last, in the same budget, optionally near a point (addendum A2)", async () => {
+    const none = await loadActivityLookups(dest, { groups: ["indoor"] }, ctx, 1000);
+    expect(h.cafe).not.toHaveBeenCalled();
+    expect(none.cafes).toBeUndefined();
+    h.order = [];
+    const r = await loadActivityLookups(dest, { groups: ["indoor"], restaurants: false, cafes: { near: { lat: 1, lon: 2 } } }, ctx, PLACES_CACHE_ONLY);
+    expect(h.order).toEqual(["indoor", "cafes"]);
+    expect(h.cafe).toHaveBeenCalledWith(dest, ctx, { budgetMs: PLACES_CACHE_ONLY, near: { lat: 1, lon: 2 } });
+    expect(r.cafes).toEqual({ status: "ok", cafes: [{ name: "C" }], radiusKm: 2.5, fetchedAt: "f" });
+    h.cafe.mockRejectedValueOnce(new Error("x"));
+    expect((await loadActivityLookups(dest, { groups: [], cafes: {} }, ctx, 1000)).cafes).toEqual({ status: "error", cafes: [] });
   });
 
   it("a throwing lookup counts as error", async () => {
@@ -72,6 +87,13 @@ describe("getTripActivityFacts", () => {
     const r = await getTripActivityFacts(trip, { tags } as never, ctx, 1000);
     expect(h.order).toEqual(["restaurants", "indoor", "outdoor"]);
     expect(r.activities).toHaveLength(2);
+  });
+  it("cafés only when the purpose tags ask for them (tags-3 `cafes`)", async () => {
+    const tags = { v: 2, interests: [], custom: [], hard: [], soft: [], summary: "" };
+    expect((await getTripActivityFacts(trip, { tags } as never, ctx, 1000)).cafes).toBeUndefined();
+    const r = await getTripActivityFacts(trip, { tags: { ...tags, cafes: true } } as never, ctx, 1000);
+    expect(r.cafes?.status).toBe("ok");
+    expect(h.order.at(-1)).toBe("cafes");
   });
   it("without wishes: restaurants only, no activities key", async () => {
     const r = await getTripActivityFacts(trip, null, ctx, 1000);

@@ -40,7 +40,8 @@ const WireTags = z.object({
       }),
     )
     .optional(),
-  cuisine: z.object({ local: z.boolean(), include: z.array(z.string()), exclude: z.array(z.string()) }).optional(),
+  cuisine: z.object({ local: z.boolean(), include: z.array(z.string()), exclude: z.array(z.string()), kids: z.boolean().optional() }).optional(),
+  cafes: z.boolean().optional(),
 });
 const MAX_LABEL_CHARS = 60;
 
@@ -65,6 +66,7 @@ export function normalizeTags(w: z.infer<typeof WireTags>): PurposeTags {
     summary: w.summary.replace(/\s+/g, " ").trim().slice(0, MAX_SUMMARY_CHARS),
     ...activitiesOf(w.activities),
     ...cuisineOf(w.cuisine),
+    ...(w.cafes === true ? { cafes: true as const } : {}),
   });
 }
 
@@ -97,7 +99,9 @@ function cuisineOf(c: z.infer<typeof WireTags>["cuisine"]): Pick<PurposeTags, "c
   if (!c) return {};
   const include = cuisines(c.include);
   const exclude = cuisines(c.exclude).filter((x) => !include.includes(x));
-  return c.local || include.length || exclude.length ? { cuisine: { local: c.local, include, exclude } } : {};
+  // `kids` only when set: an explicit ask for child-friendly places (addendum A4), never inferred from the group.
+  const kids = c.kids === true;
+  return c.local || include.length || exclude.length || kids ? { cuisine: { local: c.local, include, exclude, ...(kids ? { kids } : {}) } } : {};
 }
 export function tagsRequest(p: TripPurpose): StructuredRequest<typeof WireTags> {
   const purpose = { text: p.text?.trim() || undefined, constraints: p.constraints, custom: customGuidedInterests(p) };

@@ -38,10 +38,19 @@ describe("activity catalogue", () => {
     expect(ACTIVITY_SOURCES.swimming.group).toBe("indoor");
     expect(ACTIVITY_SOURCES.swimming.filters).toContain(`["amenity"="public_bath"]`);
     expect(ACTIVITY_SOURCES.swimming.geoapify).toContain("sport.swimming_pool");
-    expect(ACTIVITY_SOURCES.playground).toMatchObject({ group: "outdoor", filters: [`["leisure"="playground"]`], geoapify: ["leisure.playground"] });
+    expect(ACTIVITY_SOURCES.playground).toMatchObject({ group: "outdoor", filters: [`["leisure"="playground"]`], geoapify: ["leisure.playground"], defaultRadiusKm: 3 });
     expect(typesInGroup("indoor")).toEqual(expect.arrayContaining(["indoor_play", "swimming"]));
     expect(typesInGroup("outdoor")).toContain("playground");
     expect(placeGroup("playground", {})).toBe("outdoor");
+  });
+  it("open-air pools and bathing lakes count as outdoor swimming", () => {
+    expect(placeGroup("swimming", { leisure: "water_park", name: "Freibad Haselbach" })).toBe("outdoor");
+    expect(placeGroup("swimming", { amenity: "public_bath", name: "Raßbacher Naturbadeweiher" })).toBe("outdoor");
+    expect(placeGroup("swimming", { leisure: "water_park", name: "Passauer Erlebnisbad (PEB)", note: "Freibad" })).toBe("outdoor");
+    expect(placeGroup("swimming", { leisure: "water_park", name: "Aquapark", covered: "no" })).toBe("outdoor");
+    expect(placeGroup("swimming", { leisure: "sports_centre", sport: "swimming", name: "Hallenbad Mitte" })).toBe("indoor");
+    expect(placeGroup("swimming", { leisure: "water_park", name: "Freibad und Hallenbad", indoor: "yes" })).toBe("indoor");
+    expect(placeGroup("swimming", { amenity: "public_bath", name: "Therme" })).toBe("indoor");
   });
   it("indoor=yes makes an outdoor type indoor", () => {
     expect(placeGroup("minigolf", { indoor: "yes" })).toBe("indoor");
