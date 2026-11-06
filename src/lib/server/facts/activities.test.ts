@@ -637,6 +637,14 @@ describe("QA #139: wished types, concurrency, budget", () => {
     expect(f).toMatchObject({ status: "ok", data: { partial: false, typeStatus: { karaoke: "ok", cinema: "unrequested", escape_game: "unrequested" } } });
   });
 
+  it("a karaoke-only wish with a short budget still queries Overpass: an unrequested first part used no time", async () => {
+    h.runQuery.mockResolvedValue({ elements: [geoNode(3, { amenity: "karaoke_box" })], status: 200, latencyMs: 1, mirror: "m" });
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx, { wanted: ["karaoke"], budgetMs: 30_000 });
+    expect(h.fetchPlaces).not.toHaveBeenCalled();
+    expect(h.runQuery).toHaveBeenCalledTimes(1);
+    expect(f).toMatchObject({ status: "ok", data: { partial: false, typeStatus: { karaoke: "ok" } } });
+  });
+
   it("Geoapify requests run at most GEOAPIFY_CONCURRENCY at a time, results in catalogue order", async () => {
     let inFlight = 0;
     let peak = 0;

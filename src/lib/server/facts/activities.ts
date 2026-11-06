@@ -420,7 +420,9 @@ export async function getActivityGroupFacts(
     if (split.overpass.length) {
       // Cache only stays cache only; after a first part, less than one query window left is cache only as well.
       const rest = budgetMs - (Date.now() - started);
-      const left = budgetMs === PLACES_CACHE_ONLY || (parts.length > 0 && rest < MIN_QUERY_WINDOW_MS) ? PLACES_CACHE_ONLY : Math.max(PLACES_CACHE_ONLY, rest);
+      // Only a first part that went to the network counts; an unrequested (cache-only) part used no budget.
+      const ranFirst = parts.some((p) => !p.unrequested);
+      const left = budgetMs === PLACES_CACHE_ONLY || (ranFirst && rest < MIN_QUERY_WINDOW_MS) ? PLACES_CACHE_ONLY : Math.max(PLACES_CACHE_ONLY, rest);
       parts.push(await part(split.overpass, false, left));
     }
     return mergeGroupParts(group, radiusForGroup(group), parts);
