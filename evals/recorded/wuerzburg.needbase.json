@@ -1,13 +1,13 @@
 {
-  "promptVersion": "plan-6",
+  "promptVersion": "plan-7",
   "model": "claude-sonnet-5-5",
-  "inputHash": "698e78974c2245328597ac10f21bbb0d6ba6ea1871502ab6e2d7545e0fdb694e",
+  "inputHash": "cc9bacdf526b54cab165986f048c9cd20d2bd770605c4fc5fe5336b39cd0482b",
   "output": {
-    "summary": "Wochenende mit Freunden in Würzburg: Freitagabend gemeinsames Event und fränkisches Essen, Samstag Hauptevent auf dem Main, Sonntag entspannter Ausklang. Beide Abende gibt es regionale Küche in der Altstadt.",
+    "summary": "Drei Tage Gruppenwochenende in Würzburg mit Freunden: Freitagabend gemeinsames Event, samstags Wasseraktivität auf dem Main und abends fränkische Küche. Der Sonntag bleibt entspannt zum Ausklang.",
     "days": [
       {
         "n": 1,
-        "title": "Ankunft & Freitagabend",
+        "title": "Anreise & Abend in der Altstadt",
         "stops": [
           {
             "place": "Würzburg",
@@ -21,39 +21,34 @@
                 "at": "16:30",
                 "until": "18:00",
                 "kind": "see",
-                "text": "Bummel: Altstadt, Alte Mainbrücke, Dom"
+                "text": "Bummel: Residenz, Hofgarten, Altstadt"
               },
               {
-                "at": "18:15",
-                "until": "19:00",
-                "kind": "free",
-                "text": "Aperitif, Weinschorle am Main"
-              },
-              {
-                "at": "19:30",
-                "until": "21:30",
+                "at": "18:30",
+                "until": "20:15",
                 "kind": "food",
-                "text": "Gemeinsames Abendessen, fränkische Küche",
+                "text": "Abendessen mit fränkischer Küche",
                 "ref": "r2",
                 "alts": [
-                  "r1",
-                  "r3"
+                  "r3",
+                  "r1"
                 ]
               },
               {
-                "at": "21:45",
+                "at": "20:45",
+                "until": "22:30",
                 "kind": "do",
-                "text": "Gemeinsames Event: Escape Room als Idee, Alternative Weinprobe oder Nachtwächter-Rundgang"
+                "text": "Gruppenevent: Escape Room (Idee) oder Weinstube"
               }
             ]
           }
         ],
-        "note": "Für Freitag ist kein Escape Room als Ort verifiziert; Tisch vorab reservieren.",
-        "warn": "Wein und Altstadtpflaster: Rückweg zum Hotel vorab klären."
+        "note": "Escape Room nur als Idee, Angebote vor Ort recherchieren. Für Freitagabend gibt es Alternativen wie Weinprobe oder Mainufer bei Sonnenuntergang.",
+        "warn": "Abendessen vorab reservieren, Freitag sind Weinstuben oft voll."
       },
       {
         "n": 2,
-        "title": "Samstag auf dem Main",
+        "title": "Hauptevent auf dem Main",
         "stops": [
           {
             "place": "Würzburg",
@@ -62,88 +57,77 @@
                 "at": "08:30",
                 "until": "09:30",
                 "kind": "food",
-                "text": "Frühstück im Hotel"
+                "text": "Gemeinsames Frühstück"
               },
               {
                 "at": "10:30",
                 "until": "13:00",
-                "kind": "sport",
-                "text": "Hauptevent: Rudern oder Kanu/Stand-up-Paddling auf dem Main"
+                "kind": "do",
+                "text": "Hauptevent: Rudern oder Boot auf dem Main (Idee)"
               },
               {
                 "at": "13:15",
                 "until": "14:30",
                 "kind": "food",
-                "text": "Mittagessen, fränkische Hausmannskost",
-                "ref": "r4",
-                "alts": [
-                  "r5",
-                  "r6"
-                ]
+                "text": "Leichtes Mittagessen am Main"
               },
               {
-                "at": "14:30",
-                "until": "16:00",
-                "kind": "rest",
-                "text": "Pause im Hotel"
-              },
-              {
-                "at": "16:00",
-                "until": "18:00",
+                "at": "15:00",
+                "until": "17:30",
                 "kind": "see",
-                "text": "Residenz und Hofgarten"
+                "text": "Festung Marienberg und Weinberge, Aussicht"
               },
               {
                 "at": "19:00",
-                "until": "21:30",
+                "until": "21:00",
                 "kind": "food",
-                "text": "Abendessen mit regionaler Küche und Frankenwein",
-                "ref": "r1",
+                "text": "Abendessen mit regionaler Küche",
+                "ref": "r4",
                 "alts": [
-                  "r10",
-                  "r11"
+                  "r11",
+                  "r10"
                 ]
               }
             ]
           }
         ],
-        "note": "Anbieter für Rudern, Boot oder Footgolf sind nicht verifiziert, selbst recherchieren.",
-        "warn": "Sonne auf dem Wasser: Sonnenschutz nötig."
+        "note": "Rudern und Footgolf sind nicht in den geprüften Quellen enthalten, daher keine konkreten Anbieter. Alternativ Floßfahrt oder Mainschifffahrt prüfen.",
+        "warn": "Aufstieg zur Festung ist steil, festes Schuhwerk."
       },
       {
         "n": 3,
-        "title": "Entspannter Sonntag",
+        "title": "Entspannter Ausklang",
         "stops": [
           {
             "place": "Würzburg",
             "acts": [
               {
                 "at": "09:30",
-                "until": "10:30",
+                "until": "11:00",
                 "kind": "food",
-                "text": "Langes Frühstück"
+                "text": "Langes Frühstück, Auschecken"
               },
               {
-                "at": "11:00",
-                "until": "12:30",
-                "kind": "see",
-                "text": "Spaziergang: Mainufer, Weinberge, Blick auf Marienberg"
+                "at": "11:30",
+                "until": "13:00",
+                "kind": "free",
+                "text": "Gemütlicher Spaziergang: Mainufer, Alte Mainbrücke"
               },
               {
-                "at": "12:45",
-                "until": "14:00",
+                "at": "13:00",
+                "until": "14:15",
                 "kind": "food",
-                "text": "Später Mittagsimbiss, regional",
-                "ref": "r7",
+                "text": "Später Brunch oder Mittagessen, regional",
+                "ref": "r5",
                 "alts": [
-                  "r8",
-                  "r9"
+                  "r6",
+                  "r7"
                 ]
               },
               {
-                "at": "14:00",
+                "at": "14:30",
                 "kind": "travel",
-                "text": "Check-out und Heimreise"
+                "text": "Heimreise"
               }
             ]
           }
@@ -153,51 +137,56 @@
     "notes": [
       {
         "kind": "tip",
-        "text": "Gruppentische an Wochenenden früh reservieren."
+        "text": "Reservierungen für beide Abendessen frühzeitig vornehmen."
       },
       {
         "kind": "tip",
-        "text": "Innenstadt ist zu Fuß gut erreichbar."
+        "text": "Die Innenstadt ist gut zu Fuß erreichbar, das Auto kann stehen bleiben."
+      },
+      {
+        "kind": "warning",
+        "text": "Aktivitäten wie Rudern, Footgolf oder Escape Room konnten nicht mit geprüften Orten belegt werden."
       }
     ],
     "open": [
       {
-        "text": "Tisch für Freitagabend reservieren",
-        "day": 1
-      },
-      {
-        "text": "Gemeinsames Event für Freitag wählen und buchen",
-        "day": 1
-      },
-      {
-        "text": "Anbieter für Boot, Rudern oder Footgolf buchen",
+        "text": "Rudern, Footgolf oder Wasseraktivität in Würzburg recherchieren und buchen",
         "day": 2
       },
       {
-        "text": "Tisch für Samstagabend reservieren",
+        "text": "Escape Room oder anderes Freitagsevent auswählen und buchen",
+        "day": 1
+      },
+      {
+        "text": "Tisch für sechs Personen reservieren",
+        "day": 1
+      },
+      {
+        "text": "Tisch für sechs Personen reservieren",
         "day": 2
       }
     ],
     "packing": [
-      "Sonnencreme",
-      "Sonnenhut",
+      "Sonnenschutz",
       "Sonnenbrille",
-      "Wechselkleidung für Wasseraktivität",
       "Bequeme Schuhe",
-      "Leichte Regenjacke",
-      "Wasserflasche"
+      "Regenjacke",
+      "Leichte Sommerkleidung",
+      "Wasserflasche",
+      "Pullover für den Abend",
+      "Wechselkleidung für Wasseraktivität"
     ]
   },
   "usage": {
     "task": "plan_generate",
     "model": "claude-sonnet-5-5",
     "status": "ok",
-    "inputTokens": 1007,
-    "outputTokens": 1413,
+    "inputTokens": 1046,
+    "outputTokens": 1468,
     "cacheCreationInputTokens": 0,
-    "cacheReadInputTokens": 3939,
-    "costMicroUsd": 16932,
-    "latencyMs": 16027
+    "cacheReadInputTokens": 4307,
+    "costMicroUsd": 17633,
+    "latencyMs": 9945
   },
-  "recordedAt": "2026-11-06T07:41:46.826Z"
+  "recordedAt": "2026-11-06T16:10:36.907Z"
 }

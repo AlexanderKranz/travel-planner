@@ -1,23 +1,27 @@
 {
-  "promptVersion": "tags-2",
+  "promptVersion": "tags-3",
   "model": "claude-haiku-5-5",
-  "inputHash": "1322d7779b5b2253c0bc5fa46a981c73960da9c4b482ca4461fb2795bf0c468b",
+  "inputHash": "b4d7ef494a965491cb7c975805b777e319882f27fd7de920ed1ea2a9de87a5d6",
   "output": {
     "v": 2,
     "interests": [],
-    "custom": [],
+    "custom": [
+      "Rudern",
+      "Footgolf",
+      "Escape Room"
+    ],
     "hard": [
-      "Friday evening shared group event",
-      "Saturday main event: rowing or footgolf or other water activity",
-      "Restaurant with local cuisine on Friday evening",
-      "Restaurant with local cuisine on Saturday evening"
+      "Friday evening group event",
+      "Saturday main event: rowing or footgolf",
+      "Friday dinner at a restaurant with local cuisine",
+      "Saturday dinner at a restaurant with local cuisine"
     ],
     "soft": [
-      "Escape room is only an idea; suggest what the city offers for Friday",
-      "Other water activity fitting the city is welcome",
-      "Sunday relaxed to wind down"
+      "Other activity on the water acceptable if it fits the city",
+      "Sunday relaxed to wind down",
+      "Suggest what the city offers for Friday evening"
     ],
-    "summary": "Weekend trip with friends. Friday evening shared event, Saturday main event on the water, Sunday relaxed wind-down. Dinner with local cuisine both Friday and Saturday evening.",
+    "summary": "Weekend trip with friends. Friday evening shared event (escape room is only an idea, suggest city options). Saturday main event rowing or footgolf, or another water activity fitting the city. Friday and Saturday dinner at local restaurants. Sunday relaxed.",
     "activities": [
       {
         "types": [
@@ -28,18 +32,24 @@
       },
       {
         "types": [
-          "rowing",
-          "footgolf",
-          "canoe",
-          "boat_rental"
+          "rowing"
         ],
         "open": true,
         "label": "Saturday main event"
+      },
+      {
+        "types": [
+          "footgolf"
+        ],
+        "open": true,
+        "label": "Saturday main event alternative"
       }
     ],
     "cuisine": {
       "local": true,
-      "include": [],
+      "include": [
+        "regional"
+      ],
       "exclude": []
     }
   },
@@ -48,11 +58,11 @@
     "model": "claude-haiku-5-5",
     "status": "ok",
     "inputTokens": 206,
-    "outputTokens": 1204,
+    "outputTokens": 1277,
     "cacheCreationInputTokens": 0,
-    "cacheReadInputTokens": 1791,
-    "costMicroUsd": 641,
-    "latencyMs": 7108
+    "cacheReadInputTokens": 2010,
+    "costMicroUsd": 679,
+    "latencyMs": 6050
   },
-  "recordedAt": "2026-11-06T05:56:42.233Z"
+  "recordedAt": "2026-11-06T16:06:40.483Z"
 }

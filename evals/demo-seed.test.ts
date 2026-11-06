@@ -7,7 +7,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { Plan, type LlmPlan } from "@/lib/domain/plan";
+import { Plan, type LlmPlan, type PurposeTags } from "@/lib/domain/plan";
 import { planInputHash } from "@/lib/plan/hash";
 import { evaluateGenerate } from "./evaluate";
 import { readRecording } from "./recorded";
@@ -18,8 +18,11 @@ const FILE =resolve(__dirname, "../scripts/demo/example-plan.json");
 
 function build() {
   const rec = readRecording<LlmPlan>("golf", "generate")!;
-  const g = evaluateGenerate("golf", null, rec.output, { recordedHash: rec.inputHash });
+  // The recorded tags select the golf places; without them the place index is empty and assembly drops every ref.
+  const tags = readRecording<PurposeTags>("golf", "tags")?.output ?? null;
+  const g = evaluateGenerate("golf", tags, rec.output, { recordedHash: rec.inputHash });
   if (!g.plan) throw new Error("assemble failed");
+  if (planInputHash(g.built.stored.llm) !== rec.inputHash) throw new Error("golf generate recording does not match the rebuilt input; re-record it first");
   return {
     $comment: "Generated from evals/recorded/golf.generate.json by evals/demo-seed.test.ts. Do not edit by hand.",
     fixture: "golf",
@@ -39,6 +42,11 @@ describe("demo example plan", () => {
     const onDisk = JSON.parse(readFileSync(FILE, "utf8"));
     expect(onDisk).toEqual(JSON.parse(JSON.stringify(fresh)));
     expect(Plan.safeParse(onDisk.plan).success).toBe(true);
+    // Course refs and alternatives survive assembly (an empty place index would silently drop them).
+    const sport = (onDisk.plan as Plan).days.flatMap((d) => d.stops.flatMap((s) => s.acts)).filter((a) => a.kind === "sport");
+    expect(sport.length).toBeGreaterThan(0);
+    expect(sport.every((a) => !!a.ref && !!onDisk.plan.places[a.ref])).toBe(true);
+    expect(sport.some((a) => (a.alts ?? []).length > 0)).toBe(true);
     expect(onDisk.inputHash).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(onDisk.plan).length).toBeLessThan(262144);
     expect(JSON.stringify(onDisk.input).length).toBeLessThan(131072);

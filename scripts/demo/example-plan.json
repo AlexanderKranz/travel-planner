@@ -2,7 +2,7 @@
  "$comment": "Generated from evals/recorded/golf.generate.json by evals/demo-seed.test.ts. Do not edit by hand.",
  "fixture": "golf",
  "model": "claude-sonnet-5-5",
- "inputHash": "02d12e59974a51277c6f88c4b33f0a5f799bd0e8fd2f114c79ce647d4e281ef0",
+ "inputHash": "0bbd7f150e3bcfb0341cc36b717a39aa967863e6f255db293fb08fe207a23afe",
  "plan": {
   "v": 1,
   "locale": "de",
@@ -31,7 +31,7 @@
     "purposeUpdatedAt": "2026-10-28T08:00:00.000Z"
    }
   },
-  "summary": "Fünf Golftage an der Costa del Sol mit Marbella als zentraler Basis und Mietwagen. Jeden Tag eine Runde, am vierten Tag 36 Löcher. Am Anreise- und Abreisetag wird nahe dem Flughafen gespielt.",
+  "summary": "Fünf Golftage an der Costa del Sol mit Marbella als zentraler Basis, alle Plätze liegen innerhalb einer Stunde Fahrt. An Tag 3 stehen 36 Löcher an, an An- und Abreisetag wird jeweils flughafennah gespielt. Einzelzimmer und Mietwagen sind eingeplant.",
   "days": [
    {
     "n": 1,
@@ -42,19 +42,25 @@
       "place": "Flughafen Málaga",
       "acts": [
        {
+        "at": "17:30",
         "kind": "travel",
-        "text": "Ankunft, Mietwagen, Transfer zum Platz"
+        "text": "Mietwagen übernehmen, Fahrt zum Platz"
        }
       ]
      },
      {
-      "place": "Nähe Flughafen",
+      "place": "Flughafennähe",
       "acts": [
        {
-        "at": "17:30",
-        "until": "19:40",
+        "at": "18:15",
+        "until": "19:45",
         "kind": "sport",
-        "text": "9 Löcher bis zur Dämmerung"
+        "text": "Kurze Runde bis Dämmerung, flaches Gelände",
+        "ref": "way/244709315",
+        "alts": [
+         "relation/3308721",
+         "way/172434912"
+        ]
        }
       ]
      },
@@ -64,46 +70,54 @@
        {
         "at": "20:15",
         "kind": "travel",
-        "text": "Check-in, Einzelzimmer"
+        "text": "Check-in, Einzelzimmer beziehen"
        },
        {
         "at": "20:45",
         "kind": "food",
-        "text": "Abendessen im Hotelviertel"
+        "text": "Spätes Abendessen im Ort"
        }
       ]
      }
     ],
-    "warn": "Wenig Zeit bis zur Dämmerung; Runde auf 9 Löcher begrenzt."
+    "warn": "Nach der Landung bleibt wenig Tageslicht, Runde ist vermutlich nur teilweise spielbar."
    },
    {
     "n": 2,
     "date": "2038-03-14",
-    "title": "Marbella: Runde 1",
+    "title": "Golf Marbella Ost",
     "stops": [
      {
       "place": "Marbella",
       "acts": [
        {
-        "at": "09:00",
-        "until": "13:30",
+        "at": "08:30",
+        "until": "13:00",
         "kind": "sport",
-        "text": "18 Löcher, moderates Gelände"
+        "text": "18 Löcher, moderates Gelände",
+        "ref": "relation/1402560",
+        "alts": [
+         "relation/3299762",
+         "way/97671239"
+        ]
        },
        {
-        "at": "14:00",
+        "at": "13:15",
+        "until": "14:15",
         "kind": "food",
-        "text": "Spätes Mittagessen, spanische Küche"
+        "text": "Mittagessen nach der Runde"
        },
        {
-        "at": "16:00",
-        "kind": "rest",
-        "text": "Pause, Range oder Putting-Green"
+        "at": "15:00",
+        "until": "16:00",
+        "kind": "sport",
+        "text": "Training: Putten und kurzes Spiel",
+        "ref": "relation/3299762"
        },
        {
-        "at": "20:30",
+        "at": "19:30",
         "kind": "food",
-        "text": "Abendessen, Tapas"
+        "text": "Abendessen in Marbella"
        }
       ]
      }
@@ -112,7 +126,55 @@
    {
     "n": 3,
     "date": "2038-03-15",
-    "title": "Marbella: Runde 2",
+    "title": "36 Löcher & Hafenessen",
+    "stops": [
+     {
+      "place": "Marbella",
+      "acts": [
+       {
+        "at": "07:45",
+        "until": "11:45",
+        "kind": "sport",
+        "text": "Erste Runde, 18 Löcher, flach",
+        "ref": "relation/3299743",
+        "alts": [
+         "relation/3299714",
+         "relation/3299716"
+        ]
+       },
+       {
+        "at": "12:00",
+        "until": "13:00",
+        "kind": "food",
+        "text": "Schneller Lunch zwischen den Runden"
+       },
+       {
+        "at": "13:30",
+        "until": "17:45",
+        "kind": "sport",
+        "text": "Zweite Runde, 18 Löcher",
+        "ref": "relation/3299716",
+        "alts": [
+         "relation/3299714",
+         "relation/3299762"
+        ]
+       },
+       {
+        "at": "18:15",
+        "until": "19:15",
+        "kind": "rest",
+        "text": "Erholung im Hotel, frisch machen"
+       }
+      ]
+     }
+    ],
+    "note": "Abendessen am Hafen ist bereits gebucht.",
+    "warn": "36 Löcher sind anstrengend, Startzeiten früh wählen."
+   },
+   {
+    "n": 4,
+    "date": "2038-03-16",
+    "title": "Golf Marbella West",
     "stops": [
      {
       "place": "Marbella",
@@ -121,146 +183,311 @@
         "at": "09:00",
         "until": "13:30",
         "kind": "sport",
-        "text": "18 Löcher, Parklandschaft"
-       },
-       {
-        "at": "14:00",
-        "kind": "food",
-        "text": "Mittagessen, leicht"
-       },
-       {
-        "at": "16:30",
-        "kind": "rest",
-        "text": "Erholung vor dem Abendessen"
-       }
-      ]
-     }
-    ],
-    "note": "Abendessen am Hafen ist bereits gebucht."
-   },
-   {
-    "n": 4,
-    "date": "2038-03-16",
-    "title": "36-Loch-Tag",
-    "stops": [
-     {
-      "place": "Marbella",
-      "acts": [
-       {
-        "at": "08:00",
-        "until": "12:15",
-        "kind": "sport",
-        "text": "Erste Runde, 18 Löcher, zügig"
-       },
-       {
-        "at": "12:30",
-        "kind": "food",
-        "text": "Schnelles Mittagessen am Club"
+        "text": "18 Löcher, moderates Gelände",
+        "ref": "relation/3299800",
+        "alts": [
+         "way/97671239",
+         "way/97681590"
+        ]
        },
        {
         "at": "13:45",
-        "until": "18:30",
-        "kind": "sport",
-        "text": "Zweite Runde, 18 Löcher"
-       },
-       {
-        "at": "20:15",
+        "until": "14:45",
         "kind": "food",
-        "text": "Abendessen, entspannt"
-       }
-      ]
-     }
-    ],
-    "warn": "Lange Tage: auf Pausen, Wasser und Verpflegung achten."
-   },
-   {
-    "n": 5,
-    "date": "2038-03-17",
-    "title": "Abschlussrunde & Abreise",
-    "stops": [
-     {
-      "place": "Marbella",
-      "acts": [
-       {
-        "at": "07:00",
-        "kind": "travel",
-        "text": "Frühstück, Check-out, Gepäck ins Auto"
-       }
-      ]
-     },
-     {
-      "place": "Nähe Flughafen",
-      "acts": [
-       {
-        "at": "08:15",
-        "until": "12:30",
-        "kind": "sport",
-        "text": "18 Löcher, flugplatznah"
+        "text": "Mittagessen nach der Runde"
        },
        {
-        "at": "12:45",
-        "kind": "travel",
-        "text": "Mietwagen zurückgeben, zum Flughafen"
+        "at": "15:30",
+        "until": "17:30",
+        "kind": "free",
+        "text": "Freie Zeit, Bummel in der Altstadt"
+       },
+       {
+        "at": "19:30",
+        "kind": "food",
+        "text": "Abendessen, letzter Abend"
        }
       ]
      }
     ]
+   },
+   {
+    "n": 5,
+    "date": "2038-03-17",
+    "title": "Abreise mit Golf",
+    "stops": [
+     {
+      "place": "Flughafennähe",
+      "acts": [
+       {
+        "at": "07:45",
+        "until": "11:45",
+        "kind": "sport",
+        "text": "Morgenrunde nahe Flughafen",
+        "ref": "way/244709315",
+        "alts": [
+         "relation/3308721",
+         "way/172434912"
+        ]
+       },
+       {
+        "at": "12:00",
+        "kind": "travel",
+        "text": "Auschecken, Mietwagen zurückgeben"
+       }
+      ]
+     }
+    ],
+    "warn": "Rückflugzeit prüfen, Runde ggf. auf 9 Löcher kürzen."
    }
   ],
   "notes": [
    {
     "kind": "tip",
-    "text": "Restaurants konnten nicht geprüft werden; Mahlzeiten sind allgemein gehalten."
+    "text": "Alle Plätze liegen innerhalb einer Stunde Fahrt von Marbella."
    },
    {
     "kind": "tip",
-    "text": "Im März sind Morgen kühl, Mittag mild: Schichten tragen."
+    "text": "Im Einzelzimmer-Hotel früh Frühstück und Golfgepäck-Verladung klären."
    },
    {
     "kind": "warning",
-    "text": "Am Anreisetag bleibt nur Zeit für 9 Löcher vor der Dämmerung."
+    "text": "Restaurants konnten nicht geprüft werden, Mahlzeiten sind daher allgemein gehalten."
    },
    {
-    "kind": "tip",
-    "text": "Alle gelisteten Plätze liegen innerhalb einer Stunde Fahrt von Marbella."
+    "kind": "warning",
+    "text": "Im März sind Regentage möglich, Regenkleidung mitnehmen."
    }
   ],
   "openItems": [
    {
-    "text": "Startzeiten für alle Runden reservieren",
-    "day": 2
+    "text": "Startzeiten für alle Runden reservieren"
    },
    {
-    "text": "Mietwagen vorab buchen, Abholung am Flughafen",
-    "day": 1
-   },
-   {
-    "text": "Rückflugzeit prüfen und Startzeit am Abreisetag anpassen",
+    "text": "Rückflugzeit bestätigen und Startzeit anpassen",
     "day": 5
    },
    {
-    "text": "Startzeiten für beide Runden des 36-Loch-Tags buchen",
-    "day": 4
+    "text": "Platzprofil auf Höhenunterschiede prüfen"
    },
    {
-    "text": "Einzelzimmer in Marbella buchen"
+    "text": "Mietwagen für Golfbags reservieren",
+    "day": 1
    }
   ],
   "packing": [
-   "Golfschläger und Bälle",
    "Golfschuhe",
    "Regenjacke",
-   "Pullover für Morgen",
+   "Windjacke",
    "Sonnencreme",
    "Kappe",
    "Handschuhe",
-   "Entfernungsmesser",
-   "Führerschein",
-   "Wasserflasche",
-   "Ersatzsocken",
-   "Handtuch"
+   "Ersatzhandschuhe",
+   "Golfbälle",
+   "Pitchgabel",
+   "Leichte Pullover",
+   "Sonnenbrille",
+   "Führerschein"
   ],
-  "places": {},
+  "places": {
+   "way/244709315": {
+    "name": "Campo Los Olivos",
+    "category": "leisure=golf_course",
+    "lat": 36.553376,
+    "lon": -4.6723785,
+    "distanceKm": 19.6,
+    "airportKm": 21,
+    "osmUrl": "https://www.openstreetmap.org/way/244709315",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 35,
+     "km": 38.3,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "relation/3308721": {
+    "name": "La Cala Resort",
+    "category": "leisure=golf_course",
+    "lat": 36.5400887,
+    "lon": -4.7229196,
+    "distanceKm": 14.8,
+    "airportKm": 25,
+    "osmUrl": "https://www.openstreetmap.org/relation/3308721",
+    "website": "https://www.lacala.com/",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 33,
+     "km": 22.4,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "way/172434912": {
+    "name": "Cabopino golf",
+    "category": "leisure=golf_course",
+    "lat": 36.4947378,
+    "lon": -4.7423732,
+    "distanceKm": 13,
+    "airportKm": 30,
+    "osmUrl": "https://www.openstreetmap.org/way/172434912",
+    "website": "http://www.cabopinogolf.com/",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 21,
+     "km": 16.7,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "relation/1402560": {
+    "name": "Club de Golf Aloha",
+    "category": "leisure=golf_course",
+    "lat": 36.5115651,
+    "lon": -4.9609411,
+    "distanceKm": 6.7,
+    "airportKm": 45,
+    "osmUrl": "https://www.openstreetmap.org/relation/1402560",
+    "website": "https://www.clubdegolfaloha.com/",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 9,
+     "km": 7.8,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "relation/3299762": {
+    "name": "Golf La Dama de Noche",
+    "category": "leisure=golf_course",
+    "lat": 36.5014086,
+    "lon": -4.9484569,
+    "distanceKm": 5.8,
+    "airportKm": 45,
+    "osmUrl": "https://www.openstreetmap.org/relation/3299762",
+    "website": "http://www.golfdamadenoche.es/",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 7,
+     "km": 7.3,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "way/97671239": {
+    "name": "Real Club de Golf Las Brisas",
+    "category": "leisure=golf_course",
+    "lat": 36.5054188,
+    "lon": -4.9689362,
+    "distanceKm": 7.5,
+    "airportKm": 46,
+    "osmUrl": "https://www.openstreetmap.org/way/97671239",
+    "website": "https://realclubdegolflasbrisas.com/",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 14,
+     "km": 11.3,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "relation/3299743": {
+    "name": "Campo de Golf Río Real",
+    "category": "leisure=golf_course",
+    "lat": 36.5097896,
+    "lon": -4.8440554,
+    "distanceKm": 3.8,
+    "airportKm": 36,
+    "osmUrl": "https://www.openstreetmap.org/relation/3299743",
+    "website": "https://www.rioreal.com/",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 11,
+     "km": 8,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "relation/3299714": {
+    "name": "Marbella Golf Country Club",
+    "category": "leisure=golf_course",
+    "lat": 36.5133313,
+    "lon": -4.811962,
+    "distanceKm": 6.6,
+    "airportKm": 33,
+    "osmUrl": "https://www.openstreetmap.org/relation/3299714",
+    "website": "https://www.marbellagolf.com/",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 13,
+     "km": 9.3,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "relation/3299716": {
+    "name": "Santa Clara Golf Club Marbella",
+    "category": "leisure=golf_course",
+    "lat": 36.5108665,
+    "lon": -4.8244738,
+    "distanceKm": 5.5,
+    "airportKm": 34,
+    "osmUrl": "https://www.openstreetmap.org/relation/3299716",
+    "website": "https://santaclaragolfmarbella.com/",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 16,
+     "km": 9.2,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "relation/3299800": {
+    "name": "Los Naranjos Golf Club",
+    "category": "leisure=golf_course",
+    "lat": 36.5100672,
+    "lon": -4.9792709,
+    "distanceKm": 8.4,
+    "airportKm": 47,
+    "osmUrl": "https://www.openstreetmap.org/relation/3299800",
+    "website": "https://www.losnaranjos.com/",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 12,
+     "km": 9.8,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "way/97681590": {
+    "name": "Magna Marbella Golf",
+    "category": "leisure=golf_course",
+    "lat": 36.5058752,
+    "lon": -4.978516,
+    "distanceKm": 8.3,
+    "airportKm": 47,
+    "osmUrl": "https://www.openstreetmap.org/way/97681590",
+    "website": "http://www.magnamarbellagolf.com/",
+    "source": "osm",
+    "fetchedAt": "2026-10-28T00:00:00.000Z",
+    "drive": {
+     "min": 13,
+     "km": 10.2,
+     "source": "openrouteservice",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   }
+  },
   "facts": {
    "climate": {
     "months": [
@@ -446,9 +673,13 @@
    },
    "purpose": {
     "name": "Golftrip",
-    "interests": [],
+    "pace": "packed",
+    "interests": [
+     "golf"
+    ],
     "hard": [
-     "golf every day, 36 holes on one day",
+     "golf every day",
+     "36 holes on one day",
      "flat or moderate courses",
      "max 3 h flight from FRA",
      "single rooms",
@@ -458,7 +689,7 @@
      "departure day: golf near airport, then flight"
     ],
     "soft": [],
-    "summary": "Golftrip mit einem Freund: jeden Tag eine Runde, an einem Tag 36 Loch. Plätze nicht zu bergig. An- und Abreisetag sind Golftage."
+    "summary": "Golf trip with a friend from Germany (FRA departure). Play a round every day, one day 36 holes. Courses not too hilly. Arrival and departure days include golf."
    },
    "climate": [
     {
@@ -484,7 +715,231 @@
      "km": 39
     }
    ],
-   "places": [],
+   "places": [
+    {
+     "id": "p1",
+     "name": "Club de Golf Aloha",
+     "cat": "leisure=golf_course",
+     "km": 6.7,
+     "min": 9,
+     "ap": 45,
+     "i": "golf"
+    },
+    {
+     "id": "p2",
+     "name": "La Quinta Golf & Country Club",
+     "cat": "leisure=golf_course",
+     "km": 9.9,
+     "min": 18,
+     "ap": 48,
+     "i": "golf"
+    },
+    {
+     "id": "p3",
+     "name": "Real Club de Golf Guadalmina",
+     "cat": "leisure=golf_course",
+     "km": 11.3,
+     "min": 19,
+     "ap": 50,
+     "i": "golf"
+    },
+    {
+     "id": "p4",
+     "name": "La Cala Resort",
+     "cat": "leisure=golf_course",
+     "km": 14.8,
+     "min": 33,
+     "ap": 25,
+     "i": "golf"
+    },
+    {
+     "id": "p5",
+     "name": "Calanova Golf Club",
+     "cat": "leisure=golf_course",
+     "km": 16.2,
+     "min": 26,
+     "ap": 26,
+     "i": "golf"
+    },
+    {
+     "id": "p6",
+     "name": "Campo Los Olivos",
+     "cat": "leisure=golf_course",
+     "km": 19.6,
+     "min": 35,
+     "ap": 21,
+     "i": "golf"
+    },
+    {
+     "id": "p7",
+     "name": "Estepona Golf",
+     "cat": "leisure=golf_course",
+     "km": 31.3,
+     "min": 30,
+     "ap": 70,
+     "i": "golf"
+    },
+    {
+     "id": "p8",
+     "name": "Campo de Golf Río Real",
+     "cat": "leisure=golf_course",
+     "km": 3.8,
+     "min": 11,
+     "ap": 36,
+     "i": "golf"
+    },
+    {
+     "id": "p9",
+     "name": "Santa Clara Golf Club Marbella",
+     "cat": "leisure=golf_course",
+     "km": 5.5,
+     "min": 16,
+     "ap": 34,
+     "i": "golf"
+    },
+    {
+     "id": "p10",
+     "name": "Golf La Dama de Noche",
+     "cat": "leisure=golf_course",
+     "km": 5.8,
+     "min": 7,
+     "ap": 45,
+     "i": "golf"
+    },
+    {
+     "id": "p11",
+     "name": "Marbella Golf Country Club",
+     "cat": "leisure=golf_course",
+     "km": 6.6,
+     "min": 13,
+     "ap": 33,
+     "i": "golf"
+    },
+    {
+     "id": "p12",
+     "name": "Real Club de Golf Las Brisas",
+     "cat": "leisure=golf_course",
+     "km": 7.5,
+     "min": 14,
+     "ap": 46,
+     "i": "golf"
+    },
+    {
+     "id": "p13",
+     "name": "Magna Marbella Golf",
+     "cat": "leisure=golf_course",
+     "km": 8.3,
+     "min": 13,
+     "ap": 47,
+     "i": "golf"
+    },
+    {
+     "id": "p14",
+     "name": "Los Naranjos Golf Club",
+     "cat": "leisure=golf_course",
+     "km": 8.4,
+     "min": 12,
+     "ap": 47,
+     "i": "golf"
+    },
+    {
+     "id": "p15",
+     "name": "Greenlife Golf Marbella",
+     "cat": "leisure=golf_course",
+     "km": 9.6,
+     "min": 18,
+     "ap": 31,
+     "i": "golf"
+    },
+    {
+     "id": "p16",
+     "name": "Course A",
+     "cat": "leisure=golf_course",
+     "km": 9.9,
+     "min": 16,
+     "ap": 48,
+     "i": "golf"
+    },
+    {
+     "id": "p17",
+     "name": "Course B",
+     "cat": "leisure=golf_course",
+     "km": 10.1,
+     "min": 16,
+     "ap": 48,
+     "i": "golf"
+    },
+    {
+     "id": "p18",
+     "name": "Santa María Golf & Country Club",
+     "cat": "leisure=golf_course",
+     "km": 10.4,
+     "min": 17,
+     "ap": 30,
+     "i": "golf"
+    },
+    {
+     "id": "p19",
+     "name": "El Higueral Golf",
+     "cat": "leisure=golf_course",
+     "km": 12.1,
+     "min": 19,
+     "ap": 50,
+     "i": "golf"
+    },
+    {
+     "id": "p20",
+     "name": "Atalaya Golf & Country Club",
+     "cat": "leisure=golf_course",
+     "km": 12.6,
+     "min": 21,
+     "ap": 51,
+     "i": "golf"
+    },
+    {
+     "id": "p21",
+     "name": "Cabopino golf",
+     "cat": "leisure=golf_course",
+     "km": 13,
+     "min": 21,
+     "ap": 30,
+     "i": "golf"
+    },
+    {
+     "id": "p22",
+     "name": "El Campanario Golf Course",
+     "cat": "leisure=golf_course",
+     "km": 13,
+     "min": 19,
+     "ap": 52,
+     "i": "golf"
+    },
+    {
+     "id": "p23",
+     "name": "La Zagaleta Country Club - La Zagaleta Course",
+     "cat": "leisure=golf_course",
+     "km": 13,
+     "ap": 50,
+     "i": "golf"
+    },
+    {
+     "id": "p24",
+     "name": "El Soto Golf",
+     "cat": "leisure=golf_course",
+     "km": 13.1,
+     "min": 29,
+     "ap": 27,
+     "i": "golf"
+    },
+    {
+     "id": "p25",
+     "name": "Zagaleta New Course",
+     "cat": "leisure=golf_course",
+     "km": 13.6,
+     "ap": 50,
+     "i": "golf"
+    }
+   ],
    "noSource": [
     "general"
    ],
@@ -504,6 +959,514 @@
     }
    ]
   },
-  "index": {}
+  "index": {
+   "p1": {
+    "key": "relation/1402560",
+    "place": {
+     "name": "Club de Golf Aloha",
+     "category": "leisure=golf_course",
+     "lat": 36.5115651,
+     "lon": -4.9609411,
+     "distanceKm": 6.7,
+     "airportKm": 45,
+     "osmUrl": "https://www.openstreetmap.org/relation/1402560",
+     "website": "https://www.clubdegolfaloha.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 9,
+      "km": 7.8,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p2": {
+    "key": "relation/3301126",
+    "place": {
+     "name": "La Quinta Golf & Country Club",
+     "category": "leisure=golf_course",
+     "lat": 36.5136877,
+     "lon": -4.9970703,
+     "distanceKm": 9.9,
+     "airportKm": 48,
+     "osmUrl": "https://www.openstreetmap.org/relation/3301126",
+     "website": "http://www.laquintagolf.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 18,
+      "km": 16.9,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p3": {
+    "key": "relation/3300481",
+    "place": {
+     "name": "Real Club de Golf Guadalmina",
+     "category": "leisure=golf_course",
+     "lat": 36.4755463,
+     "lon": -5.0026021,
+     "distanceKm": 11.3,
+     "airportKm": 50,
+     "osmUrl": "https://www.openstreetmap.org/relation/3300481",
+     "website": "https://www.guadalminagolf.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 19,
+      "km": 14.2,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p4": {
+    "key": "relation/3308721",
+    "place": {
+     "name": "La Cala Resort",
+     "category": "leisure=golf_course",
+     "lat": 36.5400887,
+     "lon": -4.7229196,
+     "distanceKm": 14.8,
+     "airportKm": 25,
+     "osmUrl": "https://www.openstreetmap.org/relation/3308721",
+     "website": "https://www.lacala.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 33,
+      "km": 22.4,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p5": {
+    "key": "relation/16378288",
+    "place": {
+     "name": "Calanova Golf Club",
+     "category": "leisure=golf_course",
+     "lat": 36.512444,
+     "lon": -4.7052895,
+     "distanceKm": 16.2,
+     "airportKm": 26,
+     "osmUrl": "https://www.openstreetmap.org/relation/16378288",
+     "website": "http://calanovagolf.es/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 26,
+      "km": 40.4,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p6": {
+    "key": "way/244709315",
+    "place": {
+     "name": "Campo Los Olivos",
+     "category": "leisure=golf_course",
+     "lat": 36.553376,
+     "lon": -4.6723785,
+     "distanceKm": 19.6,
+     "airportKm": 21,
+     "osmUrl": "https://www.openstreetmap.org/way/244709315",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 35,
+      "km": 38.3,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p7": {
+    "key": "way/244048306",
+    "place": {
+     "name": "Estepona Golf",
+     "category": "leisure=golf_course",
+     "lat": 36.4130169,
+     "lon": -5.2122295,
+     "distanceKm": 31.3,
+     "airportKm": 70,
+     "osmUrl": "https://www.openstreetmap.org/way/244048306",
+     "website": "https://esteponagolf.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 30,
+      "km": 37.7,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p8": {
+    "key": "relation/3299743",
+    "place": {
+     "name": "Campo de Golf Río Real",
+     "category": "leisure=golf_course",
+     "lat": 36.5097896,
+     "lon": -4.8440554,
+     "distanceKm": 3.8,
+     "airportKm": 36,
+     "osmUrl": "https://www.openstreetmap.org/relation/3299743",
+     "website": "https://www.rioreal.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 11,
+      "km": 8,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p9": {
+    "key": "relation/3299716",
+    "place": {
+     "name": "Santa Clara Golf Club Marbella",
+     "category": "leisure=golf_course",
+     "lat": 36.5108665,
+     "lon": -4.8244738,
+     "distanceKm": 5.5,
+     "airportKm": 34,
+     "osmUrl": "https://www.openstreetmap.org/relation/3299716",
+     "website": "https://santaclaragolfmarbella.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 16,
+      "km": 9.2,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p10": {
+    "key": "relation/3299762",
+    "place": {
+     "name": "Golf La Dama de Noche",
+     "category": "leisure=golf_course",
+     "lat": 36.5014086,
+     "lon": -4.9484569,
+     "distanceKm": 5.8,
+     "airportKm": 45,
+     "osmUrl": "https://www.openstreetmap.org/relation/3299762",
+     "website": "http://www.golfdamadenoche.es/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 7,
+      "km": 7.3,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p11": {
+    "key": "relation/3299714",
+    "place": {
+     "name": "Marbella Golf Country Club",
+     "category": "leisure=golf_course",
+     "lat": 36.5133313,
+     "lon": -4.811962,
+     "distanceKm": 6.6,
+     "airportKm": 33,
+     "osmUrl": "https://www.openstreetmap.org/relation/3299714",
+     "website": "https://www.marbellagolf.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 13,
+      "km": 9.3,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p12": {
+    "key": "way/97671239",
+    "place": {
+     "name": "Real Club de Golf Las Brisas",
+     "category": "leisure=golf_course",
+     "lat": 36.5054188,
+     "lon": -4.9689362,
+     "distanceKm": 7.5,
+     "airportKm": 46,
+     "osmUrl": "https://www.openstreetmap.org/way/97671239",
+     "website": "https://realclubdegolflasbrisas.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 14,
+      "km": 11.3,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p13": {
+    "key": "way/97681590",
+    "place": {
+     "name": "Magna Marbella Golf",
+     "category": "leisure=golf_course",
+     "lat": 36.5058752,
+     "lon": -4.978516,
+     "distanceKm": 8.3,
+     "airportKm": 47,
+     "osmUrl": "https://www.openstreetmap.org/way/97681590",
+     "website": "http://www.magnamarbellagolf.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 13,
+      "km": 10.2,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p14": {
+    "key": "relation/3299800",
+    "place": {
+     "name": "Los Naranjos Golf Club",
+     "category": "leisure=golf_course",
+     "lat": 36.5100672,
+     "lon": -4.9792709,
+     "distanceKm": 8.4,
+     "airportKm": 47,
+     "osmUrl": "https://www.openstreetmap.org/relation/3299800",
+     "website": "https://www.losnaranjos.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 12,
+      "km": 9.8,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p15": {
+    "key": "way/172444896",
+    "place": {
+     "name": "Greenlife Golf Marbella",
+     "category": "leisure=golf_course",
+     "lat": 36.5053966,
+     "lon": -4.7794349,
+     "distanceKm": 9.6,
+     "airportKm": 31,
+     "osmUrl": "https://www.openstreetmap.org/way/172444896",
+     "website": "https://www.greenlife-golf.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 18,
+      "km": 13.3,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p16": {
+    "key": "relation/3301112",
+    "place": {
+     "name": "Course A",
+     "category": "leisure=golf_course",
+     "lat": 36.506999,
+     "lon": -4.9967336,
+     "distanceKm": 9.9,
+     "airportKm": 48,
+     "osmUrl": "https://www.openstreetmap.org/relation/3301112",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 16,
+      "km": 15.7,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p17": {
+    "key": "relation/3301113",
+    "place": {
+     "name": "Course B",
+     "category": "leisure=golf_course",
+     "lat": 36.5156962,
+     "lon": -4.9990651,
+     "distanceKm": 10.1,
+     "airportKm": 48,
+     "osmUrl": "https://www.openstreetmap.org/relation/3301113",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 16,
+      "km": 16.7,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p18": {
+    "key": "way/172443763",
+    "place": {
+     "name": "Santa María Golf & Country Club",
+     "category": "leisure=golf_course",
+     "lat": 36.5099234,
+     "lon": -4.7696888,
+     "distanceKm": 10.4,
+     "airportKm": 30,
+     "osmUrl": "https://www.openstreetmap.org/way/172443763",
+     "website": "https://www.santamariagolfclub.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 17,
+      "km": 14.3,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p19": {
+    "key": "way/186098955",
+    "place": {
+     "name": "El Higueral Golf",
+     "category": "leisure=golf_course",
+     "lat": 36.5016805,
+     "lon": -5.0204479,
+     "distanceKm": 12.1,
+     "airportKm": 50,
+     "osmUrl": "https://www.openstreetmap.org/way/186098955",
+     "website": "http://www.elhigueralgolf.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 19,
+      "km": 17.8,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p20": {
+    "key": "relation/3300476",
+    "place": {
+     "name": "Atalaya Golf & Country Club",
+     "category": "leisure=golf_course",
+     "lat": 36.4879022,
+     "lon": -5.0224812,
+     "distanceKm": 12.6,
+     "airportKm": 51,
+     "osmUrl": "https://www.openstreetmap.org/relation/3300476",
+     "website": "https://www.atalaya-golf.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 21,
+      "km": 17.3,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p21": {
+    "key": "way/172434912",
+    "place": {
+     "name": "Cabopino golf",
+     "category": "leisure=golf_course",
+     "lat": 36.4947378,
+     "lon": -4.7423732,
+     "distanceKm": 13,
+     "airportKm": 30,
+     "osmUrl": "https://www.openstreetmap.org/way/172434912",
+     "website": "http://www.cabopinogolf.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 21,
+      "km": 16.7,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p22": {
+    "key": "way/244109824",
+    "place": {
+     "name": "El Campanario Golf Course",
+     "category": "leisure=golf_course",
+     "lat": 36.4750868,
+     "lon": -5.0229092,
+     "distanceKm": 13,
+     "airportKm": 52,
+     "osmUrl": "https://www.openstreetmap.org/way/244109824",
+     "website": "http://www.elcampanarionet.com/",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 19,
+      "km": 15.8,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p23": {
+    "key": "way/244158078",
+    "place": {
+     "name": "La Zagaleta Country Club - La Zagaleta Course",
+     "category": "leisure=golf_course",
+     "lat": 36.5323935,
+     "lon": -5.0297579,
+     "distanceKm": 13,
+     "airportKm": 50,
+     "osmUrl": "https://www.openstreetmap.org/way/244158078",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   },
+   "p24": {
+    "key": "way/170785539",
+    "place": {
+     "name": "El Soto Golf",
+     "category": "leisure=golf_course",
+     "lat": 36.5245187,
+     "lon": -4.7397805,
+     "distanceKm": 13.1,
+     "airportKm": 27,
+     "osmUrl": "https://www.openstreetmap.org/way/170785539",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z",
+     "drive": {
+      "min": 29,
+      "km": 19.8,
+      "source": "openrouteservice",
+      "fetchedAt": "2026-10-28T00:00:00.000Z"
+     }
+    }
+   },
+   "p25": {
+    "key": "way/1562550930",
+    "place": {
+     "name": "Zagaleta New Course",
+     "category": "leisure=golf_course",
+     "lat": 36.5424814,
+     "lon": -5.0345381,
+     "distanceKm": 13.6,
+     "airportKm": 50,
+     "osmUrl": "https://www.openstreetmap.org/way/1562550930",
+     "source": "osm",
+     "fetchedAt": "2026-10-28T00:00:00.000Z"
+    }
+   }
+  }
  }
 }
