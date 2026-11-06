@@ -7,9 +7,10 @@ import { MAX_RADIUS_KM } from "@/lib/facts/interest-sources";
  * was checked on taginfo (https://taginfo.openstreetmap.org, 2026-11-06, global object counts in the comments) and
  * the Geoapify categories against https://apidocs.geoapify.com/docs/places/ (2026-11-06). Types listed in the spec
  * but dropped because their tag is rare:
- * - footgolf (`sport=footgolf`, 11 objects worldwide), high_ropes (`sport=ropes_course`, 15) and
- *   laser_tag (`sport=laser_tag`, 480): they would almost always answer "nothing nearby" for a reason that has
- *   nothing to do with the city.
+ * - high_ropes (`sport=ropes_course`, 15 objects worldwide) and laser_tag (`sport=laser_tag`, 480): they would
+ *   almost always answer "nothing nearby" for a reason that has nothing to do with the city.
+ * Kept on purpose despite being rare: footgolf (`sport=footgolf`, 11 objects). A purpose can name it explicitly, and
+ * the type must exist so the plan can say "no footgolf found nearby in OpenStreetMap" (spec D6).
  * Ambiguous tag narrowed: `sport=climbing` (90k, mostly single routes and boulders) is only used as
  * `climbing_hall` (sports_centre or indoor=yes) and `climbing` (`climbing=crag`, 14k).
  */
@@ -28,6 +29,7 @@ export const ACTIVITY_TYPES = [
   "rowing",
   "canoe",
   "minigolf",
+  "footgolf",
   "karting",
   "climbing",
   "bar",
@@ -61,6 +63,7 @@ export const ACTIVITY_SOURCES: Record<ActivityType, ActivitySource> = {
   rowing: { group: "outdoor", filters: [`["sport"="rowing"]${notSlipway}`], defaultRadiusKm: 25 }, // 1.7k
   canoe: { group: "outdoor", filters: [`["sport"="canoe"]${notSlipway}`], defaultRadiusKm: 25 }, // 3.1k
   minigolf: { group: "outdoor", filters: [`["leisure"="miniature_golf"]`], geoapify: ["entertainment.miniature_golf"], defaultRadiusKm: 15 }, // 11k
+  footgolf: { group: "outdoor", filters: [`["sport"="footgolf"]`], defaultRadiusKm: 25 }, // 11, kept on purpose (see header)
   karting: { group: "outdoor", filters: [`["sport"="karting"]`], defaultRadiusKm: 25 }, // 11k
   climbing: { group: "outdoor", filters: [`["sport"="climbing"]["climbing"="crag"]`], defaultRadiusKm: 25 }, // 14k
   bar: { group: "going_out", filters: [`["amenity"~"^(bar|pub|biergarten)$"]`], geoapify: ["catering.bar", "catering.pub", "catering.biergarten"], defaultRadiusKm: 3 }, // 650k

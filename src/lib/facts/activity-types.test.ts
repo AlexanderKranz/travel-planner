@@ -22,8 +22,9 @@ describe("activity catalogue", () => {
       expect(s.defaultRadiusKm, t).toBeLessThanOrEqual(MAX_RADIUS_KM);
     }
   });
-  it("dropped rare types are not in the catalogue", () => {
-    for (const t of ["footgolf", "high_ropes", "laser_tag"]) expect(ACTIVITY_TYPES as readonly string[]).not.toContain(t);
+  it("footgolf is kept on purpose; other rare types are dropped", () => {
+    expect(ACTIVITY_TYPES as readonly string[]).toContain("footgolf");
+    for (const t of ["high_ropes", "laser_tag"]) expect(ACTIVITY_TYPES as readonly string[]).not.toContain(t);
   });
   it("every type is in exactly one group", () => {
     expect(typesInGroup("indoor")).toContain("climbing_hall");
