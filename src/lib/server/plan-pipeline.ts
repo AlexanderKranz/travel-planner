@@ -669,7 +669,8 @@ export async function iteratePlan(
       plan: parsed.data,
       // With loaded places the new version keeps the extended input, so later patches see those places.
       input: stored,
-      inputHash: stored === base.input ? base.inputHash : planInputHash(stored.llm),
+      // The base hash like every patch, so a later Generate can never match a patched plan by its input hash.
+      inputHash: base.inputHash,
       feedback: fb.data,
       changedDays: guarded.changedDays,
       model: MODEL_PLAN,

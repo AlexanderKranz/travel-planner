@@ -214,6 +214,8 @@ is used.
 - Prompt **`plan-6`** (rules 15 and 16, patch addendum `needPlaces`). Change requests: `needPlaces` → code
   loads the places, extends the stored input (`plan/need-places.ts`: a wish labelled `FEEDBACK`, a new
   `restaurants` block, or `restaurantsNear` for `near`) and calls the patch once more with `FEEDBACK.loaded`.
+  The new version keeps the extended input but the base version's `inputHash`, like every patch, so a later
+  Generate can never match a patched plan.
   Events `plan.patch_need_places`, `plan.places_pending` (with `patch: true`).
 
 Deviations:

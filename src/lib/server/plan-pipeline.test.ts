@@ -543,7 +543,7 @@ describe("iteratePlan: change requests that need places (activities spec section
     h.lookups.mockResolvedValue(indoorOk);
   });
 
-  it("loads the places, patches once more with loaded, stores the extended input under its own hash", async () => {
+  it("loads the places, patches once more with loaded, stores the extended input with the base hash", async () => {
     h.patch.mockResolvedValueOnce(ask).mockResolvedValueOnce(answer);
     const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "konkrete Escape Rooms" }, "de");
     expect(r).toMatchObject({ ok: true, data: { reply: "Escape Room an Tag 1" } });
@@ -555,7 +555,8 @@ describe("iteratePlan: change requests that need places (activities spec section
     expect(second.llm.activities.wishes[0].w).toBe("FEEDBACK");
     expect(second.index.a1).toBeDefined();
     expect(vi.mocked(applyPatch).mock.calls[0][0]).toMatchObject({ patch: answer.data, stored: { index: { a1: expect.anything() } } });
-    expect(insertArg()[2]).toMatchObject({ inputHash: "hash-new", input: { index: { a1: expect.anything() } } });
+    // Base hash like every patch (a later Generate never matches a patched plan); the extended input is kept.
+    expect(insertArg()[2]).toMatchObject({ inputHash: "hash-old", input: { index: { a1: expect.anything() } } });
     expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "plan.patch_need_places", props: expect.objectContaining({ types: "escape_game" }) }));
     expect(h.release).toHaveBeenCalledTimes(1);
   });
