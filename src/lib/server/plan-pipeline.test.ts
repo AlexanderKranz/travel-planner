@@ -69,7 +69,7 @@ vi.mock("./plan-store", () => ({
   // Mirrors getVersionLight: the stored version without its input, plus the one input field the state reads.
   getVersionLight: async () => {
     const v = h.latest as { meta: unknown; plan: unknown; input?: { pendingPlaces?: string[] } } | null;
-    return v ? { meta: v.meta, plan: v.plan, pendingPlaces: v.input?.pendingPlaces ?? [] } : null;
+    return v ? { meta: v.meta, plan: v.plan, pendingPlaces: v.input?.pendingPlaces ?? [], hasRestaurants: !!(v.input as { llm?: { restaurants?: unknown } } | undefined)?.llm?.restaurants } : null;
   },
   findVersionByHash: async () => h.byHash,
   insertVersion: h.insert,
@@ -379,6 +379,18 @@ describe("one request does places and plan (server start)", () => {
     h.latest = stored("h", 1);
     const clean = await loadPlanState(loaded.ctx);
     expect(clean.ok && clean.state.placesIncomplete).toBeUndefined();
+  });
+  it("the state flags a latest version without a restaurants block as predating suggestions", async () => {
+    const loaded = await loadPlanContext(TRIP);
+    if (!loaded.ok) throw new Error("ctx");
+    h.latest = stored("h", 1);
+    const old = await loadPlanState(loaded.ctx);
+    expect(old.ok && old.state.predatesSuggestions).toBe(true);
+    for (const s of ["ok", "skipped"]) {
+      h.latest = { ...stored("h", 1), input: { llm: { v: 1, restaurants: { s, list: [] } }, index: {} } };
+      const cur = await loadPlanState(loaded.ctx);
+      expect(cur.ok && cur.state.predatesSuggestions).toBeUndefined();
+    }
   });
   it("regenerate (fresh) is not blocked by places that failed to load", async () => {
     h.facts = errorGroup;
