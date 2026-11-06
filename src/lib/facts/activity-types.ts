@@ -96,13 +96,14 @@ export type ActivityWish = { types: readonly ActivityType[]; open: boolean; grou
 
 /**
  * Types to look up for one wish: its own types, plus (when `open`, "only an idea") every type of their group.
- * An open wish without types uses its `group`. Order: catalogue order.
+ * An entry without types uses its `group` when `open`; an entry without types and without a valid group is
+ * dropped (empty list). With types, each type's own group is used and `group` is ignored. Catalogue order.
  */
 export function expandWish(wish: ActivityWish): ActivityType[] {
   const out = new Set<ActivityType>(wish.types);
   if (wish.open) {
     const groups = new Set<ActivityGroup>(wish.types.map((t) => ACTIVITY_SOURCES[t].group));
-    if (groups.size === 0 && wish.group) groups.add(wish.group);
+    if (groups.size === 0 && wish.group && ActivityGroup.safeParse(wish.group).success) groups.add(wish.group);
     for (const g of groups) for (const t of typesInGroup(g)) out.add(t);
   }
   return ACTIVITY_TYPES.filter((t) => out.has(t));
@@ -110,14 +111,14 @@ export function expandWish(wish: ActivityWish): ActivityType[] {
 
 /**
  * Groups to query for a set of wishes (one Overpass union query each, spec section 6): the group of each wish type
- * (an open wish without types: its `group`). First wishes win; capped at MAX_ACTIVITY_GROUPS.
+ * (an entry without types: its valid `group`, else nothing). All needed groups, at most three (the whole catalogue).
  */
-export const MAX_ACTIVITY_GROUPS = 2;
 export function groupsForWishes(wishes: readonly ActivityWish[]): ActivityGroup[] {
   const groups: ActivityGroup[] = [];
   for (const w of wishes) {
-    const wanted = w.types.length > 0 ? w.types.map((t) => ACTIVITY_SOURCES[t].group) : w.group ? [w.group] : [];
+    const wanted =
+      w.types.length > 0 ? w.types.map((t) => ACTIVITY_SOURCES[t].group) : w.group && ActivityGroup.safeParse(w.group).success ? [w.group] : [];
     for (const g of wanted) if (!groups.includes(g)) groups.push(g);
   }
-  return groups.slice(0, MAX_ACTIVITY_GROUPS);
+  return groups;
 }

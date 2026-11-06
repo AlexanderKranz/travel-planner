@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   ACTIVITY_SOURCES,
   ACTIVITY_TYPES,
-  MAX_ACTIVITY_GROUPS,
   expandWish,
   groupHasGeoapify,
   groupsForWishes,
@@ -75,12 +74,23 @@ describe("groupsForWishes", () => {
   it("does not add a second group for a type already covered", () => {
     expect(groupsForWishes([{ types: ["bowling"], open: false }, { types: ["cinema"], open: false }])).toEqual(["indoor"]);
   });
-  it("is capped", () => {
-    const g = groupsForWishes([
-      { types: ["escape_game"], open: false },
-      { types: ["canoe"], open: false },
-      { types: ["bar"], open: false },
-    ]);
-    expect(g).toHaveLength(MAX_ACTIVITY_GROUPS);
+  it("returns every needed group, up to all three", () => {
+    expect(
+      groupsForWishes([
+        { types: ["escape_game"], open: false },
+        { types: ["canoe"], open: false },
+        { types: ["bar"], open: false },
+      ]),
+    ).toEqual(["indoor", "outdoor", "going_out"]);
+  });
+  it("an entry without types uses its valid group, otherwise it is dropped", () => {
+    expect(groupsForWishes([{ types: [], open: true, group: "going_out" }])).toEqual(["going_out"]);
+    expect(groupsForWishes([{ types: [], open: true }])).toEqual([]);
+    expect(groupsForWishes([{ types: [], open: true, group: "day_event" as never }])).toEqual([]);
+    expect(expandWish({ types: [], open: true, group: "day_event" as never })).toEqual([]);
+  });
+  it("with types, each type's own group is used and the entry's group is ignored", () => {
+    expect(groupsForWishes([{ types: ["cinema"], open: false, group: "outdoor" }])).toEqual(["indoor"]);
+    expect(expandWish({ types: ["cinema"], open: true, group: "outdoor" })).toEqual(typesInGroup("indoor"));
   });
 });

@@ -47,7 +47,7 @@ vi.mock("@/lib/integrations/overpass", async (orig) => ({
 }));
 
 import { parseElements, buildQuery } from "@/lib/integrations/overpass";
-import { getActivityGroupFacts, getRestaurantFacts, RESTAURANT_POOL } from "./activities";
+import { getActivityGroupFacts, getRestaurantFacts, RESTAURANT_NEAR_RADIUS_KM, RESTAURANT_POOL } from "./activities";
 import type { GeoDestination } from "./common";
 
 const fixture = (f: string) =>
@@ -95,7 +95,7 @@ describe("getActivityGroupFacts", () => {
 
   it("budget 0 = cache only: no network, unavailable", async () => {
     const f = await getActivityGroupFacts("outdoor", dest("city"), ctx, { budgetMs: 0 });
-    expect(f).toMatchObject({ status: "unavailable", reason: "provider_error" });
+    expect(f).toEqual({ status: "skipped", reason: "cache_only" });
     expect(h.runQuery).not.toHaveBeenCalled();
     expect(h.fetchPlaces).not.toHaveBeenCalled();
   });
@@ -125,7 +125,19 @@ describe("getActivityGroupFacts", () => {
 
   it("Overpass failure is unavailable, not a throw", async () => {
     h.runQuery.mockRejectedValue(new Error("boom"));
-    expect((await getActivityGroupFacts("indoor", dest("city"), ctx)).status).toBe("unavailable");
+    expect((await getActivityGroupFacts("indoor", dest("city"), ctx)).status).toBe("error");
+  });
+
+  it("a successful lookup without a match is empty, not error or skipped", async () => {
+    h.runQuery.mockResolvedValue({ elements: [], status: 200, latencyMs: 1, mirror: "m" });
+    const f = await getActivityGroupFacts("outdoor", dest("city"), ctx);
+    expect(f).toMatchObject({ status: "empty", data: { places: [] } });
+  });
+
+  it("no coordinates = skipped, nothing fetched", async () => {
+    expect(await getActivityGroupFacts("indoor", null, ctx)).toEqual({ status: "skipped", reason: "no_location" });
+    expect(await getRestaurantFacts(null, ctx)).toEqual({ status: "skipped", reason: "no_location" });
+    expect(h.calls).toHaveLength(0);
   });
 });
 
@@ -149,7 +161,7 @@ describe("getRestaurantFacts", () => {
   it("region: 5 km", async () => {
     h.runQuery.mockResolvedValue({ elements: [], status: 200, latencyMs: 1, mirror: "m" });
     const f = await getRestaurantFacts(dest("region"), ctx);
-    expect(f.status === "ok" && f.data.radiusKm).toBe(5);
+    expect(f.status === "empty" && f.data.radiusKm).toBe(5);
     expect(h.runQuery.mock.calls[0][0]).toBe(buildQuery(['["amenity"="restaurant"]'], { lat: 49.791, lon: 9.953 }, 5000, 500));
   });
 
@@ -165,6 +177,19 @@ describe("getRestaurantFacts", () => {
     expect(h.fetchPlaces.mock.calls[0][0]).toEqual([["catering.restaurant"]]);
     expect(h.runQuery).not.toHaveBeenCalled();
     expect(f.status === "ok" && f.data.restaurants[0]).toMatchObject({ name: "Ratskeller", cuisines: ["regional"] });
+  });
+
+  it("near: 1.5 km around the given point, cache key = rounded point + radius; works without a destination", async () => {
+    h.runQuery.mockResolvedValue(overpassAnswer("restaurants-wuerzburg-2.5km.json"));
+    const f = await getRestaurantFacts(null, ctx, { near: { lat: 49.79234, lon: 9.95391 } });
+    expect(f.status).toBe("ok");
+    if (f.status !== "ok") return;
+    expect(f.data.radiusKm).toBe(RESTAURANT_NEAR_RADIUS_KM);
+    expect(f.data.restaurants.every((r) => r.distanceKm <= 1.5)).toBe(true);
+    const key = h.calls.find((c) => c.provider === "overpass")!.key;
+    expect(key).toContain('"lat":49.792');
+    expect(key).toContain('"lon":9.954');
+    expect(key).toContain('"r":1.5');
   });
 
   it("Geoapify failure falls back to Overpass", async () => {
