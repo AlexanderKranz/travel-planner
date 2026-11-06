@@ -16,9 +16,6 @@ export default async function HomePage({
 
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col justify-center gap-4 px-4 py-12">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-accent-text">
-        {t("status")}
-      </p>
       <h1 className="text-5xl font-bold leading-none sm:text-7xl">{t("title")}</h1>
       <p className="font-serif text-xl leading-relaxed text-muted sm:text-2xl">{t("tagline")}</p>
       <div>
