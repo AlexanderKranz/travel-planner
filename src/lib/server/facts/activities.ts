@@ -2,7 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { FactsCtx } from "@/lib/domain/facts";
 import { activityPlaceSchema, activityPlacesForGroup, mergeActivityPlaces, type ActivityPlace } from "@/lib/facts/activity-places";
-import { ACTIVITY_SOURCES, radiusForGroup, splitGroupTypes, typesInGroup, type ActivityGroup, type ActivityType } from "@/lib/facts/activity-types";
+import { ACTIVITY_SOURCES, radiusForGroup, splitGroupTypes, type ActivityGroup, type ActivityType } from "@/lib/facts/activity-types";
 import { cafeSchema, restaurantSchema, toCafes, toRestaurants, type Cafe, type Restaurant } from "@/lib/facts/cuisine";
 import { matchesFilter } from "@/lib/facts/places";
 import { GEOAPIFY_LIMIT, fetchPlaces, hasGeoapifyKey } from "@/lib/integrations/geoapify";

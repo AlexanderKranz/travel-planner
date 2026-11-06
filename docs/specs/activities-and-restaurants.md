@@ -383,3 +383,21 @@ Known failure modes:
 
 Ratings, prices and opening-hour checks (no free reliable source); booking links; multi-anchor trips
 (`concrete-places.md` D8).
+
+## Addendum 2: lookups split per source (Geoapify per type, 2026-11-06)
+
+Overpass was too slow (504 after 45 s, mirrors 80-100 s) for the union of a whole group, and `indoor`/`outdoor` always
+went to Overpass because one type (karaoke ...) has no Geoapify category. A group is now looked up in two parts:
+
+- Types with a Geoapify category: one Geoapify request per type, with the type's own radius (playground 3 km, not the
+  group's 25 km) and the OSM filters applied in code. If Geoapify fails, those types fall back to an Overpass union of just their lines.
+- Types without a category (karaoke, indoor_play, climbing crags, rowing, canoe, karting, footgolf): one Overpass union
+  of just those lines, last, with the budget that is left. Without a Geoapify key all types are one Overpass union.
+- `climbing_hall` is now mapped to `entertainment.activity_park.climbing` (probed Munich: all hits are `sport=climbing` halls).
+- Cache version 4 for activities; each part has its own key (`part` geo/osm, `t` = its types).
+
+`LookupFact<ActivityGroupFacts>` keeps its status meaning (`ok` places found or result cut; `empty` complete, all parts,
+no match; `error`/`skipped` nothing usable) and adds `data.typeStatus` (every type of the group: `ok`, `empty`, `cut`,
+`error`, `skipped`) and `data.partial`. If one part failed and the other worked, status is `ok` with `partial: true`
+(never `empty`), the other part's places are kept and only the failed part's types are `error`/`skipped`. The plan may only say "nothing
+found" for a type with `typeStatus === "empty"`.

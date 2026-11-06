@@ -30,7 +30,7 @@ vi.mock("../api-cache", () => ({
     // Exact row first (written by an earlier miss); else a seeded row: `provider` = any key, `provider#text` = keys containing text.
     const seeded = [...h.store].find(([k]) => k.startsWith(`${o.provider}#`) && !k.startsWith(`${o.provider}#{`) && o.key.includes(k.slice(o.provider.length + 1)));
     const entry = (h.store.get(`${o.provider}#${o.key}`) ?? seeded?.[1] ?? h.store.get(o.provider)) as Entry | undefined;
-    const call = { provider: o.provider, key: o.key, allowed: null as boolean | null };
+    const call = { provider: o.provider, key: o.key, allowed: null as boolean | null, units: undefined as number | undefined };
     h.calls.push(call);
     if (h.broken.has(o.provider)) return { ok: false, error: "provider_error" };
     if (entry && !entry.expired) return { ok: true, data: entry.data, fetchedAt: "2026-11-06T00:00:00.000Z", stale: false, cache: "hit" };
