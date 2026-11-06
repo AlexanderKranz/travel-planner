@@ -172,14 +172,19 @@ export type ViewVersion = {
   plan: Plan;
   /** Interests whose places did not load when the plan was written (`input.pendingPlaces`). */
   pendingPlaces: string[];
+  /**
+   * The stored LLM input has a RESTAURANTS block (plan-6 always writes one, also with status skipped/error).
+   * False = the version was made before plan-6.
+   */
+  hasRestaurants: boolean;
 };
 
-const LIGHT_COLUMNS = `${META_COLUMNS}, plan, pending_places:input->pendingPlaces`;
+const LIGHT_COLUMNS = `${META_COLUMNS}, plan, pending_places:input->pendingPlaces, restaurants_status:input->llm->restaurants->>s`;
 const PendingPlaces = z.array(z.string()).nullish();
 
 /**
  * Read-only view of one version for pages and state checks: plan + meta + the one input field they use
- * (`pendingPlaces`), not the whole `input` (index of places, LLM input). Null when the plan or that field is invalid.
+ * (`pendingPlaces`, and whether `restaurants` exists), not the whole `input` (index of places, LLM input). Null when the plan or that field is invalid.
  */
 export async function getVersionLight(sb: SupabaseClient, planId: string, versionNo: number): Promise<ViewVersion | null> {
   const { data, error } = await sb
@@ -187,13 +192,13 @@ export async function getVersionLight(sb: SupabaseClient, planId: string, versio
     .select(LIGHT_COLUMNS)
     .eq("plan_id", planId)
     .eq("version_no", versionNo)
-    .maybeSingle<MetaRow & { plan: unknown; pending_places: unknown }>();
+    .maybeSingle<MetaRow & { plan: unknown; pending_places: unknown; restaurants_status?: unknown }>();
   if (error) throw new Error("version read failed");
   if (!data) return null;
   const plan = Plan.safeParse(data.plan);
   const pending = PendingPlaces.safeParse(data.pending_places);
   if (!plan.success || !pending.success) return null;
-  return { meta: rowToMeta(data), plan: plan.data, pendingPlaces: pending.data ?? [] };
+  return { meta: rowToMeta(data), plan: plan.data, pendingPlaces: pending.data ?? [], hasRestaurants: typeof data.restaurants_status === "string" };
 }
 
 /** Newest version with this input hash, if any. */

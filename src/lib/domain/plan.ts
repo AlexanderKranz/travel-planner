@@ -259,6 +259,8 @@ export type PlanState = {
   busy: boolean; // busy_until > now()
   /** The shown version was written while some interests had no places (only set on the latest version). */
   placesIncomplete?: boolean;
+  /** Latest version only: made before plan-6, so it has no concrete restaurant/activity suggestions. */
+  predatesSuggestions?: boolean;
   outdated: boolean; // header.basis differs from current trip/group/purpose
   canIterate: boolean; // latest && days.length === trip.lengthDays && same start date && aiEnabled
   aiEnabled: boolean;
