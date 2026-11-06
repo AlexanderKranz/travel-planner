@@ -52,7 +52,7 @@ guided purpose form, while activity types are concrete things to book. The guide
 |---|---|
 | `indoor` | `escape_game` (`leisure=escape_game`), `bowling` (`leisure=bowling_alley`), `cinema` (`amenity=cinema`), `theatre` (`amenity=theatre`), `karaoke` (`amenity=karaoke_box`), `laser_tag` (`leisure=sports_centre`+`sport=laser_tag`), `climbing_hall` (`sport=climbing`+`indoor=yes` or `leisure=sports_centre`) |
 | `outdoor` | `boat_rental` (`amenity=boat_rental`), `rowing` (`sport=rowing`), `canoe` (`sport=canoe`), `footgolf` (`sport=footgolf`), `minigolf` (`leisure=miniature_golf`), `karting` (`sport=karting`), `high_ropes` (`sport=ropes_course`), `climbing` (outdoor `sport=climbing`) |
-| `going_out` | `bar` (`amenity~^(bar|pub|biergarten)$`) |
+| `going_out` | `bar` (`amenity~^(bar\|pub\|biergarten)$`) |
 
 The split is by place, not by time of day (Alex, 2026-11-06: minigolf is rather a day activity, so a day/evening
 split is debatable). The model picks the time from the trip's days, daylight and weather: an evening or a rainy
@@ -66,7 +66,7 @@ one recorded Overpass fixture.
 next use; this is the existing mechanism, with no migration.
 
 ```ts
-activities?: { types: ActivityType[]; open: boolean }[]   // max 4 entries
+activities?: { types: ActivityType[]; open: boolean; group?: ActivityGroup }[]   // max 4 entries
 cuisine?: { local: boolean; include: Cuisine[]; exclude: Cuisine[] }
 ```
 
@@ -80,7 +80,9 @@ cuisine?: { local: boolean; include: Cuisine[]; exclude: Cuisine[] }
 
 When `open` is true, code adds the other types of the same group (§1), so "escape room, only an idea" also loads
 bowling, cinema and the other `indoor` types. If an entry has no types but `open`, code uses the group Haiku picked
-(field `group` on the entry: `indoor`, `outdoor` or `going_out`).
+(field `group` on the entry: `indoor`, `outdoor` or `going_out`). Validation: `group` is optional; an entry with
+no types and no valid group is dropped (nothing to load). With types, `group` is ignored and each type's own group
+is used.
 
 ### 3. Restaurants in every plan
 
@@ -102,36 +104,59 @@ bowling, cinema and the other `indoor` types. If an entry has no types but `open
 - Ranking (no ratings exist in OSM): completeness first (website, opening_hours, cuisine tag, wikidata), then
   distance to the destination point. At most 12 restaurants go into the input; they do not count toward the 40
   activity places.
+- Restaurants are loaded near the destination point only. Activities can lie up to 25 km away, and before
+  generation code does not know which day uses which place, so a meal next to a far activity gets no restaurant
+  ref and is written generically ("Einkehr vor Ort"), as for far stops today (`concrete-places.md` D8). A change
+  request can load restaurants near a specific place (`needPlaces.near`, §4). A per-day query would multiply
+  Overpass calls; it is out of scope.
 - Each meal activity sets `ref` to one restaurant and `alts` to up to 2 others. The UI already renders
   "name · oder: X · Y" with links. Opening hours stay unverified, and the existing reservation and opening-hours
   hint stays.
 
 ### 4. Change requests that need places (option A)
 
-- The patch output (`patchPlan`) gets an optional field `needPlaces: { types: ActivityType[] | ["restaurant"],
-  cuisine?: … }`, set only when the request asks for places of a kind the input does not contain.
-- Code then fetches those places (same budget rules as Generate), adds them to the stored input of the new
-  version, and runs the patch once more.
+- The patch output (`patchPlan`) gets an optional field
+  `needPlaces: { types?: ActivityType[]; restaurants?: { cuisine?: …; near?: PlaceRef } }`. It is set when the
+  request asks for places of a kind the input does not contain, **or** when the input has that kind but no candidate
+  meets the request (for example the plan has restaurants, but none with local cuisine). `near` names a place in
+  the input; restaurants are then loaded within 1.5 km of it (cache key = rounded point + radius).
+- Code then fetches those places, adds them to the stored input of the new version, and runs the patch once more.
+  The restaurant cache holds the nearest restaurants unfiltered, so a new cuisine wish is usually a re-filter of
+  cached data, not a new query.
 - The first call's other output is discarded in that case. The second call cannot request places again.
+- **Deadline.** The iterate route has `maxDuration = 300` s and the plan lock lasts `LOCK_MS` = 5 min. The whole
+  request shares one deadline of 270 s from its start:
+  - places get `min(60 s, remaining − 160 s)`, cache hits always served
+  - the second patch call gets the remaining time minus 10 s, or is not started below 120 s
+  - if places do not load in time, or too little time is left for the second call, the request answers
+    `places_pending` (the existing retry prompt) without a new version; the fetch keeps warming the cache in
+    `after()`, so the retry is fast
+  
+  The lock is released in `finally` as today and never outlives the request.
 - Cost: no extra call when places are present; one more Sonnet patch call when they are missing. The request
   that triggered it takes a few seconds longer (or up to the places budget on a cold cache).
 
 ### 5. Prompt plan-4 (Sonnet)
 
-- New input blocks `ACTIVITIES` (per purpose wish: the loaded places by type, and `open`) and `RESTAURANTS`.
+- New input blocks `ACTIVITIES` (per purpose wish: the loaded places and the lookup status by type, and `open`)
+  and `RESTAURANTS` (places, status, `tooFew`). Status is `ok`, `empty`, `error` or `skipped` (no coordinates,
+  cache-only run).
 - Rules:
   - An activity for a wish with places sets `ref`; with `open`, `alts` should come from other types of the group
     where possible, so the user sees different kinds of options.
   - Every lunch or dinner with restaurants available sets `ref` + `alts`.
-  - A wish whose places are empty is written as "found nothing nearby in OpenStreetMap", never as invented
-    themes.
+  - When every relevant lookup succeeded and found nothing (`empty`), write "found nothing nearby in
+    OpenStreetMap". When a lookup failed or was skipped (free-text destination, "Generate anyway"), say the
+    places could not be checked. Never invent themes or venues.
 - `PLAN_PROMPT_VERSION` is bumped. Existing plans keep working; new versions use plan-4.
 
 ### 6. Limits and cost
 
 - Overpass:
   - Activity types are fetched in one query per group (union of the group's filters), not one per type.
-  - At most 2 activity groups plus restaurants per trip, on top of the existing `MAX_INTEREST_QUERIES = 4`.
+  - All activity groups the wishes need (at most 3: `indoor`, `outdoor`, `going_out`) plus restaurants per trip, on top
+    of the existing `MAX_INTEREST_QUERIES = 4`. With only three groups a cap would drop a wish; a skipped lookup
+    would be reported as `skipped`, never as empty.
   - Warm-up loads them right after tagging, as for interests.
 - Tokens: about 12 restaurants plus up to 16 activity places add about 800 input tokens per generation. They
   are cached together with the rest of the input.
