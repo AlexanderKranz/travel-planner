@@ -305,8 +305,9 @@ also kept "Spielplatz oder Café in der Altstadt (Idee)".
     filtered out, because these tags are sparse in OSM.
   - The plan does not claim a restaurant is child-friendly unless one of those tags is set.
   - Without an explicit ask, the travel group never changes restaurant selection.
-- **[A5] Display:** the gap between alternatives ("oder: X ⎵⎵⎵ · Y") comes from space reserved for a drive time.
-  Restaurants have no drive time, so that space is only reserved when a drive time is shown.
+- **[A5] Display:** the gap between alternatives ("oder: X ⎵⎵⎵ · Y") came from the hidden edit buttons (↑ ×) after
+  each alternative, which kept their width while invisible. They now take no space until the row is hovered or
+  focused; touch devices are unchanged (#136).
 - Tags: `TAGS_PROMPT_VERSION` and `PLAN_PROMPT_VERSION` are bumped for A1–A4; the activity cache key version is
   bumped for the new types.
 - Evals: the cruise (family) fixture gets a check that a toddler-related indoor wish yields an `indoor_play` or
