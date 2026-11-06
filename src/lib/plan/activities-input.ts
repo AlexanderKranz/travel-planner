@@ -107,8 +107,10 @@ export function selectWishPlaces(lookups: readonly ActivityGroupLookup[] | undef
       const s: TypeStatus = places.length ? "ok" : own === "ok" ? "cut" : own === "unrequested" ? "skipped" : own;
       // Types an open wish only adds as options are listed when they have places: the plan reports a missing type
       // only when the travellers named it (live eval: "Karaoke: nothing found" for a wish that never named karaoke).
-      // A type that failed or was skipped stays visible, so the plan can say it could not be checked.
-      if (!named && !places.length && (s === "empty" || s === "cut")) continue;
+      // They are best effort (QA #139): failed or skipped, they are simply not offered. Only a wish that names no
+      // type keeps its failed or skipped types, so the plan can say they could not be checked.
+      const groupOnly = wish.types.length === 0;
+      if (!named && !places.length && (!groupOnly || s === "empty" || s === "cut")) continue;
       out.push({ t, s, places });
     }
     return out.length ? [{ wish, types: out }] : [];

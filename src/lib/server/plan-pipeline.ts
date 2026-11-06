@@ -20,8 +20,7 @@ import { applyEdit } from "@/lib/plan/edit";
 import { canonicalJson, planInputHash } from "@/lib/plan/hash";
 import { tripGroupSource } from "@/lib/group-text";
 import { buildPlanInput, type GroupContext } from "@/lib/plan/input";
-import { allPlacesPending, activityPlacesPending } from "@/lib/plan/places-pending";
-import { wishedTypes } from "@/lib/facts/activity-types";
+import { allPlacesPending, activityPlacesPending, blockingScope } from "@/lib/plan/places-pending";
 import { drivePicks } from "@/lib/plan/drive-picks";
 import { extendInput, resolveNeedPlaces, type NeedPlacesRequest } from "@/lib/plan/need-places";
 import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
@@ -394,8 +393,8 @@ export async function generatePlan(
         withFlights: c.trip.wantsFlights ? { homeAirports: c.homeAirports } : undefined,
       },
     );
-    // Only wished activity types can block (QA #139): a failed part with unwished types never does.
-    const pending = allPlacesPending(facts, wishedTypes(purpose?.tags?.activities ?? []));
+    // Only named activity types (and group-only wishes) can block (QA #139); an open wish's extra types are best effort.
+    const pending = allPlacesPending(facts, blockingScope(purpose?.tags?.activities ?? []));
     // `fresh` (regenerate) never blocks on places: an earlier version exists and the user wants a new one.
     if (pending && !opts.force && !opts.fresh) {
       const gone = opts.clientGone?.() === true;

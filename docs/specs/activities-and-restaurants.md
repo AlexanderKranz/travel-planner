@@ -429,7 +429,12 @@ After QA (#139):
   request's types) to the group lookups and to `activityPlacesPending`. A source part with no wished type is read
   from the cache only (no network); on a miss its types are `unrequested`, which is neither pending nor "nothing
   found". A part's cache key stays its full type list. An escape-room-only wish therefore never waits for the
-  Overpass part (karaoke, indoor_play); an open escape-room wish still does, because karaoke is one of its options.
+  Overpass part (karaoke, indoor_play).
+- Open wishes do not wait for their extra types (follow-up): pending counts only the types a wish names; a wish that
+  names no type (group only) is pending only when no part of its group answered. The types `open` adds are still
+  fetched when time allows (`wanted`), but are best effort: failed or skipped, they are not offered and not mentioned
+  ("not checked" only for named types, and for group-only wishes). An open escape-room wish with a failing Overpass
+  part (karaoke) therefore uses its escape-room places at once; a named karaoke wish still waits.
 - Geoapify requests of a part run 2 at a time. After the first, a request only starts with at least one Geoapify
   timeout (25 s) of budget left; the types not started are `skipped` and the group is `partial`. Such an incomplete
   answer is used for the request but never cached (its credits are still logged).

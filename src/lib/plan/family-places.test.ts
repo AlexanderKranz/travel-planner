@@ -5,7 +5,7 @@ import type { Restaurant } from "@/lib/facts/cuisine";
 import { MAX_CAFES } from "@/lib/facts/cuisine";
 import { cafesInput, lookupTypeStatus, restaurantsInput, selectWishPlaces } from "./activities-input";
 import { extendInput, mergeCuisine, resolveNeedPlaces } from "./need-places";
-import { activityPlacesPending, allPlacesPending } from "./places-pending";
+import { activityPlacesPending, allPlacesPending, blockingScope } from "./places-pending";
 import { wishedTypes } from "@/lib/facts/activity-types";
 
 const placesOk = { places: { status: "ok" as const, data: { radiusKm: 15, groups: [], customInterests: [] }, source: "osm" as const, fetchedAt: "2026-11-06T00:00:00.000Z", stale: false } };
@@ -152,7 +152,28 @@ describe("per-type status (Addendum 3)", () => {
     expect(activityPlacesPending({ activities: [look] }, new Set(["escape_game"] as const))).toEqual([]);
     expect(activityPlacesPending({ activities: [look] }, new Set(["escape_game", "karaoke"] as const))).toEqual(["activities:indoor"]);
     expect(allPlacesPending({ ...placesOk, activities: [look] }, wishedTypes([{ types: ["escape_game"], open: false }]))).toBeNull();
-    // An open escape room wish also wants karaoke (an indoor alternative): then the failed part blocks.
-    expect(allPlacesPending({ ...placesOk, activities: [look] }, wishedTypes([{ types: ["escape_game"], open: true }]))).toEqual(["activities:indoor"]);
+    // An open escape room wish only adds karaoke as an option: best effort, the failed part never blocks.
+    expect(allPlacesPending({ ...placesOk, activities: [look] }, blockingScope([{ types: ["escape_game"], open: true }]))).toBeNull();
+    // A named karaoke wish blocks.
+    expect(allPlacesPending({ ...placesOk, activities: [look] }, blockingScope([{ types: ["karaoke"], open: true }]))).toEqual(["activities:indoor"]);
+  });
+  it("QA #139: a group-only open wish blocks only when no part of the group answered", () => {
+    const scope = blockingScope([{ types: [], open: true, group: "indoor" }]);
+    const look: ActivityGroupLookup = { ...partial, typeStatus: { escape_game: "ok", karaoke: "error" } };
+    expect(activityPlacesPending({ activities: [look] }, scope)).toEqual([]);
+    const failed: ActivityGroupLookup = { group: "indoor", status: "error", places: [], typeStatus: { escape_game: "error", karaoke: "error" } };
+    expect(activityPlacesPending({ activities: [failed] }, scope)).toEqual(["activities:indoor"]);
+  });
+  it("QA #139: an open escape room wish with a failed Overpass part uses the escape room places; failed extras are not offered", () => {
+    const look: ActivityGroupLookup = {
+      group: "indoor", status: "ok", partial: true, fetchedAt: T, places: [place(1, ["escape_game"]), place(2, ["bowling"])],
+      typeStatus: { escape_game: "ok", bowling: "ok", cinema: "empty", karaoke: "error", indoor_play: "unrequested" },
+    };
+    const sel = selectWishPlaces([look], [{ types: ["escape_game"], open: true }])[0].types;
+    expect(sel.map((t) => [t.t, t.s, t.places.length])).toEqual([["escape_game", "ok", 1], ["bowling", "ok", 1]]);
+    expect(activityPlacesPending({ activities: [look] }, blockingScope([{ types: ["escape_game"], open: true }]))).toEqual([]);
+    // A group-only wish keeps the failed types visible ("could not be checked").
+    const groupOnly = selectWishPlaces([look], [{ types: [], open: true, group: "indoor" }])[0].types;
+    expect(groupOnly.find((t) => t.t === "karaoke")?.s).toBe("error");
   });
 });
