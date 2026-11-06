@@ -166,11 +166,13 @@ export type DayCtx = {
   places?: PlaceClass;
   /** Climate months of the input: an open-air pool is out of season below OPEN_AIR_MIN_TMAX. */
   climate?: PlanInputStored["llm"]["climate"];
+  /** Selected months of a trip without dates: out of season when every one is. */
+  months?: number[];
 };
 
 /** The per-plan part of DayCtx that the guards of issue #142 need. */
-export function guardCtx(stored: PlanInputStored): Pick<DayCtx, "notes" | "places" | "climate"> {
-  return { notes: stored.llm.trip.notes, places: placeClasses(stored), climate: stored.llm.climate };
+export function guardCtx(stored: PlanInputStored): Pick<DayCtx, "notes" | "places" | "climate" | "months"> {
+  return { notes: stored.llm.trip.notes, places: placeClasses(stored), climate: stored.llm.climate, months: stored.llm.trip.months };
 }
 
 /** One model day → stored day (spec 4.5). The best-day highlight is never model output (patch-safety [D8]). */
@@ -207,8 +209,9 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
       }
       let act = defined({ at, until, kind: ACT_KINDS.has(a.kind) ? a.kind : "do", text, ref, alts }) as PlanActivity;
       if (ctx.places) {
-        const g = guardOpenAir(act, ctx.places, ctx.date, ctx.climate);
+        const g = guardOpenAir(act, ctx.places, ctx.date, ctx.climate, ctx.months);
         issues.open_air += g.dropped;
+        if (!g.act) continue; // the text only named a removed open-air pool
         act = g.act;
       }
       acts.push(act);

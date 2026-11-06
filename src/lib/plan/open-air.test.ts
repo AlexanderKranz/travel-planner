@@ -41,6 +41,13 @@ describe("open-air classification", () => {
     expect(winterAt(-38, 7)).toBe(true);
     expect(winterAt(20, 1)).toBe(false);
   });
+
+  it("season for a trip with months only: out of season when every selected month is", () => {
+    expect(outOfSeason(null, 48.5, undefined, [12, 1])).toBe(true);
+    expect(outOfSeason(null, 48.5, undefined, [9, 10])).toBe(false); // September may still be open
+    expect(outOfSeason(null, 48.5, [{ m: 9, tmax: 15, tmin: 8, wet: 10, sun: 5 }], [9, 10])).toBe(true); // climate for 9, latitude for 10
+    expect(outOfSeason(null, 48.5, undefined, [])).toBe(false);
+  });
 });
 
 describe("guardOpenAir (issue #142)", () => {
@@ -50,7 +57,7 @@ describe("guardOpenAir (issue #142)", () => {
       act: act({ text: "Spielen, drinnen", ref: "way/4" }),
       dropped: 1,
     });
-    expect(guardOpenAir(act({ ref: "node/7", alts: ["way/4", "way/3"] }), c, SUMMER, undefined).act.alts).toEqual(["way/4"]);
+    expect(guardOpenAir(act({ ref: "node/7", alts: ["way/4", "way/3"] }), c, SUMMER, undefined).act?.alts).toEqual(["way/4"]);
   });
 
   it("replaces an open-air ref by the first remaining alternative, or drops ref and alts", () => {
@@ -66,6 +73,28 @@ describe("guardOpenAir (issue #142)", () => {
   it("drops open-air pools out of season, whatever the text", () => {
     const r = guardOpenAir(act({ text: "Spielen zum Abschluss", ref: "way/4", alts: ["way/3"] }), c, "2037-12-23", undefined);
     expect(r).toEqual({ act: act({ text: "Spielen zum Abschluss", ref: "way/4" }), dropped: 1 });
+  });
+
+  it("months-only trip in winter: the bath goes too", () => {
+    const r = guardOpenAir(act({ text: "Spielen", ref: "way/4", alts: ["way/3"] }), c, null, undefined, [12]);
+    expect(r).toEqual({ act: act({ text: "Spielen", ref: "way/4" }), dropped: 1 });
+  });
+
+  it("a text naming the removed ref gets the new ref's name", () => {
+    const r = guardOpenAir(act({ text: "Rutschen im Passauer Erlebnisbad", ref: "way/3", alts: ["way/6"] }), c, "2037-12-23", undefined);
+    expect(r.act).toEqual(act({ text: "Rutschen im Therme", ref: "way/6" }));
+  });
+
+  it("a text naming a removed place with nothing left loses the name; only the name → activity dropped", () => {
+    expect(guardOpenAir(act({ text: "Baden im PEB, drinnen", ref: "way/3" }), c, SUMMER, undefined)).toEqual({
+      act: act({ text: "Baden, drinnen" }),
+      dropped: 1,
+    });
+    // An alternative's name is cut out with its connector, the ref stays.
+    expect(guardOpenAir(act({ text: "Babalu Funpark oder Freibad Haselbach", ref: "way/4", alts: ["way/5"] }), c, "2037-12-23", undefined).act).toEqual(
+      act({ text: "Babalu Funpark", ref: "way/4" }),
+    );
+    expect(guardOpenAir(act({ text: "Passauer Erlebnisbad (PEB)", ref: "way/3" }), c, "2037-12-23", undefined)).toEqual({ act: null, dropped: 1 });
   });
 
   it("keeps an open-air pool for an outdoor activity in summer, and everything else", () => {

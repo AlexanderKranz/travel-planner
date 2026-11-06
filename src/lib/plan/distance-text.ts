@@ -5,11 +5,18 @@
  * Speeds ("50 km/h") and times ("15 min") are not distances.
  */
 
-/** Number + distance unit (de + en). Shared with the eval check, so both see the same thing. */
-export const DISTANCE_TEXT =
-  /(?<![\p{L}\p{N}.,])\d+(?:[.,]\d+)?[\s-]?(?:km|m|kilometer[ns]?|kilometres?|kilometers|meter[ns]?|metres?|meters|miles?|meilen)(?![\p{L}\p{N}/²³])/iu;
+const NUM = String.raw`\d+(?:[.,]\d+)?`;
+const UNIT = String.raw`(?:km|m|kilometer[ns]?|kilometres?|kilometers|meter[ns]?|metres?|meters|miles?|meilen)`;
+/**
+ * Number (or range: "10-15", "2 bis 3", "2 und 3") + distance unit (de + en). A number glued to a word ("A3") or
+ * inside another number ("1.5" from "5") never starts a match; "ca.15 km" does. Shared with the eval check.
+ */
+export const DISTANCE_TEXT = new RegExp(
+  String.raw`(?<![\p{L}\p{N}]|\d[.,])${NUM}(?:\s*(?:-|–|bis|to|und|and)\s*${NUM})?[\s-]?${UNIT}(?![\p{L}\p{N}/²³])`,
+  "iu",
+);
 
-const APPROX = String.raw`(?:(?:etwa|ca\.|ca|circa|rund|ungefähr|knapp|gut|nur|über|unter|bis zu|about|around|approx\.|approximately|roughly|nearly|almost|only|over|under|up to|some)\s+)?~?`;
+const APPROX = String.raw`(?:(?:etwa|ca\.|ca|circa|rund|ungefähr|knapp|gut|nur|über|unter|bis zu|zwischen|von|about|around|approx\.|approximately|roughly|nearly|almost|only|over|under|up to|some|between|from)\s*)?~?`;
 const NUMBER_UNIT = DISTANCE_TEXT.source;
 /** "15 km entfernt" / "15 km away": the phrase reads naturally with "weiter" / "further" instead of the number. */
 const AWAY = new RegExp(String.raw`(?<![\p{L}])${APPROX}${NUMBER_UNIT}(\s+)(entfernt|away)\b`, "giu");

@@ -60,29 +60,77 @@ export function winterAt(lat: number, month: number): boolean {
   return winter.includes(month) || (abs >= 45 && (month === 10 || month === 4));
 }
 
-/** Is an open-air bath at `lat` out of season on `date`? Climate decides when the month has data, else `winterAt`. */
-export function outOfSeason(date: string | null | undefined, lat: number | undefined, climate: PlanInputStored["llm"]["climate"]): boolean {
-  if (!date) return false;
-  const m = Number(date.slice(5, 7));
+/** Out of season in month `m`: climate decides when the month has data, else `winterAt`. */
+function monthOutOfSeason(m: number, lat: number | undefined, climate: PlanInputStored["llm"]["climate"]): boolean {
   const c = climate?.find((x) => x.m === m);
   if (c) return c.tmax < OPEN_AIR_MIN_TMAX;
   return lat !== undefined && winterAt(lat, m);
 }
 
 /**
- * Removes open-air baths from ref/alts of an indoor activity, or when out of season on `date`; `dropped` counts
- * removed keys.
+ * Is an open-air bath at `lat` out of season on `date`? A trip with months only (no dates) counts as out of season
+ * when every selected month is.
+ */
+export function outOfSeason(
+  date: string | null | undefined,
+  lat: number | undefined,
+  climate: PlanInputStored["llm"]["climate"],
+  months?: readonly number[],
+): boolean {
+  if (date) return monthOutOfSeason(Number(date.slice(5, 7)), lat, climate);
+  return !!months?.length && months.every((m) => monthOutOfSeason(m, lat, climate));
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** Name forms a text may use: "Passauer Erlebnisbad (PEB)" → itself, "Passauer Erlebnisbad", "PEB". Longest first. */
+function nameForms(name: string): string[] {
+  const out = [name.trim()];
+  const m = /^(.*?)\s*\(([^)]+)\)\s*$/.exec(name);
+  if (m) out.push(m[1].trim(), m[2].trim());
+  return [...new Set(out.filter((x) => x.length >= 3))].sort((a, b) => b.length - a.length);
+}
+/** Preposition, article or connector that belongs to a removed name ("im", "zum", "oder", "at the" ...), de + en. */
+const LEAD = String.raw`(?:\s+(?:in das|in der|at the|in the|to the|im|ins|in|zum|zur|am|beim|ans|an|oder|und|at|to|or|and|the))?`;
+
+/**
+ * The activity text without a removed place's name: the new ref's name when the ref was swapped, else the name is
+ * cut out together with its leading preposition or connector (no new wording, so it works in any language).
+ */
+export function rewriteRemovedName(text: string, removed: string, replacement: string | undefined): string {
+  let out = text;
+  for (const form of nameForms(removed)) {
+    const word = String.raw`(?<![\p{L}\p{N}])${escapeRe(form)}(?![\p{L}\p{N}])`;
+    if (!new RegExp(word, "iu").test(out)) continue;
+    out = replacement ? out.replace(new RegExp(word, "giu"), replacement) : out.replace(new RegExp(LEAD + String.raw`\s*` + word, "giu"), "");
+    break;
+  }
+  if (out === text) return text;
+  return out
+    .replace(/\(\s*\)/g, "")
+    .replace(/\s+([,.;:!?)])/g, "$1")
+    .replace(/^\s*[,;:]\s*/, "")
+    .replace(/[,;:]\s*$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/**
+ * Removes open-air baths from ref/alts of an indoor activity, or when out of season on `date` (or in every selected
+ * month of a trip without dates); `dropped` counts removed keys. A text that names a removed place gets the new
+ * ref's name (ref swapped) or loses the name; `act` is null when nothing of the text is left.
  */
 export function guardOpenAir(
   a: PlanActivity,
   c: PlaceClass,
   date: string | null | undefined,
   climate: PlanInputStored["llm"]["climate"],
-): { act: PlanActivity; dropped: number } {
+  months?: readonly number[],
+): { act: PlanActivity | null; dropped: number } {
   if (!a.ref) return { act: a, dropped: 0 };
   const indoor = INDOOR_TEXT.test(a.text) || c.group.get(a.ref) === "indoor" || c.category.get(a.ref) === "leisure=indoor_play";
   const keys = [a.ref, ...(a.alts ?? [])];
-  const kept = keys.filter((k) => !(isOpenAirPlace(k, c) && (indoor || outOfSeason(date, c.lat.get(k), climate)))) as OsmKey[];
+  const isRemoved = (k: string) => isOpenAirPlace(k, c) && (indoor || outOfSeason(date, c.lat.get(k), climate, months));
+  const kept = keys.filter((k) => !isRemoved(k)) as OsmKey[];
   const dropped = keys.length - kept.length;
   if (!dropped) return { act: a, dropped: 0 };
   const act: PlanActivity = { ...a };
@@ -92,5 +140,11 @@ export function guardOpenAir(
     act.ref = kept[0];
     if (kept.length > 1) act.alts = kept.slice(1);
   }
-  return { act, dropped };
+  const swapped = act.ref !== a.ref ? act.ref : undefined;
+  for (const k of keys.filter(isRemoved)) {
+    const name = c.name.get(k);
+    // Only the old ref is replaced by the new one; a removed alternative's name is cut out.
+    if (name) act.text = rewriteRemovedName(act.text, name, k === a.ref && swapped ? c.name.get(swapped) : undefined);
+  }
+  return { act: act.text ? act : null, dropped };
 }

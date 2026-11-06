@@ -6,7 +6,7 @@ import { PATCH_ADDENDUM, SYSTEM_RULES } from "@/lib/plan/prompt";
 import type { PlanInputStored } from "@/lib/plan/input";
 import { WirePatch, WirePlan, composeRequest, generateMaxTokens, normalizePatch, normalizePlan, patchBlocks, patchPlan, patchRequest, patchScope } from "./compose";
 import { outputFormat } from "./client";
-import { needsTags, normalizeTags, tagsRequest } from "./purpose-tags";
+import { finishTags, needsTags, normalizeTags, tagsRequest } from "./purpose-tags";
 
 vi.mock("server-only", () => ({}));
 
@@ -255,5 +255,27 @@ describe("patch with fixed items", () => {
     expect(SYSTEM_RULES).toContain("cafes (c..)");
     expect(PATCH_ADDENDUM).toMatch(/cafes = \{ near, kids \}/);
     expect(PATCH_ADDENDUM).toMatch(/never set needPlaces for it/);
+  });
+});
+
+describe("finishTags (issue #142)", () => {
+  // The recorded indoor-play-de wire, but without family_activities (as a flaky Haiku call could return it).
+  const wire = {
+    v: 2,
+    interests: ["nature_wildlife"],
+    custom: [],
+    hard: [],
+    soft: [],
+    summary: "Toddler, indoor playground when it rains.",
+    activities: [{ types: ["indoor_play"], open: false }, { types: ["playground"], open: false }],
+  };
+  it("adds family_activities first for 'Tochter (2,5)' and keeps the rest", () => {
+    const t = finishTags(wire, { text: "Mit unserer Tochter (2,5): bei Regen in einen Indoorspielplatz, sonst auf einen Spielplatz am Fluss.", constraints: [] });
+    expect(t.interests).toEqual(["family_activities", "nature_wildlife"]);
+    expect(t.activities?.flatMap((w) => w.types)).toEqual(["indoor_play", "playground"]);
+    expect(t).not.toHaveProperty("cuisine");
+  });
+  it("an adult daughter does not count", () => {
+    expect(finishTags(wire, { text: "Städtereise mit meiner Tochter (35)", constraints: [] }).interests).toEqual(["nature_wildlife"]);
   });
 });

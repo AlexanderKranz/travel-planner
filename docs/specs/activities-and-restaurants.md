@@ -443,16 +443,20 @@ hash). Each guard counts what it did in the assemble issues, which `plan.generat
 2. **Distances in prose** (`src/lib/plan/distance-text.ts`). Every model prose field (titles, stop places,
    activity texts, notes, warnings, open items, packing, summary; never verified place names) has number + unit
    (km, m, Kilometer, Meter, miles, Meilen, also "5-km-Runde") removed together with an approximation word ("etwa",
-   "ca.", "about" ...). "15 km entfernt" / "15 km away" becomes "weiter entfernt" / "further away", "(15 km)"
+   "ca.", "ca.15", "about" ...). Ranges go as a whole ("10-15 km", "2 bis 3 km", "zwischen 2 und 3 km"). "15 km entfernt" / "15 km away" becomes "weiter entfernt" / "further away", "(15 km)"
    disappears. Chosen over dropping the sentence (loses the warning) and over logging only (the user would still
    read an unverified distance); the rest of the sentence keeps its meaning. Speeds (km/h) and minutes are not
    touched. Eval: generic check "no distances in prose" (same regex). The Würzburg warning now reads "Rudervereine
    liegen weiter entfernt; …".
 3. **Flaky family tags** (`src/lib/plan/family-mention.ts`, applied in `finishTags` after `normalizeTags`). If the
    purpose text or a constraint mentions Kleinkind, Kind (capitalized), Kinder, Familie(n…), Baby, toddler, kid(s),
-   child(ren) or family/families as whole words, `family_activities` is added. Compounds with Kind-/Kinder-
-   (Kindergeburtstag, Kinderbuch, Kindheit) do not count: they name a thing, not who travels; "Familien…"
-   compounds do (Familienurlaub; known false positive: Familienforschung). Only `interests` changes: `cuisine.kids`
+   child(ren) or family/families as whole words, `family_activities` is put first (added, or moved to the front if
+   Haiku had it later), so the MAX_INTEREST_QUERIES cap never drops it; guided interests still come before all tag
+   interests. Tochter/Sohn/Enkel(in)/daughter/son/grandchild count only with a child age (under 14) next to them
+   ("Tochter (2,5)", "2-jährige Tochter", "son, 3 years old"). Negated mentions ("ohne Kinder", "keine kleinen
+   Kinder", "no kids", "without children") and "-frei/-free/-los" ("kinderfrei", "child-free") do not count, nor
+   compounds with Kind-/Kinder- (Kindergeburtstag, Kinderbuch, Kindheit): they name a thing, not who travels;
+   "Familien…" compounds do (Familienurlaub; known false positive: Familienforschung). Only `interests` changes: `cuisine.kids`
    and `cafes` stay an explicit ask (A4). Applied to new tags only; purposes tagged before keep their cached tags
    until their text changes. Eval: the cruise tags check and four tag cases require `family_activities`; the
    recorded `family-alone-de` case (Haiku left it out) now passes through the fallback.
@@ -461,8 +465,12 @@ hash). Each guard counts what it did in the assemble issues, which `plan.generat
    note "Freibad" included); the plan index stores `g` (outdoor/indoor) for them. Older cached candidates without
    the flag fall back to the name. Assembly removes an open-air bath from `ref` and `alts` when the activity is
    indoor (wording such as drinnen/indoor/bei Regen, or an indoor ref) or out of season (climate month tmax below
-   18 °C; without climate data the local winter months at the bath's latitude, from 35°). A removed ref is replaced
-   by the first remaining alternative. Eval: the cruise generation and the family patch check refs and alts with
+   18 °C; without climate data the local winter months at the bath's latitude, from 35°; a trip with months only:
+   when every selected month is out of season). A removed ref is replaced by the first remaining alternative. If
+   the activity text names a removed place, the name becomes the new ref's name (ref swapped) or is cut out with its
+   preposition/connector ("im", "oder", "at the" ...); no new wording, so no message key is needed. An activity
+   whose text was only that name is dropped. The index `g` survives the stored-input reload for patches
+   (`StoredInput` in plan-store; optional, older rows parse; not hashed). Eval: the cruise generation and the family patch check refs and alts with
    the input's classification. The recorded PEB alternatives (days 1 and 5, family patch day 1) are now removed.
 
 Not done, on purpose:
