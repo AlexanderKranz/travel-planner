@@ -89,6 +89,8 @@ export function normalizePatch(w: z.infer<typeof WirePatch>): LlmPatch {
   if (w.open !== undefined) out.open = w.open;
   const need = needPlacesOf(w.needPlaces);
   if (need) out.needPlaces = need;
+  // The model asked for places the app cannot load (unknown kinds): its "I will load them" reply must not reach the user.
+  else if (w.needPlaces) out.needPlacesUnusable = true;
   return out;
 }
 
@@ -106,7 +108,10 @@ function needPlacesOf(n: z.infer<typeof WirePatch>["needPlaces"]): NeedPlaces | 
     const include = cuisineList(c?.include);
     const exclude = cuisineList(c?.exclude);
     out.restaurants = {
-      ...(c && (c.local || include.length || exclude.length) ? { cuisine: { local: c.local === true, include, exclude } } : {}),
+      // `local` only when the model set it, so extendInput can keep the earlier wish otherwise.
+      ...(c && (c.local !== undefined || include.length || exclude.length)
+        ? { cuisine: { ...(c.local !== undefined ? { local: c.local } : {}), include, exclude } }
+        : {}),
       ...(n.restaurants.near?.trim() ? { near: n.restaurants.near.trim() } : {}),
     };
   }
@@ -220,7 +225,11 @@ export async function patchPlan(
   const r = await callStructured(patchRequest(a), ctx);
   if (!r.ok) return r;
   const data = normalizePatch(r.data);
-  // The second call cannot request places again (spec section 4): code drops a repeated request.
-  if (a.loaded) delete data.needPlaces;
+  // The second call cannot request places again (spec section 4): code drops a repeated request and flags it,
+  // so a reply like "I will load them" is never shown.
+  if (a.loaded && data.needPlaces) {
+    delete data.needPlaces;
+    data.needPlacesUnusable = true;
+  }
   return { ...r, data };
 }

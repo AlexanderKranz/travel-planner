@@ -92,14 +92,15 @@ export function PlanIterate({
           feedback: { chips, days, ...(text.trim() ? { text: text.trim() } : {}) },
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; reply?: string; unchanged?: boolean; rejectedDays?: number[] };
+      const json = (await res.json().catch(() => ({}))) as { error?: string; reply?: string; unchanged?: boolean; rejectedDays?: number[]; notice?: string };
       if (!res.ok) {
         setError(asPlanError(json.error));
         return;
       }
       const rejected = Array.isArray(json.rejectedDays) ? json.rejectedDays.filter((n) => Number.isInteger(n)) : [];
       const rejectedText = rejected.length ? t("shrinkRejected", { count: rejected.length, days: rejected.join(", ") }) : null;
-      const main = rejected.length && json.unchanged ? null : json.unchanged ? t("noChange") : (json.reply ?? t("done"));
+      const unchangedText = json.notice === "places_not_loadable" ? t("placesNotLoadable") : t("noChange");
+      const main = rejected.length && json.unchanged ? null : json.unchanged ? unchangedText : (json.reply ?? t("done"));
       setReply([main, rejectedText].filter(Boolean).join(" "));
       setChips([]);
       setDays([]);
@@ -206,7 +207,8 @@ export function PlanIterate({
           </p>
         )}
       </div>
-      <PlanErrorBanner error={error} />
+      {/* A change request whose places are still loading: no "generate without these places" option here. */}
+      <PlanErrorBanner error={error} message={error === "places_pending" ? t("placesPending") : undefined} />
 
       <div className="flex flex-col gap-3 border-t border-line pt-4">
         <h3 className="text-base font-semibold">{t("edit.title")}</h3>

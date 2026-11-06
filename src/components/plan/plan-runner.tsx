@@ -225,8 +225,8 @@ export function PlanRunner({
   );
 }
 
-/** Plan-specific wording for the errors the plan routes can return. */
-export function PlanErrorBanner({ error }: { error: ActionError | null }) {
+/** Plan-specific wording for the errors the plan routes can return; `message` overrides it (e.g. iterate wording). */
+export function PlanErrorBanner({ error, message }: { error: ActionError | null; message?: string }) {
   const t = useTranslations("plan.errors");
   if (!error) return null;
   if (error === "unauthenticated") return <ErrorBanner error={error} />;
@@ -235,7 +235,7 @@ export function PlanErrorBanner({ error }: { error: ActionError | null }) {
       role="alert"
       className="rounded-lg border border-danger-line bg-danger-bg p-3 text-sm text-danger-fg"
     >
-      {t(error)}
+      {message ?? t(error)}
     </div>
   );
 }

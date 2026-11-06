@@ -335,6 +335,8 @@ export const LlmPatch = z.object({
   notes: LlmPlan.shape.notes.optional(),
   open: LlmPlan.shape.open.optional(),
   needPlaces: NeedPlaces.optional(),
+  /** Set by code: the model asked for places that cannot be loaded (unknown kinds, or again after loading). */
+  needPlacesUnusable: z.boolean().optional(),
 });
 export type LlmPatch = z.infer<typeof LlmPatch>;
 

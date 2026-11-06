@@ -33,9 +33,13 @@ export function resolveNeedPlaces(need: NeedPlaces | undefined, stored: PlanInpu
     const c = need.restaurants.cuisine;
     const include = cuisines(c?.include);
     const exclude = cuisines(c?.exclude);
-    const cuisine = c && (c.local || include.length || exclude.length) ? { local: c.local === true, include, exclude } : undefined;
+    const cuisine =
+      c && (c.local !== undefined || include.length || exclude.length)
+        ? { ...(c.local !== undefined ? { local: c.local } : {}), include, exclude }
+        : undefined;
     const nearId = need.restaurants.near?.trim();
-    const hit = nearId ? stored.index[nearId] : undefined;
+    // Own keys only: a model-supplied "constructor" or "__proto__" must never resolve.
+    const hit = nearId && Object.hasOwn(stored.index, nearId) ? stored.index[nearId] : undefined;
     restaurants = {
       ...(cuisine ? { cuisine } : {}),
       ...(hit && nearId ? { near: { id: nearId, lat: hit.place.lat, lon: hit.place.lon } } : {}),
@@ -46,9 +50,25 @@ export function resolveNeedPlaces(need: NeedPlaces | undefined, stored: PlanInpu
 }
 
 /**
+ * The change request's cuisine on top of the earlier wish: `local`, `include` and `exclude` the request leaves
+ * unset are kept ("and no pizza" keeps "local food"). Pure.
+ */
+export function mergeCuisine(
+  prev: { local?: boolean; include?: string[]; exclude?: string[] } | undefined,
+  next: CuisineWish | undefined,
+): CuisineWish | undefined {
+  if (!prev && !next) return undefined;
+  return {
+    local: next?.local ?? prev?.local === true,
+    include: next?.include?.length ? [...next.include] : [...(prev?.include ?? [])],
+    exclude: next?.exclude?.length ? [...next.exclude] : [...(prev?.exclude ?? [])],
+  };
+}
+
+/**
  * Stored input + loaded places -> the input of the new version (pure). Activity places of the requested types are
  * added as one more wish labelled FEEDBACK_WISH. Restaurants around the destination replace the RESTAURANTS block
- * (new cuisine filter; the cuisine of the old block is kept when the request names none); restaurants around a
+ * (the request's cuisine merged with the old block's wish, `mergeCuisine`); restaurants around a
  * place go into `restaurantsNear`. Every old index entry stays, so refs of untouched days remain valid.
  */
 export function extendInput(
@@ -71,8 +91,7 @@ export function extendInput(
     }
   }
   if (req.restaurants && loaded.restaurants) {
-    const prevAsk = stored.llm.restaurants?.ask;
-    const cuisine = req.restaurants.cuisine ?? (prevAsk ? { local: prevAsk.local === true, include: prevAsk.include ?? [], exclude: prevAsk.exclude ?? [] } : undefined);
+    const cuisine = mergeCuisine(stored.llm.restaurants?.ask, req.restaurants.cuisine);
     const rest = restaurantsInput(loaded.restaurants, {
       cuisine,
       countryCode: a.countryCode,

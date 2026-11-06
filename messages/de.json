@@ -889,6 +889,8 @@
       "title": "Plan anpassen",
       "done": "Der Plan wurde aktualisiert.",
       "noChange": "Es hat sich nichts geändert.",
+      "placesPending": "Die Orte für diese Änderung konnten noch nicht geladen werden (OpenStreetMap antwortet gerade langsam). Sie werden im Hintergrund weiter geladen: bitte die Änderung in einer Minute erneut anwenden.",
+      "placesNotLoadable": "Es hat sich nichts geändert: Die Orte, die diese Änderung braucht, kann die App nicht laden. Bitte anders formulieren oder eine andere Art von Ort wählen.",
       "saved": "Gespeichert.",
       "chipsLabel": "Was soll sich ändern?",
       "scopeLabel": "Welche Tage?",
