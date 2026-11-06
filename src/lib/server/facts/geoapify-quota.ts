@@ -7,8 +7,11 @@ import { getEffectiveEnv } from "../settings";
 
 /** Default daily credit cap, a margin below the free plan's 3,000 credits/day. */
 export const GEOAPIFY_DAILY_CREDITS_DEFAULT = 2000;
-/** Most one lookup can cost: three category groups (city sights) at the full page size. */
-const MAX_LOOKUP_CREDITS = 3 * geoapifyCredits(GEOAPIFY_LIMIT);
+/**
+ * Most one lookup can cost: six per-type requests (indoor activity group: escape room, bowling, cinema, theatre,
+ * climbing hall, swimming) at the full page size; city sights use three category groups.
+ */
+const MAX_LOOKUP_CREDITS = 6 * geoapifyCredits(GEOAPIFY_LIMIT);
 /**
  * Headroom kept free below the cap: credits are logged only after a lookup finishes, so the lookups of one plan
  * (up to MAX_INTEREST_QUERIES in parallel) all read the same total. Cheaper than an atomic reservation, and the

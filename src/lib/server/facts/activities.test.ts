@@ -12,7 +12,9 @@ type Opts = {
 };
 type Entry = { data: unknown; expired: boolean };
 const h = vi.hoisted(() => ({
-  calls: [] as { provider: string; key: string; allowed: boolean | null }[],
+  calls: [] as { provider: string; key: string; allowed: boolean | null; units?: number }[],
+  /** Errors a fetcher threw (the real cached() reads `units` from them for the quota). */
+  errors: [] as unknown[],
   /** Fake api_cache per provider: a fresh entry is a hit (fetcher not called), an expired one is served stale on failure. */
   store: new Map<string, { data: unknown; expired: boolean }>(),
   /** Providers whose cached() fails in its outer catch without running the fetcher. */
@@ -25,7 +27,9 @@ vi.mock("../api-cache", () => ({
   cacheKey: (e: string, v: number, p: Record<string, string | number>) => `${e}:v${v}:${JSON.stringify(p)}`,
   // Mirrors the real cached(): fresh row = hit without a fetch, gate checked only after that, failure = stale row or error.
   cached: async (o: Opts) => {
-    const entry = h.store.get(o.provider) as Entry | undefined;
+    // Exact row first (written by an earlier miss); else a seeded row: `provider` = any key, `provider#text` = keys containing text.
+    const seeded = [...h.store].find(([k]) => k.startsWith(`${o.provider}#`) && !k.startsWith(`${o.provider}#{`) && o.key.includes(k.slice(o.provider.length + 1)));
+    const entry = (h.store.get(`${o.provider}#${o.key}`) ?? seeded?.[1] ?? h.store.get(o.provider)) as Entry | undefined;
     const call = { provider: o.provider, key: o.key, allowed: null as boolean | null };
     h.calls.push(call);
     if (h.broken.has(o.provider)) return { ok: false, error: "provider_error" };
@@ -38,10 +42,12 @@ vi.mock("../api-cache", () => ({
     }
     try {
       const r = await o.fetcher();
+      call.units = r.units;
       const data = o.schema.parse(r.data);
-      h.store.set(o.provider, { data, expired: false });
+      h.store.set(`${o.provider}#${o.key}`, { data, expired: false });
       return { ok: true, data, fetchedAt: "2026-11-06T00:00:00.000Z", stale: false, cache: "miss" };
-    } catch {
+    } catch (err) {
+      h.errors.push(err);
       return entry ? { ok: true, data: entry.data, fetchedAt: "2026-10-01T00:00:00.000Z", stale: true, cache: "stale" } : { ok: false, error: "provider_error" };
     }
   },
@@ -57,6 +63,7 @@ vi.mock("@/lib/integrations/overpass", async (orig) => ({
   runQuery: h.runQuery,
 }));
 
+import { ACTIVITY_SOURCES } from "@/lib/facts/activity-types";
 import { parseElements, buildQuery } from "@/lib/integrations/overpass";
 import {
   GEOAPIFY_RESTAURANT_LIMIT,
@@ -67,6 +74,7 @@ import {
   getActivityGroupFacts,
   getCafeFacts,
   getRestaurantFacts,
+  mergeGroupParts,
 } from "./activities";
 import type { GeoDestination } from "./common";
 
@@ -93,6 +101,7 @@ const freshOverpass = (items: unknown[], truncated = false) => h.store.set("over
 
 beforeEach(() => {
   h.calls = [];
+  h.errors = [];
   h.store.clear();
   h.broken.clear();
   h.events = [];
@@ -118,7 +127,7 @@ describe("getActivityGroupFacts", () => {
     expect(f.data).toMatchObject({ group: "indoor", radiusKm: 15, truncated: false });
     expect(f.data.places.some((p) => p.types.includes("escape_game"))).toBe(true);
     expect(h.calls.map((c) => `${c.provider}:${c.allowed}`)).toEqual(["overpass:false", "overpass:true"]);
-    expect(h.calls[0].key).toContain("interpreter:v3:");
+    expect(h.calls[0].key).toContain("interpreter:v4:");
   });
 
   it("a cached result is served without a query (the fetcher is not run on a hit)", async () => {
@@ -143,14 +152,6 @@ describe("getActivityGroupFacts", () => {
     expect(h.runQuery).not.toHaveBeenCalled();
     expect(h.fetchPlaces.mock.calls[0][0]).toEqual([["catering.bar", "catering.pub", "catering.biergarten"]]);
     expect(f.status === "ok" && f.data.places.map((p) => p.name)).toEqual(["Hofbräu Bar"]);
-  });
-
-  it("indoor has an unmapped type (karaoke): Geoapify is not used even with a key", async () => {
-    vi.stubEnv("GEOAPIFY_API_KEY", "k");
-    h.runQuery.mockResolvedValue(overpassAnswer("indoor-wuerzburg-15km.json"));
-    await getActivityGroupFacts("indoor", dest("city"), ctx);
-    expect(h.fetchPlaces).not.toHaveBeenCalled();
-    expect(h.calls.some((c) => c.provider === "geoapify")).toBe(false);
   });
 
   it("a complete lookup without a match is empty", async () => {
@@ -390,5 +391,214 @@ describe("per-line radius in the group union", () => {
     expect(halfHeightKm(playground)).toBeCloseTo(3, 0);
     expect(halfHeightKm(rowing)).toBeCloseTo(25, 0);
     expect(halfHeightKm(minigolf)).toBeCloseTo(15, 0);
+  });
+});
+
+describe("split lookup per source", () => {
+  const geoNode = (id: number, tags: Record<string, string>) => ({ type: "node" as const, id, lat: 49.792, lon: 9.954, tags: { name: `p${id}`, ...tags } });
+  /** Answers per Geoapify category list: the first category decides the elements. */
+  const geoByCategory = (byCat: Record<string, ReturnType<typeof geoNode>[]>, extra: Record<string, object> = {}) =>
+    h.fetchPlaces.mockImplementation(async (groups: string[][]) => ({
+      elements: byCat[groups[0][0]] ?? [], status: 200, latencyMs: 5, credits: 1, truncated: false, ...extra[groups[0][0]],
+    }));
+  const opLines = () => (h.runQuery.mock.calls[0][0] as string).split("\n").filter((l) => l.startsWith("  nwr"));
+  const emptyOverpass = { elements: [], status: 200, latencyMs: 1, mirror: "m" };
+  beforeEach(() => vi.stubEnv("GEOAPIFY_API_KEY", "k"));
+
+  it("indoor: one Geoapify request per mapped type with its own radius, Overpass only for the unmapped types", async () => {
+    geoByCategory({ "entertainment.escape_game": [geoNode(1, { leisure: "escape_game" })], "entertainment.cinema": [geoNode(2, { amenity: "cinema" })] });
+    h.runQuery.mockResolvedValue({ elements: [geoNode(3, { amenity: "karaoke_box" })], status: 200, latencyMs: 1, mirror: "m" });
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(h.fetchPlaces.mock.calls.map((c) => c[0])).toEqual([
+      [["entertainment.escape_game"]],
+      [["entertainment.bowling_alley"]],
+      [["entertainment.cinema"]],
+      [["entertainment.culture.theatre"]],
+      [["entertainment.activity_park.climbing"]],
+      [["sport.swimming_pool", "sport.sports_centre", "entertainment.water_park", "leisure.spa.public_bath"]],
+    ]);
+    expect(h.fetchPlaces.mock.calls.map((c) => c[2])).toEqual([10000, 10000, 10000, 10000, 15000, 15000]);
+    expect(h.runQuery).toHaveBeenCalledTimes(1);
+    const lines = opLines();
+    expect(lines.length).toBe(2); // karaoke, indoor_play
+    expect(lines.join()).not.toMatch(/cinema|escape_game|bowling|theatre|swimming|water_park|public_bath|climbing/);
+    expect(f.status).toBe("ok");
+    if (f.status !== "ok") return;
+    expect(f.data.partial).toBe(false);
+    expect(f.data.places.map((p) => p.types[0]).sort()).toEqual(["cinema", "escape_game", "karaoke"]);
+    expect(f.data.typeStatus).toMatchObject({
+      escape_game: "ok", cinema: "ok", karaoke: "ok", bowling: "empty", theatre: "empty", swimming: "empty", climbing_hall: "empty", indoor_play: "empty",
+    });
+  });
+
+  it("outdoor: boat rental, minigolf and playground (3 km) via Geoapify, the other five types via Overpass", async () => {
+    geoByCategory({});
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    await getActivityGroupFacts("outdoor", dest("city"), ctx);
+    expect(h.fetchPlaces.mock.calls.map((c) => [c[0][0][0], c[2]])).toEqual([
+      ["rental.boat", 25000],
+      ["entertainment.miniature_golf", 15000],
+      ["leisure.playground", 3000],
+    ]);
+    expect(opLines().length).toBe(5);
+  });
+
+  it("cache keys: versioned, one per part and provider; the keyless lookup has its own all-types key", async () => {
+    geoByCategory({});
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    await getActivityGroupFacts("indoor", dest("city"), ctx);
+    const geo = h.calls.filter((c) => c.provider === "geoapify");
+    expect(geo).toHaveLength(1);
+    expect(geo[0].key).toMatch(/^places:v4:.*"part":"geo","t":"escape_game,bowling,cinema,theatre,climbing_hall,swimming"/);
+    const op = h.calls.filter((c) => c.provider === "overpass");
+    expect(op.every((c) => c.key.startsWith("interpreter:v4:"))).toBe(true);
+    expect(op.some((c) => c.key.includes('"part":"osm","t":"karaoke,indoor_play"'))).toBe(true);
+    vi.stubEnv("GEOAPIFY_API_KEY", "");
+    h.calls = [];
+    await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(h.calls.every((c) => c.key.includes('"part":"osm","t":"escape_game,bowling,cinema,theatre,karaoke,climbing_hall,indoor_play,swimming"'))).toBe(true);
+  });
+
+  it("both parts cached: a later cache-only lookup is served from the two rows, nothing is fetched", async () => {
+    geoByCategory({ "entertainment.cinema": [geoNode(2, { amenity: "cinema" })] });
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    await getActivityGroupFacts("indoor", dest("city"), ctx);
+    h.fetchPlaces.mockClear();
+    h.runQuery.mockClear();
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx, { budgetMs: 0 });
+    expect(h.fetchPlaces).not.toHaveBeenCalled();
+    expect(h.runQuery).not.toHaveBeenCalled();
+    expect(f).toMatchObject({ status: "ok", data: { partial: false, typeStatus: { cinema: "ok", karaoke: "empty" } } });
+  });
+
+  it("Overpass part fails, Geoapify part ok: the Geoapify places stay, only the Overpass-only types are error", async () => {
+    geoByCategory({ "entertainment.cinema": [geoNode(2, { amenity: "cinema" })] });
+    h.runQuery.mockRejectedValue(new Error("504"));
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(f.status).toBe("ok");
+    if (f.status !== "ok") return;
+    expect(f.data.partial).toBe(true);
+    expect(f.data.places.map((p) => p.name)).toEqual(["p2"]);
+    expect(f.data.typeStatus).toMatchObject({ cinema: "ok", escape_game: "empty", swimming: "empty", climbing_hall: "empty", karaoke: "error", indoor_play: "error" });
+  });
+
+  it("Overpass part fails and Geoapify finds nothing: ok + partial, never empty", async () => {
+    geoByCategory({});
+    h.runQuery.mockRejectedValue(new Error("504"));
+    expect(await getActivityGroupFacts("indoor", dest("city"), ctx)).toMatchObject({ status: "ok", data: { places: [], partial: true } });
+  });
+
+  it("Geoapify fails: its types fall back to Overpass (union of just those lines), the rest runs separately", async () => {
+    h.fetchPlaces.mockRejectedValue(new Error("quota"));
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(h.runQuery).toHaveBeenCalledTimes(2);
+    const q1 = h.runQuery.mock.calls[0][0] as string;
+    expect(q1).toMatch(/escape_game/);
+    expect(q1).not.toMatch(/karaoke_box/);
+    expect(h.runQuery.mock.calls[1][0] as string).toMatch(/karaoke_box/);
+    expect(f).toMatchObject({ status: "empty", data: { partial: false } });
+  });
+
+  it("Geoapify and its Overpass fallback fail, the other Overpass part works: partial, Geoapify types error", async () => {
+    h.fetchPlaces.mockRejectedValue(new Error("quota"));
+    h.runQuery
+      .mockRejectedValueOnce(new Error("504"))
+      .mockResolvedValue({ elements: [geoNode(3, { amenity: "karaoke_box" })], status: 200, latencyMs: 1, mirror: "m" });
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(f).toMatchObject({ status: "ok", data: { partial: true, typeStatus: { escape_game: "error", swimming: "error", karaoke: "ok", indoor_play: "empty" } } });
+  });
+
+  it("every part fails: error", async () => {
+    h.fetchPlaces.mockRejectedValue(new Error("quota"));
+    h.runQuery.mockRejectedValue(new Error("504"));
+    expect(await getActivityGroupFacts("indoor", dest("city"), ctx)).toEqual({ status: "error", source: "osm" });
+  });
+
+  it("cache only: the cached Overpass part is used, the uncached Geoapify part is skipped (partial)", async () => {
+    h.store.set('overpass#"part":"osm"', { data: { items: [], truncated: false }, expired: false });
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx, { budgetMs: 0 });
+    expect(h.fetchPlaces).not.toHaveBeenCalled();
+    expect(h.runQuery).not.toHaveBeenCalled();
+    expect(f).toMatchObject({ status: "ok", data: { partial: true, typeStatus: { escape_game: "skipped", karaoke: "empty" } } });
+  });
+
+  it("cache only with nothing cached: skipped", async () => {
+    expect(await getActivityGroupFacts("indoor", dest("city"), ctx, { budgetMs: 0 })).toEqual({ status: "skipped", reason: "cache_only" });
+  });
+
+  it("a type whose Geoapify page was full is cut (not empty); the other Geoapify types are still empty", async () => {
+    geoByCategory({}, { "entertainment.culture.theatre": { truncated: true } });
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(f).toMatchObject({ status: "ok", data: { truncated: true, typeStatus: { theatre: "cut", cinema: "empty", karaoke: "empty" } } });
+    expect(h.events.filter((e) => e.event === "places.truncated")).toHaveLength(1);
+  });
+
+  it("an Overpass answer at the cap cuts the Overpass-only types, not the Geoapify ones", async () => {
+    geoByCategory({});
+    h.runQuery.mockResolvedValue(cappedAnswer());
+    const f = await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(f).toMatchObject({ status: "ok", data: { typeStatus: { cinema: "empty", karaoke: "cut", indoor_play: "cut" } } });
+  });
+
+  it("quota: the Geoapify part reports the credits of all its requests as units", async () => {
+    geoByCategory({});
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(h.calls.find((c) => c.provider === "geoapify")?.units).toBe(6);
+  });
+
+  it("quota: a failure after earlier types succeeded carries their credits on the error", async () => {
+    h.fetchPlaces
+      .mockResolvedValueOnce({ elements: [], status: 200, latencyMs: 1, credits: 2, truncated: false })
+      .mockResolvedValueOnce({ elements: [], status: 200, latencyMs: 1, credits: 1, truncated: false })
+      .mockRejectedValueOnce(new Error("5xx"));
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    await getActivityGroupFacts("indoor", dest("city"), ctx);
+    expect(h.errors[0]).toMatchObject({ units: 3 });
+  });
+
+  it("going_out is unchanged: one Geoapify request with its three categories, no Overpass", async () => {
+    h.fetchPlaces.mockResolvedValue(geoBar);
+    const f = await getActivityGroupFacts("going_out", dest("city"), ctx);
+    expect(h.fetchPlaces).toHaveBeenCalledTimes(1);
+    expect(h.runQuery).not.toHaveBeenCalled();
+    expect(f).toMatchObject({ status: "ok", data: { partial: false, typeStatus: { bar: "ok" } } });
+  });
+
+  it("every catalogue type of a group gets a status", async () => {
+    geoByCategory({});
+    h.runQuery.mockResolvedValue(emptyOverpass);
+    const f = await getActivityGroupFacts("outdoor", dest("city"), ctx);
+    if (f.status === "skipped" || f.status === "error") throw new Error("expected a result");
+    expect(Object.keys(f.data.typeStatus).sort()).toEqual(["boat_rental", "canoe", "climbing", "footgolf", "karting", "minigolf", "playground", "rowing"]);
+  });
+});
+
+describe("mergeGroupParts", () => {
+  const fact = (status: "ok" | "empty", over: object = {}) =>
+    ({ status, data: { places: [], truncated: false }, source: "osm", sourceUrl: "u", fetchedAt: "2026-11-06T00:00:00.000Z", stale: false, ...over }) as never;
+  it("empty only when every part is complete and empty", () => {
+    const parts = [{ types: ["cinema"], fact: fact("empty") }, { types: ["karaoke"], fact: fact("empty") }] as never;
+    expect(mergeGroupParts("indoor", 15, parts).status).toBe("empty");
+  });
+  it("takes the oldest fetchedAt and any stale flag", () => {
+    const parts = [
+      { types: ["cinema"], fact: fact("empty", { fetchedAt: "2026-10-01T00:00:00.000Z" }) },
+      { types: ["karaoke"], fact: fact("empty", { stale: true }) },
+    ] as never;
+    expect(mergeGroupParts("indoor", 15, parts)).toMatchObject({ fetchedAt: "2026-10-01T00:00:00.000Z", stale: true });
+  });
+  it("error + skipped is error; all skipped is skipped", () => {
+    const sk = { status: "skipped", reason: "cache_only" };
+    const er = { status: "error", source: "osm" };
+    expect(mergeGroupParts("indoor", 15, [{ types: ["cinema"], fact: sk }, { types: ["karaoke"], fact: er }] as never).status).toBe("error");
+    expect(mergeGroupParts("indoor", 15, [{ types: ["cinema"], fact: sk }, { types: ["karaoke"], fact: sk }] as never)).toEqual({ status: "skipped", reason: "cache_only" });
+  });
+  it("the Geoapify-served types are exactly the ones with a category in the catalogue", () => {
+    expect(Object.entries(ACTIVITY_SOURCES).filter(([, v]) => v.geoapify).map(([k]) => k).sort()).toEqual(
+      ["bar", "boat_rental", "bowling", "cinema", "climbing_hall", "escape_game", "minigolf", "playground", "swimming", "theatre"],
+    );
   });
 });

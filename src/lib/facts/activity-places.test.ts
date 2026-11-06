@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { parseElements } from "../integrations/overpass";
-import { MAX_PER_GROUP, MAX_PER_TYPE, activityPlacesForGroup } from "./activity-places";
+import { MAX_PER_GROUP, MAX_PER_TYPE, activityPlacesForGroup, mergeActivityPlaces } from "./activity-places";
 import { selectRestaurants, toRestaurants } from "./cuisine";
 
 const fixture = (f: string) =>
@@ -99,5 +99,40 @@ describe("restaurants (recorded Overpass response, Wuerzburg, 2.5 km)", () => {
   it("without a wish no pizza or burger place is returned", () => {
     const s = selectRestaurants(all, null, "DE");
     for (const x of s.restaurants) expect(x.cuisines.some((c) => ["pizza", "burger"].includes(c))).toBe(false);
+  });
+});
+
+describe("source parts of one group", () => {
+  const els = fixture("indoor-wuerzburg-15km.json");
+  const all = activityPlacesForGroup("indoor", els, WUERZBURG);
+  const GEO = ["escape_game", "bowling", "cinema", "theatre", "climbing_hall", "swimming"] as const;
+  const OP = ["karaoke", "indoor_play"] as const;
+
+  it("a part only reports the types it was asked for", () => {
+    const geo = activityPlacesForGroup("indoor", els, WUERZBURG, GEO);
+    const op = activityPlacesForGroup("indoor", els, WUERZBURG, OP);
+    expect(new Set(geo.flatMap((p) => p.types)).has("karaoke")).toBe(false);
+    expect(new Set(op.flatMap((p) => p.types))).toEqual(new Set()); // the Wuerzburg recording has no karaoke or indoor play place
+    expect(new Set(geo.flatMap((p) => p.types))).toEqual(new Set(["escape_game", "bowling", "cinema", "theatre", "climbing_hall"]));
+  });
+  it("merging the two parts keeps every type's places and the caps", () => {
+    const merged = mergeActivityPlaces("indoor", [activityPlacesForGroup("indoor", els, WUERZBURG, GEO), activityPlacesForGroup("indoor", els, WUERZBURG, OP)]);
+    expect(new Set(merged.flatMap((p) => p.types))).toEqual(new Set(all.flatMap((p) => p.types)));
+    expect(merged.length).toBeLessThanOrEqual(MAX_PER_GROUP);
+    expect(new Set(merged.map((p) => `${p.osmType}/${p.osmId}`)).size).toBe(merged.length);
+  });
+  it("a place found by both parts is listed once with the union of its types", () => {
+    const base = all[0];
+    const a = { ...base, types: [base.types[0]] };
+    const b = { ...base, types: ["karaoke" as const] };
+    const merged = mergeActivityPlaces("indoor", [[a], [b]]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].types).toEqual(["karaoke", base.types[0]].sort((x, y) => (["escape_game", "bowling", "cinema", "theatre", "karaoke", "climbing_hall", "indoor_play", "swimming"].indexOf(x) - ["escape_game", "bowling", "cinema", "theatre", "karaoke", "climbing_hall", "indoor_play", "swimming"].indexOf(y))));
+  });
+  it("one dense part cannot crowd out the other part's type", () => {
+    const mk = (i: number, t: "cinema" | "karaoke") => ({ ...all[0], osmId: 9000 + i + (t === "karaoke" ? 500 : 0), types: [t] });
+    const cinemas = Array.from({ length: 6 }, (_, i) => mk(i, "cinema"));
+    const merged = mergeActivityPlaces("indoor", [cinemas, [mk(1, "karaoke")]]);
+    expect(merged.some((p) => p.types.includes("karaoke"))).toBe(true);
   });
 });
