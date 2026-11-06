@@ -56,7 +56,8 @@ guided purpose form, while activity types are concrete things to book. The guide
 
 The split is by place, not by time of day (Alex, 2026-11-06: minigolf is rather a day activity, so a day/evening
 split is debatable). The model picks the time from the trip's days, daylight and weather: an evening or a rainy
-day favours `indoor`. A place tagged `indoor=yes` counts as indoor even when its type is in `outdoor` (indoor minigolf). Every filter requires a name, as today. The implementer
+day favours `indoor`. A place tagged `indoor=yes` counts as indoor even when its type is in `outdoor` (indoor minigolf). Every filter requires a name, as today. `sport` (and other semicolon-list keys) match token-aware, e.g.
+`["sport"~"(^|;)climbing(;|$)"]`, so `sport=climbing;fitness` counts. The implementer
 verifies each OSM tag against the OSM wiki and drops a type whose tag is rare or ambiguous. Each kept type gets
 one recorded Overpass fixture.
 
