@@ -1,0 +1,26 @@
+{
+  "$comment": "Synthetic group weekend modelled on live feedback (activities-and-restaurants spec); no personal data. Dates are a future Friday to Sunday. Places come from the recorded Würzburg Overpass fixtures (2026-11-06).",
+  "locale": "de",
+  "trip": {
+    "destination": { "name": "Würzburg", "kind": "city" },
+    "anchor": { "placeName": "Würzburg", "countryCode": "DE", "lat": 49.7913, "lon": 9.9534, "timezone": "Europe/Berlin", "radiusKm": 15 },
+    "startDate": "2038-06-11",
+    "endDate": "2038-06-13",
+    "flights": false
+  },
+  "group": {
+    "composition": [{ "count": 6, "ageMode": "relativeToMe", "label": "Freunde" }]
+  },
+  "purpose": {
+    "name": "Gruppenwochenende",
+    "text": "Wochenende mit Freunden. Freitagabend ein gemeinsames Event, z. B. Escape Room, aber das ist nur eine Idee: schlagt vor, was die Stadt bietet. Samstag das Hauptevent, Rudern oder Footgolf, gern auch etwas anderes auf dem Wasser, was zur Stadt passt. Freitag- und Samstagabend jeweils ein Restaurant mit lokaler Küche. Sonntag gemütlich ausklingen lassen."
+  },
+  "expectations": {
+    "hard": [
+      "Friday evening: a real indoor venue with alternatives of other kinds",
+      "Saturday: a real outdoor (water) venue; footgolf missing is stated, not invented",
+      "Friday and Saturday dinner: real restaurants with German or regional cuisine"
+    ]
+  },
+  "checks": { "activities": true }
+}

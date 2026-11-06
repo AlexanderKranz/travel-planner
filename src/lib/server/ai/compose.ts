@@ -1,7 +1,9 @@
 import "server-only";
 import { z } from "zod";
 import { MODEL_PLAN, type AiCtx, type AiResult } from "@/lib/domain/ai";
-import { ActivityKind, type LlmDay, type LlmPatch, type LlmPlan, type Plan, type PlanDay, type PlanFeedback } from "@/lib/domain/plan";
+import { ActivityKind, type LlmDay, type LlmPatch, type LlmPlan, type NeedPlaces, type Plan, type PlanDay, type PlanFeedback } from "@/lib/domain/plan";
+import { ACTIVITY_TYPES, isActivityType } from "@/lib/facts/activity-types";
+import { CUISINES, type Cuisine } from "@/lib/facts/cuisine";
 import { CHIP_INSTRUCTIONS } from "@/lib/plan/chips";
 import { canonicalJson } from "@/lib/plan/hash";
 import type { PlanInput, PlanInputStored } from "@/lib/plan/input";
@@ -51,6 +53,19 @@ export const WirePatch = z.object({
   summary: z.string().optional(),
   notes: z.array(WireNote).optional(),
   open: z.array(WireOpen).optional(),
+  needPlaces: z
+    .object({
+      types: z.array(z.string().describe(ACTIVITY_TYPES.join("|"))).optional(),
+      restaurants: z
+        .object({
+          cuisine: z
+            .object({ local: z.boolean().optional(), include: z.array(z.string()).optional(), exclude: z.array(z.string()).optional() })
+            .optional(),
+          near: z.string().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
 });
 
 const kinds = new Set<string>(ActivityKind.options);
@@ -72,7 +87,30 @@ export function normalizePatch(w: z.infer<typeof WirePatch>): LlmPatch {
   if (w.summary !== undefined) out.summary = w.summary;
   if (w.notes !== undefined) out.notes = toNotes(w.notes);
   if (w.open !== undefined) out.open = w.open;
+  const need = needPlacesOf(w.needPlaces);
+  if (need) out.needPlaces = need;
   return out;
+}
+
+const isCuisine = (c: string): c is Cuisine => (CUISINES as readonly string[]).includes(c);
+const cuisineList = (xs: string[] | undefined) => [...new Set((xs ?? []).map((x) => x.trim().toLowerCase()).filter(isCuisine))];
+
+/** Wire needPlaces -> NeedPlaces with only catalogue types and known cuisines; undefined when nothing is left. */
+function needPlacesOf(n: z.infer<typeof WirePatch>["needPlaces"]): NeedPlaces | undefined {
+  if (!n) return undefined;
+  const types = [...new Set((n.types ?? []).map((t) => t.trim()).filter(isActivityType))];
+  const out: NeedPlaces = {};
+  if (types.length) out.types = types;
+  if (n.restaurants) {
+    const c = n.restaurants.cuisine;
+    const include = cuisineList(c?.include);
+    const exclude = cuisineList(c?.exclude);
+    out.restaurants = {
+      ...(c && (c.local || include.length || exclude.length) ? { cuisine: { local: c.local === true, include, exclude } } : {}),
+      ...(n.restaurants.near?.trim() ? { near: n.restaurants.near.trim() } : {}),
+    };
+  }
+  return out.types || out.restaurants ? out : undefined;
 }
 
 export const inputBlock = (llm: PlanInput) => "INPUT\n" + canonicalJson(llm);
@@ -127,6 +165,7 @@ export function patchBlocks(
   index: PlanInputStored["index"],
   feedback: PlanFeedback,
   fixed?: { now: PlanInput["fixed"]; input: PlanInput["fixed"] },
+  loaded?: boolean,
 ) {
   const pid = new Map(Object.entries(index).map(([id, v]) => [v.key as string, id]));
   const scope = new Set(patchScope(feedback, plan.days.length));
@@ -142,6 +181,8 @@ export function patchBlocks(
     do: feedback.chips.map((c) => CHIP_INSTRUCTIONS[c]),
     days: feedback.days.length ? [...scope] : undefined,
     text: feedback.text,
+    // Second call after code loaded the places the first one asked for: needPlaces is not allowed again.
+    ...(loaded ? { loaded: true } : {}),
   };
   return ["CURRENT_PLAN\n" + canonicalJson(current), "FEEDBACK\n" + canonicalJson(fb)];
 }
@@ -154,8 +195,12 @@ export function patchRequest(a: {
   feedback: PlanFeedback;
   /** Current fixed slots; sent only when they differ from `llm.fixed`. */
   fixed?: PlanInput["fixed"];
+  /** Second call after needPlaces (FEEDBACK.loaded = true). */
+  loaded?: boolean;
+  /** Client timeout for this call (the iterate deadline); default CLIENT_TIMEOUT_MS. */
+  timeoutMs?: number;
 }): StructuredRequest<typeof WirePatch> {
-  const [current, fb] = patchBlocks(a.plan, a.index, a.feedback, "fixed" in a ? { now: a.fixed, input: a.llm.fixed } : undefined);
+  const [current, fb] = patchBlocks(a.plan, a.index, a.feedback, "fixed" in a ? { now: a.fixed, input: a.llm.fixed } : undefined, a.loaded);
   return {
     task: "plan_patch",
     model: MODEL_PLAN,
@@ -164,13 +209,18 @@ export function patchRequest(a: {
     maxTokens: PATCH_MAX_TOKENS,
     system: SYSTEM_RULES + "\n\n" + PATCH_ADDENDUM,
     blocks: [{ text: inputBlock(a.llm), cache: true }, { text: current }, { text: fb }],
+    ...(a.timeoutMs ? { timeoutMs: a.timeoutMs } : {}),
   };
 }
 
 export async function patchPlan(
-  a: { llm: PlanInput; plan: Plan; index: PlanInputStored["index"]; feedback: PlanFeedback; fixed?: PlanInput["fixed"] },
+  a: Parameters<typeof patchRequest>[0],
   ctx: AiCtx,
 ): Promise<AiResult<LlmPatch>> {
   const r = await callStructured(patchRequest(a), ctx);
-  return r.ok ? { ...r, data: normalizePatch(r.data) } : r;
+  if (!r.ok) return r;
+  const data = normalizePatch(r.data);
+  // The second call cannot request places again (spec section 4): code drops a repeated request.
+  if (a.loaded) delete data.needPlaces;
+  return { ...r, data };
 }

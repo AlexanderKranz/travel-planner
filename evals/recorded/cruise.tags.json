@@ -1,37 +1,36 @@
 {
-  "promptVersion": "tags-1",
+  "promptVersion": "tags-2",
   "model": "claude-haiku-5-5",
-  "inputHash": "a971be0a06bbc10000a31a51343a6415fd4238b44a12e60bebbe4bdbe34d2452",
+  "inputHash": "4609ccff1cba3037ac8059facbae5950db9146b8c51551e38bd485659fefa55e",
   "output": {
-    "v": 1,
+    "v": 2,
     "interests": [
       "christmas_markets",
       "cruise",
-      "family_activities",
-      "food_wine"
+      "family_activities"
     ],
     "custom": [],
     "pace": "relaxed",
     "hard": [
       "fixed port schedule",
-      "toddler nap midday",
+      "midday nap for toddler",
       "early darkness"
     ],
     "soft": [
       "plan midday nap on board"
     ],
-    "summary": "Advent river cruise with a toddler. Wants Christmas markets and a relaxed pace. Schedule midday nap on board. Early darkness noted."
+    "summary": "Advent river cruise with a toddler. Visit Christmas markets, keep a relaxed pace, plan midday nap on board. Text is in German."
   },
   "usage": {
     "task": "purpose_tags",
     "model": "claude-haiku-5-5",
     "status": "ok",
     "inputTokens": 117,
-    "outputTokens": 148,
-    "cacheCreationInputTokens": 0,
-    "cacheReadInputTokens": 916,
-    "costMicroUsd": 95,
-    "latencyMs": 1362
+    "outputTokens": 167,
+    "cacheCreationInputTokens": 1791,
+    "cacheReadInputTokens": 0,
+    "costMicroUsd": 319,
+    "latencyMs": 2866
   },
-  "recordedAt": "2026-10-28T07:53:27.956Z"
+  "recordedAt": "2026-11-06T05:56:39.358Z"
 }

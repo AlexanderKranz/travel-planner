@@ -1,0 +1,103 @@
+{
+  "promptVersion": "plan-6",
+  "model": "claude-sonnet-5-5",
+  "inputHash": "ae37c6ff06ad9a04773cdfa37d6035a72fc5fcd0c577f93991406a949bd51538",
+  "output": {
+    "first": {
+      "reply": "Für konkrete Escape-Room-Vorschläge suche ich zuerst passende Anbieter in Würzburg heraus.",
+      "days": [],
+      "needPlaces": {
+        "types": [
+          "escape_game"
+        ]
+      }
+    },
+    "second": {
+      "reply": "Tag 1 enthält jetzt einen konkreten Escape-Room-Vorschlag mit dem einzigen gelisteten Anbieter.",
+      "days": [
+        {
+          "n": 1,
+          "title": "Anreise & Freitagabend",
+          "stops": [
+            {
+              "place": "Würzburg",
+              "acts": [
+                {
+                  "at": "15:00",
+                  "kind": "travel",
+                  "text": "Anreise, Check-in im Hotel"
+                },
+                {
+                  "at": "16:30",
+                  "until": "18:00",
+                  "kind": "see",
+                  "text": "Bummel: Alte Mainbrücke, Altstadt, Domviertel"
+                },
+                {
+                  "at": "18:30",
+                  "until": "20:15",
+                  "kind": "food",
+                  "text": "Abendessen mit fränkischer Küche",
+                  "ref": "r2",
+                  "alts": [
+                    "r3",
+                    "r1"
+                  ]
+                },
+                {
+                  "at": "20:30",
+                  "until": "22:30",
+                  "kind": "do",
+                  "text": "Gemeinsamer Escape Room für die Gruppe (Indoor)",
+                  "ref": "a1"
+                }
+              ]
+            }
+          ],
+          "note": "In OpenStreetMap ist nur ein Escape-Room-Anbieter in der Nähe gelistet; weitere Anbieter wurden nicht gefunden."
+        }
+      ],
+      "open": [
+        {
+          "text": "Tisch für sechs Personen reservieren",
+          "day": 1
+        },
+        {
+          "text": "Escape Room für sechs Personen buchen, Spielzeiten und Verfügbarkeit prüfen",
+          "day": 1
+        },
+        {
+          "text": "Ruder-, Boots- oder Footgolf-Anbieter suchen, buchen, Öffnungszeiten prüfen",
+          "day": 2
+        },
+        {
+          "text": "Tisch für sechs Personen reservieren",
+          "day": 2
+        }
+      ]
+    },
+    "firstUsage": {
+      "task": "plan_patch",
+      "model": "claude-sonnet-5-5",
+      "status": "ok",
+      "inputTokens": 759,
+      "outputTokens": 168,
+      "cacheCreationInputTokens": 5895,
+      "cacheReadInputTokens": 0,
+      "costMicroUsd": 17936,
+      "latencyMs": 2859
+    }
+  },
+  "usage": {
+    "task": "plan_patch",
+    "model": "claude-sonnet-5-5",
+    "status": "ok",
+    "inputTokens": 766,
+    "outputTokens": 536,
+    "cacheCreationInputTokens": 1107,
+    "cacheReadInputTokens": 4892,
+    "costMicroUsd": 10638,
+    "latencyMs": 4047
+  },
+  "recordedAt": "2026-11-06T06:00:22.818Z"
+}

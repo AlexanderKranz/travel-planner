@@ -22,6 +22,8 @@ export type StructuredRequest<S extends z.ZodType> = {
   system: string;
   /** User content blocks in order; `cache: true` adds an ephemeral cache breakpoint. */
   blocks: { text: string; cache?: boolean }[];
+  /** Per-call client timeout, at most CLIENT_TIMEOUT_MS (a request with a shared deadline passes what is left). */
+  timeoutMs?: number;
 };
 
 /**
@@ -130,7 +132,7 @@ export async function callStructured<S extends z.ZodType>(
       ],
       ...(req.noThinking ? { thinking: { type: "disabled" as const } } : {}),
       output_config: { format: { type: "json_schema", schema: jsonSchema }, effort: req.effort },
-    });
+    }, req.timeoutMs ? { timeout: Math.min(req.timeoutMs, CLIENT_TIMEOUT_MS) } : undefined);
   } catch (e) {
     const usage = record("error", null, errorCode(e));
     usage.costMicroUsd = estimateFailedCostMicroUsd(req);

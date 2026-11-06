@@ -32,6 +32,8 @@ const h = vi.hoisted(() => ({
   order: [] as string[],
   picks: [] as unknown[],
   drive: vi.fn(async () => null as unknown),
+  lookups: vi.fn(),
+  warm: vi.fn(),
   build: vi.fn((a: unknown) => ({ stored: { llm: { v: 1 }, index: {} }, header: {}, digest: {}, a })),
 }));
 
@@ -47,6 +49,8 @@ vi.mock("./purposes", () => ({ getPurpose: async () => ({ ok: true, data: h.purp
 vi.mock("./events", () => ({ logEvent: h.logEvent }));
 vi.mock("./facts", () => ({ getTripFacts: h.getFacts }));
 vi.mock("./facts/drive-times", () => ({ getDriveTimes: h.drive }));
+vi.mock("./facts/activity-lookups", () => ({ loadActivityLookups: h.lookups }));
+vi.mock("./warm", () => ({ scheduleActivityWarm: h.warm }));
 vi.mock("./ai/compose", () => ({ composePlan: h.compose, patchPlan: h.patch }));
 vi.mock("./ai/purpose-tags", () => ({ needsTags: h.needsTags, tagPurpose: h.tag }));
 vi.mock("./ai-usage", () => ({
@@ -522,6 +526,98 @@ describe("iteratePlan", () => {
     h.budgetOk = false;
     expect(await iteratePlan(TRIP, 1, { chips: ["more_rest"] }, "en")).toMatchObject({ ok: false, error: "budget_exceeded" });
     expect(h.patch).not.toHaveBeenCalled();
+  });
+});
+
+describe("iteratePlan: change requests that need places (activities spec section 4)", () => {
+  const T = "2026-11-06T00:00:00.000Z";
+  const escape = { type: "escape_game", group: "indoor", osmType: "node", osmId: 7, name: "Exit Room", names: {}, category: "leisure=escape_game", lat: 49.79, lon: 9.93, distanceKm: 1.2, osmUrl: "https://www.openstreetmap.org/node/7" };
+  const indoorOk = { activities: [{ group: "indoor", status: "ok", places: [escape], fetchedAt: T }] };
+  const ask = { ok: true, data: { reply: "lade", days: [], needPlaces: { types: ["escape_game"] } }, usage: {} };
+  const answer = { ok: true, data: { reply: "Escape Room an Tag 1", days: [{ n: 1 }] }, usage: {} };
+  const day = (n: number, text: string) => ({ n, date: null, title: `T${n}`, stops: [{ place: "X", acts: [{ kind: "do", text }] }] });
+  const basePlan = { ...Plan, days: [day(1, "a"), day(2, "b"), day(3, "c")], places: {} };
+  beforeEach(() => {
+    h.latest = { ...stored("hash-old", 1), plan: basePlan };
+    vi.mocked(applyPatch).mockReturnValue({ ok: true, plan: { ...basePlan, days: [day(1, "Escape Room"), basePlan.days[1], basePlan.days[2]] }, changedDays: [1], issues: {} } as never);
+    h.lookups.mockResolvedValue(indoorOk);
+  });
+
+  it("loads the places, patches once more with loaded, stores the extended input under its own hash", async () => {
+    h.patch.mockResolvedValueOnce(ask).mockResolvedValueOnce(answer);
+    const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "konkrete Escape Rooms" }, "de");
+    expect(r).toMatchObject({ ok: true, data: { reply: "Escape Room an Tag 1" } });
+    expect(h.lookups).toHaveBeenCalledWith(h.trip.destination, { groups: ["indoor"], restaurants: false }, expect.anything(), 60_000);
+    expect(h.patch).toHaveBeenCalledTimes(2);
+    const second = h.patch.mock.calls[1][0] as { loaded: boolean; timeoutMs: number; llm: { activities: { wishes: { w: string }[] } }; index: Record<string, unknown> };
+    expect(second.loaded).toBe(true);
+    expect(second.timeoutMs).toBeGreaterThan(200_000);
+    expect(second.llm.activities.wishes[0].w).toBe("FEEDBACK");
+    expect(second.index.a1).toBeDefined();
+    expect(vi.mocked(applyPatch).mock.calls[0][0]).toMatchObject({ patch: answer.data, stored: { index: { a1: expect.anything() } } });
+    expect(insertArg()[2]).toMatchObject({ inputHash: "hash-new", input: { index: { a1: expect.anything() } } });
+    expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "plan.patch_need_places", props: expect.objectContaining({ types: "escape_game" }) }));
+    expect(h.release).toHaveBeenCalledTimes(1);
+  });
+
+  it("no needPlaces: one call, the base input and hash are kept", async () => {
+    h.patch.mockResolvedValueOnce(answer);
+    await iteratePlan(TRIP, 1, { chips: ["more_rest"], days: [1] }, "de");
+    expect(h.patch).toHaveBeenCalledTimes(1);
+    expect(h.lookups).not.toHaveBeenCalled();
+    expect(insertArg()[2]).toMatchObject({ inputHash: "hash-old", input: { llm: { v: 1 }, index: {} } });
+  });
+
+  it("places that fail to load: places_pending, no new version, warming continues after the response", async () => {
+    h.patch.mockResolvedValueOnce(ask);
+    h.lookups.mockResolvedValue({ activities: [{ group: "indoor", status: "error", places: [] }] });
+    const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "Escape Rooms" }, "de");
+    expect(r).toMatchObject({ ok: false, error: "places_pending", retryAfter: 60 });
+    expect(h.patch).toHaveBeenCalledTimes(1);
+    expect(h.insert).not.toHaveBeenCalled();
+    expect(h.warm).toHaveBeenCalledTimes(1);
+    expect(h.release).toHaveBeenCalledTimes(1);
+  });
+
+  it("a cache-only miss (skipped) is pending too; restaurants near a place load around it", async () => {
+    h.latest = { ...stored("hash-old", 1), plan: basePlan, input: { llm: { v: 1 }, index: { a3: { key: "node/9", place: { lat: 49.7, lon: 9.8 } } } } };
+    h.patch.mockResolvedValueOnce({ ok: true, data: { reply: "x", days: [], needPlaces: { restaurants: { near: "a3" } } }, usage: {} });
+    h.lookups.mockResolvedValue({ activities: [], restaurants: { status: "skipped", restaurants: [] } });
+    const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "Restaurant beim Klettern" }, "de");
+    expect(r).toMatchObject({ ok: false, error: "places_pending" });
+    expect(h.lookups.mock.calls[0][1]).toEqual({ groups: [], restaurants: { near: { lat: 49.7, lon: 9.8 } } });
+  });
+
+  it("too little time left for the second call: places_pending, no second call", async () => {
+    const now = Date.now();
+    h.patch.mockResolvedValueOnce(ask);
+    h.lookups.mockImplementation(async () => {
+      vi.spyOn(Date, "now").mockReturnValue(now + 200_000);
+      return indoorOk;
+    });
+    const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "Escape Rooms" }, "de");
+    vi.restoreAllMocks();
+    expect(r).toMatchObject({ ok: false, error: "places_pending" });
+    expect(h.patch).toHaveBeenCalledTimes(1);
+    expect(h.insert).not.toHaveBeenCalled();
+  });
+
+  it("budget is checked again before the second call", async () => {
+    h.patch.mockImplementationOnce(async () => {
+      h.budgetOk = false;
+      return ask;
+    });
+    const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "Escape Rooms" }, "de");
+    expect(r).toMatchObject({ ok: false, error: "budget_exceeded" });
+    expect(h.patch).toHaveBeenCalledTimes(1);
+    expect(h.insert).not.toHaveBeenCalled();
+    expect(h.release).toHaveBeenCalledTimes(1);
+  });
+
+  it("an unloadable request (unknown types only) keeps the first answer", async () => {
+    h.patch.mockResolvedValueOnce({ ok: true, data: { reply: "nichts", days: [] }, usage: {} });
+    await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "x" }, "de");
+    expect(h.lookups).not.toHaveBeenCalled();
   });
 });
 

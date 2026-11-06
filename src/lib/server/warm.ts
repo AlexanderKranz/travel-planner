@@ -5,7 +5,10 @@ import type { Locale } from "@/lib/domain/profile";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
 import { budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage, type Role } from "./ai-usage";
+import type { FactsCtx } from "@/lib/domain/facts";
 import { warmTripFacts } from "./facts";
+import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
+import type { GeoDestination } from "./facts/common";
 import { getPurpose } from "./purposes";
 import { tagAndSave, wantsTags } from "./purpose-tagging";
 import type { getUserSession } from "./session";
@@ -95,6 +98,30 @@ export async function schedulePurposeWarm(session: Session, purposeId: string): 
           if (left < 30_000) break;
           await warmTripFacts(rowToTrip(row, session.userId), purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: left });
         }
+      } catch {
+        // warming is best effort
+      }
+    });
+  } catch {
+    // after() unavailable: skip
+  }
+}
+
+/**
+ * A change request whose places did not load in time (activities spec section 4): keep loading them after the
+ * response, so the user's retry is served from the cache. Best effort, never throws.
+ */
+export function scheduleActivityWarm(
+  dest: GeoDestination | null,
+  req: ActivityLookupRequest,
+  ctx: FactsCtx,
+  budgetMs: number,
+): void {
+  if (budgetMs <= 0) return;
+  try {
+    after(async () => {
+      try {
+        await loadActivityLookups(dest, req, ctx, budgetMs);
       } catch {
         // warming is best effort
       }

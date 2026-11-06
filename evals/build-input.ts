@@ -5,6 +5,14 @@
  */
 import golfJson from "./fixtures/golftrip-costa-del-sol.json";
 import cruiseJson from "./fixtures/donau-kreuzfahrt.json";
+import wuerzburgJson from "./fixtures/gruppenwochenende-wuerzburg.json";
+import indoorWue from "@/lib/integrations/__fixtures__/overpass/indoor-wuerzburg-15km.json";
+import outdoorWue from "@/lib/integrations/__fixtures__/overpass/outdoor-wuerzburg-25km.json";
+import restaurantsWue from "@/lib/integrations/__fixtures__/overpass/restaurants-wuerzburg-2.5km.json";
+import { activityPlacesForGroup } from "@/lib/facts/activity-places";
+import { groupsForWishes, type ActivityGroup } from "@/lib/facts/activity-types";
+import { toRestaurants } from "@/lib/facts/cuisine";
+import { RESTAURANT_POOL, RESTAURANT_RADIUS_KM } from "@/lib/server/facts/activities";
 import golfOsm from "@/lib/integrations/__fixtures__/overpass/golf-marbella-40km.json";
 import passauOsm from "@/lib/integrations/__fixtures__/overpass/general-passau-15km.json";
 import passauFamilyOsm from "@/lib/integrations/__fixtures__/overpass/family-passau-25km.json";
@@ -13,7 +21,7 @@ import agpDeparturesPast from "@/lib/integrations/__fixtures__/aerodatabox/fids-
 import malagaArchive from "@/lib/integrations/__fixtures__/open-meteo/archive-malaga-2016-2025.json";
 import type { FlightsFacts } from "@/lib/domain/flights";
 import type { ItemCategory, ItemStatus, SharedItem } from "@/lib/domain/items";
-import type { CountryFacts, Fact, InterestOrGeneral, PlaceGroup, TripFacts, WeatherFacts } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, CountryFacts, Fact, InterestOrGeneral, PlaceGroup, RestaurantLookup, TripFacts, WeatherFacts } from "@/lib/domain/facts";
 import type { StoredEntry, TravelGroup } from "@/lib/domain/group";
 import type { PlanFeedback, PurposeTags } from "@/lib/domain/plan";
 import type { TripPurpose } from "@/lib/domain/purpose";
@@ -26,7 +34,8 @@ import { daylightDates, selectedMonths } from "@/lib/facts/trip-timing";
 import { getCountry } from "@/lib/integrations/countries";
 import { parseArchive } from "@/lib/integrations/open-meteo-archive";
 import { parseElements } from "@/lib/integrations/overpass";
-import { buildPlanInput, selectPlaces, type DriveInput } from "@/lib/plan/input";
+import { buildPlanInput, type DriveInput } from "@/lib/plan/input";
+import { drivePicks } from "@/lib/plan/drive-picks";
 import { existsSync, readFileSync } from "node:fs";
 import { recordingPath } from "./recorded";
 import { gatewayAirports } from "@/lib/plan/airports";
@@ -35,7 +44,7 @@ import { maxBlockMinutes } from "@/lib/flights/constraint";
 import { flightDates } from "@/lib/flights/lookups";
 import { normalizeFids } from "@/lib/integrations/aerodatabox-normalize";
 
-export const FIXTURE_IDS = ["golf", "cruise"] as const;
+export const FIXTURE_IDS = ["golf", "cruise", "wuerzburg"] as const;
 export type FixtureId = (typeof FIXTURE_IDS)[number];
 
 /** Fixed clock and profile so inputs (and their hashes) are stable. */
@@ -72,12 +81,15 @@ export type EvalFixture = {
     portWindows?: "fixedSchedule";
     /** Day 1 starts >= 90 min after a fixed arrival flight; no activity overlaps a fixed item. */
     fixedItems?: boolean;
+    /** Activities spec: evening indoor venue with alternatives, outdoor main event, local restaurants, missing footgolf stated. */
+    activities?: boolean;
   };
 };
 
 export const FIXTURES: Record<FixtureId, EvalFixture> = {
   golf: golfJson as unknown as EvalFixture,
   cruise: cruiseJson as unknown as EvalFixture,
+  wuerzburg: wuerzburgJson as unknown as EvalFixture,
 };
 
 /** Recorded Overpass responses per interest; other OSM interests count as "error" (not recorded). */
@@ -85,13 +97,46 @@ const OSM: Record<FixtureId, Partial<Record<InterestOrGeneral, unknown>>> = {
   golf: { golf: golfOsm },
   // family_activities recorded live 2026-10-28 (overpass-api.de, the production query for 25 km around Passau).
   cruise: { general: passauOsm, city_sightseeing: passauOsm, family_activities: passauFamilyOsm },
+  wuerzburg: {},
 };
 
-/** Patch feedback per fixture (spec 7). */
+/**
+ * Recorded activity-group and restaurant responses (activities spec; overpass-api.de, 2026-11-06, the production
+ * union queries around Würzburg). A group without a recording counts as `error`. Golf and cruise have none, so
+ * their inputs carry no activities or restaurants blocks.
+ */
+const ACTIVITY_OSM: Partial<Record<FixtureId, { groups: Partial<Record<ActivityGroup, unknown>>; restaurants: unknown }>> = {
+  wuerzburg: { groups: { indoor: indoorWue, outdoor: outdoorWue }, restaurants: restaurantsWue },
+};
+
+/**
+ * Patch feedback per fixture (spec 7). Würzburg: the live change request from the activities spec, run on a plan
+ * generated without activity places (`needbase`), so it must trigger needPlaces.
+ */
 export const PATCH_FEEDBACK: Record<FixtureId, PlanFeedback> = {
   cruise: { chips: ["more_rest"], days: [2] },
   golf: { chips: ["redo_day"], days: [4] },
+  wuerzburg: { chips: [], days: [1], text: "mache konkrete Vorschläge für Escape Rooms am Tag 1" },
 };
+
+/** Recorded lookups for the given groups (and restaurants), as the data layer would return them. */
+export function evalActivityLookups(id: FixtureId, groups: readonly ActivityGroup[]): { activities: ActivityGroupLookup[]; restaurants?: RestaurantLookup } {
+  const rec = ACTIVITY_OSM[id];
+  if (!rec) return { activities: [] };
+  const a = FIXTURES[id].trip.anchor;
+  const anchor = { lat: Number(a.lat.toFixed(3)), lon: Number(a.lon.toFixed(3)) };
+  const activities = groups.map((group): ActivityGroupLookup => {
+    const raw = rec.groups[group];
+    if (!raw) return { group, status: "error", places: [] };
+    const places = activityPlacesForGroup(group, parseElements(raw), anchor);
+    return { group, status: places.length ? "ok" : "empty", places, fetchedAt: EVAL_FETCHED_AT };
+  });
+  const radiusKm = RESTAURANT_RADIUS_KM[FIXTURES[id].trip.destination.kind];
+  const list = toRestaurants(parseElements(rec.restaurants), anchor, radiusKm)
+    .sort((x, y) => x.distanceKm - y.distanceKm || x.name.localeCompare(y.name))
+    .slice(0, RESTAURANT_POOL);
+  return { activities, restaurants: { status: list.length ? "ok" : "empty", restaurants: list, radiusKm, fetchedAt: EVAL_FETCHED_AT } };
+}
 
 const dayCount = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86_400_000) + 1;
 
@@ -239,6 +284,7 @@ export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null
   });
   const { basis, dates } = daylightDates(trip, EVAL_TODAY);
   const flights = flightsFact(id, trip, purpose);
+  const acts = ACTIVITY_OSM[id] ? evalActivityLookups(id, groupsForWishes(purpose?.tags?.activities ?? [])) : null;
   return {
     tripId: trip.id,
     generatedAt: EVAL_FETCHED_AT,
@@ -255,6 +301,7 @@ export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null
     summary: { status: "unavailable", reason: "not_found" },
     // Recorded flights (golf only), built by the pure builder. Cruise has flights: false.
     ...(flights ? { flights } : {}),
+    ...(acts ? { ...(acts.activities.length ? { activities: acts.activities } : {}), restaurants: acts.restaurants } : {}),
     places: {
       status: "ok",
       data: { radiusKm: a.radiusKm, groups, customInterests },
@@ -274,8 +321,7 @@ export function evalDrivePicks(id: FixtureId, tags: PurposeTags | null) {
   const purpose = evalPurpose(id, tags);
   const facts = evalFacts(id, trip, purpose);
   const a = FIXTURES[id].trip.anchor;
-  const picks = selectPlaces(facts, interestsForTrip(purpose?.guided, purpose?.tags).keys).picks;
-  return { origin: { lat: a.lat, lon: a.lon }, places: picks.map((p) => ({ key: p.key, lat: p.c.lat, lon: p.c.lon })) };
+  return { origin: { lat: a.lat, lon: a.lon }, places: drivePicks(facts, purpose) };
 }
 
 function evalDrive(id: FixtureId): DriveInput | null {

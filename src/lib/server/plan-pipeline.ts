@@ -19,9 +19,13 @@ import type { Trip } from "@/lib/domain/trip";
 import { applyEdit } from "@/lib/plan/edit";
 import { canonicalJson, planInputHash } from "@/lib/plan/hash";
 import { tripGroupSource } from "@/lib/group-text";
-import { buildPlanInput, selectPlaces, type GroupContext } from "@/lib/plan/input";
-import { interestsForTrip } from "@/lib/facts/interest-sources";
-import { placesPending } from "@/lib/plan/places-pending";
+import { buildPlanInput, type GroupContext } from "@/lib/plan/input";
+import { allPlacesPending, activityPlacesPending } from "@/lib/plan/places-pending";
+import { drivePicks } from "@/lib/plan/drive-picks";
+import { extendInput, resolveNeedPlaces, type NeedPlacesRequest } from "@/lib/plan/need-places";
+import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
+import { geoDestination } from "./facts/common";
+import { scheduleActivityWarm } from "./warm";
 import { PLACES_CACHE_ONLY } from "./facts/places";
 import { applyPatch } from "@/lib/plan/patch";
 import { guardPatch } from "@/lib/plan/patch-guard";
@@ -387,7 +391,7 @@ export async function generatePlan(
         withFlights: c.trip.wantsFlights ? { homeAirports: c.homeAirports } : undefined,
       },
     );
-    const pending = placesPending(facts.places);
+    const pending = allPlacesPending(facts);
     // `fresh` (regenerate) never blocks on places: an earlier version exists and the user wants a new one.
     if (pending && !opts.force && !opts.fresh) {
       const gone = opts.clientGone?.() === true;
@@ -401,14 +405,10 @@ export async function generatePlan(
     }
     // Drive times from the destination point to every place that goes into the input (one ORS matrix call).
     const dest = c.trip.destination;
-    const picks = selectPlaces(facts, interestsForTrip(purpose?.guided, purpose?.tags).keys).picks;
+    const drivePlaces = drivePicks(facts, purpose);
     const drive =
-      picks.length && dest.kind !== "freetext"
-        ? await getDriveTimes(
-            { lat: dest.lat, lon: dest.lon },
-            picks.map((p) => ({ key: p.key, lat: p.c.lat, lon: p.c.lon })),
-            { userId: c.session.userId, locale, today: berlinToday() },
-          )
+      drivePlaces.length && dest.kind !== "freetext"
+        ? await getDriveTimes({ lat: dest.lat, lon: dest.lon }, drivePlaces, { userId: c.session.userId, locale, today: berlinToday() })
         : null;
     const built = buildPlanInput({
       trip: c.trip,
@@ -496,6 +496,90 @@ export async function generatePlan(
   }
 }
 
+/**
+ * Shared deadline of one iterate request (activities spec section 4): route maxDuration 300 s, plan lock 5 min.
+ * Places get min(60 s, remaining - 160 s); the second patch call needs >= 120 s and gets the remaining time - 10 s.
+ */
+export const ITERATE_DEADLINE_MS = 270_000;
+export const NEED_PLACES_MAX_MS = 60_000;
+const NEED_PLACES_RESERVE_MS = 160_000;
+export const SECOND_PATCH_MIN_MS = 120_000;
+const SECOND_PATCH_MARGIN_MS = 10_000;
+/** after() warming may run until the route's maxDuration (300 s) minus a margin. */
+const AFTER_LIMIT_MS = 290_000;
+
+type PatchOk = Extract<Awaited<ReturnType<typeof patchPlan>>, { ok: true }>;
+
+/**
+ * needPlaces: load the requested places (cache first), extend the stored input and run the patch once more with
+ * FEEDBACK.loaded (no further request). Places that did not load, or too little time left, answer `places_pending`
+ * without a new version and keep loading in after(). Budget is checked again (the first call is already logged).
+ */
+async function patchWithPlaces(
+  c: PlanContext,
+  a: {
+    base: StoredVersion;
+    feedback: PlanFeedback;
+    fixed: ReturnType<typeof fixedSlots>;
+    need: NeedPlacesRequest;
+    started: number;
+    ai: ReturnType<typeof makeAiCtx>;
+  },
+): Promise<{ ok: true; res: PatchOk; stored: StoredVersion["input"] } | PipelineError> {
+  const { base, need } = a;
+  const left = () => a.started + ITERATE_DEADLINE_MS - Date.now();
+  const placesBudget = Math.min(NEED_PLACES_MAX_MS, left() - NEED_PLACES_RESERVE_MS);
+  const dest = geoDestination(c.trip);
+  const req: ActivityLookupRequest = {
+    groups: need.groups,
+    restaurants: need.restaurants
+      ? need.restaurants.near
+        ? { near: { lat: need.restaurants.near.lat, lon: need.restaurants.near.lon } }
+        : {}
+      : false,
+  };
+  const factsCtx = { userId: c.session.userId, locale: base.plan.locale as Locale, today: berlinToday() };
+  await logEvent({
+    event: "plan.patch_need_places",
+    userId: c.session.userId,
+    props: {
+      tripId: c.trip.id,
+      types: need.types.join(","),
+      restaurants: !!need.restaurants,
+      near: !!need.restaurants?.near,
+      budgetMs: Math.max(0, placesBudget),
+    },
+  });
+  const loaded = await loadActivityLookups(dest, req, factsCtx, Math.max(PLACES_CACHE_ONLY, placesBudget));
+  // `skipped` with a destination = cache-only miss (no time left for a query): retry after warming, like `error`.
+  const missing = [
+    ...activityPlacesPending(loaded),
+    ...(dest ? loaded.activities.filter((g) => g.status === "skipped").map((g) => `activities:${g.group}`) : []),
+    ...(dest && loaded.restaurants?.status === "skipped" ? ["restaurants"] : []),
+  ];
+  const tooLate = left() < SECOND_PATCH_MIN_MS;
+  if (missing.length || tooLate) {
+    if (missing.length) scheduleActivityWarm(dest, req, factsCtx, AFTER_LIMIT_MS - (Date.now() - a.started));
+    await logEvent({
+      event: "plan.places_pending",
+      level: "warn",
+      userId: c.session.userId,
+      props: { tripId: c.trip.id, interests: missing.join(","), patch: true, tooLate, costMicroUsd: a.ai.cost() },
+    });
+    return err("places_pending", { retryAfter: PLACES_RETRY_AFTER_S });
+  }
+  const blocked = await checkBudget(c, RESERVE_PATCH);
+  if (blocked) return blocked;
+  const country = c.trip.destination.kind === "freetext" ? null : c.trip.destination.countryCode;
+  const stored = extendInput(base.input, need, loaded, { lang: base.plan.locale as Locale, countryCode: country });
+  const res = await patchPlan(
+    { llm: stored.llm, plan: base.plan, index: stored.index, feedback: a.feedback, fixed: a.fixed, loaded: true, timeoutMs: left() - SECOND_PATCH_MARGIN_MS },
+    a.ai.ctx,
+  );
+  if (!res.ok) return failed(c, res.error, res.error);
+  return { ok: true, res, stored };
+}
+
 export async function iteratePlan(
   tripId: string,
   baseVersion: number,
@@ -540,12 +624,22 @@ export async function iteratePlan(
     // The stored input of the base version keeps the cache prefix identical and avoids refetching facts.
     // Current timed items (may have changed since the base version); sent only when they differ from INPUT.fixed.
     const fixed = fixedSlots(fixedItemsOf(await loadTripItems(c.sb, c.trip.id), base.plan.days.length));
-    const res = await patchPlan({ llm: base.input.llm, plan: base.plan, index: base.input.index, feedback: fb.data, fixed }, ai.ctx);
+    let res = await patchPlan({ llm: base.input.llm, plan: base.plan, index: base.input.index, feedback: fb.data, fixed }, ai.ctx);
     if (!res.ok) return failed(c, res.error, res.error);
-    const patched = applyPatch({ base: base.plan, patch: res.data, stored: base.input, scope: fb.data.days, fixed });
+    // Option A (activities spec section 4): the model asked for places the input lacks. Load them, extend the
+    // stored input and patch once more; the first answer is discarded.
+    let stored = base.input;
+    const need = resolveNeedPlaces(res.data.needPlaces, base.input);
+    if (need) {
+      const second = await patchWithPlaces(c, { base, feedback: fb.data, fixed, need, started, ai });
+      if (!second.ok) return second;
+      res = second.res;
+      stored = second.stored;
+    }
+    const patched = applyPatch({ base: base.plan, patch: res.data, stored, scope: fb.data.days, fixed });
     if (!patched.ok) return failed(c, patched.reason, "invalid_output");
     // Shrink guard: a day that lost most of its activities is kept as it was, never silently accepted.
-    const guarded = guardPatch({ base: base.plan, next: patched.plan, feedback: fb.data, index: base.input.index });
+    const guarded = guardPatch({ base: base.plan, next: patched.plan, feedback: fb.data, index: stored.index });
     const rejectedDays = guarded.rejected.map((r) => r.n);
     if (rejectedDays.length) {
       await logEvent({
@@ -573,8 +667,9 @@ export async function iteratePlan(
     const no = await insertVersion(c.sb, plan.id, {
       kind: "patch",
       plan: parsed.data,
-      input: base.input,
-      inputHash: base.inputHash,
+      // With loaded places the new version keeps the extended input, so later patches see those places.
+      input: stored,
+      inputHash: stored === base.input ? base.inputHash : planInputHash(stored.llm),
       feedback: fb.data,
       changedDays: guarded.changedDays,
       model: MODEL_PLAN,
@@ -590,6 +685,7 @@ export async function iteratePlan(
         durationMs: Date.now() - started,
         costMicroUsd: ai.cost(),
         keptNotes: guarded.keptNotes.length,
+        needPlaces: need !== null,
         ...patched.issues,
       },
     });

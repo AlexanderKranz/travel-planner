@@ -2,7 +2,7 @@
  "$comment": "Generated from evals/recorded/golf.generate.json by evals/demo-seed.test.ts. Do not edit by hand.",
  "fixture": "golf",
  "model": "claude-sonnet-5-5",
- "inputHash": "2b91eb60a92ed03bc194586633ea8ea8ce11facf6b4f3c84dee68d79452cd285",
+ "inputHash": "a536f833ba7179a14deca31671a4af32da0dc8647cefa25e6926c2b5a3dab41b",
  "plan": {
   "v": 1,
   "locale": "de",
@@ -31,25 +31,30 @@
     "purposeUpdatedAt": "2026-10-28T08:00:00.000Z"
    }
   },
-  "summary": "Fünf Golftage an der Costa del Sol mit Marbella als zentraler Basis, jeden Tag mindestens eine Runde und 36 Löcher am zweiten Tag. Am Anreisetag geht es nach der Landung mit dem Mietwagen auf einen flughafennahen Platz, am Abreisetag spielt ihr vor dem Rückflug nochmals in Flughafennähe.",
+  "summary": "Fünf Golftage an der Costa del Sol mit Marbella als zentraler Basis und Mietwagen. Jeden Tag eine Runde, am vierten Tag 36 Löcher. Am Anreise- und Abreisetag wird nahe dem Flughafen gespielt.",
   "days": [
    {
     "n": 1,
     "date": "2038-03-13",
-    "title": "Anreise & Golf am Flughafen",
+    "title": "Anreise & Abendrunde",
     "stops": [
      {
-      "place": "Málaga & Umgebung",
+      "place": "Flughafen Málaga",
       "acts": [
        {
         "kind": "travel",
-        "text": "Ankunft, Mietwagen und Transfer"
-       },
+        "text": "Ankunft, Mietwagen, Transfer zum Platz"
+       }
+      ]
+     },
+     {
+      "place": "Nähe Flughafen",
+      "acts": [
        {
-        "at": "17:45",
-        "until": "19:45",
+        "at": "17:30",
+        "until": "19:40",
         "kind": "sport",
-        "text": "9 Löcher bis zur Dämmerung, flaches Gelände"
+        "text": "9 Löcher bis zur Dämmerung"
        }
       ]
      },
@@ -57,176 +62,176 @@
       "place": "Marbella",
       "acts": [
        {
-        "at": "20:30",
+        "at": "20:15",
         "kind": "travel",
-        "text": "Check-in Hotel, Einzelzimmer"
+        "text": "Check-in, Einzelzimmer"
        },
        {
-        "at": "21:00",
+        "at": "20:45",
         "kind": "food",
-        "text": "Abendessen in der Altstadt"
+        "text": "Abendessen im Hotelviertel"
        }
       ]
      }
     ],
-    "warn": "Nach der Landung wenig Zeit: nur 9 Löcher möglich, Dämmerung beachten."
+    "warn": "Wenig Zeit bis zur Dämmerung; Runde auf 9 Löcher begrenzt."
    },
    {
     "n": 2,
     "date": "2038-03-14",
-    "title": "36 Löcher in Marbella",
+    "title": "Marbella: Runde 1",
+    "stops": [
+     {
+      "place": "Marbella",
+      "acts": [
+       {
+        "at": "09:00",
+        "until": "13:30",
+        "kind": "sport",
+        "text": "18 Löcher, moderates Gelände"
+       },
+       {
+        "at": "14:00",
+        "kind": "food",
+        "text": "Spätes Mittagessen, spanische Küche"
+       },
+       {
+        "at": "16:00",
+        "kind": "rest",
+        "text": "Pause, Range oder Putting-Green"
+       },
+       {
+        "at": "20:30",
+        "kind": "food",
+        "text": "Abendessen, Tapas"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "n": 3,
+    "date": "2038-03-15",
+    "title": "Marbella: Runde 2",
+    "stops": [
+     {
+      "place": "Marbella",
+      "acts": [
+       {
+        "at": "09:00",
+        "until": "13:30",
+        "kind": "sport",
+        "text": "18 Löcher, Parklandschaft"
+       },
+       {
+        "at": "14:00",
+        "kind": "food",
+        "text": "Mittagessen, leicht"
+       },
+       {
+        "at": "16:30",
+        "kind": "rest",
+        "text": "Erholung vor dem Abendessen"
+       }
+      ]
+     }
+    ],
+    "note": "Abendessen am Hafen ist bereits gebucht."
+   },
+   {
+    "n": 4,
+    "date": "2038-03-16",
+    "title": "36-Loch-Tag",
     "stops": [
      {
       "place": "Marbella",
       "acts": [
        {
         "at": "08:00",
-        "until": "12:30",
+        "until": "12:15",
         "kind": "sport",
-        "text": "Runde 1: 18 Löcher, moderates Gelände"
+        "text": "Erste Runde, 18 Löcher, zügig"
        },
        {
-        "at": "12:45",
-        "until": "13:30",
+        "at": "12:30",
         "kind": "food",
-        "text": "Schneller Lunch im Clubhaus"
+        "text": "Schnelles Mittagessen am Club"
        },
        {
         "at": "13:45",
-        "until": "18:45",
+        "until": "18:30",
         "kind": "sport",
-        "text": "Runde 2: weitere 18 Löcher"
+        "text": "Zweite Runde, 18 Löcher"
        },
        {
-        "at": "19:30",
+        "at": "20:15",
         "kind": "food",
-        "text": "Abendessen, früh ins Bett"
+        "text": "Abendessen, entspannt"
        }
       ]
      }
     ],
-    "note": "Zwei Plätze nahe beieinander wählen, Startzeiten passend buchen."
-   },
-   {
-    "n": 3,
-    "date": "2038-03-15",
-    "title": "Golf & Abend am Hafen",
-    "stops": [
-     {
-      "place": "Marbella",
-      "acts": [
-       {
-        "at": "08:30",
-        "until": "13:00",
-        "kind": "sport",
-        "text": "18 Löcher, moderates Gelände"
-       },
-       {
-        "at": "13:15",
-        "until": "14:00",
-        "kind": "food",
-        "text": "Lunch im Clubhaus"
-       },
-       {
-        "at": "14:30",
-        "until": "17:30",
-        "kind": "free",
-        "text": "Erholung, Range oder Putting-Green"
-       }
-      ]
-     }
-    ]
-   },
-   {
-    "n": 4,
-    "date": "2038-03-16",
-    "title": "Golf: Los Naranjos",
-    "stops": [
-     {
-      "place": "Marbella",
-      "acts": [
-       {
-        "at": "08:30",
-        "until": "13:00",
-        "kind": "sport",
-        "text": "18 Löcher, eher flacher Platz"
-       },
-       {
-        "at": "13:15",
-        "until": "14:15",
-        "kind": "food",
-        "text": "Lunch am Platz"
-       },
-       {
-        "at": "15:00",
-        "until": "18:00",
-        "kind": "free",
-        "text": "Bummel Marbella, Promenade"
-       },
-       {
-        "at": "19:30",
-        "kind": "food",
-        "text": "Abendessen in der Altstadt"
-       }
-      ]
-     }
-    ]
+    "warn": "Lange Tage: auf Pausen, Wasser und Verpflegung achten."
    },
    {
     "n": 5,
     "date": "2038-03-17",
-    "title": "Abreise: Golf am Flughafen",
+    "title": "Abschlussrunde & Abreise",
     "stops": [
      {
-      "place": "Málaga & Umgebung",
+      "place": "Marbella",
       "acts": [
        {
-        "at": "07:45",
+        "at": "07:00",
         "kind": "travel",
-        "text": "Check-out, Fahrt Richtung Flughafen"
-       },
+        "text": "Frühstück, Check-out, Gepäck ins Auto"
+       }
+      ]
+     },
+     {
+      "place": "Nähe Flughafen",
+      "acts": [
        {
-        "at": "09:00",
+        "at": "08:15",
         "until": "12:30",
         "kind": "sport",
-        "text": "18 Löcher flughafennah, flach"
+        "text": "18 Löcher, flugplatznah"
        },
        {
         "at": "12:45",
         "kind": "travel",
-        "text": "Mietwagenrückgabe und Flughafen"
+        "text": "Mietwagen zurückgeben, zum Flughafen"
        }
       ]
      }
-    ],
-    "warn": "Rückflugzeit prüfen: Runde bei spätem Start kürzen."
+    ]
    }
   ],
   "notes": [
    {
     "kind": "tip",
-    "text": "Startzeiten früh buchen, im März sind die Plätze gut gebucht."
+    "text": "Restaurants konnten nicht geprüft werden; Mahlzeiten sind allgemein gehalten."
    },
    {
     "kind": "tip",
-    "text": "Dämmerung gegen 19:50: Nachmittagsrunden rechtzeitig starten."
+    "text": "Im März sind Morgen kühl, Mittag mild: Schichten tragen."
    },
    {
     "kind": "warning",
-    "text": "Märzwetter wechselhaft, mit Regenschauern rechnen."
+    "text": "Am Anreisetag bleibt nur Zeit für 9 Löcher vor der Dämmerung."
    },
    {
     "kind": "tip",
-    "text": "Mietwagen für alle Fahrten zwischen Marbella und den Plätzen nutzen."
+    "text": "Alle gelisteten Plätze liegen innerhalb einer Stunde Fahrt von Marbella."
    }
   ],
   "openItems": [
    {
-    "text": "Startzeiten für alle Runden buchen",
+    "text": "Startzeiten für alle Runden reservieren",
     "day": 2
    },
    {
-    "text": "Mietwagen am Flughafen Málaga reservieren",
+    "text": "Mietwagen vorab buchen, Abholung am Flughafen",
     "day": 1
    },
    {
@@ -234,22 +239,26 @@
     "day": 5
    },
    {
-    "text": "Platzdetails zu Hügeligkeit der Plätze prüfen"
+    "text": "Startzeiten für beide Runden des 36-Loch-Tags buchen",
+    "day": 4
+   },
+   {
+    "text": "Einzelzimmer in Marbella buchen"
    }
   ],
   "packing": [
-   "Golfschläger oder Leihschläger",
+   "Golfschläger und Bälle",
+   "Golfschuhe",
    "Regenjacke",
-   "Windjacke",
-   "Leichte Schichten",
-   "Golfhandschuhe",
+   "Pullover für Morgen",
    "Sonnencreme",
    "Kappe",
-   "Wasserdichte Golfschuhe",
-   "Ersatzsocken",
+   "Handschuhe",
+   "Entfernungsmesser",
    "Führerschein",
-   "Sonnenbrille",
-   "Ladekabel"
+   "Wasserflasche",
+   "Ersatzsocken",
+   "Handtuch"
   ],
   "places": {},
   "facts": {

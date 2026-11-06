@@ -1,6 +1,8 @@
 # Activities and restaurants: real places, with alternatives (plan-4)
 
-Status: decisions accepted by Alex 2026-11-06; groups changed to indoor/outdoor. Follows user feedback from the live site (2026-11-06). A group-trip purpose asked for an
+Status: decisions accepted by Alex 2026-11-06; groups changed to indoor/outdoor. Data layer on
+`feat/activities-data`; purpose tags v2, pipeline wiring, prompt and change requests implemented on
+`feat/activities-plan` (2026-11-06, see "What changed"). Follows user feedback from the live site (2026-11-06). A group-trip purpose asked for an
 evening event on Friday ("escape rooms, but only an idea, suggest what the city offers"), a main event on Saturday
 (rowing or footgolf, "suggest what suits the city") and restaurants for both evenings. The plan wrote
 "Freitagabend-Event: Escape Room oder Kneipentour" and "Abendessen in der Innenstadt (Restaurantvorschlag)".
@@ -188,6 +190,59 @@ is used.
   `concrete-places.md`.
 - A patch eval: "make concrete escape room suggestions for day 1" on a plan generated without activity places
   triggers `needPlaces` and ends with a ref.
+
+## What changed (`feat/activities-plan`)
+
+- Tags `tags-2` (`purpose-tags.ts`, `TAGS_RULES`): `activities` (max 4, `{types, open, group?, label?}`) and
+  `cuisine`; unknown values are dropped in code before saving. Stored v1 tags still parse. `TAGS_MAX_TOKENS`
+  1500 → 3000 (one live tags-2 call ran out at 1500 with thinking).
+- Facts (`facts/activity-lookups.ts`): `getTripFacts` loads restaurants, then the wish groups, one after the
+  other in the places budget, in parallel with the interest lookups; warm-up gets them through the same path.
+  `error` lookups make Generate answer `places_pending`, like interests; `empty` and `skipped` never block.
+  Activity places also get drive times (after the interest places, in the same ORS call); restaurants do not.
+- Input (`plan/activities-input.ts`): `activities` = places (`a1..`, `t`, effective `g`, `km`, `min`) + per wish
+  `w`, `open` and per type `s` and ids; `restaurants` = `s`, `ask`, `tooFew`, list (`r1..`, `c`, `km`). A place
+  that is already in `places` keeps its `p` id. Refs and alts validate through the shared index, so assemble,
+  patches, share view and PDF need no change.
+- Prompt **`plan-6`** (rules 15 and 16, patch addendum `needPlaces`). Change requests: `needPlaces` → code
+  loads the places, extends the stored input (`plan/need-places.ts`: a wish labelled `FEEDBACK`, a new
+  `restaurants` block, or `restaurantsNear` for `near`) and calls the patch once more with `FEEDBACK.loaded`.
+  Events `plan.patch_need_places`, `plan.places_pending` (with `patch: true`).
+
+Deviations:
+- The prompt version is `plan-6`, not `plan-4`: `plan-4` (timed items) and `plan-5` (short activity texts) were already used.
+- Wishes carry an optional `label` ("Friday evening event"), so the plan can put each wish on the right day.
+- Named types get up to 4 places, the other types of an open wish up to 2, and those other types are left out when
+  they have no places. Live, plan-6 otherwise reported "Karaoke: nothing found" for a wish that never named karaoke.
+- An entry with only a `group` counts as open (it has nothing else to load).
+- Restaurants around a place (`near`) go into an extra `restaurantsNear` block, so the destination list stays
+  available for the other meals.
+- Rule 15 tells the model to claim "nothing found" only for a listed `empty` type. A plan without activity
+  lookups (old tags) otherwise said "no rowing or footgolf found in OpenStreetMap" without any search.
+
+Evals (live, 2026-11-06, all checks pass). Fixture `gruppenwochenende-wuerzburg.json` (6 friends, Fri–Sun) on the
+recorded Würzburg Overpass data. Interest places are not recorded for Würzburg, so only activity places and
+restaurants reach the model. Day 1 had the escape room plus bowling and a climbing hall as alternatives. Day 2 had
+canoeing with rowing and boat hire as alternatives, and the note said no footgolf venue is listed. Every dinner
+named a Franconian or regional restaurant. The patch eval ran on a plan generated without activity places: the
+first call returned `needPlaces: {types: ["escape_game"]}` and the second set the escape room ref on day 1.
+
+| Call | Before (plan-5 / tags-1) in / out / cache | After (plan-6 / tags-2) in / out / cache | Cost before → after |
+|---|---|---|---|
+| system prompt | 3179 (plan), 916 (tags) | 3915 (plan), 1791 (tags) | |
+| golf generate | 2309 / 2482 / 3179 write | 2302 / 2712 / 3910 write | $0.0374 → $0.0415 |
+| golf patch | 726 / 467 / 5897 write | 817 / 387 / 7185 write | $0.0209 → $0.0235 |
+| cruise generate | 2622 / 2349 / 3179 read | 2611 / 3546 / 3910 read | $0.0294 → $0.0415 |
+| cruise patch | 831 / 545 / 2618 write + 3592 read | 965 / 551 / 2607 write + 4887 read | $0.0144 → $0.0149 |
+| Würzburg generate (new) | | 2168 / 1399 / 3915 write | $0.0281 |
+| Würzburg patch, 1st call (needPlaces) | | 759 / 168 / 5895 write | $0.0179 |
+| Würzburg patch, 2nd call | | 766 / 536 / 1107 write + 4892 read | $0.0106 |
+| tags (Würzburg) | | 206 / 1204 / 1791 read | $0.0006 |
+
+The golf and cruise inputs are unchanged apart from the prompt; their extra cost comes from the longer system
+prompt and longer answers. Rules 15 and 16 were reworded once more after the golf and cruise runs; those rules do
+not apply to the two fixtures, which carry no activities or restaurants blocks (no recorded restaurant data for
+Marbella and Passau).
 
 ## Out of scope
 

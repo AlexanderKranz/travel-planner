@@ -1,9 +1,9 @@
 {
-  "promptVersion": "plan-5",
+  "promptVersion": "plan-6",
   "model": "claude-sonnet-5-5",
-  "inputHash": "07a29ccb06967d56ed861cf11e0e6955f726246accd5ee7227f4bf97538de7e8",
+  "inputHash": "47e642d8f4593fac04547e69b64a4787d5e6866b11bef0df00069201eaa60079",
   "output": {
-    "reply": "Tag 2 entspannter gemacht: Spaziergang gekürzt, Abendessen an Bord, mehr Ruhe und freie Zeit.",
+    "reply": "Tag 2 ist entspannter: weniger Programm in Wien, mehr Ruhe und freie Zeit an Bord.",
     "days": [
       {
         "n": 2,
@@ -13,16 +13,10 @@
             "place": "An Bord",
             "acts": [
               {
-                "at": "08:00",
-                "until": "09:00",
-                "kind": "food",
-                "text": "Frühstück an Bord"
-              },
-              {
-                "at": "09:30",
-                "until": "11:00",
+                "at": "09:00",
+                "until": "11:30",
                 "kind": "free",
-                "text": "Freie Zeit an Bord, ruhiges Spielen"
+                "text": "Fahrt durch die Winterlandschaft, ruhiger Vormittag"
               },
               {
                 "at": "11:30",
@@ -32,9 +26,9 @@
               },
               {
                 "at": "12:30",
-                "until": "13:45",
+                "until": "14:00",
                 "kind": "rest",
-                "text": "Mittagsschlaf an Bord vor Ankunft"
+                "text": "Mittagsschlaf an Bord"
               }
             ]
           },
@@ -45,33 +39,38 @@
             "fixed": true,
             "acts": [
               {
-                "at": "14:30",
-                "until": "15:30",
+                "at": "14:45",
+                "until": "16:30",
                 "kind": "see",
-                "text": "Kurzer Bummel Innenstadt (Trage statt Buggy)"
-              },
-              {
-                "at": "15:30",
-                "until": "16:15",
-                "kind": "rest",
-                "text": "Pause im Café, Kind ausruhen"
+                "text": "Gemütlicher Bummel über den Weihnachtsmarkt (Trage)"
               },
               {
                 "at": "16:30",
-                "until": "17:45",
-                "kind": "do",
-                "text": "Weihnachtsmarkt bei Lichterglanz, Punsch"
+                "until": "17:30",
+                "kind": "rest",
+                "text": "Pause bei Kinderpunsch oder Tee, Aufwärmen"
               },
               {
-                "at": "18:00",
-                "until": "19:00",
+                "at": "17:45",
+                "until": "18:30",
+                "kind": "see",
+                "text": "Beleuchtete Stände ansehen, kurzer Rundgang"
+              },
+              {
+                "at": "18:45",
+                "until": "19:45",
                 "kind": "food",
-                "text": "Abendessen an Bord, früh zur Ruhe"
+                "text": "Abendessen in der Stadt oder an Bord"
+              },
+              {
+                "at": "20:00",
+                "kind": "travel",
+                "text": "Rückkehr aufs Schiff, Kind ins Bett"
               }
             ]
           }
         ],
-        "warn": "Kopfsteinpflaster in der Innenstadt, Kind früh müde."
+        "warn": "Märkte sind abends voll, Buggy im Gedränge schwierig."
       }
     ]
   },
@@ -79,12 +78,12 @@
     "task": "plan_patch",
     "model": "claude-sonnet-5-5",
     "status": "ok",
-    "inputTokens": 831,
-    "outputTokens": 545,
-    "cacheCreationInputTokens": 2618,
-    "cacheReadInputTokens": 3592,
-    "costMicroUsd": 14375,
-    "latencyMs": 4333
+    "inputTokens": 965,
+    "outputTokens": 551,
+    "cacheCreationInputTokens": 2607,
+    "cacheReadInputTokens": 4887,
+    "costMicroUsd": 14935,
+    "latencyMs": 4105
   },
-  "recordedAt": "2026-10-29T06:24:52.868Z"
+  "recordedAt": "2026-11-06T05:56:57.610Z"
 }
