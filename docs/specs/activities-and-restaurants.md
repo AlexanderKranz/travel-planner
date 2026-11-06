@@ -1,6 +1,6 @@
 # Activities and restaurants: real places, with alternatives (plan-4)
 
-Status: draft for review. Follows user feedback from the live site (2026-11-06). A group-trip purpose asked for an
+Status: decisions accepted by Alex 2026-11-06; groups changed to indoor/outdoor. Follows user feedback from the live site (2026-11-06). A group-trip purpose asked for an
 evening event on Friday ("escape rooms, but only an idea, suggest what the city offers"), a main event on Saturday
 (rowing or footgolf, "suggest what suits the city") and restaurants for both evenings. The plan wrote
 "Freitagabend-Event: Escape Room oder Kneipentour" and "Abendessen in der Innenstadt (Restaurantvorschlag)".
@@ -32,7 +32,7 @@ No footgolf was tagged within 25 km. The plan must then say so, not invent one.
 
 - A purpose that names an activity gets real places of that kind, if any exist nearby.
 - A purpose that says "an idea, suggest what is possible" also gets real alternatives of the same sort. For an
-  evening event that could be escape rooms, bowling, minigolf or a cinema. The plan shows them as the chosen
+  escape room idea that could be bowling, a cinema or laser tag (other `indoor` types). The plan shows them as the chosen
   activity plus alternatives (existing `ref` + `alts`).
 - Every meal the plan suggests names real restaurants near that day's activities, filtered by the cuisine the
   purpose asks for. "Local cuisine in Germany" means German or regional places, never a pizzeria.
@@ -50,11 +50,13 @@ guided purpose form, while activity types are concrete things to book. The guide
 
 | Group | Types (OSM filter, abbreviated) |
 |---|---|
-| `evening_event` | `escape_game` (`leisure=escape_game`), `bowling` (`leisure=bowling_alley`), `minigolf` (`leisure=miniature_golf`), `cinema` (`amenity=cinema`), `theatre` (`amenity=theatre`), `karaoke` (`amenity=karaoke_box`), `laser_tag` (`leisure=sports_centre`+`sport=laser_tag`) |
-| `day_event` | `boat_rental` (`amenity=boat_rental`), `rowing` (`sport=rowing`), `canoe` (`sport=canoe`), `footgolf` (`sport=footgolf`), `climbing` (`sport=climbing`), `karting` (`sport=karting`), `high_ropes` (`leisure=sports_centre`+`sport=ropes_course`), `minigolf` |
+| `indoor` | `escape_game` (`leisure=escape_game`), `bowling` (`leisure=bowling_alley`), `cinema` (`amenity=cinema`), `theatre` (`amenity=theatre`), `karaoke` (`amenity=karaoke_box`), `laser_tag` (`leisure=sports_centre`+`sport=laser_tag`), `climbing_hall` (`sport=climbing`+`indoor=yes` or `leisure=sports_centre`) |
+| `outdoor` | `boat_rental` (`amenity=boat_rental`), `rowing` (`sport=rowing`), `canoe` (`sport=canoe`), `footgolf` (`sport=footgolf`), `minigolf` (`leisure=miniature_golf`), `karting` (`sport=karting`), `high_ropes` (`sport=ropes_course`), `climbing` (outdoor `sport=climbing`) |
 | `going_out` | `bar` (`amenity~^(bar|pub|biergarten)$`) |
 
-A type can be in more than one group (minigolf). Every filter requires a name, as today. The implementer
+The split is by place, not by time of day (Alex, 2026-11-06: minigolf is rather a day activity, so a day/evening
+split is debatable). The model picks the time from the trip's days, daylight and weather: an evening or a rainy
+day favours `indoor`. A place tagged `indoor=yes` counts as indoor even when its type is in `outdoor` (indoor minigolf). Every filter requires a name, as today. The implementer
 verifies each OSM tag against the OSM wiki and drops a type whose tag is rare or ambiguous. Each kept type gets
 one recorded Overpass fixture.
 
@@ -77,8 +79,8 @@ cuisine?: { local: boolean; include: Cuisine[]; exclude: Cuisine[] }
   model still sees the wording.
 
 When `open` is true, code adds the other types of the same group (§1), so "escape room, only an idea" also loads
-bowling, minigolf, cinema and the rest. If an entry has no types but `open`, code uses the group Haiku picked
-(field `group` on the entry, enum of the three groups).
+bowling, cinema and the other `indoor` types. If an entry has no types but `open`, code uses the group Haiku picked
+(field `group` on the entry: `indoor`, `outdoor` or `going_out`).
 
 ### 3. Restaurants in every plan
 
@@ -137,24 +139,23 @@ bowling, minigolf, cinema and the rest. If an entry has no types but `open`, cod
 ## Decisions for Alex
 
 - **[D1]** Activity types are a separate catalogue, not new `INTEREST_KEYS`; the guided purpose form stays as it
-  is. *Proposed.*
-- **[D2]** `open` (an idea / suggest something) loads the whole group as alternatives. *Proposed. Alex asked for
-  alternatives 2026-11-06.*
+  is. *Accepted by Alex 2026-11-06.*
+- **[D2]** `open` (an idea / suggest something) loads the whole group as alternatives. *Accepted by Alex 2026-11-06.*
 - **[D3]** Restaurants are loaded for every plan, max 12, ranked by data completeness and distance. OSM has no
-  ratings, so suggestions are real and nearby, not rated. *Proposed.*
+  ratings, so suggestions are real and nearby, not rated. *Accepted by Alex 2026-11-06.*
 - **[D4]** "Local cuisine" = a per-country list of OSM cuisine values. Without a cuisine wish, fast food is
-  dropped. If fewer than 3 match, the plan says so instead of showing others. *Proposed. Alex: "local cuisine in
-  Germany must not show pizza places", 2026-11-06.*
+  dropped. If fewer than 3 match, the plan says so instead of showing others. *Accepted by Alex 2026-11-06.*
 - **[D5]** Change requests use option A: the patch call can ask for places, code loads them, the patch runs once
-  more. *Proposed (recommended; B = keyword matching, C = a picker in the change box).*
-- **[D6]** A wish with no places nearby is stated as such in the plan, never filled with themes. *Proposed.*
+  more. *Accepted by Alex 2026-11-06.*
+- **[D6]** A wish with no places nearby is stated as such in the plan, never filled with themes. *Accepted by Alex 2026-11-06.*
+- **[D7]** Activity groups are `indoor`, `outdoor` and `going_out`, not day/evening events. *Alex, 2026-11-06.*
 
 ## Evals
 
 - New fixture: weekend group trip to a mid-size German city with the purpose above (no personal data).
 - Checks:
-  - the Friday evening activity has a ref of an `evening_event` type and at least one alt of another type
-  - Saturday uses a `day_event` type
+  - the Friday evening activity has a ref of an `indoor` type and at least one alt of another type
+  - Saturday uses an `outdoor` type (water or footgolf wish)
   - every dinner has a restaurant ref whose cuisine is in `LOCAL_CUISINE.DE` when the purpose asks for local food
   - no `pizza`/`burger` ref without a cuisine wish
   - footgolf missing is stated, not invented
