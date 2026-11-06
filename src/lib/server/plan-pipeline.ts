@@ -267,6 +267,7 @@ export async function loadPlanState(
         }),
         canIterate: computeCanIterate(stored.plan, c.trip, isLatest, aiEnabled),
         ...(isLatest && stored.pendingPlaces.length > 0 ? { placesIncomplete: true } : {}),
+        ...(isLatest && !stored.hasRestaurants ? { predatesSuggestions: true } : {}),
       },
     };
   } catch {
