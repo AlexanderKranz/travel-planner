@@ -2,13 +2,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const rpc = vi.fn();
-vi.mock("./supabase/admin", () => ({ createSupabaseAdminClient: () => ({ rpc: (...a: unknown[]) => rpc(...a) }) }));
+const countResult = vi.fn();
+// Minimal query builder for the Health counts: every chain step returns itself, awaiting yields countResult().
+const countQuery = () => {
+  const q: Record<string, unknown> = {};
+  q.select = () => q;
+  q.eq = () => q;
+  q.gte = () => q;
+  q.then = (ok: (v: unknown) => unknown, ko: (e: unknown) => unknown) => Promise.resolve(countResult()).then(ok, ko);
+  return q;
+};
+vi.mock("./supabase/admin", () => ({
+  createSupabaseAdminClient: () => ({ rpc: (...a: unknown[]) => rpc(...a), from: () => countQuery() }),
+}));
 vi.mock("./events", () => ({ logEvent: vi.fn() }));
 vi.mock("./facts/activities", () => ({ getActivityGroupFacts: vi.fn(), getCafeFacts: vi.fn(), getRestaurantFacts: vi.fn() }));
 vi.mock("./facts/places", () => ({ retryInterestLookup: vi.fn() }));
 
 import type { RetrySpec } from "@/lib/places-retry";
-import { enqueuePlaceRetries, groupDone, JOB_GRACE_MS, MIN_JOB_START_MS, processJobs, RUN_BUDGET_MS, type JobRow } from "./place-retries";
+import { enqueuePlaceRetries, getPlaceRetryStats, groupDone, JOB_GRACE_MS, MIN_JOB_START_MS, processJobs, RUN_BUDGET_MS, type JobRow } from "./place-retries";
 
 const T0 = Date.parse("2026-11-06T12:00:00Z");
 const spec: RetrySpec = { kind: "restaurants", dest: { lat: 49, lon: 12, kind: "city" } };
@@ -128,5 +140,16 @@ describe("processJobs hard stop", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("getPlaceRetryStats", () => {
+  it("returns the three counts", async () => {
+    countResult.mockReturnValue({ count: 2, error: null });
+    await expect(getPlaceRetryStats()).resolves.toEqual({ queued: 2, done: 2, gaveUp: 2 });
+  });
+  it("throws on a query error, so the Health tile is hidden instead of showing 0", async () => {
+    countResult.mockReturnValue({ count: null, error: { code: "42P01", message: "relation does not exist" } });
+    await expect(getPlaceRetryStats()).rejects.toMatchObject({ code: "42P01" });
   });
 });

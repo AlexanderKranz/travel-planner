@@ -194,7 +194,9 @@ export async function getPlaceRetryStats(): Promise<{ queued: number; done: numb
   const count = async (status: string, recent: boolean) => {
     let q = admin.from("place_retry_jobs").select("id", { count: "exact", head: true }).eq("status", status);
     if (recent) q = q.gte("updated_at", since);
-    const { count: n } = await q;
+    // A query error must hide the Health tile (the caller catches), not show a misleading 0.
+    const { count: n, error } = await q;
+    if (error) throw error;
     return n ?? 0;
   };
   const [queued, done, gaveUp] = await Promise.all([count("queued", false), count("done", true), count("gave_up", true)]);
