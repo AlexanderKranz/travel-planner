@@ -46,8 +46,10 @@ const smallIcon = `${focusCls} inline-flex h-6 min-w-6 items-center justify-cent
 export function AltEditButtons({ ctx, at, alt, name }: { ctx: ActEditCtx; at: ActAddress; alt: string; name: string }) {
   const t = useTranslations("plan.actEdit");
   const { pending, error, run } = useEdit(ctx);
+  // On hover-capable pointers the buttons are invisible until row hover/focus: take no width meanwhile, so
+  // "or: A · B" has no blank gap (touch keeps them visible).
   return (
-    <span className="inline-flex items-center">
+    <span className="inline-flex items-center [@media(hover:hover)]:w-0 [@media(hover:hover)]:overflow-hidden [@media(hover:hover)]:group-hover/act:w-auto [@media(hover:hover)]:group-focus-within/act:w-auto">
       <button
         type="button"
         className={`${smallIcon} ${QUICK_ADD_HOVER}`}
