@@ -340,6 +340,13 @@ Deviations:
   `placeGroup` now gives a swimming place `g = outdoor` when it is tagged `indoor=no`/`covered=no` or its name or
   note says Freibad, Strandbad, Naturbad, Waldbad, Badeweiher, Badesee, Seebad, Flussbad, lido, open-air or
   outdoor pool (`indoor=yes`/`covered=yes` win). The prompt says such places are for warm weather only.
+  After QA: a name with an indoor word (Hallen, Indoor, Therme, Sauna, Erlebnisbad, Spaßbad, Spa) counts as indoor,
+  also as a combined "Hallen- und Freibad", unless `indoor=no` or only the mapper's note says Freibad; `seebad`,
+  `lido`, `open-air` need word boundaries. Swimming places are classified before the per-type cut: indoor pools
+  first, at most 2 open-air ones, so a winter Hallenbad wish is not crowded out by near Freibäder.
+- **Family types only for family wishes** (after QA): `indoor_play`, `swimming` and `playground` carry `family`;
+  an open wish adds them as alternatives only when it names a family type itself, so an adult "escape room, only an
+  idea" never gets ball pits or playgrounds. They stay in the group's lookup union, so named wishes are served.
 - `needPlaces.restaurants.cuisine.kids` and `needPlaces.cafes.{near, kids}` are required in the wire schema
   (`kids: false` = not asked, `near: ""` = none): the API allows at most 24 optional parameters per structured-output
   schema, and optional fields would have made 25 (a live call failed with HTTP 400). A unit test now guards the

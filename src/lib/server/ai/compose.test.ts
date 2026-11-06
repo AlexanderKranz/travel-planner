@@ -182,7 +182,8 @@ describe("needPlaces (activities spec section 4)", () => {
       const own = o.properties ? Object.keys(o.properties).filter((k) => !(o.required ?? []).includes(k)).length : 0;
       return own + Object.values(o).reduce<number>((n, v) => n + (Array.isArray(v) ? v.reduce<number>((m, x) => m + optionals(x), 0) : optionals(v)), 0);
     };
-    expect(optionals(outputFormat(WirePatch).schema)).toBeLessThanOrEqual(24);
+    // 22 today: keep one spare below the limit of 24, so the next optional field is a deliberate decision.
+    expect(optionals(outputFormat(WirePatch).schema)).toBeLessThanOrEqual(23);
     expect(optionals(outputFormat(WirePlan).schema)).toBeLessThanOrEqual(24);
     expect(optionals(outputFormat(tagsRequest(purpose({ text: "x" })).schema).schema)).toBeLessThanOrEqual(24);
   });

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { parseElements } from "../integrations/overpass";
-import { MAX_PER_GROUP, MAX_PER_TYPE, activityPlacesForGroup, mergeActivityPlaces } from "./activity-places";
+import { MAX_OPEN_AIR_POOLS, MAX_PER_GROUP, MAX_PER_TYPE, activityPlacesForGroup, mergeActivityPlaces } from "./activity-places";
 import { selectRestaurants, toRestaurants } from "./cuisine";
 
 const fixture = (f: string) =>
@@ -134,5 +134,23 @@ describe("source parts of one group", () => {
     const cinemas = Array.from({ length: 6 }, (_, i) => mk(i, "cinema"));
     const merged = mergeActivityPlaces("indoor", [cinemas, [mk(1, "karaoke")]]);
     expect(merged.some((p) => p.types.includes("karaoke"))).toBe(true);
+  });
+});
+
+describe("swimming: indoor pools before the per-type cut (QA #137)", () => {
+  const el = (id: number, name: string, km: number, extra: Record<string, string> = {}) => ({
+    type: "way" as const, id, lat: 50 + km / 111.32, lon: 8, tags: { leisure: "water_park", name, ...extra },
+  });
+  const anchor = { lat: 50, lon: 8 };
+  it("a far Hallenbad survives eight near Freibäder; open-air pools are capped", () => {
+    const els = [...Array.from({ length: 8 }, (_, i) => el(i + 1, `Freibad ${i + 1}`, i + 1)), el(99, "Hallenbad Süd", 14)];
+    const swim = activityPlacesForGroup("indoor", els, anchor).filter((p) => p.types.includes("swimming"));
+    expect(swim[0]).toMatchObject({ name: "Hallenbad Süd", group: "indoor" });
+    expect(swim.filter((p) => p.group === "outdoor").map((p) => p.name)).toEqual(["Freibad 1", "Freibad 2"]);
+    expect(swim).toHaveLength(1 + MAX_OPEN_AIR_POOLS);
+  });
+  it("only open-air pools: they stay (as outdoor), at most MAX_OPEN_AIR_POOLS", () => {
+    const swim = activityPlacesForGroup("indoor", [el(1, "Freibad A", 1), el(2, "Badesee B", 2), el(3, "Waldbad C", 3)], anchor);
+    expect(swim.map((p) => [p.name, p.group])).toEqual([["Freibad A", "outdoor"], ["Badesee B", "outdoor"]]);
   });
 });

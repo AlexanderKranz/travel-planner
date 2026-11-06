@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ACTIVITY_SOURCES, ACTIVITY_TYPES, ActivityGroup, ActivityType, placeGroup, typesInGroup } from "@/lib/facts/activity-types";
+import { ACTIVITY_SOURCES, ACTIVITY_TYPES, ActivityGroup, ActivityType, isOpenAirBath, placeGroup, typesInGroup } from "@/lib/facts/activity-types";
 import { matchesFilter, rankCandidates } from "@/lib/facts/places";
 import type { RawOsmElement } from "@/lib/integrations/overpass";
 
@@ -48,7 +48,8 @@ export function activityPlacesForGroup(
   for (const type of typesInGroup(group).filter((t) => only.includes(t))) {
     const { filters, defaultRadiusKm } = ACTIVITY_SOURCES[type];
     const mine = elements.filter((e) => filters.some((f) => matchesFilter(e.tags, f)));
-    const list = rankCandidates(mine, filters, anchor, undefined, defaultRadiusKm).slice(0, MAX_PER_TYPE);
+    const ranked = rankCandidates(mine, filters, anchor, undefined, defaultRadiusKm);
+    const list = (type === "swimming" ? indoorPoolsFirst(ranked, tagsOf) : ranked).slice(0, MAX_PER_TYPE);
     if (!list.length) continue;
     perType.push({ type, list });
     for (const c of list) typesOf.set(idOf(c), [...(typesOf.get(idOf(c)) ?? []), type]);
@@ -90,4 +91,17 @@ export function mergeActivityPlaces(group: ActivityGroup, parts: readonly (reado
   }
   const lists = typesInGroup(group).map((t) => [...byId.values()].filter((p) => p.types.includes(t)));
   return roundRobin(lists);
+}
+
+/** Open-air pools kept per swimming list: a winter "Hallenbad" wish must not see only Freibäder (QA #137). */
+export const MAX_OPEN_AIR_POOLS = 2;
+
+/**
+ * Swimming candidates classified before the per-type cut: indoor pools first (rank order kept), then at most
+ * MAX_OPEN_AIR_POOLS open-air ones (`isOpenAirBath`). A list with only open-air pools keeps those (g = outdoor
+ * tells the model they are for warm weather).
+ */
+function indoorPoolsFirst<C extends { osmType: string; osmId: number }>(ranked: readonly C[], tagsOf: Map<string, Record<string, string>>): C[] {
+  const open = (c: C) => isOpenAirBath(tagsOf.get(`${c.osmType}/${c.osmId}`) ?? {});
+  return [...ranked.filter((c) => !open(c)), ...ranked.filter(open).slice(0, MAX_OPEN_AIR_POOLS)];
 }

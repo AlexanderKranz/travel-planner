@@ -97,3 +97,11 @@ describe("needPlaces with cafés and kids", () => {
     expect(next.llm.cafes!.kids).toBe(true);
   });
 });
+
+describe("resolveNeedPlaces with the wire defaults (QA #137)", () => {
+  it('near "" and kids false resolve to a plain cafés / restaurants request', () => {
+    const base = storedFor(2);
+    expect(resolveNeedPlaces({ cafes: { near: "", kids: false } }, base)).toEqual({ types: [], groups: [], cafes: {} });
+    expect(resolveNeedPlaces({ restaurants: { near: "", cuisine: { kids: false } } }, base)).toEqual({ types: [], groups: [], restaurants: {} });
+  });
+});
