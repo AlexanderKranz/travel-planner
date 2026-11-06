@@ -43,6 +43,18 @@ describe("fetchPlaces", () => {
     const ok = await fetchPlaces([["a"], ["b"]], { lat: 1, lon: 2 }, 1000);
     expect(ok.elements).toHaveLength(2); // de-duplicated across groups
     expect(ok.credits).toBe(2);
+    expect(ok.truncated).toBe(false);
+    vi.unstubAllEnvs();
+  });
+
+  it("a custom page size goes into the URL; a page that reaches it is truncated", async () => {
+    vi.stubEnv("GEOAPIFY_API_KEY", "k");
+    expect(new URL(placesUrl(["x"], { lat: 1, lon: 2 }, 1000, "k")).searchParams.get("limit")).toBe("100");
+    expect(new URL(placesUrl(["x"], { lat: 1, lon: 2 }, 1000, "k", 200)).searchParams.get("limit")).toBe("200");
+    http.fetchJson.mockResolvedValue({ status: 200, latencyMs: 5, body });
+    const features = (body as { features: unknown[] }).features.length;
+    expect((await fetchPlaces([["a"]], { lat: 1, lon: 2 }, 1000, features)).truncated).toBe(true);
+    expect((await fetchPlaces([["a"]], { lat: 1, lon: 2 }, 1000, features + 1)).truncated).toBe(false);
     vi.unstubAllEnvs();
   });
 });

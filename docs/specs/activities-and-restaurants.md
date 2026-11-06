@@ -103,7 +103,9 @@ is used.
   2. `exclude` always drops matches.
   3. Fast-food-style cuisines (`pizza`, `burger`, `kebab`, `sandwich`, `chicken`, `fast_food`) are dropped,
      also from multi-value tags such as `german;pizza`, unless `include` or the country's local set names that
-     cuisine (pizza stays local in Italy). Untagged restaurants are kept when no positive filter is set.
+     cuisine (pizza stays local in Italy). A place also stays when `include` names one of its non-fast-food
+     cuisines (`include: italian` keeps `italian;pizza`); plain `local` still drops `german;pizza`. Untagged
+     restaurants are kept when no positive filter is set.
   4. If a filter leaves fewer than 3, the input marks that ("only 2 local restaurants found"), and the plan says
      so instead of padding with others.
 - Ranking (no ratings exist in OSM): completeness first (website, opening_hours, cuisine tag, wikidata), then
