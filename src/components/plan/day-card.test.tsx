@@ -117,6 +117,8 @@ describe("DayCard activity edits (patch-safety [D7])", () => {
     const out = html("de", de);
     expect(out).toContain('aria-label="Alternative Los Naranjos Golf Club entfernen"');
     expect(out).toContain('aria-label="Alternative Aloha entfernen"');
+    // hover-only buttons must not reserve width (no blank gap in "oder: A · B")
+    expect(out).toContain("[@media(hover:hover)]:w-0");
     expect(out).toContain('aria-label="Los Naranjos Golf Club als Hauptort setzen"');
     expect(out).toContain('aria-label="Aktivität entfernen: Real Club de Golf Las Brisas"');
     expect(out).toContain('aria-label="Aktivität entfernen: Mittagessen"');
