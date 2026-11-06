@@ -15,12 +15,15 @@ export function placesPending(places: Fact<PlacesFacts>): string[] | null {
 }
 
 /**
- * Activity groups and restaurants whose lookup failed (`error`; never `empty` or `skipped`), labelled
- * `activities:<group>` and `restaurants`. Same rule as for interests: the pipeline asks the user to retry [D2].
+ * Activity groups and restaurants that did not load, labelled `activities:<group>` and `restaurants`: `error`, and
+ * `skipped` because the shared budget ran out (`cache_only`: network denied, nothing cached). Same rule as for
+ * interests: the pipeline asks the user to retry [D2] and the retry or warm-up completes them. Never pending:
+ * `empty`, and a free-text destination (`no_location`). "Generate anyway" (`force`) passes through in the caller.
  */
+const notLoaded = (l: { status: string; reason?: string }) => l.status === "error" || (l.status === "skipped" && l.reason === "cache_only");
 export function activityPlacesPending(facts: Pick<TripFacts, "activities" | "restaurants">): string[] {
-  const out = (facts.activities ?? []).filter((g) => g.status === "error").map((g) => `activities:${g.group}`);
-  if (facts.restaurants?.status === "error") out.push("restaurants");
+  const out = (facts.activities ?? []).filter(notLoaded).map((g) => `activities:${g.group}`);
+  if (facts.restaurants && notLoaded(facts.restaurants)) out.push("restaurants");
   return out;
 }
 

@@ -6,7 +6,7 @@ import { toRestaurants } from "@/lib/facts/cuisine";
 import { parseElements } from "@/lib/integrations/overpass";
 import { restaurantsInput } from "./activities-input";
 import { planInputHash } from "./hash";
-import { FEEDBACK_WISH, extendInput, resolveNeedPlaces } from "./need-places";
+import { FEEDBACK_WISH, extendInput, mergeCuisine, resolveNeedPlaces } from "./need-places";
 import { storedFor } from "./test-helpers";
 
 vi.mock("server-only", () => ({}));
@@ -80,5 +80,28 @@ describe("extendInput", () => {
     const fresh = next.llm.restaurants!.list.filter((r) => !stored.index[r.id]);
     const max = Math.max(...Object.keys(first.index).map((k) => Number(k.slice(1))));
     for (const r of fresh) expect(Number(r.id.slice(1))).toBeGreaterThan(max);
+  });
+});
+
+describe("QA: model-supplied ids and cuisine merge", () => {
+  const base = storedFor(2);
+  it("near never resolves inherited keys such as constructor or __proto__", () => {
+    for (const near of ["constructor", "__proto__", "toString", "hasOwnProperty"]) {
+      expect(resolveNeedPlaces({ restaurants: { near } }, base)).toEqual({ types: [], groups: [], restaurants: {} });
+    }
+  });
+
+  it("mergeCuisine keeps local, include and exclude the request leaves unset", () => {
+    expect(mergeCuisine({ local: true, exclude: ["pizza"] }, { include: ["italian"], exclude: [] })).toEqual({ local: true, include: ["italian"], exclude: ["pizza"] });
+    expect(mergeCuisine({ local: true, include: ["regional"] }, { local: false, include: [], exclude: ["kebab"] })).toEqual({ local: false, include: ["regional"], exclude: ["kebab"] });
+    expect(mergeCuisine(undefined, { include: ["sushi"], exclude: [] })).toEqual({ local: false, include: ["sushi"], exclude: [] });
+    expect(mergeCuisine(undefined, undefined)).toBeUndefined();
+  });
+
+  it("extendInput: a request without local keeps the earlier local wish and exclusions", () => {
+    const withRest = { ...base, llm: { ...base.llm, restaurants: { s: "ok" as const, ask: { local: true as const, exclude: ["pizza"] }, list: [] } } };
+    const req = resolveNeedPlaces({ restaurants: { cuisine: { include: ["italian"] } } }, withRest)!;
+    const next = extendInput(withRest, req, { activities: [], restaurants }, { lang: "de", countryCode: "DE" });
+    expect(next.llm.restaurants!.ask).toEqual({ local: true, include: ["italian"], exclude: ["pizza"] });
   });
 });

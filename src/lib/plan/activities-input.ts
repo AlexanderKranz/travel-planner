@@ -11,10 +11,13 @@ import { selectRestaurants, type CuisineWish, type Restaurant } from "@/lib/fact
  */
 export type ActivitiesInput = {
   /** g = effective group (an outdoor type tagged indoor=yes counts as indoor). km straight line, min drive minutes. */
-  places: { id: string; name: string; t: ActivityType; g: ActivityGroup; km: number; min?: number }[];
+  /** t = every catalogue type the place matches (`sport=rowing;canoe`). */
+  places: { id: string; name: string; t: ActivityType[]; g: ActivityGroup; km: number; min?: number }[];
   /** Per wish: w = what was asked for, open = only an idea, suggest options; per type its lookup status and place ids. */
-  wishes: { w?: string; open?: true; types: { t: ActivityType; s: LookupStatus; ids?: string[] }[] }[];
+  wishes: { w?: string; open?: true; types: { t: ActivityType; s: TypeStatus; ids?: string[] }[] }[];
 };
+/** Per-type status: a lookup status, or `cut` = no place of this type in a result cut off at the query cap. */
+export type TypeStatus = LookupStatus | "cut";
 export type RestaurantsInput = {
   s: LookupStatus;
   /** The cuisine wish the list was filtered with. */
@@ -54,31 +57,37 @@ const defined = <T extends object>(o: T): T => {
 
 export type WishSelection = {
   wish: ActivityWishTag;
-  types: { t: ActivityType; s: LookupStatus; places: { p: ActivityPlace; fetchedAt: string }[] }[];
+  types: { t: ActivityType; s: TypeStatus; places: { p: ActivityPlace; fetchedAt: string }[] }[];
 };
 
 /**
  * Per wish and type: lookup status and places (named types MAX_PER_NAMED_TYPE; the other types an open wish adds
- * MAX_PER_EXTRA_TYPE, and only when they have places). A named type whose group was not looked up is `skipped`; a
- * named type without places in a group that loaded is `empty`.
+ * MAX_PER_EXTRA_TYPE, and only when they have places). A place matching several types is listed under the first
+ * of them in the wish. A named type whose group was not looked up is `skipped`; a named type without places is
+ * `empty` only when its group lookup was complete (ok/empty, not truncated), `cut` when it was truncated, and keeps
+ * the group's `error`/`skipped` otherwise.
  */
 export function selectWishPlaces(lookups: readonly ActivityGroupLookup[] | undefined, wishes: readonly ActivityWishTag[] | undefined): WishSelection[] {
   return (wishes ?? []).flatMap((wish) => {
     const types = expandWish(wish);
     if (!types.length) return [];
     const out: WishSelection["types"] = [];
+    const seen = new Set<string>();
     for (const t of types) {
       const named = wish.types.includes(t);
       const look = lookups?.find((g) => g.group === ACTIVITY_SOURCES[t].group);
       const places = (look?.places ?? [])
-        .filter((p) => p.type === t)
+        .filter((p) => p.types.includes(t) && !seen.has(keyOf(p)))
         .slice(0, named ? MAX_PER_NAMED_TYPE : MAX_PER_EXTRA_TYPE)
         .map((p) => ({ p, fetchedAt: look?.fetchedAt ?? "" }));
+      for (const { p } of places) seen.add(keyOf(p));
+      const loaded = look?.status === "ok" || look?.status === "empty";
       // Types an open wish only adds as options are listed when they have places: the plan reports a missing type
       // only when the travellers named it (live eval: "Karaoke: nothing found" for a wish that never named karaoke).
       // A failed or skipped group stays visible, so the plan can say it could not be checked.
-      if (!named && !places.length && (look?.status === "ok" || look?.status === "empty")) continue;
-      const s: LookupStatus = !look ? "skipped" : look.status === "ok" || look.status === "empty" ? (places.length ? "ok" : "empty") : look.status;
+      if (!named && !places.length && loaded) continue;
+      // `empty` only from a complete lookup: never for error/skipped groups, never for a truncated result.
+      const s: TypeStatus = !look ? "skipped" : !loaded ? look.status : places.length ? "ok" : look.truncated ? "cut" : "empty";
       out.push({ t, s, places });
     }
     return out.length ? [{ wish, types: out }] : [];
@@ -120,7 +129,7 @@ export function activitiesInput(
     known.set(key, id);
     const name = p.names[a.lang] ?? p.name;
     const d = a.drive?.byKey[key];
-    places.push(defined({ id, name, t: p.type, g: p.group, km: round1(p.distanceKm), min: d?.min }));
+    places.push(defined({ id, name, t: [...p.types], g: p.group, km: round1(p.distanceKm), min: d?.min }));
     index[id] = {
       key,
       place: defined({

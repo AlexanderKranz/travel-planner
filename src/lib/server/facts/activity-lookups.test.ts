@@ -40,6 +40,25 @@ describe("loadActivityLookups", () => {
     expect(r).toEqual({ activities: [] });
   });
 
+  it("each lookup gets what is left of the shared window (decreasing budgetMs), never below cache only", async () => {
+    let t = 1_000_000;
+    const now = vi.spyOn(Date, "now").mockImplementation(() => t);
+    h.rest.mockImplementation(async () => ((t += 20_000), ok({ radiusKm: 2.5, restaurants: [], truncated: false })));
+    h.group.mockImplementation(async () => ((t += 30_000), ok({ group: "indoor", radiusKm: 15, places: [], truncated: false })));
+    await loadActivityLookups(dest, { groups: ["indoor", "outdoor", "going_out"] }, ctx, 60_000);
+    now.mockRestore();
+    expect(h.rest.mock.calls[0][2]).toMatchObject({ budgetMs: 60_000 });
+    expect(h.group.mock.calls.map((c) => (c[3] as { budgetMs: number }).budgetMs)).toEqual([40_000, 10_000, PLACES_CACHE_ONLY]);
+  });
+
+  it("keeps the skip reason and the truncated flag", async () => {
+    h.rest.mockResolvedValueOnce({ status: "skipped", reason: "cache_only" });
+    h.group.mockResolvedValueOnce(ok({ group: "indoor", radiusKm: 15, places: [], truncated: true }));
+    const r = await loadActivityLookups(dest, { groups: ["indoor"] }, ctx, 1000);
+    expect(r.restaurants).toEqual({ status: "skipped", restaurants: [], reason: "cache_only" });
+    expect(r.activities[0]).toMatchObject({ status: "ok", truncated: true });
+  });
+
   it("a throwing lookup counts as error", async () => {
     h.rest.mockRejectedValueOnce(new Error("x"));
     expect((await loadActivityLookups(dest, { groups: [] }, ctx, 1000)).restaurants).toEqual({ status: "error", restaurants: [] });

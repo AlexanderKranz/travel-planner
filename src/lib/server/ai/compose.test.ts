@@ -4,7 +4,7 @@ import { Plan, PurposeTags, type PlanFeedback } from "@/lib/domain/plan";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import { SYSTEM_RULES } from "@/lib/plan/prompt";
 import type { PlanInputStored } from "@/lib/plan/input";
-import { composeRequest, generateMaxTokens, normalizePatch, normalizePlan, patchBlocks, patchRequest, patchScope } from "./compose";
+import { composeRequest, generateMaxTokens, normalizePatch, normalizePlan, patchBlocks, patchPlan, patchRequest, patchScope } from "./compose";
 import { needsTags, normalizeTags, tagsRequest } from "./purpose-tags";
 
 vi.mock("server-only", () => ({}));
@@ -139,6 +139,32 @@ describe("needPlaces (activities spec section 4)", () => {
     expect(p.needPlaces).toEqual({ types: ["escape_game"], restaurants: { cuisine: { local: true, include: ["sushi"], exclude: [] }, near: "a2" } });
     expect(normalizePatch({ ...wire, needPlaces: { types: ["x"] } }).needPlaces).toBeUndefined();
     expect(normalizePatch(wire).needPlaces).toBeUndefined();
+  });
+
+  it("flags a request with nothing loadable as unusable; keeps `local` unset when the model did not set it", () => {
+    expect(normalizePatch({ ...wire, needPlaces: { types: ["laser_maze"] } }).needPlacesUnusable).toBe(true);
+    expect(normalizePatch(wire).needPlacesUnusable).toBeUndefined();
+    const p = normalizePatch({ ...wire, needPlaces: { restaurants: { cuisine: { exclude: ["pizza"] } } } });
+    expect(p.needPlaces).toEqual({ restaurants: { cuisine: { include: [], exclude: ["pizza"] } } });
+  });
+
+  it("patchPlan with loaded drops a repeated needPlaces and flags it", async () => {
+    const answer = { reply: "noch mehr laden", days: [], needPlaces: { types: ["bowling"] } };
+    const client = {
+      messages: {
+        create: async () => ({
+          stop_reason: "end_turn",
+          content: [{ type: "text", text: JSON.stringify(answer) }],
+          usage: { input_tokens: 1, output_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: 0 },
+        }),
+      },
+    };
+    const ctx = { onUsage: async () => {}, client: client as never };
+    const second = await patchPlan({ llm, plan, index, feedback: fb({ text: "x" }), loaded: true }, ctx);
+    expect(second.ok && second.data.needPlaces).toBeFalsy();
+    expect(second.ok && second.data.needPlacesUnusable).toBe(true);
+    const first = await patchPlan({ llm, plan, index, feedback: fb({ text: "x" }) }, ctx);
+    expect(first.ok && first.data.needPlaces).toEqual({ types: ["bowling"] });
   });
 
   it("the second call marks FEEDBACK as loaded and passes the deadline as timeout", () => {

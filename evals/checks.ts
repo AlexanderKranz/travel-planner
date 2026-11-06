@@ -319,7 +319,7 @@ const EVENING = "17:00";
 /** OSM key -> activity type / effective group, and restaurant key -> cuisines, from the stored input. */
 function inputMaps(stored: PlanInputStored) {
   const keyOf = (id: string) => stored.index[id]?.key as string | undefined;
-  const acts = new Map<string, { t: ActivityType; g: string }>();
+  const acts = new Map<string, { t: ActivityType[]; g: string }>();
   for (const p of stored.llm.activities?.places ?? []) {
     const k = keyOf(p.id);
     if (k) acts.set(k, { t: p.t, g: p.g });
@@ -348,10 +348,11 @@ export function activityChecks(plan: Plan, stored: PlanInputStored): CheckResult
   const evening = actsOf(1).find((a) => a.ref && acts.has(a.ref) && (!a.at || a.at >= EVENING));
   const ev = evening?.ref ? acts.get(evening.ref) : undefined;
   r.push(check("day 1 evening: indoor venue ref", ev?.g === "indoor", evening ? `${evening.at} ${evening.text} -> ${ev?.t}/${ev?.g}` : "no evening activity with an activity ref"));
-  const altTypes = (evening?.alts ?? []).map((k) => acts.get(k)?.t).filter(Boolean);
-  r.push(check("day 1 evening: an alternative of another type", altTypes.some((t) => t !== ev?.t), `ref ${ev?.t}, alts ${altTypes.join(",")}`));
+  const altTypes = (evening?.alts ?? []).map((k) => acts.get(k)?.t ?? []);
+  // Another kind: an alternative with a type the venue itself does not have.
+  r.push(check("day 1 evening: an alternative of another type", altTypes.some((ts) => ts.some((t) => !ev?.t.includes(t))), `ref ${ev?.t}, alts ${altTypes.map((ts) => ts.join("+")).join(",")}`));
   const sat = actsOf(2).filter((a) => a.ref && acts.has(a.ref)).map((a) => acts.get(a.ref!)!);
-  r.push(check("day 2: an outdoor type", sat.some((x) => ACTIVITY_SOURCES[x.t].group === "outdoor"), sat.map((x) => x.t).join(",") || "no activity ref"));
+  r.push(check("day 2: an outdoor type", sat.some((x) => x.t.some((t) => ACTIVITY_SOURCES[t].group === "outdoor")), sat.map((x) => x.t.join("+")).join(",") || "no activity ref"));
   const ask = stored.llm.restaurants?.ask;
   const local = new Set(LOCAL_CUISINE.DE);
   for (const n of [1, 2]) {

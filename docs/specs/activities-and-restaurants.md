@@ -207,18 +207,34 @@ is used.
   1500 → 3000 (one live tags-2 call ran out at 1500 with thinking).
 - Facts (`facts/activity-lookups.ts`): `getTripFacts` loads restaurants, then the wish groups, one after the
   other in the places budget, in parallel with the interest lookups; warm-up gets them through the same path.
-  `error` lookups make Generate answer `places_pending`, like interests; `empty` and `skipped` never block.
-  Activity places also get drive times (after the interest places, in the same ORS call); restaurants do not.
-- Input (`plan/activities-input.ts`): `activities` = places (`a1..`, `t`, effective `g`, `km`, `min`) + per wish
-  `w`, `open` and per type `s` and ids; `restaurants` = `s`, `ask`, `tooFew`, list (`r1..`, `c`, `km`). A place
-  that is already in `places` keeps its `p` id. Refs and alts validate through the shared index, so assemble,
-  patches, share view and PDF need no change.
+  An `error` lookup, or one `skipped` because the shared budget ran out (`cache_only`), makes Generate answer
+  `places_pending`, like interests; the retry or the warm-up completes it. `empty`, a free-text destination
+  (`no_location`) and "Generate anyway" never block. Activity places also get drive times (after the interest
+  places, in the same ORS call); restaurants do not.
+- Input (`plan/activities-input.ts`): `activities` = places (`a1..`, `t` = all matching types, effective `g`, `km`,
+  `min`) + per wish `w`, `open` and per type `s` and ids; `restaurants` = `s`, `ask`, `tooFew`, list (`r1..`, `c`,
+  `km`). A place that is already in `places` keeps its `p` id and a multi-type place is listed once per wish. A
+  type is `empty` only after a complete lookup; in a truncated result it is `cut` ("could not be fully checked").
+  Refs and alts validate through the shared index with own keys only, so assemble, patches, share view and PDF
+  need no change.
 - Prompt **`plan-6`** (rules 15 and 16, patch addendum `needPlaces`). Change requests: `needPlaces` → code
   loads the places, extends the stored input (`plan/need-places.ts`: a wish labelled `FEEDBACK`, a new
   `restaurants` block, or `restaurantsNear` for `near`) and calls the patch once more with `FEEDBACK.loaded`.
   The new version keeps the extended input but the base version's `inputHash`, like every patch, so a later
-  Generate can never match a patched plan.
+  Generate can never match a patched plan. A request's cuisine is merged with the earlier wish (`mergeCuisine`:
+  unset `local`, `include`, `exclude` are kept). A request the app cannot load (unknown kinds, or a second
+  request after loading) with no days answers "unchanged" with a fixed message
+  (`plan.iterate.placesNotLoadable`), never the model's "I will load them". A pending iterate shows its own
+  wording (`plan.iterate.placesPending`).
   Events `plan.patch_need_places`, `plan.places_pending` (with `patch: true`).
+
+Known failure modes:
+- A retry after `places_pending` on a change request runs the first patch call again (billed again; the places then
+  come from the cache). Skipping it would need the first answer stored between requests.
+- If the second call changes nothing, the places it loaded are not kept: no version is written, so a later request
+  loads them again (from the cache).
+- The model may still leave a named empty type unmentioned (seen once on an earlier wording of rule 15), and a
+  meal next to an activity 2 km out sometimes stays without a restaurant ref.
 
 Deviations:
 - The prompt version is `plan-6`, not `plan-4`: `plan-4` (timed items) and `plan-5` (short activity texts) were already used.
@@ -240,20 +256,20 @@ first call returned `needPlaces: {types: ["escape_game"]}` and the second set th
 
 | Call | Before (plan-5 / tags-1) in / out / cache | After (plan-6 / tags-2) in / out / cache | Cost before → after |
 |---|---|---|---|
-| system prompt | 3179 (plan), 916 (tags) | 3915 (plan), 1791 (tags) | |
+| system prompt | 3179 (plan), 916 (tags) | 3939 (plan), 1791 (tags) | |
 | golf generate | 2309 / 2482 / 3179 write | 2302 / 2712 / 3910 write | $0.0374 → $0.0415 |
 | golf patch | 726 / 467 / 5897 write | 817 / 387 / 7185 write | $0.0209 → $0.0235 |
 | cruise generate | 2622 / 2349 / 3179 read | 2611 / 3546 / 3910 read | $0.0294 → $0.0415 |
 | cruise patch | 831 / 545 / 2618 write + 3592 read | 965 / 551 / 2607 write + 4887 read | $0.0144 → $0.0149 |
-| Würzburg generate (new) | | 2168 / 1399 / 3915 write | $0.0281 |
-| Würzburg patch, 1st call (needPlaces) | | 759 / 168 / 5895 write | $0.0179 |
-| Würzburg patch, 2nd call | | 766 / 536 / 1107 write + 4892 read | $0.0106 |
+| Würzburg generate (new) | | 2185 / 1394 / 3939 write | $0.0282 |
+| Würzburg patch, 1st call (needPlaces) | | 725 / 156 / 5919 write | $0.0178 |
+| Würzburg patch, 2nd call | | 732 / 590 / 1108 write + 4916 read | $0.0111 |
 | tags (Würzburg) | | 206 / 1204 / 1791 read | $0.0006 |
 
 The golf and cruise inputs are unchanged apart from the prompt; their extra cost comes from the longer system
 prompt and longer answers. Rules 15 and 16 were reworded once more after the golf and cruise runs; those rules do
 not apply to the two fixtures, which carry no activities or restaurants blocks (no recorded restaurant data for
-Marbella and Passau).
+Marbella and Passau). The Würzburg rows are from the re-run after the #132 fixes (multi-type places, `cut`).
 
 ## Out of scope
 

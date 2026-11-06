@@ -164,3 +164,42 @@ describe("pending and drive picks", () => {
     expect(picks.some((p) => keys.has(p.key))).toBe(false);
   });
 });
+
+describe("QA: per-type status, multi-type places, own-key refs", () => {
+  const place = (osmId: number, types: ActivityGroupLookup["places"][number]["types"]): ActivityGroupLookup["places"][number] => ({
+    types, group: "outdoor", osmType: "node", osmId, name: `P${osmId}`, names: {}, category: "sport=rowing", lat: 49.8, lon: 9.9, distanceKm: 3, osmUrl: `https://www.openstreetmap.org/node/${osmId}`,
+  });
+  const wish: ActivityWishTag = { types: ["rowing", "canoe", "footgolf"], open: false };
+
+  it("`empty` only from a complete ok/empty lookup; never for error or skipped; `cut` for a truncated result", () => {
+    const statuses = (look: ActivityGroupLookup) => Object.fromEntries(selectWishPlaces([look], [wish])[0].types.map((t) => [t.t, t.s]));
+    expect(statuses({ group: "outdoor", status: "empty", places: [] })).toEqual({ rowing: "empty", canoe: "empty", footgolf: "empty" });
+    expect(statuses({ group: "outdoor", status: "error", places: [] })).toEqual({ rowing: "error", canoe: "error", footgolf: "error" });
+    expect(statuses({ group: "outdoor", status: "skipped", reason: "cache_only", places: [] })).toEqual({ rowing: "skipped", canoe: "skipped", footgolf: "skipped" });
+    expect(statuses({ group: "outdoor", status: "ok", truncated: true, places: [place(1, ["rowing"])] })).toEqual({ rowing: "ok", canoe: "cut", footgolf: "cut" });
+  });
+
+  it("a place matching several types is listed once per wish, with all its types", () => {
+    const look: ActivityGroupLookup = { group: "outdoor", status: "ok", places: [place(1, ["rowing", "canoe"]), place(2, ["canoe"])], fetchedAt: T };
+    const sel = selectWishPlaces([look], [wish]);
+    const ids = Object.fromEntries(sel[0].types.map((t) => [t.t, t.places.map(({ p }) => p.osmId)]));
+    expect(ids).toEqual({ rowing: [1], canoe: [2], footgolf: [] });
+    const out = activitiesInput(sel, { lang: "de", known: new Map(), startN: 0 });
+    expect(out.block!.places.find((p) => p.name === "P1")!.t).toEqual(["rowing", "canoe"]);
+  });
+
+  it("refs and alts never resolve inherited keys (constructor, __proto__)", () => {
+    const index = { a1: { key: "node/1" as const, place: { ...indoor.places[0], category: "x", source: "osm" as const, fetchedAt: T } } } as never;
+    const issues = emptyIssues();
+    const day = assembleDay(
+      { n: 1, title: "T", stops: [{ place: "X", acts: [{ kind: "do", text: "a", ref: "constructor" }, { kind: "do", text: "b", ref: "__proto__" }, { kind: "do", text: "c", ref: "a1", alts: ["toString", "__proto__"] }] }] },
+      { date: null, index, fallbackPlace: "X", issues, noteTimes: new Set() },
+    );
+    const acts = day.stops[0].acts;
+    expect(acts[0].ref).toBeUndefined();
+    expect(acts[1].ref).toBeUndefined();
+    expect(acts[2]).toMatchObject({ ref: "node/1" });
+    expect(acts[2].alts).toBeUndefined();
+    expect(issues.invalid_ref).toBe(4);
+  });
+});

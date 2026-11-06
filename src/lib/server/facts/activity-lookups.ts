@@ -9,15 +9,17 @@ import { PLACES_CACHE_ONLY, VIEW_BUDGET_MS } from "./places";
 
 /** LookupFact (data layer) -> the compact lookup kept in TripFacts. */
 export function groupLookup(group: ActivityGroup, f: LookupFact<ActivityGroupFacts>): ActivityGroupLookup {
-  if (f.status === "ok" || f.status === "empty") return { group, status: f.status, places: f.data.places, fetchedAt: f.fetchedAt };
-  return { group, status: f.status, places: [] };
+  if (f.status === "ok" || f.status === "empty") {
+    return { group, status: f.status, places: f.data.places, fetchedAt: f.fetchedAt, ...(f.data.truncated ? { truncated: true } : {}) };
+  }
+  return f.status === "skipped" ? { group, status: "skipped", places: [], reason: f.reason } : { group, status: "error", places: [] };
 }
 
 export function restaurantLookup(f: LookupFact<RestaurantFacts>): RestaurantLookup {
   if (f.status === "ok" || f.status === "empty") {
-    return { status: f.status, restaurants: f.data.restaurants, radiusKm: f.data.radiusKm, fetchedAt: f.fetchedAt };
+    return { status: f.status, restaurants: f.data.restaurants, radiusKm: f.data.radiusKm, fetchedAt: f.fetchedAt, ...(f.data.truncated ? { truncated: true } : {}) };
   }
-  return { status: f.status, restaurants: [] };
+  return f.status === "skipped" ? { status: "skipped", restaurants: [], reason: f.reason } : { status: "error", restaurants: [] };
 }
 
 /** Remaining budget of a shared window; cache only stays cache only, and an exhausted window becomes cache only. */

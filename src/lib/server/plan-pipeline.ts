@@ -80,7 +80,8 @@ const RESERVE_PATCH = 50_000;
 const Id = z.string().uuid();
 
 /** `rejectedDays`: patched days the shrink guard reverted (patch-safety [D3]); the client explains them. */
-export type PipelineData = { state: PlanState; unchanged?: true; reply?: string; rejectedDays?: number[] };
+/** `notice`: a fixed client message instead of the model reply (`places_not_loadable`: plan.iterate.placesNotLoadable). */
+export type PipelineData = { state: PlanState; unchanged?: true; reply?: string; rejectedDays?: number[]; notice?: "places_not_loadable" };
 export type PipelineError = {
   ok: false;
   error: ActionError;
@@ -551,12 +552,8 @@ async function patchWithPlaces(
     },
   });
   const loaded = await loadActivityLookups(dest, req, factsCtx, Math.max(PLACES_CACHE_ONLY, placesBudget));
-  // `skipped` with a destination = cache-only miss (no time left for a query): retry after warming, like `error`.
-  const missing = [
-    ...activityPlacesPending(loaded),
-    ...(dest ? loaded.activities.filter((g) => g.status === "skipped").map((g) => `activities:${g.group}`) : []),
-    ...(dest && loaded.restaurants?.status === "skipped" ? ["restaurants"] : []),
-  ];
+  // `error`, and `skipped` for lack of time (cache-only miss): retry after warming. A free-text destination passes.
+  const missing = activityPlacesPending(loaded);
   const tooLate = left() < SECOND_PATCH_MIN_MS;
   if (missing.length || tooLate) {
     if (missing.length) scheduleActivityWarm(dest, req, factsCtx, AFTER_LIMIT_MS - (Date.now() - a.started));
@@ -635,6 +632,16 @@ export async function iteratePlan(
       if (!second.ok) return second;
       res = second.res;
       stored = second.stored;
+    }
+    // The model asked for places that cannot be loaded (unknown kinds, or again after loading) and changed nothing:
+    // its reply ("I will load them") would be false, so the client shows a fixed message instead.
+    if (res.data.needPlacesUnusable && res.data.days.length === 0) {
+      await logEvent({
+        event: "plan.patched",
+        userId: c.session.userId,
+        props: { tripId: c.trip.id, changedDays: 0, needPlacesUnusable: true, costMicroUsd: ai.cost() },
+      });
+      return await done(c, { unchanged: true, notice: "places_not_loadable" });
     }
     const patched = applyPatch({ base: base.plan, patch: res.data, stored, scope: fb.data.days, fixed });
     if (!patched.ok) return failed(c, patched.reason, "invalid_output");

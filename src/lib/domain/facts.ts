@@ -82,8 +82,10 @@ export type PlacesFacts = { radiusKm: number; groups: PlaceGroup[]; customIntere
  * (free-text destination, cache-only run that missed), never reported as empty.
  */
 export type LookupStatus = "ok" | "empty" | "error" | "skipped";
-export type ActivityGroupLookup = { group: ActivityGroup; status: LookupStatus; places: ActivityPlace[]; fetchedAt?: string };
-export type RestaurantLookup = { status: LookupStatus; restaurants: Restaurant[]; radiusKm?: number; fetchedAt?: string };
+/** `truncated`: the source answer hit its cap (status stays ok); `reason` explains a `skipped` lookup. */
+type LookupMeta = { fetchedAt?: string; truncated?: boolean; reason?: "no_location" | "cache_only" };
+export type ActivityGroupLookup = { group: ActivityGroup; status: LookupStatus; places: ActivityPlace[] } & LookupMeta;
+export type RestaurantLookup = { status: LookupStatus; restaurants: Restaurant[]; radiusKm?: number } & LookupMeta;
 
 export type TripFacts = {
   tripId: string;
