@@ -49,6 +49,7 @@ export function AltEditButtons({ ctx, at, alt, name }: { ctx: ActEditCtx; at: Ac
   // On hover-capable pointers the buttons are invisible until row hover/focus: take no width meanwhile, so
   // "or: A · B" has no blank gap (touch keeps them visible).
   return (
+    <>
     <span className="inline-flex items-center [@media(hover:hover)]:w-0 [@media(hover:hover)]:overflow-hidden [@media(hover:hover)]:group-hover/act:w-auto [@media(hover:hover)]:group-focus-within/act:w-auto">
       <button
         type="button"
@@ -70,8 +71,9 @@ export function AltEditButtons({ ctx, at, alt, name }: { ctx: ActEditCtx; at: Ac
       >
         <span aria-hidden="true">×</span>
       </button>
-      <EditError error={error} />
     </span>
+    <EditError error={error} />
+    </>
   );
 }
 
