@@ -31,7 +31,7 @@
     "purposeUpdatedAt": "2026-10-28T08:00:00.000Z"
    }
   },
-  "summary": "Fünf Golftage an der Costa del Sol mit Marbella als zentraler Basis und Mietwagen. Jeden Tag eine Runde, am vierten Tag 36 Löcher. Am Anreise- und Abreisetag wird nahe dem Flughafen gespielt.",
+  "summary": "Fünf Golftage an der Costa del Sol mit Marbella als zentraler Basis, alle Plätze liegen innerhalb einer Stunde Fahrt. An Tag 3 stehen 36 Löcher an, an An- und Abreisetag wird jeweils flughafennah gespielt. Einzelzimmer und Mietwagen sind eingeplant.",
   "days": [
    {
     "n": 1,
@@ -42,19 +42,20 @@
       "place": "Flughafen Málaga",
       "acts": [
        {
+        "at": "17:30",
         "kind": "travel",
-        "text": "Ankunft, Mietwagen, Transfer zum Platz"
+        "text": "Mietwagen übernehmen, Fahrt zum Platz"
        }
       ]
      },
      {
-      "place": "Nähe Flughafen",
+      "place": "Flughafennähe",
       "acts": [
        {
-        "at": "17:30",
-        "until": "19:40",
+        "at": "18:15",
+        "until": "19:45",
         "kind": "sport",
-        "text": "9 Löcher bis zur Dämmerung"
+        "text": "Kurze Runde bis Dämmerung, flaches Gelände"
        }
       ]
      },
@@ -64,22 +65,95 @@
        {
         "at": "20:15",
         "kind": "travel",
-        "text": "Check-in, Einzelzimmer"
+        "text": "Check-in, Einzelzimmer beziehen"
        },
        {
         "at": "20:45",
         "kind": "food",
-        "text": "Abendessen im Hotelviertel"
+        "text": "Spätes Abendessen im Ort"
        }
       ]
      }
     ],
-    "warn": "Wenig Zeit bis zur Dämmerung; Runde auf 9 Löcher begrenzt."
+    "warn": "Nach der Landung bleibt wenig Tageslicht, Runde ist vermutlich nur teilweise spielbar."
    },
    {
     "n": 2,
     "date": "2038-03-14",
-    "title": "Marbella: Runde 1",
+    "title": "Golf Marbella Ost",
+    "stops": [
+     {
+      "place": "Marbella",
+      "acts": [
+       {
+        "at": "08:30",
+        "until": "13:00",
+        "kind": "sport",
+        "text": "18 Löcher, moderates Gelände"
+       },
+       {
+        "at": "13:15",
+        "until": "14:15",
+        "kind": "food",
+        "text": "Mittagessen nach der Runde"
+       },
+       {
+        "at": "15:00",
+        "until": "16:00",
+        "kind": "sport",
+        "text": "Training: Putten und kurzes Spiel"
+       },
+       {
+        "at": "19:30",
+        "kind": "food",
+        "text": "Abendessen in Marbella"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "n": 3,
+    "date": "2038-03-15",
+    "title": "36 Löcher & Hafenessen",
+    "stops": [
+     {
+      "place": "Marbella",
+      "acts": [
+       {
+        "at": "07:45",
+        "until": "11:45",
+        "kind": "sport",
+        "text": "Erste Runde, 18 Löcher, flach"
+       },
+       {
+        "at": "12:00",
+        "until": "13:00",
+        "kind": "food",
+        "text": "Schneller Lunch zwischen den Runden"
+       },
+       {
+        "at": "13:30",
+        "until": "17:45",
+        "kind": "sport",
+        "text": "Zweite Runde, 18 Löcher"
+       },
+       {
+        "at": "18:15",
+        "until": "19:15",
+        "kind": "rest",
+        "text": "Erholung im Hotel, frisch machen"
+       }
+      ]
+     }
+    ],
+    "note": "Abendessen am Hafen ist bereits gebucht.",
+    "warn": "36 Löcher sind anstrengend, Startzeiten früh wählen."
+   },
+   {
+    "n": 4,
+    "date": "2038-03-16",
+    "title": "Golf Marbella West",
     "stops": [
      {
       "place": "Marbella",
@@ -91,174 +165,98 @@
         "text": "18 Löcher, moderates Gelände"
        },
        {
-        "at": "14:00",
+        "at": "13:45",
+        "until": "14:45",
         "kind": "food",
-        "text": "Spätes Mittagessen, spanische Küche"
+        "text": "Mittagessen nach der Runde"
        },
        {
-        "at": "16:00",
-        "kind": "rest",
-        "text": "Pause, Range oder Putting-Green"
+        "at": "15:30",
+        "until": "17:30",
+        "kind": "free",
+        "text": "Freie Zeit, Bummel in der Altstadt"
        },
        {
-        "at": "20:30",
+        "at": "19:30",
         "kind": "food",
-        "text": "Abendessen, Tapas"
+        "text": "Abendessen, letzter Abend"
        }
       ]
      }
     ]
-   },
-   {
-    "n": 3,
-    "date": "2038-03-15",
-    "title": "Marbella: Runde 2",
-    "stops": [
-     {
-      "place": "Marbella",
-      "acts": [
-       {
-        "at": "09:00",
-        "until": "13:30",
-        "kind": "sport",
-        "text": "18 Löcher, Parklandschaft"
-       },
-       {
-        "at": "14:00",
-        "kind": "food",
-        "text": "Mittagessen, leicht"
-       },
-       {
-        "at": "16:30",
-        "kind": "rest",
-        "text": "Erholung vor dem Abendessen"
-       }
-      ]
-     }
-    ],
-    "note": "Abendessen am Hafen ist bereits gebucht."
-   },
-   {
-    "n": 4,
-    "date": "2038-03-16",
-    "title": "36-Loch-Tag",
-    "stops": [
-     {
-      "place": "Marbella",
-      "acts": [
-       {
-        "at": "08:00",
-        "until": "12:15",
-        "kind": "sport",
-        "text": "Erste Runde, 18 Löcher, zügig"
-       },
-       {
-        "at": "12:30",
-        "kind": "food",
-        "text": "Schnelles Mittagessen am Club"
-       },
-       {
-        "at": "13:45",
-        "until": "18:30",
-        "kind": "sport",
-        "text": "Zweite Runde, 18 Löcher"
-       },
-       {
-        "at": "20:15",
-        "kind": "food",
-        "text": "Abendessen, entspannt"
-       }
-      ]
-     }
-    ],
-    "warn": "Lange Tage: auf Pausen, Wasser und Verpflegung achten."
    },
    {
     "n": 5,
     "date": "2038-03-17",
-    "title": "Abschlussrunde & Abreise",
+    "title": "Abreise mit Golf",
     "stops": [
      {
-      "place": "Marbella",
+      "place": "Flughafennähe",
       "acts": [
        {
-        "at": "07:00",
-        "kind": "travel",
-        "text": "Frühstück, Check-out, Gepäck ins Auto"
-       }
-      ]
-     },
-     {
-      "place": "Nähe Flughafen",
-      "acts": [
-       {
-        "at": "08:15",
-        "until": "12:30",
+        "at": "07:45",
+        "until": "11:45",
         "kind": "sport",
-        "text": "18 Löcher, flugplatznah"
+        "text": "Morgenrunde nahe Flughafen"
        },
        {
-        "at": "12:45",
+        "at": "12:00",
         "kind": "travel",
-        "text": "Mietwagen zurückgeben, zum Flughafen"
+        "text": "Auschecken, Mietwagen zurückgeben"
        }
       ]
      }
-    ]
+    ],
+    "warn": "Rückflugzeit prüfen, Runde ggf. auf 9 Löcher kürzen."
    }
   ],
   "notes": [
    {
     "kind": "tip",
-    "text": "Restaurants konnten nicht geprüft werden; Mahlzeiten sind allgemein gehalten."
+    "text": "Alle Plätze liegen innerhalb einer Stunde Fahrt von Marbella."
    },
    {
     "kind": "tip",
-    "text": "Im März sind Morgen kühl, Mittag mild: Schichten tragen."
+    "text": "Im Einzelzimmer-Hotel früh Frühstück und Golfgepäck-Verladung klären."
    },
    {
     "kind": "warning",
-    "text": "Am Anreisetag bleibt nur Zeit für 9 Löcher vor der Dämmerung."
+    "text": "Restaurants konnten nicht geprüft werden, Mahlzeiten sind daher allgemein gehalten."
    },
    {
-    "kind": "tip",
-    "text": "Alle gelisteten Plätze liegen innerhalb einer Stunde Fahrt von Marbella."
+    "kind": "warning",
+    "text": "Im März sind Regentage möglich, Regenkleidung mitnehmen."
    }
   ],
   "openItems": [
    {
-    "text": "Startzeiten für alle Runden reservieren",
-    "day": 2
+    "text": "Startzeiten für alle Runden reservieren"
    },
    {
-    "text": "Mietwagen vorab buchen, Abholung am Flughafen",
-    "day": 1
-   },
-   {
-    "text": "Rückflugzeit prüfen und Startzeit am Abreisetag anpassen",
+    "text": "Rückflugzeit bestätigen und Startzeit anpassen",
     "day": 5
    },
    {
-    "text": "Startzeiten für beide Runden des 36-Loch-Tags buchen",
-    "day": 4
+    "text": "Platzprofil auf Höhenunterschiede prüfen"
    },
    {
-    "text": "Einzelzimmer in Marbella buchen"
+    "text": "Mietwagen für Golfbags reservieren",
+    "day": 1
    }
   ],
   "packing": [
-   "Golfschläger und Bälle",
    "Golfschuhe",
    "Regenjacke",
-   "Pullover für Morgen",
+   "Windjacke",
    "Sonnencreme",
    "Kappe",
    "Handschuhe",
-   "Entfernungsmesser",
-   "Führerschein",
-   "Wasserflasche",
-   "Ersatzsocken",
-   "Handtuch"
+   "Ersatzhandschuhe",
+   "Golfbälle",
+   "Pitchgabel",
+   "Leichte Pullover",
+   "Sonnenbrille",
+   "Führerschein"
   ],
   "places": {},
   "facts": {

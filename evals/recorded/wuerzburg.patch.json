@@ -1,10 +1,10 @@
 {
-  "promptVersion": "plan-6",
+  "promptVersion": "plan-7",
   "model": "claude-sonnet-5-5",
-  "inputHash": "ae37c6ff06ad9a04773cdfa37d6035a72fc5fcd0c577f93991406a949bd51538",
+  "inputHash": "0d1bc26fb4e83c56c68d6e02196dd0f59bcb8a452a3a00fea437995d33d22770",
   "output": {
     "first": {
-      "reply": "Für konkrete Escape-Room-Vorschläge lade ich zuerst passende Anbieter in Würzburg.",
+      "reply": "Für konkrete Escape-Room-Vorschläge lade ich zuerst passende Orte in Würzburg nach.",
       "days": [],
       "needPlaces": {
         "types": [
@@ -13,11 +13,11 @@
       }
     },
     "second": {
-      "reply": "Freitagabend enthält jetzt einen konkreten Escape-Room-Vorschlag (TeamEscape) mit Alternativen.",
+      "reply": "Tag 1: Der Escape Room (TeamEscape) ist jetzt als Freitagabend-Event fest eingeplant.",
       "days": [
         {
           "n": 1,
-          "title": "Ankunft & Freitagabend",
+          "title": "Anreise & Escape Room am Abend",
           "stops": [
             {
               "place": "Würzburg",
@@ -30,56 +30,50 @@
                 {
                   "at": "16:30",
                   "kind": "see",
-                  "text": "Bummel: Altstadt, Alte Mainbrücke, Dom",
+                  "text": "Bummel: Residenz, Hofgarten, Altstadt",
                   "ref": "",
                   "alts": []
                 },
                 {
-                  "at": "18:15",
-                  "kind": "free",
-                  "text": "Aperitif, Weinschorle am Main",
-                  "ref": "",
-                  "alts": []
-                },
-                {
-                  "at": "19:30",
-                  "until": "21:30",
+                  "at": "18:30",
+                  "until": "20:15",
                   "kind": "food",
-                  "text": "Gemeinsames Abendessen, fränkische Küche",
+                  "text": "Abendessen mit fränkischer Küche",
                   "ref": "r2",
                   "alts": [
-                    "r1",
-                    "r3"
+                    "r3",
+                    "r1"
                   ]
                 },
                 {
-                  "at": "21:45",
+                  "at": "20:45",
+                  "until": "22:15",
                   "kind": "do",
-                  "text": "Gemeinsames Event: Escape Room für die Gruppe",
+                  "text": "Gruppenevent: Escape Room für sechs",
                   "ref": "a1"
                 }
               ]
             }
           ],
-          "note": "TeamEscape ist als einziger Escape Room in der Nähe verifiziert; Alternativen wären Weinprobe oder Nachtwächter-Rundgang.",
-          "warn": "Wein und Altstadtpflaster: Rückweg zum Hotel vorab klären."
+          "note": "Weitere Escape-Room-Anbieter sind nicht in den geprüften Quellen enthalten, nur TeamEscape.",
+          "warn": "Abendessen vorab reservieren, Freitag sind Weinstuben oft voll."
         }
       ],
       "open": [
         {
-          "text": "Tisch für Freitagabend reservieren",
+          "text": "Escape Room für sechs Personen buchen und Verfügbarkeit prüfen",
           "day": 1
         },
         {
-          "text": "Escape Room bei TeamEscape für 6 Personen buchen, Programm und Zeit prüfen",
+          "text": "Tisch für sechs Personen reservieren",
           "day": 1
         },
         {
-          "text": "Anbieter für Boot, Rudern oder Footgolf buchen",
+          "text": "Rudern, Footgolf oder Wasseraktivität in Würzburg recherchieren und buchen",
           "day": 2
         },
         {
-          "text": "Tisch für Samstagabend reservieren",
+          "text": "Tisch für sechs Personen reservieren",
           "day": 2
         }
       ]
@@ -88,24 +82,24 @@
       "task": "plan_patch",
       "model": "claude-sonnet-5-5",
       "status": "ok",
-      "inputTokens": 725,
-      "outputTokens": 156,
-      "cacheCreationInputTokens": 5919,
-      "cacheReadInputTokens": 0,
-      "costMicroUsd": 17808,
-      "latencyMs": 2560
+      "inputTokens": 794,
+      "outputTokens": 167,
+      "cacheCreationInputTokens": 1042,
+      "cacheReadInputTokens": 5532,
+      "costMicroUsd": 6969,
+      "latencyMs": 2745
     }
   },
   "usage": {
     "task": "plan_patch",
     "model": "claude-sonnet-5-5",
     "status": "ok",
-    "inputTokens": 732,
-    "outputTokens": 590,
-    "cacheCreationInputTokens": 1108,
-    "cacheReadInputTokens": 4916,
-    "costMicroUsd": 11117,
-    "latencyMs": 4767
+    "inputTokens": 801,
+    "outputTokens": 528,
+    "cacheCreationInputTokens": 1147,
+    "cacheReadInputTokens": 5532,
+    "costMicroUsd": 10856,
+    "latencyMs": 3984
   },
-  "recordedAt": "2026-11-06T07:41:46.826Z"
+  "recordedAt": "2026-11-06T16:10:36.907Z"
 }

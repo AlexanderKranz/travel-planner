@@ -367,7 +367,7 @@ failed HTTP 400 call, which the API does not bill):
   "nicht in den geprüften Quellen enthalten" only into `reply`, so rule 15 now asks for the day's note; the re-run
   wrote it there and offered a listed zoo as the idea. All checks pass.
 - Golf, cruise and Würzburg generations were not re-recorded for plan-7 (their recordings now warn as stale and
-  skip the fresh-only checks).
+  skip the fresh-only checks). Re-recorded later, see "Re-recording for plan-7 / tags-3" below.
 
 | Call | Before (plan-6 / tags-2) | After (plan-7 / tags-3) |
 |---|---|---|
@@ -385,6 +385,46 @@ Known failure modes:
 - The open-air detection is a name list (mostly German); an open-air pool with another name still counts as indoor.
 - The model may name a verified place in a note instead of setting a ref (seen once: the A3 note named the zoo).
 - The family patch recording was made before the last A3 wording change in rule 15 (same prompt version plan-7).
+
+### Re-recording for plan-7 / tags-3 (2026-11-06)
+
+Golf, cruise and Würzburg re-recorded on main's prompts (`plan-7`, `tags-3`) with the live eval budget raised to $3.
+The inputs use the same recorded Overpass, Open-Meteo, AeroDataBox and ORS data as before. No new place recordings
+were needed. The eval lookups model the Overpass-only path (one union per group, no `typeStatus`), which is what
+production does without a Geoapify key after #139.
+Ledger $1.685 → $1.901, this re-recording $0.216 (15 calls). All replay checks pass and none of the three fixtures
+warns about a stale recording, so the fresh-only checks run again: golf course ref and airport distance, cruise
+family places, Würzburg activities and restaurants.
+
+| Call | Before (plan-6 / tags-2) in / out / cache | After (plan-7 / tags-3) in / out / cache | Cost before → after |
+|---|---|---|---|
+| golf generate | 2302 / 2712 / 3910 write | 2290 / 2873 / 4307 write | $0.0415 → $0.0441 |
+| golf patch | 817 / 387 / 7185 write | 723 / 436 / 7818 write | $0.0235 → $0.0254 |
+| cruise generate | 2611 / 3546 / 3910 read | 2610 / 3536 / 4307 read | $0.0415 → $0.0414 |
+| cruise patch | 965 / 551 / 2607 write + 4887 read | 830 / 446 / 2606 write + 5532 read | $0.0149 → $0.0137 |
+| cruise family patch, 1st call (plan-7 before) | 989 / 269 / 8106 write | 883 / 355 / 8138 read | $0.0249 → $0.0069 |
+| cruise family patch, 2nd call (plan-7 before) | 996 / 762 / 2719 write + 5499 read | 890 / 967 / 2718 write + 5532 read | $0.0175 → $0.0194 |
+| cruise A3 patch (plan-7 before) | 982 / 761 / 8118 write | 876 / 670 / 8138 read | $0.0299 → $0.0101 |
+| Würzburg generate | 2185 / 1394 / 3939 write | 2339 / 1251 / 4307 read | $0.0282 → $0.0180 |
+| Würzburg needbase | 1007 / 1413 / 3939 read | 1046 / 1468 / 4307 read | $0.0169 → $0.0176 |
+| Würzburg patch, 1st call (needPlaces) | 725 / 156 / 5919 write | 794 / 167 / 1042 write + 5532 read | $0.0178 → $0.0070 |
+| Würzburg patch, 2nd call | 732 / 590 / 1108 write + 4916 read | 801 / 528 / 1147 write + 5532 read | $0.0111 → $0.0109 |
+| tags (golf / cruise / Würzburg) | 192 / 214, 117 / 167, 206 / 1204 | 192 / 208, 117 / 147, 206 / 1277 (2010 cache) | $0.0001-0.0007 each |
+
+Cost differences mostly reflect which run wrote the cache, not the prompts: the runs went back to back, so most
+later calls read the cache. Notes:
+- Cruise tags: the first tags-3 call left out `family_activities` (only `christmas_markets`, `cruise`), so no family
+  places would have reached the model and the cruise family-place check would fail. The one allowed retry
+  included it and is the recording. Whether "mit Kleinkind" yields `family_activities` varies between Haiku calls;
+  the tags rules do not tie a toddler in the text to that interest.
+- Würzburg tags-3 now gives one type per open wish (escape_game; rowing; footgolf as its own wish) and
+  `custom: [Rudern, Footgolf, Escape Room]`. Code still expands open wishes, so the input lists the same
+  alternative types as before.
+- Family patch: the second call put "Indoor Inhalatorium" (the only `leisure=indoor_play` near Passau) as the ref,
+  with Babalu Funpark and "Passauer Erlebnisbad (PEB)" as alternatives. The PEB is a Freibad (OSM note). It comes
+  in as a `family_activities` interest place, which has no `g`, so the model cannot tell. The open-air check only
+  looks at refs, not at alternatives. The generation itself also uses the PEB as an alternative for "Spielen mit
+  Kleinkind, drinnen" on days 1 and 5.
 
 ## Addendum 2: background place retries (2026-11-06)
 

@@ -1,7 +1,7 @@
 {
-  "promptVersion": "tags-2",
+  "promptVersion": "tags-3",
   "model": "claude-haiku-5-5",
-  "inputHash": "fec68146556b82dd112f7cc9326918f4dfbea995abcbd7620340297fd4bd4692",
+  "inputHash": "ce2d4be8932d3883a730c1f741f5ce37762ce5777eaea47e814bbe2496ab3ddc",
   "output": {
     "v": 2,
     "interests": [
@@ -20,21 +20,19 @@
       "arrival day: early flight, then golf near airport, then check-in",
       "departure day: golf near airport, then flight"
     ],
-    "soft": [
-      "courses not too hilly"
-    ],
-    "summary": "Golf trip with a friend from Germany (FRA). One round daily, one day 36 holes. Arrival and departure days include golf near the airport. Single rooms, rental car, central base."
+    "soft": [],
+    "summary": "Golf trip with a friend from Germany (FRA departure). Play a round every day, one day 36 holes. Courses not too hilly. Arrival and departure days include golf."
   },
   "usage": {
     "task": "purpose_tags",
     "model": "claude-haiku-5-5",
     "status": "ok",
     "inputTokens": 192,
-    "outputTokens": 214,
-    "cacheCreationInputTokens": 0,
-    "cacheReadInputTokens": 1758,
-    "costMicroUsd": 144,
-    "latencyMs": 1670
+    "outputTokens": 208,
+    "cacheCreationInputTokens": 2010,
+    "cacheReadInputTokens": 0,
+    "costMicroUsd": 374,
+    "latencyMs": 2383
   },
-  "recordedAt": "2026-11-06T05:54:19.390Z"
+  "recordedAt": "2026-11-06T16:06:36.174Z"
 }
