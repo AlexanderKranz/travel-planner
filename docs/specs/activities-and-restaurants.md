@@ -272,6 +272,47 @@ prompt and longer answers. Rules 15 and 16 were reworded once more after the gol
 not apply to the two fixtures, which carry no activities or restaurants blocks (no recorded restaurant data for
 Marbella and Passau). The Würzburg rows are from the re-run after the #132 fixes (multi-type places, `cut`).
 
+## Addendum 1: family places, cafés and wording (2026-11-06)
+
+Feedback from a family trip to Limburg (toddler, 2.5 years): a change request for "concrete examples for the indoor
+playground" answered "Keine geprüften Orte gefunden … Namen vor Ort recherchieren". Indoor playgrounds, playgrounds
+and swimming pools were not in the catalogue, so the model could not request them and nothing was searched. Day 1
+also kept "Spielplatz oder Café in der Altstadt (Idee)".
+
+- **[A1] New catalogue types.**
+  - `indoor`:
+    - `indoor_play`: `leisure=indoor_play`
+    - `swimming`: `leisure=sports_centre` or `leisure=water_park` with `sport~swimming` (token-aware), or
+      `amenity=public_bath`
+  - `outdoor`:
+    - `playground`: `leisure=playground` with a name. Unnamed playgrounds are very common but cannot be shown as a
+      verified place.
+
+  The implementer checks the tags on taginfo as before.
+- **[A2] Cafés as their own small group `cafe`** (`amenity=cafe`, named), loaded like restaurants near the
+  destination point (or `near` a place) and ranked by data completeness and distance, at most 6. They are loaded
+  only when a wish or change request asks for cafés, not for every plan. They are not restaurants: meals still use
+  restaurants.
+- **[A3] Honest wording for types outside the catalogue.** When a wish or request names something no catalogue type
+  covers, the plan says it is not covered by the verified sources (de: "nicht in den geprüften Quellen enthalten")
+  and keeps it as an idea. It never says "no verified places found". "Nothing found nearby in OpenStreetMap" stays
+  reserved for an `empty` lookup of a catalogue type.
+- **[A4] Child-friendly restaurants only when asked.** Families are not steered to special restaurants by default
+  (Alex: many restaurants welcome children; families do not necessarily look for something special).
+  - When the purpose or a change request explicitly asks for child-friendly places, the cuisine wish gets
+    `kids: true`.
+  - With `kids`, restaurants tagged `kids_area=yes`, `highchair=yes` or `changing_table=yes` rank first. Nothing is
+    filtered out, because these tags are sparse in OSM.
+  - The plan does not claim a restaurant is child-friendly unless one of those tags is set.
+  - Without an explicit ask, the travel group never changes restaurant selection.
+- **[A5] Display:** the gap between alternatives ("oder: X ⎵⎵⎵ · Y") comes from space reserved for a drive time.
+  Restaurants have no drive time, so that space is only reserved when a drive time is shown.
+- Tags: `TAGS_PROMPT_VERSION` and `PLAN_PROMPT_VERSION` are bumped for A1–A4; the activity cache key version is
+  bumped for the new types.
+- Evals: the cruise (family) fixture gets a check that a toddler-related indoor wish yields an `indoor_play` or
+  `swimming` ref when the recording has one, and that no restaurant is described as child-friendly without a tag.
+  A new tags case checks that a family group alone does not set `kids`.
+
 ## Out of scope
 
 Ratings, prices and opening-hour checks (no free reliable source); booking links; multi-anchor trips
