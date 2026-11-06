@@ -47,6 +47,10 @@ describe("jobsForActivityLookups", () => {
     expect(jobs.map((j) => j.kind)).toEqual(["activity_group", "activity_group", "cafes"]);
     expect(jobs.map((j) => (j.params as { group?: string }).group)).toEqual(["indoor", "outdoor", undefined]);
   });
+  it("a partial group (ok, but one part failed) is enqueued", () => {
+    const jobs = jobsForActivityLookups(dest, { activities: [{ group: "indoor", status: "ok", places: [], partial: true } as never] });
+    expect(jobs.map((j) => j.kind)).toEqual(["activity_group"]);
+  });
   it("keeps the near point of a change request and rounds it", () => {
     const [j] = jobsForActivityLookups(dest, { restaurants: { status: "error", restaurants: [] } }, { restaurants: { lat: 49.123456, lon: 12.654321 } });
     expect(j.params).toMatchObject({ kind: "restaurants", near: { lat: 49.123, lon: 12.654 } });

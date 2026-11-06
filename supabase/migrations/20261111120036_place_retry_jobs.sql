@@ -37,8 +37,29 @@ create trigger place_retry_jobs_set_updated_at
   before update on public.place_retry_jobs
   for each row execute function private.set_updated_at();
 
+-- The retry window is fixed at creation: created_at and give_up_at never change afterwards.
+create or replace function private.place_retry_window_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.created_at is distinct from old.created_at or new.give_up_at is distinct from old.give_up_at then
+    raise exception 'created_at and give_up_at are immutable' using errcode = '23514';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function private.place_retry_window_guard() from public, anon, authenticated;
+
+drop trigger if exists place_retry_jobs_window_guard on public.place_retry_jobs;
+create trigger place_retry_jobs_window_guard
+  before update on public.place_retry_jobs
+  for each row execute function private.place_retry_window_guard();
+
 -- ---------- place_retry_enqueue: insert jobs, ignoring keys that are already queued ----------
--- p_jobs = [{kind, cache_key, params}, ...] (at most 20). Returns the number of new jobs.
+-- p_jobs = [{kind, cache_key, params}, ...] (at most 20). Returns the number of new jobs. Keys already queued, or
+-- given up within the last 6 hours, are skipped.
 create or replace function public.place_retry_enqueue(p_jobs jsonb)
 returns integer
 language plpgsql
@@ -54,6 +75,11 @@ begin
   insert into public.place_retry_jobs (kind, cache_key, params)
   select j.kind, j.cache_key, j.params
     from jsonb_to_recordset(p_jobs) as j(kind text, cache_key text, params jsonb)
+   -- Cooldown: a search that was given up less than 6 hours ago is not queued again, so repeated user actions
+   -- cannot keep one search retrying for ever.
+   where not exists (
+           select 1 from public.place_retry_jobs g
+            where g.cache_key = j.cache_key and g.status = 'gave_up' and g.updated_at > now() - interval '6 hours')
   on conflict (cache_key) where status = 'queued' do nothing;
   get diagnostics n = row_count;
   return n;
@@ -116,11 +142,21 @@ language plpgsql
 set search_path = ''
 as $$
 declare
+  v_expired integer;
   v_url    text;
   v_secret text;
   v_reason text;
 begin
   delete from public.place_retry_jobs where status <> 'queued' and updated_at < now() - interval '7 days';
+
+  -- Expire in the database too, so the 30-minute limit holds even if the route never runs.
+  update public.place_retry_jobs set status = 'gave_up', lease_until = null
+   where status = 'queued' and give_up_at <= now();
+  get diagnostics v_expired = row_count;
+  if v_expired > 0 then
+    insert into public.app_events (event, level, props)
+    values ('places.retry_gave_up', 'warn', jsonb_build_object('reason', 'window', 'count', v_expired));
+  end if;
 
   if not exists (select 1 from public.place_retry_jobs where status = 'queued') then
     return false;

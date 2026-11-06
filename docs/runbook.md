@@ -584,10 +584,12 @@ Without these two secrets the job does nothing and writes `places.retry_cron_unc
 
 ### Disable or enable
 
-- Disable: `select cron.unschedule('place-retries');`. Queued jobs then simply expire (nothing runs them); the app works as before, a failed lookup is retried by the user's next request.
+- Disable: `select cron.unschedule('place-retries');`. Queued jobs stay in the table and nothing runs them (clean up with the last line below); the app works as before, a failed lookup is retried by the user's next request.
 - Enable again: `select cron.schedule('place-retries', '*/5 * * * *', 'select private.run_place_retries()');`
 - Stop the queue only: `update place_retry_jobs set status = 'gave_up' where status = 'queued';`
 
 ### Limits
+
+Cooldown: a search that was given up is not queued again for 6 hours, however often the user retries. Expiry also happens inside `private.run_place_retries()`, before it looks for work.
 
 Per run: up to 5 jobs, one after another, at most 240 s in total (the route allows 300 s). A job only starts with at least 45 s left. Geoapify's daily credit cap and the Overpass politeness rules (one query at a time) apply as everywhere else. Finished jobs are deleted after 7 days. The table holds no user content (coordinates, radius, group or interest key).

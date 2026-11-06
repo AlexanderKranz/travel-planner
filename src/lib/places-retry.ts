@@ -46,7 +46,8 @@ export type RetryJob = { kind: RetrySpec["kind"]; cache_key: string; params: Ret
 const job = (s: RetrySpec): RetryJob => ({ kind: s.kind, cache_key: retryKey(s), params: s });
 
 /** Pending in the sense of `places-pending.ts`: failed, or skipped because the budget ran out. */
-const notLoaded = (l: { status: string; reason?: string }) => l.status === "error" || (l.status === "skipped" && l.reason === "cache_only");
+const notLoaded = (l: { status: string; reason?: string; partial?: boolean }) =>
+  l.status === "error" || (l.status === "skipped" && l.reason === "cache_only") || l.partial === true;
 
 const geo = (trip: Trip): DestLike | null => (trip.destination.kind === "freetext" ? null : trip.destination);
 

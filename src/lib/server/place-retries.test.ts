@@ -8,7 +8,7 @@ vi.mock("./facts/activities", () => ({ getActivityGroupFacts: vi.fn(), getCafeFa
 vi.mock("./facts/places", () => ({ retryInterestLookup: vi.fn() }));
 
 import type { RetrySpec } from "@/lib/places-retry";
-import { enqueuePlaceRetries, MIN_JOB_START_MS, processJobs, RUN_BUDGET_MS, type JobRow } from "./place-retries";
+import { enqueuePlaceRetries, isComplete, JOB_GRACE_MS, MIN_JOB_START_MS, processJobs, RUN_BUDGET_MS, type JobRow } from "./place-retries";
 
 const T0 = Date.parse("2026-11-06T12:00:00Z");
 const spec: RetrySpec = { kind: "restaurants", dest: { lat: 49, lon: 12, kind: "city" } };
@@ -94,5 +94,29 @@ describe("processJobs", () => {
     const [r] = await processJobs([row({ params: { kind: "nope" } })], run, { startedAt: T0, now: () => T0 });
     expect(r).toMatchObject({ result: "gave_up", error: "bad_params" });
     expect(run).not.toHaveBeenCalled();
+  });
+});
+
+describe("isComplete", () => {
+  it("ok and empty are complete, partial ok is not, errors are not", () => {
+    expect(isComplete({ status: "ok", data: { places: [] } })).toBe(true);
+    expect(isComplete({ status: "empty", data: {} })).toBe(true);
+    expect(isComplete({ status: "ok", data: { partial: true } })).toBe(false);
+    expect(isComplete({ status: "error" })).toBe(false);
+    expect(isComplete({ status: "skipped" })).toBe(false);
+  });
+});
+
+describe("processJobs hard stop", () => {
+  it("cuts off a lookup that ignores its budget", async () => {
+    vi.useFakeTimers();
+    try {
+      const p = processJobs([row()], () => new Promise(() => {}), { startedAt: T0, now: () => T0 });
+      await vi.advanceTimersByTimeAsync(120_000 + JOB_GRACE_MS + 1);
+      const [r] = await p;
+      expect(r).toMatchObject({ result: "failed", error: "job_timeout" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

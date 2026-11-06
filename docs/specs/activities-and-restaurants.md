@@ -397,11 +397,16 @@ Decisions:
   never throws and never blocks.
 - **[R4] Dedupe.** One queued job per key (unique index on the key while `status = 'queued'`). Enqueueing a key that
   is already queued changes nothing, in particular it does not extend `give_up_at`.
+- **[R4b] Cooldown.** `place_retry_enqueue` skips a key that has a `gave_up` row updated within the last 6 hours, so
+  repeated user actions cannot keep one search retrying. After 6 hours a failing lookup is a new search. The window
+  itself (`created_at`, `give_up_at`) cannot be changed after creation (trigger). A group that came back `ok` but
+  `partial` (one Geoapify part failed) counts as failed: it is enqueued, and a job is `done` only for a complete
+  ok/empty result.
 - **[R5] Trigger.** Vercel Hobby crons run once a day, so `pg_cron` calls `GET /api/cron/place-retries` through
   `pg_net` every 5 minutes. The URL and `CRON_SECRET` are read from Supabase Vault (`app_base_url`, `cron_secret`)
   inside the cron function, never from a migration. Without them (or without pg_net / vault) the function logs
   `places.retry_cron_unconfigured` (at most once an hour) and does nothing; it also does nothing while no job is
-  queued. The route answers 401 without the right secret (`isCronAuthorized`).
+  queued. It first expires queued jobs past `give_up_at` itself, so the limit holds even if the route never runs. The route answers 401 without the right secret (`isCronAuthorized`).
 - **[R6] Worker.** Per run: mark queued jobs past `give_up_at` as `gave_up`; claim up to 5 due jobs (lease of 6 min,
   so overlapping runs never take the same job), oldest first; run them one after the other (one Overpass slot) with
   the normal cache and fetch rules, in a total budget of 240 s (route `maxDuration` 300 s). A job only starts with

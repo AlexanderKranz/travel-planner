@@ -25,6 +25,15 @@ select throws_ok(
     values ('cafes', 'k', '{}', now(), now() + interval '31 minutes')$$,
   '23514', null, 'give_up_at is exactly created_at + 30 min');
 
+-- ---------- the window cannot be changed ----------
+select public.place_retry_enqueue('[{"kind":"cafes","cache_key":"w:1","params":{"kind":"cafes"}}]'::jsonb);
+select throws_ok($$update public.place_retry_jobs set give_up_at = give_up_at + interval '1 hour' where cache_key = 'w:1'$$, '23514', null, 'give_up_at is immutable');
+select throws_ok($$update public.place_retry_jobs set created_at = created_at - interval '1 hour' where cache_key = 'w:1'$$, '23514', null, 'created_at is immutable');
+delete from public.place_retry_jobs where cache_key = 'w:1';
+-- The tests below age rows on purpose, so the guard and the updated_at trigger are off from here on.
+alter table public.place_retry_jobs disable trigger place_retry_jobs_window_guard;
+alter table public.place_retry_jobs disable trigger place_retry_jobs_set_updated_at;
+
 -- ---------- enqueue: dedupe while queued, give_up_at not extended ----------
 select is(public.place_retry_enqueue('[{"kind":"restaurants","cache_key":"r:1","params":{"kind":"restaurants"}},
                                        {"kind":"cafes","cache_key":"c:1","params":{"kind":"cafes"}}]'::jsonb), 2, 'two new jobs');
@@ -34,12 +43,22 @@ select throws_ok($$select public.place_retry_enqueue('{"a":1}'::jsonb)$$, '22023
 
 -- Age one job, then re-enqueue: give_up_at stays.
 update public.place_retry_jobs set created_at = now() - interval '10 minutes', give_up_at = now() + interval '20 minutes' where cache_key = 'r:1';
-select public.place_retry_enqueue('[{"kind":"restaurants","cache_key":"r:1","params":{"kind":"restaurants"}}]'::jsonb);
+select is(public.place_retry_enqueue('[{"kind":"restaurants","cache_key":"r:1","params":{"kind":"restaurants"}}]'::jsonb), 0, 're-enqueue of a queued key inserts nothing');
+select is((select count(*)::int from public.place_retry_jobs where cache_key = 'r:1'), 1, 're-enqueue: still one row');
+select is((select created_at from public.place_retry_jobs where cache_key = 'r:1'), now() - interval '10 minutes', 're-enqueue keeps created_at');
 select is((select give_up_at from public.place_retry_jobs where cache_key = 'r:1'), now() + interval '20 minutes', 're-enqueue does not extend give_up_at');
 
 -- After a job is done, the same key may be queued again (a new search).
 update public.place_retry_jobs set status = 'done' where cache_key = 'c:1';
 select is(public.place_retry_enqueue('[{"kind":"cafes","cache_key":"c:1","params":{"kind":"cafes"}}]'::jsonb), 1, 'a done key can be queued again');
+
+-- ---------- cooldown: a key given up within 6 hours is not queued again ----------
+select public.place_retry_enqueue('[{"kind":"cafes","cache_key":"g:1","params":{"kind":"cafes"}}]'::jsonb);
+update public.place_retry_jobs set status = 'gave_up', updated_at = now() - interval '1 hour' where cache_key = 'g:1';
+select is(public.place_retry_enqueue('[{"kind":"cafes","cache_key":"g:1","params":{"kind":"cafes"}}]'::jsonb), 0, 'cooldown: gave up 1 h ago, not queued');
+update public.place_retry_jobs set updated_at = now() - interval '7 hours' where cache_key = 'g:1';
+select is(public.place_retry_enqueue('[{"kind":"cafes","cache_key":"g:1","params":{"kind":"cafes"}}]'::jsonb), 1, 'cooldown over: queued again');
+update public.place_retry_jobs set status = 'done' where cache_key = 'g:1' and status = 'queued';
 
 -- ---------- claim: oldest first, leased, past give_up_at excluded ----------
 update public.place_retry_jobs set status = 'done' where cache_key = 'c:1'; -- keep the re-queued c:1 out of the claim test
@@ -55,7 +74,18 @@ delete from public.app_events where event = 'places.retry_cron_unconfigured';
 select lives_ok($$select private.run_place_retries()$$, 'cron body does not raise');
 select is(private.run_place_retries(), false, 'no secret configured: does nothing');
 select is((select count(*)::int from public.app_events where event = 'places.retry_cron_unconfigured'), 1, 'unconfigured is logged once per hour');
-select ok(not exists (select 1 from public.app_events where event = 'places.retry_cron_unconfigured' and props::text ~* 'secret|bearer'), 'the log has no secret');
+select ok(not exists (
+  select 1 from public.app_events
+   where event = 'places.retry_cron_unconfigured'
+     and (props ->> 'reason' not in ('no_secret', 'no_vault', 'no_pg_net', 'vault_error') or (select count(*) from jsonb_object_keys(props)) <> 1)),
+  'the log holds only an allowed reason, nothing else');
+
+-- The database expires jobs itself: a queued job past give_up_at becomes gave_up before the queue check.
+insert into public.place_retry_jobs (kind, cache_key, params, created_at, give_up_at)
+  values ('cafes', 'x:1', '{}', now() - interval '31 minutes', now() - interval '1 minute');
+select private.run_place_retries();
+select is((select status from public.place_retry_jobs where cache_key = 'x:1'), 'gave_up', 'cron body expires jobs past give_up_at');
+select ok(exists (select 1 from public.app_events where event = 'places.retry_gave_up' and props ->> 'reason' = 'window'), 'expiry is logged without content');
 
 -- With nothing queued the body returns false without logging.
 update public.place_retry_jobs set status = 'gave_up' where status = 'queued';
