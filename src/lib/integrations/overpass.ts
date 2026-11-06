@@ -65,10 +65,14 @@ export function buildQuery(
   radiusM: number,
   /** Element cap of `out` (default 150; dense lists such as restaurants need more). */
   limit = 150,
+  /** Own radius in metres for a filter line (a dense type in a union with far-reaching ones); default `radiusM`. */
+  radiusFor?: (filter: string) => number | undefined,
 ): string {
-  const b = bboxAround(center, radiusM);
-  const box = `(${[b.south, b.west, b.north, b.east].map((v) => v.toFixed(5)).join(",")})`;
-  const lines = filters.map((f) => `  nwr${f}["name"]${box};`).join("\n");
+  const boxOf = (r: number) => {
+    const b = bboxAround(center, r);
+    return `(${[b.south, b.west, b.north, b.east].map((v) => v.toFixed(5)).join(",")})`;
+  };
+  const lines = filters.map((f) => `  nwr${f}["name"]${boxOf(radiusFor?.(f) ?? radiusM)};`).join("\n");
   return `[out:json][timeout:${OVERPASS_QUERY_TIMEOUT_S}];\n(\n${lines}\n);\nout center tags ${limit};`;
 }
 

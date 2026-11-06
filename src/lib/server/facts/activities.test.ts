@@ -375,3 +375,20 @@ describe("getCafeFacts", () => {
     expect(f.status === "ok" && f.data.cafes.map((c) => c.name)).toEqual(["Bohne"]);
   });
 });
+
+describe("per-line radius in the group union", () => {
+  it("outdoor: playground lines use 5 km, the other types their own radius", async () => {
+    h.runQuery.mockResolvedValue({ elements: [], status: 200, latencyMs: 1, mirror: "m" });
+    await getActivityGroupFacts("outdoor", dest("city"), ctx);
+    const q = h.runQuery.mock.calls[0][0] as string;
+    const lines = q.split("\n").filter((l) => l.startsWith("  nwr"));
+    const south = (l: string) => Number(/\(([-\d.]+),/.exec(l)![1]);
+    const halfHeightKm = (l: string) => (49.791 - south(l)) * 111.32;
+    const playground = lines.find((l) => l.includes('"playground"'))!;
+    const rowing = lines.find((l) => l.includes("rowing"))!;
+    const minigolf = lines.find((l) => l.includes("miniature_golf"))!;
+    expect(halfHeightKm(playground)).toBeCloseTo(5, 0);
+    expect(halfHeightKm(rowing)).toBeCloseTo(25, 0);
+    expect(halfHeightKm(minigolf)).toBeCloseTo(15, 0);
+  });
+});

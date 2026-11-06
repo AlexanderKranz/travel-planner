@@ -85,6 +85,8 @@ type Spec<T> = {
   /** For the truncation log event. */
   kind: string;
   filters: readonly string[];
+  /** Own Overpass radius (km) per filter line; absent = `radiusKm`. */
+  filterRadiusKm?: (filter: string) => number | undefined;
   /** Geoapify category groups; null = Overpass only (no or incomplete mapping, or no key). */
   geoapify: readonly (readonly string[])[] | null;
   geoapifyLimit?: number;
@@ -128,7 +130,10 @@ async function lookup<T>(s: Spec<T>): Promise<{ res: CachedResult<Batch<T>>; att
       fetchAllowed,
       fetcher: async () => {
         attempted = true;
-        const r = await runQuery(buildQuery(s.filters, s.anchor, s.radiusKm * 1000, OVERPASS_LIMIT), { deadline });
+        const r = await runQuery(buildQuery(s.filters, s.anchor, s.radiusKm * 1000, OVERPASS_LIMIT, (f) => {
+          const km = s.filterRadiusKm?.(f);
+          return km === undefined ? undefined : km * 1000;
+        }), { deadline });
         const truncated = r.elements.length >= OVERPASS_LIMIT;
         if (truncated) await truncatedEvent("overpass", OVERPASS_LIMIT);
         return { data: { items: s.process(r.elements), truncated }, status: r.status, latencyMs: r.latencyMs, variant: r.mirror };
@@ -187,6 +192,11 @@ export async function getActivityGroupFacts(
       keyParams: { kind: "activities", group, lat: anchor.lat, lon: anchor.lon, r: radiusKm },
       kind: `activities:${group}`,
       filters: types.flatMap((t) => ACTIVITY_SOURCES[t].filters),
+      // Each line searches only its own type's radius: dense playgrounds (5 km) must not fill the cap of a 25 km union.
+      filterRadiusKm: (f) => {
+        const t = types.find((x) => ACTIVITY_SOURCES[x].filters.includes(f));
+        return t && Math.min(ACTIVITY_SOURCES[t].defaultRadiusKm, radiusKm);
+      },
       geoapify: groupHasGeoapify(group) ? types.map((t) => ACTIVITY_SOURCES[t].geoapify!) : null,
       radiusKm,
       anchor,
