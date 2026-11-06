@@ -1,4 +1,4 @@
-import type { ActivityGroupLookup, CafeLookup, LookupStatus, RestaurantLookup } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, ActivityTypeStatus, CafeLookup, LookupStatus, RestaurantLookup } from "@/lib/domain/facts";
 import type { ActivityWishTag, OsmKey, PlanPlace } from "@/lib/domain/plan";
 import type { Locale } from "@/lib/domain/profile";
 import type { ActivityPlace } from "@/lib/facts/activity-places";
@@ -17,7 +17,20 @@ export type ActivitiesInput = {
   wishes: { w?: string; open?: true; types: { t: ActivityType; s: TypeStatus; ids?: string[] }[] }[];
 };
 /** Per-type status: a lookup status, or `cut` = no place of this type in a result cut off at the query cap. */
-export type TypeStatus = LookupStatus | "cut";
+export type TypeStatus = Exclude<ActivityTypeStatus, "unrequested">;
+
+/**
+ * What one type of a group lookup really got (Addendum 3): the stored `typeStatus` when present, else derived from
+ * the group as before the per-source split (error/skipped as the group; ok/empty: found, cut when truncated, else
+ * empty). No lookup = skipped.
+ */
+export function lookupTypeStatus(look: ActivityGroupLookup | undefined, t: ActivityType): ActivityTypeStatus {
+  if (!look) return "skipped";
+  const own = look.typeStatus?.[t];
+  if (own) return own;
+  if (look.status === "error" || look.status === "skipped") return look.status;
+  return look.places.some((p) => p.types.includes(t)) ? "ok" : look.truncated ? "cut" : "empty";
+}
 export type RestaurantsInput = {
   s: LookupStatus;
   /** The cuisine wish the list was filtered with. */
@@ -69,9 +82,10 @@ export type WishSelection = {
 /**
  * Per wish and type: lookup status and places (named types MAX_PER_NAMED_TYPE; the other types an open wish adds
  * MAX_PER_EXTRA_TYPE, and only when they have places). A place matching several types is listed under the first
- * of them in the wish. A named type whose group was not looked up is `skipped`; a named type without places is
- * `empty` only when its group lookup was complete (ok/empty, not truncated), `cut` when it was truncated, and keeps
- * the group's `error`/`skipped` otherwise.
+ * of them in the wish; a type whose only places are already listed under another type reuses them (status ok,
+ * never a false `empty`). The status is decided per type (`lookupTypeStatus`, Addendum 3): in a `partial` group the
+ * working part's types keep their places and status, the failed part's types are `error`/`skipped`. `empty` only
+ * for a type whose own source answered completely.
  */
 export function selectWishPlaces(lookups: readonly ActivityGroupLookup[] | undefined, wishes: readonly ActivityWishTag[] | undefined): WishSelection[] {
   return (wishes ?? []).flatMap((wish) => {
@@ -82,18 +96,21 @@ export function selectWishPlaces(lookups: readonly ActivityGroupLookup[] | undef
     for (const t of types) {
       const named = wish.types.includes(t);
       const look = lookups?.find((g) => g.group === ACTIVITY_SOURCES[t].group);
-      const places = (look?.places ?? [])
-        .filter((p) => p.types.includes(t) && !seen.has(keyOf(p)))
-        .slice(0, named ? MAX_PER_NAMED_TYPE : MAX_PER_EXTRA_TYPE)
-        .map((p) => ({ p, fetchedAt: look?.fetchedAt ?? "" }));
+      const cap = named ? MAX_PER_NAMED_TYPE : MAX_PER_EXTRA_TYPE;
+      const ofType = (look?.places ?? []).filter((p) => p.types.includes(t));
+      const fresh = ofType.filter((p) => !seen.has(keyOf(p)));
+      const places = (fresh.length ? fresh : ofType).slice(0, cap).map((p) => ({ p, fetchedAt: look?.fetchedAt ?? "" }));
       for (const { p } of places) seen.add(keyOf(p));
-      const loaded = look?.status === "ok" || look?.status === "empty";
+      // ok without places here = dropped by the group cap: unknown, never "nothing found". A wished type the lookup
+      // did not request (should not happen) is reported as not checked.
+      const own = lookupTypeStatus(look, t);
+      const s: TypeStatus = places.length ? "ok" : own === "ok" ? "cut" : own === "unrequested" ? "skipped" : own;
       // Types an open wish only adds as options are listed when they have places: the plan reports a missing type
       // only when the travellers named it (live eval: "Karaoke: nothing found" for a wish that never named karaoke).
-      // A failed or skipped group stays visible, so the plan can say it could not be checked.
-      if (!named && !places.length && loaded) continue;
-      // `empty` only from a complete lookup: never for error/skipped groups, never for a truncated result.
-      const s: TypeStatus = !look ? "skipped" : !loaded ? look.status : places.length ? "ok" : look.truncated ? "cut" : "empty";
+      // They are best effort (QA #139): failed or skipped, they are simply not offered. Only a wish that names no
+      // type keeps its failed or skipped types, so the plan can say they could not be checked.
+      const groupOnly = wish.types.length === 0;
+      if (!named && !places.length && (!groupOnly || s === "empty" || s === "cut")) continue;
       out.push({ t, s, places });
     }
     return out.length ? [{ wish, types: out }] : [];

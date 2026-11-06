@@ -51,7 +51,10 @@ export type ActivitySource = {
   filters: readonly string[];
   /**
    * Geoapify categories, a superset of the filters. Absent = no category exists, Overpass only
-   * (karaoke, climbing, rowing, canoe, karting).
+   * (karaoke, indoor_play, climbing crags, rowing, canoe, karting, footgolf). Checked against the category list
+   * 2026-11-06: `entertainment.activity_park` was probed for indoor_play and returns playgrounds and trampoline
+   * parks but no `leisure=indoor_play`, so it is not used; there is no karaoke, kart, canoe or rowing category.
+   * A group is looked up per source: the mapped types via Geoapify, the rest via Overpass (`splitGroupTypes`).
    */
   geoapify?: readonly string[];
   /** Search radius for this type in km (capped at MAX_RADIUS_KM). */
@@ -76,8 +79,14 @@ export const ACTIVITY_SOURCES: Record<ActivityType, ActivitySource> = {
   cinema: { group: "indoor", filters: [`["amenity"="cinema"]`], geoapify: ["entertainment.cinema"], defaultRadiusKm: 10 }, // 32k
   theatre: { group: "indoor", filters: [`["amenity"="theatre"]`], geoapify: ["entertainment.culture.theatre"], defaultRadiusKm: 10 }, // 54k
   karaoke: { group: "indoor", filters: [`["amenity"="karaoke_box"]`], defaultRadiusKm: 10 }, // 2.9k
-  climbing_hall: { group: "indoor", filters: [`["leisure"="sports_centre"]["sport"~"(^|;) *climbing *(;|$)"]`, `["sport"~"(^|;) *climbing *(;|$)"]["indoor"="yes"]`], defaultRadiusKm: 15 }, // 5.3k + indoor
-  indoor_play: { group: "indoor", filters: [`["leisure"="indoor_play"]`], defaultRadiusKm: 15, family: true }, // 3.6k; no Geoapify category
+  // Geoapify `entertainment.activity_park.climbing` probed 2026-11-06 (Munich, 15 km): 11 hits, all `sport=climbing` on a sports_centre (halls) plus one fitness_station. Misses a hall that is only `sport=climbing` + `indoor=yes` on another leisure tag (rare).
+  climbing_hall: {
+    group: "indoor",
+    filters: [`["leisure"="sports_centre"]["sport"~"(^|;) *climbing *(;|$)"]`, `["sport"~"(^|;) *climbing *(;|$)"]["indoor"="yes"]`],
+    geoapify: ["entertainment.activity_park.climbing"],
+    defaultRadiusKm: 15,
+  }, // 5.3k + indoor
+  indoor_play: { group: "indoor", filters: [`["leisure"="indoor_play"]`], defaultRadiusKm: 15, family: true }, // 3.6k; no Geoapify category (activity_park probed, see above)
   swimming: {
     group: "indoor",
     filters: [`["leisure"="sports_centre"]["sport"~"(^|;) *swimming *(;|$)"]`, `["leisure"="water_park"]`, `["amenity"="public_bath"]`],
@@ -101,13 +110,23 @@ export const isActivityType = (s: string): s is ActivityType => (ACTIVITY_TYPES 
 export const typesInGroup = (group: ActivityGroup): ActivityType[] =>
   ACTIVITY_TYPES.filter((t) => ACTIVITY_SOURCES[t].group === group);
 
-/** Query radius of a group: the largest default radius of its types (one union query), capped at 60 km. */
-export const radiusForGroup = (group: ActivityGroup): number =>
-  Math.min(MAX_RADIUS_KM, Math.max(...typesInGroup(group).map((t) => ACTIVITY_SOURCES[t].defaultRadiusKm)));
+/** Query radius of a set of types (default: the whole group): the largest default radius, capped at 60 km. */
+export const radiusForGroup = (group: ActivityGroup, types: readonly ActivityType[] = typesInGroup(group)): number =>
+  Math.min(MAX_RADIUS_KM, Math.max(...types.map((t) => ACTIVITY_SOURCES[t].defaultRadiusKm)));
 
 /** A group's types all have a Geoapify mapping, so one Geoapify lookup would cover the whole union. */
 export const groupHasGeoapify = (group: ActivityGroup): boolean =>
   typesInGroup(group).every((t) => ACTIVITY_SOURCES[t].geoapify !== undefined);
+
+/**
+ * Types of a group split by source: those with a Geoapify category (fast, ~1 s per request) and those without
+ * (Overpass only). Without a Geoapify key everything goes to Overpass.
+ */
+export function splitGroupTypes(group: ActivityGroup, geoapifyAvailable: boolean): { geoapify: ActivityType[]; overpass: ActivityType[] } {
+  const types = typesInGroup(group);
+  if (!geoapifyAvailable) return { geoapify: [], overpass: types };
+  return { geoapify: types.filter((t) => ACTIVITY_SOURCES[t].geoapify !== undefined), overpass: types.filter((t) => ACTIVITY_SOURCES[t].geoapify === undefined) };
+}
 
 /**
  * Group a found place counts in: its type's group, except that a place tagged `indoor=yes` counts as indoor even
@@ -162,6 +181,11 @@ export function expandWish(wish: ActivityWish): ActivityType[] {
     for (const g of groups) for (const t of typesInGroup(g)) if (family || !ACTIVITY_SOURCES[t].family) out.add(t);
   }
   return ACTIVITY_TYPES.filter((t) => out.has(t));
+}
+
+/** Every type the wishes need (the `expandWish` union): what a plan or change request waits for (QA #139). */
+export function wishedTypes(wishes: readonly ActivityWish[]): Set<ActivityType> {
+  return new Set(wishes.flatMap((w) => expandWish(w)));
 }
 
 /**

@@ -7,6 +7,7 @@ import {
   groupsForWishes,
   placeGroup,
   radiusForGroup,
+  splitGroupTypes,
   typesInGroup,
   isOpenAirBath,
 } from "./activity-types";
@@ -84,6 +85,25 @@ describe("activity catalogue", () => {
     expect(radiusForGroup("going_out")).toBe(3);
     expect(groupHasGeoapify("going_out")).toBe(true);
     expect(groupHasGeoapify("indoor")).toBe(false); // karaoke has no category
+  });
+});
+
+describe("splitGroupTypes", () => {
+  it("separates the types with a Geoapify category from the Overpass-only ones, catalogue order", () => {
+    expect(splitGroupTypes("indoor", true)).toEqual({
+      geoapify: ["escape_game", "bowling", "cinema", "theatre", "climbing_hall", "swimming"],
+      overpass: ["karaoke", "indoor_play"],
+    });
+    expect(splitGroupTypes("outdoor", true).geoapify).toEqual(["boat_rental", "minigolf", "playground"]);
+    expect(splitGroupTypes("going_out", true)).toEqual({ geoapify: ["bar"], overpass: [] });
+  });
+  it("without a Geoapify key everything is Overpass", () => {
+    expect(splitGroupTypes("going_out", false)).toEqual({ geoapify: [], overpass: ["bar"] });
+    expect(splitGroupTypes("indoor", false).geoapify).toEqual([]);
+  });
+  it("the radius of a part is the largest of its own types", () => {
+    expect(radiusForGroup("outdoor", ["playground"])).toBe(3);
+    expect(radiusForGroup("indoor", splitGroupTypes("indoor", true).geoapify)).toBe(15);
   });
 });
 

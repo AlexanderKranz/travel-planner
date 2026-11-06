@@ -390,3 +390,53 @@ Known failure modes:
 
 Ratings, prices and opening-hour checks (no free reliable source); booking links; multi-anchor trips
 (`concrete-places.md` D8).
+
+## Addendum 3: Geoapify per type (lookups split per source, 2026-11-06)
+
+Overpass was too slow (504 after 45 s, mirrors 80-100 s) for the union of a whole group, and `indoor`/`outdoor` always
+went to Overpass because one type (karaoke ...) has no Geoapify category. A group is now looked up in two parts:
+
+- Types with a Geoapify category: one Geoapify request per type, with the type's own radius (playground 3 km, not the
+  group's 25 km) and the OSM filters applied in code. If Geoapify fails, those types fall back to an Overpass union of just their lines.
+- Types without a category (karaoke, indoor_play, climbing crags, rowing, canoe, karting, footgolf): one Overpass union
+  of just those lines, last, with the budget that is left. Without a Geoapify key all types are one Overpass union.
+- `climbing_hall` is now mapped to `entertainment.activity_park.climbing` (probed Munich: all hits are `sport=climbing` halls).
+- Cache version 4 for activities; each part has its own key (`part` geo/osm, `t` = its types).
+
+`LookupFact<ActivityGroupFacts>` keeps its status meaning (`ok` places found or result cut; `empty` complete, all parts,
+no match; `error`/`skipped` nothing usable) and adds `data.typeStatus` (every type of the group: `ok`, `empty`, `cut`,
+`error`, `skipped`) and `data.partial`. If one part failed and the other worked, status is `ok` with `partial: true`
+(never `empty`), the other part's places are kept and only the failed part's types are `error`/`skipped`. The plan may only say "nothing
+found" for a type with `typeStatus === "empty"`.
+
+Wiring (plan side):
+- `groupLookup` carries `typeStatus` and `partial` into `ActivityGroupLookup` (TripFacts is not persisted, so no
+  facts version; the cache version 4 above already covers the stored part results). A group that failed or was
+  skipped as a whole marks every one of its types the same. A lookup without `typeStatus` (built by older code)
+  derives it from the group status as before (`lookupTypeStatus`).
+- Pending: a group is pending when it failed, was skipped for lack of time, is `partial`, or one of its types is
+  `error` (or `skipped` in a cache-only run). Generate and the change-request path both use
+  `activityPlacesPending`. `cut` and `empty` are final. The retry re-runs only the failed part: the part that worked
+  is a cache hit under its own key.
+- Input: the status is decided per type. A `partial` group keeps the working part's places and status; the failed
+  part's types are `error`/`skipped`, `cut` stays `cut`. A type that `typeStatus` calls `ok` but whose places were
+  dropped by the group cap is sent as `cut`, never `empty`. A type whose only place is already listed under another
+  type of the wish reuses that place (before, it was reported `empty`).
+- Prompt rule 15 says the status is per type (plan-7 is not released yet, so no version bump).
+
+After QA (#139):
+- Only wished types block. The plan passes the wished types (the `expandWish` union of the wishes, or a change
+  request's types) to the group lookups and to `activityPlacesPending`. A source part with no wished type is read
+  from the cache only (no network); on a miss its types are `unrequested`, which is neither pending nor "nothing
+  found". A part's cache key stays its full type list. An escape-room-only wish therefore never waits for the
+  Overpass part (karaoke, indoor_play).
+- Open wishes do not wait for their extra types (follow-up): pending counts only the types a wish names; a wish that
+  names no type (group only) is pending only when no part of its group answered. The types `open` adds are still
+  fetched when time allows (`wanted`), but are best effort: failed or skipped, they are not offered and not mentioned
+  ("not checked" only for named types, and for group-only wishes). An open escape-room wish with a failing Overpass
+  part (karaoke) therefore uses its escape-room places at once; a named karaoke wish still waits.
+- Geoapify requests of a part run 2 at a time. After the first, a request only starts with at least one Geoapify
+  timeout (25 s) of budget left; the types not started are `skipped` and the group is `partial`. Such an incomplete
+  answer is used for the request but never cached (its credits are still logged).
+- A second part with less than MIN_QUERY_WINDOW_MS (45 s) left runs cache only: `skipped` on a miss, not `error`.
+- `GEOAPIFY_HEADROOM` is documented against the lookups that can run at the same time.
