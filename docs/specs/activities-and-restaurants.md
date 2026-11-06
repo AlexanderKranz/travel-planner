@@ -50,13 +50,14 @@ guided purpose form, while activity types are concrete things to book. The guide
 
 | Group | Types (OSM filter, abbreviated) |
 |---|---|
-| `indoor` | `escape_game` (`leisure=escape_game`), `bowling` (`leisure=bowling_alley`), `cinema` (`amenity=cinema`), `theatre` (`amenity=theatre`), `karaoke` (`amenity=karaoke_box`), `laser_tag` (`leisure=sports_centre`+`sport=laser_tag`), `climbing_hall` (`sport=climbing`+`indoor=yes` or `leisure=sports_centre`) |
+| `indoor` | `escape_game` (`leisure=escape_game`), `bowling` (`leisure=bowling_alley`), `cinema` (`amenity=cinema`), `theatre` (`amenity=theatre`), `karaoke` (`amenity=karaoke_box`), `laser_tag` (`leisure=sports_centre`+`sport=laser_tag`), `climbing_hall` (`sport=climbing` + `indoor=yes`, or `sport=climbing` + `leisure=sports_centre`) |
 | `outdoor` | `boat_rental` (`amenity=boat_rental`), `rowing` (`sport=rowing`), `canoe` (`sport=canoe`), `footgolf` (`sport=footgolf`), `minigolf` (`leisure=miniature_golf`), `karting` (`sport=karting`), `high_ropes` (`sport=ropes_course`), `climbing` (outdoor `sport=climbing`) |
 | `going_out` | `bar` (`amenity~^(bar\|pub\|biergarten)$`) |
 
 The split is by place, not by time of day (Alex, 2026-11-06: minigolf is rather a day activity, so a day/evening
 split is debatable). The model picks the time from the trip's days, daylight and weather: an evening or a rainy
-day favours `indoor`. A place tagged `indoor=yes` counts as indoor even when its type is in `outdoor` (indoor minigolf). Every filter requires a name, as today. The implementer
+day favours `indoor`. A place tagged `indoor=yes` counts as indoor even when its type is in `outdoor` (indoor minigolf). Every filter requires a name, as today. `sport` (and other semicolon-list keys) match token-aware, e.g.
+`["sport"~"(^|;)climbing(;|$)"]`, so `sport=climbing;fitness` counts. The implementer
 verifies each OSM tag against the OSM wiki and drops a type whose tag is rare or ambiguous. Each kept type gets
 one recorded Overpass fixture.
 
@@ -93,13 +94,15 @@ is used.
 - A per-country table `LOCAL_CUISINE` (`src/lib/facts/cuisine.ts`, new) lists the cuisine values that count as
   local. For example, `DE`: german, regional, bavarian, swabian, franconian…; `ES`: spanish, tapas, regional,
   andalusian…; `AT`: austrian, regional…. A country without an entry uses `regional` only.
-- Filter, in this order:
-  1. With `cuisine.local`, keep restaurants whose cuisine is in the country's local set.
-  2. With `include`, keep restaurants whose cuisine matches.
-  3. `exclude` always drops matches.
-  4. Without any cuisine wish, drop fast-food-style cuisines (`pizza`, `burger`, `kebab`, `sandwich`,
-     `chicken`, `fast_food`) but keep untagged restaurants.
-  5. If a filter leaves fewer than 3, the input marks that ("only 2 local restaurants found"), and the plan says
+- Filter:
+  1. `local` and `include` are alternatives: keep restaurants whose cuisine is in the country's local set **or**
+     in `include` ("local or Italian food" keeps both). With neither set (no wish, or an exclusion-only wish such
+     as "no pizza"), start from all restaurants.
+  2. `exclude` always drops matches.
+  3. Fast-food-style cuisines (`pizza`, `burger`, `kebab`, `sandwich`, `chicken`, `fast_food`) are dropped,
+     also from multi-value tags such as `german;pizza`, unless `include` or the country's local set names that
+     cuisine (pizza stays local in Italy). Untagged restaurants are kept when no positive filter is set.
+  4. If a filter leaves fewer than 3, the input marks that ("only 2 local restaurants found"), and the plan says
      so instead of padding with others.
 - Ranking (no ratings exist in OSM): completeness first (website, opening_hours, cuisine tag, wikidata), then
   distance to the destination point. At most 12 restaurants go into the input; they do not count toward the 40
@@ -124,6 +127,8 @@ is used.
   The restaurant cache holds the nearest restaurants unfiltered, so a new cuisine wish is usually a re-filter of
   cached data, not a new query.
 - The first call's other output is discarded in that case. The second call cannot request places again.
+- **Budget.** Before the second call, `checkBudget(c, RESERVE_PATCH)` runs again with the first call's cost
+  counted. If it blocks, the request ends with the usual budget answer and no new version.
 - **Deadline.** The iterate route has `maxDuration = 300` s and the plan lock lasts `LOCK_MS` = 5 min. The whole
   request shares one deadline of 270 s from its start:
   - places get `min(60 s, remaining − 160 s)`, cache hits always served
@@ -144,10 +149,12 @@ is used.
 - Rules:
   - An activity for a wish with places sets `ref`; with `open`, `alts` should come from other types of the group
     where possible, so the user sees different kinds of options.
-  - Every lunch or dinner with restaurants available sets `ref` + `alts`.
-  - When every relevant lookup succeeded and found nothing (`empty`), write "found nothing nearby in
-    OpenStreetMap". When a lookup failed or was skipped (free-text destination, "Generate anyway"), say the
-    places could not be checked. Never invent themes or venues.
+  - Every lunch or dinner near the destination (the restaurant radius) with restaurants available sets
+    `ref` + `alts`. A meal next to a far activity stays generic (§3).
+  - Each **named** type is reported on its own: if footgolf is `empty` but rowing has places, the plan says "no
+    footgolf venue listed nearby in OpenStreetMap" (the filters require a name, so unnamed entries do not count) and offers rowing. "Nothing found" is used only for an `empty` lookup;
+    when a lookup failed or was skipped (free-text destination, "Generate anyway"), the plan says the places could
+    not be checked. Never invent themes or venues.
 - `PLAN_PROMPT_VERSION` is bumped. Existing plans keep working; new versions use plan-4.
 
 ### 6. Limits and cost
