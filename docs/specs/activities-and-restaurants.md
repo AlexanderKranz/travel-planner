@@ -379,6 +379,45 @@ Known failure modes:
 - The model may name a verified place in a note instead of setting a ref (seen once: the A3 note named the zoo).
 - The family patch recording was made before the last A3 wording change in rule 15 (same prompt version plan-7).
 
+## Addendum 2: background place retries (2026-11-06)
+
+Overpass is sometimes slow for minutes. A lookup that ends `error` (or `skipped` because the shared budget ran out)
+today waits for the user's next request. Alex wants such lookups retried in the background, but never endlessly.
+
+Decisions:
+- **[R1] At most 30 minutes per search.** A job has `give_up_at = created_at + 30 min` (a table check enforces it).
+  After that it is `gave_up` and nothing runs for it again. A later user action that fails again is a new search
+  and gets a new job.
+- **[R2] What is retried.** Interest lookups, activity groups, restaurants and cafés, each as one job with the
+  normalized parameters needed to rerun it (destination point and kind, radius, group or interest key, `near` point).
+  No user id, trip id, text or names are stored.
+- **[R3] Where jobs come from.** After the first attempt, which stays as it is (the lookup inside the request and
+  the `after()` warm-up): `generatePlan` (pending, "generate anyway" and regenerate), `iteratePlan` when
+  `needPlaces` ends in `places_pending`, and the trip warm-up (`warmTripFacts`, `scheduleActivityWarm`). Enqueueing
+  never throws and never blocks.
+- **[R4] Dedupe.** One queued job per key (unique index on the key while `status = 'queued'`). Enqueueing a key that
+  is already queued changes nothing, in particular it does not extend `give_up_at`.
+- **[R5] Trigger.** Vercel Hobby crons run once a day, so `pg_cron` calls `GET /api/cron/place-retries` through
+  `pg_net` every 5 minutes. The URL and `CRON_SECRET` are read from Supabase Vault (`app_base_url`, `cron_secret`)
+  inside the cron function, never from a migration. Without them (or without pg_net / vault) the function logs
+  `places.retry_cron_unconfigured` (at most once an hour) and does nothing; it also does nothing while no job is
+  queued. The route answers 401 without the right secret (`isCronAuthorized`).
+- **[R6] Worker.** Per run: mark queued jobs past `give_up_at` as `gave_up`; claim up to 5 due jobs (lease of 6 min,
+  so overlapping runs never take the same job), oldest first; run them one after the other (one Overpass slot) with
+  the normal cache and fetch rules, in a total budget of 240 s (route `maxDuration` 300 s). A job only starts with
+  at least 45 s left. `ok` and `empty` mark it `done` (the result is in the cache, the user's next request is
+  served from it); otherwise `attempts + 1` and `last_error`, and it stays queued until the next run. Geoapify's
+  daily cap (`assertGeoapifyQuota`) and the Overpass client timeout apply unchanged; a capped Geoapify just makes
+  the lookup fail and the job try again later.
+- **[R7] Logging.** `places.retry_done` and `places.retry_gave_up` in `app_events` (kind, attempts, age; no user
+  content). External calls are logged in `api_calls` by the existing code. Finished rows are deleted after 7 days.
+- **[R8] Admin.** The Health area shows "Place retries (24 h): queued / done / gave up".
+- **[R9] Access.** The table has RLS enabled and no policies, and no grants for `anon`/`authenticated`: only the
+  secret key (service role) reads and writes it, through the route and the server helpers.
+
+Not changed: what the user sees. The plan still answers `places_pending` when places are missing; a retry or
+"Generate anyway" is simply more likely to find the cache filled.
+
 ## Out of scope
 
 Ratings, prices and opening-hour checks (no free reliable source); booking links; multi-anchor trips

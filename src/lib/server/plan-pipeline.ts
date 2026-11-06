@@ -26,6 +26,8 @@ import { extendInput, resolveNeedPlaces, type NeedPlacesRequest } from "@/lib/pl
 import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
 import { geoDestination } from "./facts/common";
 import { scheduleActivityWarm } from "./warm";
+import { jobsForActivityLookups, jobsForTripFacts } from "@/lib/places-retry";
+import { enqueuePlaceRetries } from "./place-retries";
 import { PLACES_CACHE_ONLY } from "./facts/places";
 import { applyPatch } from "@/lib/plan/patch";
 import { guardPatch } from "@/lib/plan/patch-guard";
@@ -393,6 +395,8 @@ export async function generatePlan(
       },
     );
     const pending = allPlacesPending(facts);
+    // Keep trying in the background (at most 30 min per search), also for "generate anyway" and regenerate.
+    await enqueuePlaceRetries(jobsForTripFacts(c.trip, purpose, facts));
     // `fresh` (regenerate) never blocks on places: an earlier version exists and the user wants a new one.
     if (pending && !opts.force && !opts.fresh) {
       const gone = opts.clientGone?.() === true;
@@ -558,6 +562,15 @@ async function patchWithPlaces(
   const missing = activityPlacesPending(loaded);
   const tooLate = left() < SECOND_PATCH_MIN_MS;
   if (missing.length || tooLate) {
+    if (missing.length) {
+      // After the warm-up below, keep trying in the background (at most 30 min per search).
+      await enqueuePlaceRetries(
+        jobsForActivityLookups(dest && { lat: dest.lat, lon: dest.lon, kind: dest.kind }, loaded, {
+          restaurants: need.restaurants?.near,
+          cafes: need.cafes?.near,
+        }),
+      );
+    }
     if (missing.length) scheduleActivityWarm(dest, req, factsCtx, AFTER_LIMIT_MS - (Date.now() - a.started));
     await logEvent({
       event: "plan.places_pending",

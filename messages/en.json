@@ -1352,6 +1352,9 @@
       "keys": "Keys and settings",
       "set": "Set",
       "missing": "Missing",
+      "placeRetries": "Place retries",
+      "placeRetriesValue": "{queued} / {done} / {gaveUp}",
+      "placeRetriesHint": "Queued / done / gave up (done and gave up: last 24 h). A search is retried for 30 minutes at most.",
       "lastCron": "Last budget check",
       "never": "Never run",
       "keyNames": {

@@ -1352,6 +1352,9 @@
       "keys": "Schlüssel und Einstellungen",
       "set": "Gesetzt",
       "missing": "Fehlt",
+      "placeRetries": "Orts-Wiederholungen",
+      "placeRetriesValue": "{queued} / {done} / {gaveUp}",
+      "placeRetriesHint": "Offen / erledigt / aufgegeben (erledigt und aufgegeben: letzte 24 Std.). Eine Suche wird höchstens 30 Minuten wiederholt.",
       "lastCron": "Letzte Budgetprüfung",
       "never": "Noch nie gelaufen",
       "keyNames": {
