@@ -63,11 +63,13 @@ export function buildQuery(
   filters: readonly string[],
   center: { lat: number; lon: number },
   radiusM: number,
+  /** Element cap of `out` (default 150; dense lists such as restaurants need more). */
+  limit = 150,
 ): string {
   const b = bboxAround(center, radiusM);
   const box = `(${[b.south, b.west, b.north, b.east].map((v) => v.toFixed(5)).join(",")})`;
   const lines = filters.map((f) => `  nwr${f}["name"]${box};`).join("\n");
-  return `[out:json][timeout:${OVERPASS_QUERY_TIMEOUT_S}];\n(\n${lines}\n);\nout center tags 150;`;
+  return `[out:json][timeout:${OVERPASS_QUERY_TIMEOUT_S}];\n(\n${lines}\n);\nout center tags ${limit};`;
 }
 
 export function parseElements(body: unknown): RawOsmElement[] {
