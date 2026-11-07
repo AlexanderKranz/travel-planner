@@ -816,7 +816,9 @@
       "sport": "Sport",
       "food": "Essen",
       "rest": "Pause",
-      "travel": "Anreise",
+      "travel": "Unterwegs",
+      "travelArrival": "Anreise",
+      "travelDeparture": "Abreise",
       "shop": "Einkaufen",
       "free": "Freie Zeit"
     },
@@ -1221,7 +1223,9 @@
       "sport": "Sport",
       "food": "Essen",
       "rest": "Pause",
-      "travel": "Anreise",
+      "travel": "Unterwegs",
+      "travelArrival": "Anreise",
+      "travelDeparture": "Abreise",
       "shop": "Einkaufen",
       "free": "Freie Zeit"
     },

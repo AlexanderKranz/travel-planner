@@ -1,4 +1,5 @@
 import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { kindLabelKey } from "@/lib/plan/kind-label";
 import type { ReactElement } from "react";
 import { windowKind } from "@/components/plan/helpers";
 import type { SharedItem } from "@/lib/domain/items";
@@ -111,7 +112,7 @@ function TimePill({ time, best }: { time: string; best: boolean }) {
   );
 }
 
-function DayCard({ day, doc, fixed, t, fmt }: { day: PlanDay; doc: PlanDocument; fixed: FixedItem[]; t: PdfT; fmt: Fmt }) {
+function DayCard({ day, doc, fixed, t, fmt, dayCount }: { day: PlanDay; dayCount: number; doc: PlanDocument; fixed: FixedItem[]; t: PdfT; fmt: Fmt }) {
   const { plan } = doc;
   const merged = mergeDayRows(day, fixed);
   const best = isUserBest(day);
@@ -192,7 +193,7 @@ function DayCard({ day, doc, fixed, t, fmt }: { day: PlanDay; doc: PlanDocument;
                   <View key={j} wrap={false} style={{ flexDirection: "row", marginTop: 4.5 }}>
                     <TimePill best={best} time={time} />
                     <Text style={{ ...labelStyle, width: 60, paddingTop: 1.5, color: a.kind === "sport" ? (best ? C.okLight : C.okLine) : muted }}>
-                      {t(`kinds.${a.kind}`)}
+                      {t(`kinds.${kindLabelKey(a.kind, day.n - 1, dayCount)}`)}
                     </Text>
                     <View style={{ ...s.grow }}>
                       <Text style={{ color: ink }}>
@@ -450,7 +451,7 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
 
         <Heading>{t("days")}</Heading>
         {plan.days.map((d) => (
-          <DayCard key={d.n} day={d} doc={doc} fixed={fixed} t={t} fmt={fmt} />
+          <DayCard key={d.n} day={d} dayCount={plan.days.length} doc={doc} fixed={fixed} t={t} fmt={fmt} />
         ))}
 
         {/* Drive times are display-on-request in the web views and omitted in the PDF (spec timed-items [D15]). */}
