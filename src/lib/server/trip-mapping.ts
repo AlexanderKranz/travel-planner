@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { IsoDate } from "@/lib/domain/common";
 import { StatedAge } from "@/lib/domain/group";
+import { PurposeTags } from "@/lib/domain/plan";
+import { oneOffLabel, oneOffTagsHash } from "@/lib/discover/one-off";
 import { cachedParse } from "./group-mapping";
 import {
   DEFAULT_RADIUS_KM,
@@ -39,6 +41,10 @@ export type TripRow = {
   group_parsed: unknown;
   group_parsed_hash: string | null;
   purpose_id: string | null;
+  /** One-off purpose (spec trip-purpose-text): free text and the server-written Haiku tags for it. */
+  purpose_text: string | null;
+  purpose_tags: unknown;
+  purpose_tags_hash: string | null;
   wants_flights: boolean;
   origin_airports: string[];
   notes: string | null;
@@ -50,13 +56,13 @@ export type TripRow = {
 };
 
 export const TRIP_COLUMNS =
-  "id, owner_id, title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_country_code, dest_admin1, dest_lat, dest_lon, dest_timezone, dest_radius_km, length_days, start_date, months, group_id, group_text, group_structure, group_parsed, group_parsed_hash, purpose_id, wants_flights, origin_airports, notes, destination_search_id, created_at, updated_at";
+  "id, owner_id, title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_country_code, dest_admin1, dest_lat, dest_lon, dest_timezone, dest_radius_km, length_days, start_date, months, group_id, group_text, group_structure, group_parsed, group_parsed_hash, purpose_id, purpose_text, purpose_tags, purpose_tags_hash, wants_flights, origin_airports, notes, destination_search_id, created_at, updated_at";
 
 /** TRIP_COLUMNS plus the share rows the viewer may see (their own, or all grants of their own trip). */
 export const TRIP_COLUMNS_WITH_SHARES = `${TRIP_COLUMNS}, trip_shares(grantee_id, access)`;
 
 /** The writable columns (everything except id, owner_id, the timestamps and the server-written parse cache). */
-export type TripWrite = Omit<TripRow, "id" | "owner_id" | "created_at" | "updated_at" | "group_parsed" | "group_parsed_hash" | "destination_search_id" | "trip_shares"> & {
+export type TripWrite = Omit<TripRow, "id" | "owner_id" | "created_at" | "updated_at" | "group_parsed" | "group_parsed_hash" | "purpose_tags" | "purpose_tags_hash" | "destination_search_id" | "trip_shares"> & {
   /** Omitted = not written (an update keeps the stored link; an insert gets null). */
   destination_search_id?: string | null;
 };
@@ -76,6 +82,13 @@ export function rowToGroupStructure(raw: unknown): TripGroupEntry[] {
   return parsed.success ? parsed.data : [];
 }
 
+
+/** Tags of the one-off purpose, only while they were made for the current text (hash) and still parse. */
+export function rowToPurposeTags(row: Pick<TripRow, "purpose_text" | "purpose_tags" | "purpose_tags_hash">): PurposeTags | undefined {
+  if (!row.purpose_text || row.purpose_tags == null || row.purpose_tags_hash !== oneOffTagsHash(row.purpose_text)) return undefined;
+  const parsed = PurposeTags.safeParse(row.purpose_tags);
+  return parsed.success ? parsed.data : undefined;
+}
 
 export function rowToDestination(row: TripRow): Destination {
   if (
@@ -125,6 +138,8 @@ export function rowToTrip(row: TripRow, viewerId: string): Trip {
     groupStructure: rowToGroupStructure(row.group_structure),
     groupParse: cachedParse(row.group_text, row.group_parsed, row.group_parsed_hash),
     purposeId: row.purpose_id,
+    purposeText: row.purpose_text ?? undefined,
+    purposeTags: rowToPurposeTags(row),
     wantsFlights: row.wants_flights,
     originAirports: row.origin_airports,
     notes: row.notes ?? undefined,
@@ -153,7 +168,7 @@ export function rowToSummary(row: TripSummaryRow, viewerId: string, sharedBy: Tr
     timing: trip.timing,
     updatedAt: trip.updatedAt,
     groupName: row.travel_groups?.name ?? (row.group_text ? row.group_text.slice(0, 40) : null),
-    purposeName: row.trip_purposes?.name ?? null,
+    purposeName: row.trip_purposes?.name ?? (row.purpose_text ? oneOffLabel(row.purpose_text) : null),
     access: trip.access,
     sharedBy,
     shareCount: trip.access === "owner" ? (row.share_count?.[0]?.count ?? 0) : 0,
@@ -241,6 +256,8 @@ export function buildTripWrite(
         ? null
         : buildGroupStructure(input.groupStructure, opts.existing?.group_structure, opts.today ?? new Date().toISOString().slice(0, 10)),
     purpose_id: input.purposeId,
+    // Mutually exclusive with purpose_id (also a DB check): a saved purpose always clears the text.
+    purpose_text: input.purposeId ? null : (input.purposeText ?? null),
     wants_flights: input.wantsFlights,
     origin_airports: input.originAirports,
     notes: input.notes ?? null,
@@ -258,6 +275,7 @@ export function factsInputsChanged(before: TripRow, after: TripWrite): boolean {
     before.start_date !== after.start_date ||
     before.length_days !== after.length_days ||
     before.months.join(",") !== after.months.join(",") ||
-    before.purpose_id !== after.purpose_id
+    before.purpose_id !== after.purpose_id ||
+    before.purpose_text !== after.purpose_text
   );
 }

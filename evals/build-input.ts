@@ -377,7 +377,7 @@ export function evalDrivePicks(id: FixtureId, tags: PurposeTags | null) {
   return { origin: { lat: a.lat, lon: a.lon }, places: drivePicks(facts, purpose) };
 }
 
-function evalDrive(id: FixtureId): DriveInput | null {
+export function evalDrive(id: FixtureId): DriveInput | null {
   const p = recordingPath(id, "drive");
   if (!existsSync(p)) return null;
   const rec = JSON.parse(readFileSync(p, "utf8")) as DriveRecording;

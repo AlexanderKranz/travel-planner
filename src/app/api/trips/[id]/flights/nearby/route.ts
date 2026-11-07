@@ -5,6 +5,7 @@ import { Locale } from "@/lib/domain";
 import { IataCode } from "@/lib/domain/flights";
 import { getNearbyFlights } from "@/lib/server/facts/flights-nearby";
 import { getProfile } from "@/lib/server/profile";
+import { tripPurpose } from "@/lib/purpose-source";
 import { getPurpose } from "@/lib/server/purposes";
 import { rateLimit } from "@/lib/server/rate-limit";
 import { getUserSession } from "@/lib/server/session";
@@ -49,11 +50,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     );
   }
   const trip = tripRes.data;
-  let purpose = null;
+  let saved = null;
   if (trip.purposeId) {
     const p = await getPurpose(trip.purposeId);
-    if (p.ok) purpose = p.data;
+    if (p.ok) saved = p.data;
   }
+  const purpose = tripPurpose(trip, saved); // the saved purpose, else the trip's one-off text
   const profile = await getProfile();
   const homeAirports = profile.ok ? profile.data.homeAirports : [];
 

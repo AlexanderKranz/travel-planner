@@ -13,6 +13,7 @@ import { hasIssue, type Issue } from "@/components/ui/issues";
 import { btnPrimary, btnSecondary, inputCls, mutedCls } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
 import { MAX_ENTRIES_PER_GROUP, MAX_TRIP_DAYS, type ActionError, type GroupParse, type Trip } from "@/lib/domain";
+import { TRIP_PURPOSE_TEXT_MAX } from "@/lib/domain/purpose";
 import { createTrip, getTrip, updateTrip } from "@/lib/server/trips";
 import { DestinationPicker } from "./destination-picker";
 import { TimingField } from "./timing-field";
@@ -22,6 +23,7 @@ import {
   draftToInput,
   emptyTripDraft,
   ONE_OFF_GROUP,
+  ONE_OFF_PURPOSE,
   type TripDraft,
 } from "./trip-draft";
 
@@ -40,7 +42,7 @@ export function TripForm({
   countryCodes,
   profileBirthdate,
   initialDraft,
-  notesFromSearch = false,
+  purposeFromSearch = false,
 }: {
   trip?: Trip;
   groups: Option[];
@@ -59,8 +61,8 @@ export function TripForm({
   profileBirthdate: string | null;
   /** Prefill for a new trip (from a destination suggestion). Ignored when editing. */
   initialDraft?: TripDraft;
-  /** The draft's notes are the user's typed search purpose (spec 13.5): shows a hint and opens the notes. */
-  notesFromSearch?: boolean;
+  /** The draft's one-off purpose text is the user's typed search purpose (trip-purpose-text P8): shows a hint. */
+  purposeFromSearch?: boolean;
 }) {
   const t = useTranslations("trips.form");
   const tg = useTranslations("groups");
@@ -332,7 +334,22 @@ export function TripForm({
               ))}
             </optgroup>
           )}
+          <option value={ONE_OFF_PURPOSE}>{t("purposeOneOff")}</option>
         </SelectField>
+      )}
+      {!ownerOnly && draft.purposeId === ONE_OFF_PURPOSE && (
+        <div className="flex flex-col gap-2">
+          {purposeFromSearch && <p className="text-sm text-muted">{t("purposeFromSearch")}</p>}
+          <TextAreaField
+            label={t("purposeText.label")}
+            hint={t("purposeText.hint")}
+            rows={4}
+            maxLength={TRIP_PURPOSE_TEXT_MAX}
+            value={draft.purposeText}
+            onChange={(e) => set({ purposeText: e.target.value })}
+            error={bad("purposeText")}
+          />
+        </div>
       )}
 
       <section aria-labelledby="flights-title" className="flex flex-col gap-2">
@@ -363,11 +380,10 @@ export function TripForm({
         )}
       </section>
 
-      <details className="rounded-[14px] border border-line bg-card p-4" open={!!trip?.notes || notesFromSearch}>
+      <details className="rounded-[14px] border border-line bg-card p-4" open={!!trip?.notes}>
         <summary className="flex min-h-11 cursor-pointer items-center font-semibold focus-visible:outline-2 focus-visible:outline-focus">
           {t("notes")}
         </summary>
-        {notesFromSearch && <p className="mt-2 text-sm text-muted">{t("notesFromSearch")}</p>}
         <TextAreaField
           label={t("notesLabel")}
           hint={t("notesHint")}

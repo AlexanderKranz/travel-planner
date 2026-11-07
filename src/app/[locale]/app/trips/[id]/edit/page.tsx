@@ -5,6 +5,7 @@ import { redirect } from "@/i18n/navigation";
 import { listCountries } from "@/lib/integrations/countries";
 import { getGroup, listGroups } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
+import { oneOffLabel } from "@/lib/discover/one-off";
 import { getPurpose, listPurposes } from "@/lib/server/purposes";
 import { listSharedWithMe } from "@/lib/server/sharing";
 import { getTrip } from "@/lib/server/trips";
@@ -51,7 +52,7 @@ export default async function EditTripPage({
         ownerOnlyValues={
           trip.access === "owner"
             ? undefined
-            : { group: groupRes?.ok ? groupRes.data.name : (trip.groupText ?? null), purpose: purposeRes?.ok ? purposeRes.data.name : null }
+            : { group: groupRes?.ok ? groupRes.data.name : (trip.groupText ?? null), purpose: purposeRes?.ok ? purposeRes.data.name : (trip.purposeText ? oneOffLabel(trip.purposeText) : null) }
         }
         countryCodes={listCountries().map((c) => c.code)}
         profileBirthdate={unwrap(profile, locale).birthdate}

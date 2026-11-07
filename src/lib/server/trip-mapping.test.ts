@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TripInput } from "@/lib/domain/trip";
 import type { GeoPlace } from "@/lib/domain/geo";
+import { oneOffTagsHash } from "@/lib/discover/one-off";
 import { groupTextHash } from "@/lib/plan/hash";
 import { buildTripWrite, factsInputsChanged, rowToSummary, rowToTrip, tripAccess, type TripRow } from "./trip-mapping";
 
@@ -101,6 +102,9 @@ const row: TripRow = {
   group_parsed_hash: null,
   destination_search_id: null,
   purpose_id: null,
+  purpose_text: null,
+  purpose_tags: null,
+  purpose_tags_hash: null,
   wants_flights: true,
   origin_airports: [],
   notes: null,
@@ -253,5 +257,61 @@ describe("access mapping (sharing spec 3.1)", () => {
     );
     expect(incoming).toMatchObject({ access: "read", sharedBy: by, shareCount: 0 });
     expect(rowToSummary({ ...row, travel_groups: null, trip_purposes: null }, "u1").shareCount).toBe(0);
+  });
+});
+
+describe("one-off trip purpose (spec trip-purpose-text)", () => {
+  const free = { destination: { kind: "freetext" as const, name: "Irgendwo" }, lengthDays: 3 };
+  const text = "Golf mit einem Freund, flache Plätze";
+  const TAGS = { v: 2, interests: ["golf"], custom: [], hard: [], soft: [], summary: "Golf" };
+
+  it("TripInput: trims, empty = absent, max 4000, exclusive with a saved purpose", () => {
+    const pid = "33333333-3333-4333-8333-333333333333";
+    expect(TripInput.parse({ ...free, purposeText: `  ${text}\n` }).purposeText).toBe(text);
+    expect(TripInput.parse({ ...free, purposeText: "   " }).purposeText).toBeUndefined();
+    expect(TripInput.safeParse({ ...free, purposeText: "a".repeat(4000) }).success).toBe(true);
+    expect(TripInput.safeParse({ ...free, purposeText: "a".repeat(4001) }).success).toBe(false);
+    const both = TripInput.safeParse({ ...free, purposeId: pid, purposeText: text });
+    expect(both.success).toBe(false);
+    expect(!both.success && both.error.issues[0].path).toEqual(["purposeText"]);
+    expect(TripInput.safeParse({ ...free, purposeId: pid }).success).toBe(true);
+    expect(TripInput.safeParse(free).success).toBe(true); // all context optional
+  });
+
+  it("buildTripWrite stores the text; a saved purpose always clears it", () => {
+    expect(buildTripWrite(TripInput.parse({ ...free, purposeText: text }), null)).toMatchObject({ purpose_id: null, purpose_text: text });
+    expect(buildTripWrite(TripInput.parse(free), null)).toMatchObject({ purpose_text: null });
+    const pid = "33333333-3333-4333-8333-333333333333";
+    const saved = buildTripWrite({ ...TripInput.parse({ ...free, purposeId: pid }), purposeText: text }, null);
+    expect(saved).toMatchObject({ purpose_id: pid, purpose_text: null });
+    expect(buildTripWrite(TripInput.parse({ ...free, purposeText: text }), null)).not.toHaveProperty("purpose_tags");
+  });
+
+  it("factsInputsChanged reacts to a text change", () => {
+    const before = { ...row, purpose_text: text };
+    const same = buildTripWrite(TripInput.parse({ destination: { kind: "region", geoId: 2513918, name: "Costa del Sol", radiusKm: 40 }, lengthDays: 5, timing: { kind: "months", months: [3] }, purposeText: text }), place);
+    expect(factsInputsChanged({ ...before, dest_radius_km: 40, dest_country_code: place.countryCode, dest_geo_id: 2513918, dest_kind: "region" }, same)).toBe(false);
+    expect(factsInputsChanged({ ...before, dest_radius_km: 40, dest_country_code: place.countryCode, dest_geo_id: 2513918, dest_kind: "region" }, { ...same, purpose_text: "anders" })).toBe(true);
+    expect(factsInputsChanged({ ...before, dest_radius_km: 40, dest_country_code: place.countryCode, dest_geo_id: 2513918, dest_kind: "region" }, { ...same, purpose_text: null })).toBe(true);
+  });
+
+  it("rowToTrip: tags only for the exact text they were made for, valid JSON only", () => {
+    const base = { ...row, purpose_text: text, purpose_tags: TAGS, purpose_tags_hash: oneOffTagsHash(text) };
+    const t = rowToTrip(base, "u1");
+    expect(t.purposeText).toBe(text);
+    expect(t.purposeTags).toEqual(TAGS);
+    expect(rowToTrip({ ...base, purpose_text: text + " und gutes Essen" }, "u1").purposeTags).toBeUndefined(); // edited text
+    expect(rowToTrip({ ...base, purpose_tags_hash: null }, "u1").purposeTags).toBeUndefined();
+    expect(rowToTrip({ ...base, purpose_tags: { v: 9 } }, "u1").purposeTags).toBeUndefined(); // invalid shape
+    expect(rowToTrip({ ...base, purpose_text: null }, "u1")).toMatchObject({ purposeText: undefined, purposeTags: undefined });
+  });
+
+  it("rowToSummary: the purpose name falls back to the label of the text", () => {
+    const sum = (o: Partial<TripRow> & { trip_purposes?: { name: string } | null }) =>
+      rowToSummary({ ...row, travel_groups: null, trip_purposes: null, ...o }, "u1");
+    expect(sum({ purpose_text: text }).purposeName).toBe(text);
+    expect(sum({ purpose_text: "x ".repeat(100) }).purposeName!.length).toBeLessThanOrEqual(60);
+    expect(sum({ purpose_text: text, trip_purposes: { name: "Saved" } }).purposeName).toBe("Saved");
+    expect(sum({}).purposeName).toBeNull();
   });
 });

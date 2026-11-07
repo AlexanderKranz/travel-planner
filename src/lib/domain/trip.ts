@@ -2,7 +2,9 @@ import { z } from "zod";
 import { IsoDate, optionalText } from "./common";
 import { CompositionEntry, MAX_ENTRIES_PER_GROUP, type StatedAge } from "./group";
 import { GROUP_TEXT_MAX, type GroupParse } from "./group-text";
+import type { PurposeTags } from "./plan";
 import { HomeAirports } from "./profile";
+import { TRIP_PURPOSE_TEXT_MAX } from "./purpose";
 import type { Access, Person } from "./sharing";
 
 export const MAX_TRIP_DAYS = 60;
@@ -53,6 +55,8 @@ export const TripInput = z
     /** The user's corrected structure for `groupText`; wins over the Haiku parse. Empty = none. */
     groupStructure: z.array(CompositionEntry).max(MAX_ENTRIES_PER_GROUP).default([]),
     purposeId: z.string().uuid().nullable().default(null),
+    /** One-off purpose for this trip only (free text); mutually exclusive with `purposeId`. */
+    purposeText: optionalText(TRIP_PURPOSE_TEXT_MAX),
     wantsFlights: z.boolean().default(false),
     originAirports: HomeAirports.default([]), // isKnownIata checked server-side
     notes: optionalText(2000),
@@ -62,6 +66,9 @@ export const TripInput = z
   .superRefine((trip, ctx) => {
     if (trip.groupId && (trip.groupText || trip.groupStructure.length > 0)) {
       ctx.addIssue({ code: "custom", path: ["groupText"], message: "Either a saved group or a one-off group" });
+    }
+    if (trip.purposeId && trip.purposeText) {
+      ctx.addIssue({ code: "custom", path: ["purposeText"], message: "Either a saved purpose or a one-off purpose" });
     }
     if (trip.groupStructure.length > 0 && !trip.groupText) {
       ctx.addIssue({ code: "custom", path: ["groupStructure"], message: "Structure needs a description" });
@@ -118,6 +125,10 @@ export type Trip = {
   /** Haiku parse of `groupText`; set only when it belongs to the current text, else undefined. */
   groupParse?: GroupParse;
   purposeId: string | null;
+  /** One-off purpose text (no saved purpose). */
+  purposeText?: string;
+  /** Haiku tags of `purposeText`; set only when they belong to the current text, else undefined. */
+  purposeTags?: PurposeTags;
   wantsFlights: boolean;
   originAirports: string[]; // as stored; empty = use profile
   notes?: string;

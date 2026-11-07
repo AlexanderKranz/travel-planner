@@ -493,6 +493,34 @@ set local request.jwt.claims = '{"role":"service_role"}';
 set local role service_role;
 select lives_ok($$update public.trips set group_parsed = '{"x":1}'::jsonb where id = '5a000000-0000-4000-8000-00000000a201'$$, 'the secret key can write group_parsed');
 select lives_ok($$update public.trips set group_text = 'cache path', group_id = null where id = '5a000000-0000-4000-8000-00000000a204'$$, 'the secret key passes the owner-only trigger');
+-- one-off trip purpose (docs/specs/trip-purpose-text.md): the text is owner-only, the tags are written by the secret key
+-- tag-only writes keep updated_at, any other change moves it (trigger trips_set_updated_at)
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days, purpose_text, updated_at)
+  values ('5a000000-0000-4000-8000-00000000a2f1', '5a000000-0000-4000-8000-0000000000a1', 'freetext', 'Tag clock', 2, 'Golf', '2026-01-01T00:00:00Z');
+update public.trips set purpose_tags = '{"v":2}'::jsonb, purpose_tags_hash = repeat('a', 64), purpose_tags_at = now() where id = '5a000000-0000-4000-8000-00000000a2f1';
+select is((select updated_at from public.trips where id = '5a000000-0000-4000-8000-00000000a2f1'), '2026-01-01T00:00:00Z'::timestamptz, 'a tag-only write does not move updated_at');
+update public.trips set purpose_text = 'Golf und Strand' where id = '5a000000-0000-4000-8000-00000000a2f1';
+select isnt((select updated_at from public.trips where id = '5a000000-0000-4000-8000-00000000a2f1'), '2026-01-01T00:00:00Z'::timestamptz, 'a change of the text moves updated_at');
+update public.trips set updated_at = '2026-01-01T00:00:00Z' where id = '5a000000-0000-4000-8000-00000000a2f1';
+select isnt((select updated_at from public.trips where id = '5a000000-0000-4000-8000-00000000a2f1'), '2026-01-01T00:00:00Z'::timestamptz, 'an update that only sets updated_at still bumps it');
+select throws_ok($$update public.trips set purpose_tags = '{"v":2}'::jsonb where id = '5a000000-0000-4000-8000-00000000a204'$$, '23514', null, 'tags without a hash are rejected');
+select lives_ok($$update public.trips set purpose_text = 'Golf mit einem Freund', purpose_tags = '{"v":2}'::jsonb, purpose_tags_hash = repeat('a', 64), purpose_tags_at = now() where id = '5a000000-0000-4000-8000-00000000a204'$$, 'the secret key writes purpose_text and the tags');
+reset role;
+set local request.jwt.claims = '{"sub":"5a000000-0000-4000-8000-0000000000b2","role":"authenticated"}';
+set local role authenticated;
+select throws_ok($$update public.trips set purpose_text = 'changed' where id = '5a000000-0000-4000-8000-00000000a204'$$, '42501', null, 'B (write) cannot change purpose_text');
+select throws_ok($$update public.trips set purpose_text = null where id = '5a000000-0000-4000-8000-00000000a204'$$, '42501', null, 'B (write) cannot clear purpose_text');
+select lives_ok($$update public.trips set title = 'by B again', purpose_text = purpose_text where id = '5a000000-0000-4000-8000-00000000a204'$$, 'B (write) can change the title while leaving purpose_text unchanged');
+select is((select purpose_text from public.trips where id = '5a000000-0000-4000-8000-00000000a204'), 'Golf mit einem Freund', 'B (write) reads purpose_text');
+reset role;
+set local request.jwt.claims = '{"sub":"5a000000-0000-4000-8000-0000000000c3","role":"authenticated"}';
+set local role authenticated;
+select is((select purpose_text from public.trips where id = '5a000000-0000-4000-8000-00000000a204'), 'Golf mit einem Freund', 'C (read) reads purpose_text');
+select throws_ok($$update public.trips set purpose_tags_hash = repeat('b', 64) where id = '5a000000-0000-4000-8000-00000000a204'$$, '42501', null, 'C cannot write purpose_tags_hash (no column grant)');
+reset role;
+set local request.jwt.claims = '{"sub":"5a000000-0000-4000-8000-0000000000d4","role":"authenticated"}';
+set local role authenticated;
+select is((select count(*)::int from public.trips where purpose_text is not null), 0, 'D (stranger) reads no trip with a purpose_text');
 reset role;
 set local request.jwt.claims = '{}';
 

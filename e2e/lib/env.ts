@@ -27,6 +27,7 @@ export const emailOf = (key: string) => `${key}@e2e.test`;
 export type Seed = {
   purposeId: string;
   searchId: string; // saved destination suggestion list (find-destinations)
+  typedSearchId: string; // list whose request was an unsaved typed purpose (trip-purpose-text P8)
   tripId: string; // plan trip (items, plan edits, share, pdf)
   a11yTripId: string; // second plan trip with a seeded share link
   a11yToken: string;

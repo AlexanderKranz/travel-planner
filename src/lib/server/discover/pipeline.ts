@@ -185,7 +185,7 @@ async function gateDrive(): Promise<SearchError | null> {
 }
 
 /** Where the tags of a run came from: the saved purpose already had them, an earlier search or purpose with the same text, a Haiku call, or nowhere. */
-type TagsFrom = "cached" | "search" | "purpose" | "haiku" | "none";
+type TagsFrom = "cached" | "search" | "purpose" | "trip" | "haiku" | "none";
 
 type Start = { name: string; lat: number; lon: number };
 

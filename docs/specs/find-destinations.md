@@ -503,6 +503,8 @@ The client disables the button while pending; on success the box becomes "Saved 
 
 ### 13.5 Selecting a card **[D21]**
 
+> Superseded by `docs/specs/trip-purpose-text.md` P8: an unsaved typed purpose now fills the trip's one-off purpose text, not the notes.
+
 - The draft is built from the row when `/app/trips/new` loads, and the row carries the source of the latest request for this list (13.3). So the purpose in the draft is always the one the user last searched with, never the one of whoever created the row.
 - `purposeId` = `search.purposeId ?? ""`, as today: the saved purpose for a saved-purpose request, empty for an unsaved one-off, the saved purpose after 13.4.
 - Unsaved one-off (`purposeText !== null && purposeId === null`): `notes` = `purposeText`. Section 7 keeps the **reason** out of notes because it is model output; the typed text is the user's own words, and without it the plan would not know what the trip is for. A one-line hint above notes: "Your typed purpose is in the notes. Save it as a purpose on the suggestions page to reuse it." The user can edit or clear it. Notes allow 2000 characters, the text at most 500. A saved-purpose source has `purpose_text = null` after `adoptSource`, so no other request's text can reach the notes.
@@ -516,7 +518,7 @@ The client disables the button while pending; on success the box becomes "Saved 
 
 ### 13.7 Delivery
 
-**i18n** (de + en, same keys): `discover.form.{purposeSource,sourceSaved,sourceText,purposeText,purposeTextHint,purposeTextPlaceholder,purposeTextCount,savePurposesLink,demoTextNotice}`, `discover.list.{typedPurpose,showText}`, `discover.savePurpose.{title,name,submit,saving,saved,open}`, `trips.form.notesFromSearch`. `form.noPurpose` and `form.createPurpose` are removed once unused. Errors reuse `invalid`, `not_found`, `conflict`, `busy`, `rate_limited`.
+**i18n** (de + en, same keys): `discover.form.{purposeSource,sourceSaved,sourceText,purposeText,purposeTextHint,purposeTextPlaceholder,purposeTextCount,savePurposesLink,demoTextNotice}`, `discover.list.{typedPurpose,showText}`, `discover.savePurpose.{title,name,submit,saving,saved,open}`, `trips.form.notesFromSearch` (replaced by `trips.form.purposeFromSearch`, trip-purpose-text P8). `form.noPurpose` and `form.createPurpose` are removed once unused. Errors reuse `invalid`, `not_found`, `conflict`, `busy`, `rate_limited`.
 
 **Tests:**
 - Unit: Zod exactly one of `purposeId` / `purposeText`, limits 3 and 500 after trim; `oneOffLabel` cut and ellipsis; `oneOffTagsHash` equals `purposeTagsHash` of a saved purpose with the same text and differs with a constraint; tag lookup order (search row, then purpose, then Haiku) with no Haiku call on a hit; tags written to the claimed row; `adoptSource`: saved request on a typed row clears the text and sets the purpose, typed request on a saved row sets text and label and clears the purpose, matching sources write nothing, a typed request on a row linked to the purpose saved from that text writes nothing; save-as-purpose: already linked, identical purpose linked, tags copied without a call, lost race deletes its insert, a relabel between read and link gives `conflict`; prefill: notes and `purposeId` follow the row after `adoptSource`, never the reason.

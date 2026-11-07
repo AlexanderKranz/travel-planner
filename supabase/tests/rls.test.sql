@@ -681,6 +681,24 @@ select throws_ok($$update public.trips set group_parsed = '{}' where id = 'a0000
 select throws_ok($$update public.trips set group_parsed_hash = 'h' where id = 'a0000000-0000-4000-8000-000000000092'$$, '42501', null, 'owner cannot write group_parsed_hash');
 select lives_ok($$insert into public.trips (dest_kind, dest_name, length_days, group_text) values ('freetext', 'X', 2, 'nur ich')$$, 'owner can insert a trip with a one-off group text');
 
+-- trips: one-off purpose text (migration 20261113120038), exclusive with a saved purpose
+select lives_ok($$update public.trips set purpose_text = E'Mamas 70.\nGeburtstag' where id = 'a0000000-0000-4000-8000-000000000092'$$, 'owner can set purpose_text (inner line break accepted)');
+insert into public.trip_purposes (name) values ('A text purpose');
+select throws_ok($$update public.trips set purpose_id = (select id from public.trip_purposes where name = 'A text purpose') where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'saved purpose and one-off text are mutually exclusive');
+select lives_ok($$update public.trips set purpose_text = null, purpose_id = (select id from public.trip_purposes where name = 'A text purpose') where id = 'a0000000-0000-4000-8000-000000000092'$$, 'switching from the one-off text to a saved purpose works');
+select throws_ok($$update public.trips set purpose_text = 'x' where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'one-off text with a saved purpose is rejected');
+select lives_ok($$update public.trips set purpose_id = null, purpose_text = 'x' where id = 'a0000000-0000-4000-8000-000000000092'$$, 'back to a one-off text');
+select throws_ok($$update public.trips set purpose_text = ' leading' where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'purpose_text with leading whitespace rejected');
+select throws_ok($$update public.trips set purpose_text = E'trailing\n' where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'purpose_text with trailing whitespace rejected');
+select throws_ok($$update public.trips set purpose_text = '' where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'empty purpose_text rejected');
+select lives_ok($$update public.trips set purpose_text = repeat('a', 4000) where id = 'a0000000-0000-4000-8000-000000000092'$$, 'purpose_text of 4000 chars accepted');
+select throws_ok($$update public.trips set purpose_text = repeat('a', 4001) where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'purpose_text over 4000 chars rejected');
+select throws_ok($$update public.trips set purpose_tags = '{}' where id = 'a0000000-0000-4000-8000-000000000092'$$, '42501', null, 'owner cannot write purpose_tags');
+select throws_ok($$update public.trips set purpose_tags_hash = repeat('a', 64) where id = 'a0000000-0000-4000-8000-000000000092'$$, '42501', null, 'owner cannot write purpose_tags_hash');
+select throws_ok($$update public.trips set purpose_tags_at = now() where id = 'a0000000-0000-4000-8000-000000000092'$$, '42501', null, 'owner cannot write purpose_tags_at');
+select lives_ok($$insert into public.trips (dest_kind, dest_name, length_days, purpose_text) values ('freetext', 'X', 2, 'Golf mit einem Freund')$$, 'owner can insert a trip with a one-off purpose text');
+select throws_ok($$insert into public.trips (dest_kind, dest_name, length_days, purpose_tags_hash) values ('freetext', 'X', 2, repeat('a', 64))$$, '42501', null, 'owner cannot insert purpose_tags_hash');
+
 set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","role":"authenticated"}';
 select is((select count(*)::int from public.trips where group_text is not null), 0, 'B does not see the one-off group text of A');
 with u as (update public.travel_groups set description = 'pwn' where id = 'a0000000-0000-4000-8000-000000000091' returning 1)
@@ -692,6 +710,11 @@ select ok(not has_column_privilege('authenticated', 'public.travel_groups', 'par
 select ok(not has_column_privilege('authenticated', 'public.travel_groups', 'parsed_structure', 'insert'), 'authenticated: cannot insert parsed_structure');
 select ok(has_column_privilege('authenticated', 'public.trips', 'group_text', 'insert'), 'authenticated: can insert trips.group_text');
 select ok(not has_column_privilege('authenticated', 'public.trips', 'group_parsed', 'update'), 'authenticated: cannot update trips.group_parsed');
+select ok(has_column_privilege('authenticated', 'public.trips', 'purpose_text', 'insert'), 'authenticated: can insert trips.purpose_text');
+select ok(has_column_privilege('authenticated', 'public.trips', 'purpose_text', 'update'), 'authenticated: can update trips.purpose_text');
+select ok(not has_column_privilege('authenticated', 'public.trips', 'purpose_tags', 'update') and not has_column_privilege('authenticated', 'public.trips', 'purpose_tags', 'insert'), 'authenticated: cannot write trips.purpose_tags');
+select ok(not has_column_privilege('authenticated', 'public.trips', 'purpose_tags_hash', 'update') and not has_column_privilege('authenticated', 'public.trips', 'purpose_tags_hash', 'insert'), 'authenticated: cannot write trips.purpose_tags_hash');
+select ok(not has_column_privilege('authenticated', 'public.trips', 'purpose_tags_at', 'update') and not has_column_privilege('authenticated', 'public.trips', 'purpose_tags_at', 'insert'), 'authenticated: cannot write trips.purpose_tags_at');
 select lives_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'group_parse', 'claude-haiku-5-5', 'ok')$$, 'ai_usage accepts the group_parse task');
 select throws_ok($$insert into public.ai_usage (user_id, task, model, status) values ('aaaaaaaa-0000-4000-8000-000000000001', 'bogus', 'claude-haiku-5-5', 'ok')$$, '23514', null, 'ai_usage still rejects unknown tasks');
 

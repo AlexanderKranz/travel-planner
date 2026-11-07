@@ -403,7 +403,7 @@
     },
     "form": {
       "fromSuggestion": "Prefilled from a suggestion. Check the details; nothing is created until you save. The AI reason is not copied into the trip.",
-      "notesFromSearch": "Your typed purpose is in the notes. Save it as a purpose on the suggestions page to reuse it.",
+      "purposeFromSearch": "Your typed purpose from the destination search is filled in here. Save it as a purpose on the suggestions page to reuse it.",
       "invalid": "Please check this field.",
       "destination": {
         "legend": "Destination",
@@ -473,6 +473,11 @@
       "save": "Save",
       "create": "Create trip",
       "saving": "Saving…",
+      "purposeOneOff": "Describe just for this trip …",
+      "purposeText": {
+        "label": "What is this trip for?",
+        "hint": "In your own words, e.g. \"Golf with a friend, flat courses, good food\". Only for this trip."
+      },
       "groupOneOff": "Describe for this trip only …",
       "groupText": {
         "label": "Who is travelling (this trip only)?",

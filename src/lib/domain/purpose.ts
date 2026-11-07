@@ -23,9 +23,12 @@ export type PurposeGuided = z.infer<typeof PurposeGuided>;
 
 export const MAX_CONSTRAINTS = 30;
 
+/** Longest purpose text: a saved purpose and a trip's one-off purpose (not the search's `PURPOSE_TEXT_MAX`). */
+export const TRIP_PURPOSE_TEXT_MAX = 4000;
+
 export const TripPurposeInput = z.object({
   name: z.string().trim().min(1).max(80),
-  text: optionalText(4000),
+  text: optionalText(TRIP_PURPOSE_TEXT_MAX),
   guided: PurposeGuided.default({}),
   constraints: z.array(z.string().trim().min(1).max(200)).max(MAX_CONSTRAINTS).default([]),
 });

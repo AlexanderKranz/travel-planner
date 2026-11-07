@@ -87,6 +87,7 @@ function eventProps(trip: Trip) {
     hasGroup: trip.groupId !== null,
     hasGroupText: trip.groupText !== undefined,
     hasPurpose: trip.purposeId !== null,
+    hasPurposeText: trip.purposeText !== undefined,
   };
 }
 
@@ -211,6 +212,7 @@ export async function updateTrip(id: string, input: TripInput, expectedUpdatedAt
           group_text: before.group_text,
           group_structure: before.group_structure,
           purpose_id: before.purpose_id,
+          purpose_text: before.purpose_text,
         };
   let query = session.supabase.from("trips").update(write).eq("id", id);
   // Optimistic check: the write only lands while nobody changed the row since it was read.

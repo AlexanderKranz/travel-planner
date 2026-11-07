@@ -5,6 +5,7 @@ import type { Locale } from "@/lib/domain/profile";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
 import { budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage, type Role } from "./ai-usage";
+import type { AiCtx } from "@/lib/domain/ai";
 import type { FactsCtx } from "@/lib/domain/facts";
 import { warmTripFacts } from "./facts";
 import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
@@ -12,7 +13,9 @@ import { getInterestGroups } from "./facts/places";
 import type { InterestKey } from "@/lib/domain/interests";
 import type { GeoDestination } from "./facts/common";
 import { getPurpose } from "./purposes";
+import { isOneOffPurpose, tripPurpose } from "@/lib/purpose-source";
 import { tagAndSave, wantsTags } from "./purpose-tagging";
+import { tagTripPurpose } from "./trip-purpose-text";
 import type { getUserSession } from "./session";
 import { rowToTrip, TRIP_COLUMNS, type TripRow } from "./trip-mapping";
 import { getEffectiveEnv } from "./settings";
@@ -29,16 +32,20 @@ const RESERVE_TAGS = 2_000;
  * from "Golftrip mit einem Freund") only exist after tagging. It is the same single Haiku call the plan pipeline
  * would make (cached by content hash), just earlier. Skipped when AI is off or the budget would not allow it.
  */
-async function withTags(session: Session, purpose: TripPurpose | null): Promise<TripPurpose | null> {
+async function withTags(session: Session, purpose: TripPurpose | null, trip?: Trip): Promise<TripPurpose | null> {
   if (!wantsTags(purpose) || !isAiEnabled(await getEffectiveEnv())) return purpose;
   try {
     const { data } = await session.supabase.from("profiles").select("role, is_demo").eq("id", session.userId).maybeSingle();
     const role: Role = data?.role === "admin" ? "admin" : "user";
     const info = await getBudgetStatus(session.userId, role, data?.is_demo === true);
     if (!budgetAllows(info, RESERVE_TAGS)) return purpose;
-    return await tagAndSave(session.userId, purpose, {
-      onUsage: (u) => logAiUsage(session.userId, data?.is_demo === true, u),
-    });
+    const ctx: AiCtx = { onUsage: (u) => logAiUsage(session.userId, data?.is_demo === true, u) };
+    // A trip's one-off purpose text is tagged onto the trip row (trip-purpose-text P4); a saved purpose onto itself.
+    if (isOneOffPurpose(purpose)) {
+      if (!trip) return purpose;
+      return (await tagTripPurpose({ userId: session.userId, sb: session.supabase }, trip, purpose, ctx)).purpose;
+    }
+    return await tagAndSave(session.userId, purpose, ctx);
   } catch {
     return purpose;
   }
@@ -52,12 +59,13 @@ export async function scheduleTripWarm(session: Session, trip: Trip, locale: Loc
   try {
     after(async () => {
       try {
-        let purpose: TripPurpose | null = null;
+        let saved: TripPurpose | null = null;
         if (trip.purposeId) {
           const res = await getPurpose(trip.purposeId);
-          if (res.ok) purpose = res.data;
+          if (res.ok) saved = res.data;
         }
-        purpose = await withTags(session, purpose);
+        // The saved purpose, else the trip's one-off text (trip-purpose-text P5).
+        const purpose = await withTags(session, tripPurpose(trip, saved), trip);
         await warmTripFacts(trip, purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: WARM_BUDGET_MS });
       } catch {
         // warming is best effort

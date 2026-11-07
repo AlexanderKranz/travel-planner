@@ -1,4 +1,4 @@
-import { emptyTripDraft, type TripDraft } from "@/components/trips/trip-draft";
+import { emptyTripDraft, ONE_OFF_PURPOSE, type TripDraft } from "@/components/trips/trip-draft";
 import type { DestinationSearch, SuggestionCard } from "@/lib/domain/destination-search";
 import { cleanReason } from "./reason";
 
@@ -6,8 +6,8 @@ import { cleanReason } from "./reason";
  * The trip form draft for a tapped suggestion (spec section 7 [D11]). Nothing is created by this.
  * - `title` stays empty and `notes` never gets the reason: the reason is an AI guess and `trip.notes` goes verbatim into
  *   the plan input as the user's own facts, so it is never copied into the trip.
- * - an unsaved typed one-off (`purposeText` set, no `purposeId`, spec 13.5) puts its text into `notes`: it is the user's
- *   own words, and without it the plan would not know what the trip is for. A saved or linked purpose leaves notes empty.
+ * - an unsaved typed one-off (`purposeText` set, no `purposeId`) becomes the trip's one-off purpose text, `notes` stay
+ *   empty (trip-purpose-text P8, supersedes find-destinations 13.5). A saved or linked purpose leaves the text empty.
  * - coordinates are not part of the draft; `createTrip` resolves them from `geoId`.
  * - `lengthDays` stays at the form default.
  * - a drive search gives `wantsFlights: false` and no airports, explicitly (the search has none; the guard keeps it
@@ -52,7 +52,7 @@ export function buildTripDraft(
     timing: search.months.length > 0 ? { mode: "months", startDate: "", months: [...search.months] } : base.timing,
     groupId: search.groupId && (!usableGroupIds || usableGroupIds.includes(search.groupId)) ? search.groupId : "",
     purposeId: search.purposeId && (!usablePurposeIds || usablePurposeIds.includes(search.purposeId)) ? search.purposeId : "",
-    ...(unsavedOneOff ? { notes: search.purposeText! } : {}),
+    ...(unsavedOneOff ? { purposeId: ONE_OFF_PURPOSE, purposeText: search.purposeText! } : {}),
     wantsFlights: hasOrigins,
     useHomeAirports: !hasOrigins || sameAsProfile,
     originAirports: hasOrigins && !sameAsProfile ? [...search.origins] : [],
