@@ -22,7 +22,7 @@ export function LeaveButton({ resource, shareId, ownerName }: { resource: ShareR
     start(async () => {
       const r = await leaveShare({ resource, shareId });
       if (r.ok) {
-        router.push(resource === "trip" ? "/app" : "/app/purposes");
+        router.push(resource === "trip" ? "/app" : resource === "group" ? "/app/groups" : "/app/purposes");
         router.refresh();
       } else {
         setOpen(false);
@@ -41,7 +41,7 @@ export function LeaveButton({ resource, shareId, ownerName }: { resource: ShareR
         <ConfirmDialog
           open
           title={t("leaveTitle")}
-          description={t("confirmLeave", { name: ownerName })}
+          description={t(resource === "group" ? "confirmLeaveGroup" : "confirmLeave", { name: ownerName })}
           confirmLabel={t("leave")}
           cancelLabel={t("cancel")}
           pending={pending}

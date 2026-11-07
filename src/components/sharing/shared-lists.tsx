@@ -53,3 +53,31 @@ export function SharedPurposes({ shares }: { shares: IncomingShare[] }) {
     </section>
   );
 }
+
+/** "Shared with me" groups as cards with the owner/level badge. Hidden when empty. */
+export function SharedGroups({ shares }: { shares: IncomingShare[] }) {
+  const t = useTranslations("sharing");
+  const tg = useTranslations("groups");
+  const items = shares.flatMap((s) => (s.resource === "group" && s.group ? [{ share: s, group: s.group }] : []));
+  if (items.length === 0) return null;
+  return (
+    <section aria-labelledby="shared-groups-title" className="flex flex-col gap-2" data-testid="shared-groups">
+      <h2 id="shared-groups-title" className="mt-2 font-serif text-xl font-bold text-heading">
+        {t("sharedWithMe")}
+      </h2>
+      <ul className="flex flex-col gap-2">
+        {items.map(({ share, group }) => (
+          <li key={group.id}>
+            <Link href={`/app/groups/${group.id}`} className={`${cardCls} block hover:bg-hover ${focusCls}`}>
+              <span className="block break-words font-serif text-xl font-bold text-heading">{group.name}</span>
+              <span className={`block text-sm ${mutedCls}`}>{tg("entryCount", { count: group.entryCount })}</span>
+              <span className="mt-2 flex flex-wrap gap-1">
+                <ShareBadge owner={share.owner} access={share.access} />
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

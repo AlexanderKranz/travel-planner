@@ -14,6 +14,8 @@ const SHARE_ERRORS = [
   "demo_forbidden",
   "invalid",
   "not_found",
+  "already_linked",
+  "already_claimed",
 ] as const;
 export type ShareErrorKey = (typeof SHARE_ERRORS)[number] | "failed";
 
@@ -23,8 +25,8 @@ export function shareErrorKey(error: ActionError): ShareErrorKey {
 
 /**
  * A birthdate that yields exactly `age` on `onDate` (same month and day, `age` years earlier; 29 Feb falls back to
- * 28 Feb). A recipient of a shared trip gets the owner's age on the travel date from the server, never the real
- * birthdate; the group resolution needs a birthdate for the `is_self` entry, so this stand-in feeds it.
+ * 28 Feb). Only an age stand-in for "about my age" when the server sent the owner's age but no birthdate (the group has
+ * no `is_self` entry, spec group-sharing 1.2): it is never shown. A real birthdate always wins and is displayed.
  */
 export function birthdateForAge(age: number, onDate: string): string {
   const [y, m, d] = onDate.split("-").map(Number);

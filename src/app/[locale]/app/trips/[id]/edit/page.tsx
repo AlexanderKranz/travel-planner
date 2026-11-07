@@ -1,5 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { personLabel, sharedPurposeOptions } from "@/components/sharing/helpers";
+import { personLabel, sharedGroupOptions, sharedPurposeOptions } from "@/components/sharing/helpers";
 import { TripForm } from "@/components/trips/trip-form";
 import { redirect } from "@/i18n/navigation";
 import { listCountries } from "@/lib/integrations/countries";
@@ -46,6 +46,7 @@ export default async function EditTripPage({
         groups={unwrap(groups, locale).map(({ id, name }) => ({ id, name }))}
         purposes={unwrap(purposes, locale).map(({ id, name }) => ({ id, name }))}
         sharedPurposes={sharedPurposeOptions(shares)}
+        sharedGroups={sharedGroupOptions(shares)}
         ownerName={owner ? personLabel(owner) : undefined}
         ownerOnlyValues={
           trip.access === "owner"

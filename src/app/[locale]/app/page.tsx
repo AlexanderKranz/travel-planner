@@ -42,6 +42,10 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
     s.resource === "purpose" && s.purpose ? [{ id: s.purpose.id, name: `${s.purpose.name} (${personLabel(s.owner)})` }] : [],
   );
 
+  const sharedGroupItems = incoming.flatMap((s) =>
+    s.resource === "group" && s.group ? [{ id: s.group.id, name: `${s.group.name} (${personLabel(s.owner)})` }] : [],
+  );
+
   return (
     <main className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -82,7 +86,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           <SideList
             id="side-groups"
             title={tg("title")}
-            items={groups.map(({ id, name }) => ({ id, name }))}
+            items={[...groups.map(({ id, name }) => ({ id, name })), ...sharedGroupItems]}
             itemHref="/app/groups"
             addHref="/app/groups/new"
             addLabel={tg("new")}

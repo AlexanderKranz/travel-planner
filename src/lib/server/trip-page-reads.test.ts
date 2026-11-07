@@ -65,7 +65,7 @@ const data: Record<string, { single?: unknown; list?: unknown }> = {
   },
   travel_groups: {
     single: {
-      id: GROUP, name: "Two", notes: null, description: null, parsed_structure: null, parsed_hash: null, trait_keys: [],
+      id: GROUP, owner_id: USER, name: "Two", notes: null, description: null, parsed_structure: null, parsed_hash: null, trait_keys: [],
       created_at: "2026-10-01T00:00:00Z", updated_at: "2026-10-01T00:00:00Z",
     },
   },
