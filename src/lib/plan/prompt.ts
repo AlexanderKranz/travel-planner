@@ -1,4 +1,5 @@
 import { INTEREST_KEYS } from "@/lib/domain/interests";
+import { PLACE_INTEREST_KEYS } from "@/lib/facts/interest-sources";
 import { ACTIVITY_GROUPS, ACTIVITY_TYPES } from "@/lib/facts/activity-types";
 import { CUISINES } from "@/lib/facts/cuisine";
 
@@ -39,7 +40,7 @@ export const PATCH_ADDENDUM = `Patch mode: CURRENT_PLAN holds the plan (days in 
 - Keep fixed windows, fixed items (rule 13), hard constraints and the ref/alts rules. Avoid repeating places used on other days unless asked.
 - reply = one short sentence in lang that tells the user what changed.
 - Return summary, notes or open only if they must change; then return the complete list. Never return them empty to mean "unchanged"; omit them.
-- needPlaces: set it only when FEEDBACK asks for places that INPUT lacks, or that INPUT has but none of which meets the request: types = activity types (${ACTIVITY_TYPES.join(", ")}); restaurants = { cuisine (local, include, exclude: OSM cuisine values; kids = true only if FEEDBACK explicitly asks for child-friendly places), near = id of a place to search around }; cafes = { near, kids } for cafés. A kind that no type covers cannot be loaded: never set needPlaces for it (rule 15). Then return days as [] and a short reply; the app loads the places and asks again. Never set it when FEEDBACK.loaded is true: then use what INPUT has and say plainly what was not found (rule 15).`;
+- needPlaces: set it only when FEEDBACK asks for places that INPUT lacks, or that INPUT has but none of which meets the request: types = activity types (${ACTIVITY_TYPES.join(", ")}) or interests with places (${PLACE_INTEREST_KEYS.join(", ")}); restaurants = { cuisine (local, include, exclude: OSM cuisine values; kids = true only if FEEDBACK explicitly asks for child-friendly places), near = id of a place to search around }; cafes = { near, kids } for cafés. A kind that no type covers cannot be loaded: never set needPlaces for it (rule 15). Then return days as [] and a short reply; the app loads the places and asks again. Never set it when FEEDBACK.loaded is true: then use what INPUT has and say plainly what was not found (rule 15).`;
 
 /** Haiku: free-text purpose → structured tags (spec 2.2). */
 export const TAGS_RULES = `You turn a trip purpose into structured tags. Reply only with JSON matching the schema.

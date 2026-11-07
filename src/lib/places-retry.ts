@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { ActivityGroupLookup, CafeLookup, RestaurantLookup, TripFacts } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, CafeLookup, PlaceGroup, RestaurantLookup, TripFacts } from "@/lib/domain/facts";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
 import { ACTIVITY_GROUPS, ACTIVITY_TYPES, typesInGroup, type ActivityType } from "@/lib/facts/activity-types";
@@ -77,6 +77,15 @@ export function jobsForActivityLookups(
     out.push({ kind: "cafes", dest: d, ...(near?.cafes ? { near: round(near.cafes) } : {}) });
   }
   return out.map(job);
+}
+
+/** Jobs for interest lookups of a change request (issue #151) that failed: same radius rule as the plan's. */
+export function jobsForInterests(dest: Extract<Trip["destination"], { lat: number }> | null, groups: readonly PlaceGroup[]): RetryJob[] {
+  if (!dest) return [];
+  const base = tripRadiusKm(dest);
+  return groups
+    .filter((g) => g.status === "error" && sourceFor(g.interest).source === "osm")
+    .map((g) => job({ kind: "interest", interest: g.interest, ...round(dest), radiusKm: radiusForInterest(g.interest, base) }));
 }
 
 /**

@@ -1,12 +1,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import type { ActivityGroupLookup, RestaurantLookup } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, PlaceGroup, RestaurantLookup } from "@/lib/domain/facts";
+import type { NeedPlaces } from "@/lib/domain/plan";
 import { activityPlacesForGroup } from "@/lib/facts/activity-places";
 import { toRestaurants } from "@/lib/facts/cuisine";
+import { INTEREST_SOURCES, MAX_INTEREST_QUERIES, type InterestSource } from "@/lib/facts/interest-sources";
+import { rankCandidates } from "@/lib/facts/places";
 import { parseElements } from "@/lib/integrations/overpass";
 import { restaurantsInput } from "./activities-input";
 import { planInputHash } from "./hash";
-import { FEEDBACK_WISH, extendInput, mergeCuisine, resolveNeedPlaces } from "./need-places";
+import type { PlanInputStored } from "./input";
+import { FEEDBACK_WISH, NEED_INTEREST_PLACES, extendInput, mergeCuisine, resolveNeedPlaces } from "./need-places";
 import { storedFor } from "./test-helpers";
 
 vi.mock("server-only", () => ({}));
@@ -103,5 +107,56 @@ describe("QA: model-supplied ids and cuisine merge", () => {
     const req = resolveNeedPlaces({ restaurants: { cuisine: { include: ["italian"] } } }, withRest)!;
     const next = extendInput(withRest, req, { activities: [], restaurants }, { lang: "de", countryCode: "DE" });
     expect(next.llm.restaurants!.ask).toEqual({ local: true, include: ["italian"], exclude: ["pizza"] });
+  });
+});
+
+describe("needPlaces interests (issue #151)", () => {
+  const MARBELLA = { lat: 36.51, lon: -4.886 };
+  const golfSrc = INTEREST_SOURCES.golf as Extract<InterestSource, { source: "osm" }>;
+  const golf = rankCandidates(fixture("golf-marbella-40km.json"), golfSrc.filters, MARBELLA, golfSrc.exclude, 40, { markOpenAir: true });
+  const groups: PlaceGroup[] = [{ interest: "golf", status: "ok", candidates: golf, fetchedAt: T, stale: false }];
+  const withPlaces = (): PlanInputStored => {
+    const s = storedFor(3);
+    return { ...s, llm: { ...s.llm, places: [{ id: "p1", name: "Aloha", cat: "tourism=attraction", km: 1, i: "general" }], noSource: ["golf", "nightlife"] } };
+  };
+
+  it("keeps interests with a place source only, deduped and capped like the plan's interest queries", () => {
+    const stored = withPlaces();
+    expect(resolveNeedPlaces({ interests: ["golf", "golf"] }, stored)).toEqual({ types: [], groups: [], interests: ["golf"] });
+    // christmas_markets and nightlife have no source: nothing loadable is left.
+    expect(resolveNeedPlaces({ interests: ["christmas_markets", "nightlife"] }, stored)).toBeNull();
+    const many = resolveNeedPlaces({ interests: ["golf", "beach", "museums", "wellness", "history"] }, stored)!;
+    expect(many.interests).toHaveLength(MAX_INTEREST_QUERIES);
+    // A model-supplied prototype key never resolves.
+    expect(resolveNeedPlaces({ interests: ["constructor", "__proto__", "toString"] } as unknown as NeedPlaces, stored)).toBeNull();
+    expect(resolveNeedPlaces({ types: ["bowling"], interests: ["beach"] }, stored)).toEqual({ types: ["bowling"], groups: ["indoor"], interests: ["beach"] });
+  });
+
+  it("adds the loaded places after the highest p id with their interest, source and check date; leaves noSource", () => {
+    const stored = withPlaces();
+    const req = resolveNeedPlaces({ interests: ["golf"] }, stored)!;
+    const next = extendInput(stored, req, { activities: [], interests: groups }, { lang: "de" });
+    const added = next.llm.places.slice(1);
+    expect(golf.length).toBeGreaterThan(0);
+    expect(added.length).toBe(Math.min(NEED_INTEREST_PLACES, golf.length));
+    expect(added[0]).toMatchObject({ id: "p4", i: "golf", cat: "leisure=golf_course" });
+    expect(next.index.p4.place).toMatchObject({ source: "osm", fetchedAt: T, category: "leisure=golf_course" });
+    expect(next.llm.noSource).toEqual(["nightlife"]);
+    // Earlier entries stay, so refs of untouched days remain valid; the stored input is not mutated.
+    expect(next.index.p1).toEqual(stored.index.p1);
+    expect(stored.llm.places).toHaveLength(1);
+    // A second request skips places already listed and keeps numbering.
+    const again = extendInput(next, req, { activities: [], interests: groups }, { lang: "de" });
+    const ids = again.llm.places.map((p) => p.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(new Set(Object.values(again.index).map((e) => e.key)).size).toBe(Object.keys(again.index).length);
+  });
+
+  it("an interest that found nothing (or could not load, e.g. a free-text destination) goes to noSource", () => {
+    const s = storedFor(3);
+    const req = resolveNeedPlaces({ interests: ["golf", "beach"] }, s)!;
+    const next = extendInput(s, req, { activities: [], interests: [{ interest: "golf", status: "empty", fetchedAt: T, stale: false }] }, { lang: "de" });
+    expect(next.llm.places).toEqual([]);
+    expect(next.llm.noSource).toEqual(["golf", "beach"]);
   });
 });

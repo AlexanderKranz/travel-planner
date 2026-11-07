@@ -1,0 +1,101 @@
+{
+  "promptVersion": "plan-7",
+  "model": "claude-sonnet-5-5",
+  "inputHash": "05e3431da5810f78b3943d17847abf47c4a54e3c3872413251a56dc36d1a1304",
+  "output": {
+    "first": {
+      "reply": "In den vorhandenen Daten gibt es keinen Golfplatz, ich lade passende Golfplätze nach.",
+      "days": [],
+      "needPlaces": {
+        "interests": [
+          "golf"
+        ]
+      }
+    },
+    "second": {
+      "reply": "Tag 2 enthält jetzt eine Golfrunde auf einem nahen Platz, der Strandtag ist auf den Nachmittag verschoben.",
+      "days": [
+        {
+          "n": 2,
+          "title": "Golfrunde & ruhiger Strand",
+          "stops": [
+            {
+              "place": "Marbella",
+              "acts": [
+                {
+                  "at": "09:00",
+                  "until": "13:30",
+                  "kind": "sport",
+                  "text": "18 Löcher am Vormittag, entspannt gespielt",
+                  "ref": "p8",
+                  "alts": [
+                    "p1",
+                    "p2"
+                  ]
+                },
+                {
+                  "at": "13:45",
+                  "until": "15:00",
+                  "kind": "food",
+                  "text": "Leichtes Mittagessen nach der Runde"
+                },
+                {
+                  "at": "15:30",
+                  "until": "17:30",
+                  "kind": "free",
+                  "text": "Sonnen und Strandspaziergang an ruhigem Abschnitt"
+                },
+                {
+                  "at": "20:00",
+                  "kind": "food",
+                  "text": "Abendessen in der Altstadt"
+                }
+              ]
+            }
+          ],
+          "note": "Ruhige Strände eher abseits der Zentren suchen. Konkrete Strände sind nicht in den geprüften Quellen enthalten."
+        }
+      ],
+      "open": [
+        {
+          "text": "Ruhige Strandabschnitte selbst recherchieren"
+        },
+        {
+          "text": "Abschlagzeit für die Golfrunde buchen",
+          "day": 2
+        },
+        {
+          "text": "Transfer vom Flughafen zum Hotel organisieren",
+          "day": 1
+        },
+        {
+          "text": "Transfer zum Flughafen für Rückflug planen",
+          "day": 5
+        }
+      ]
+    },
+    "firstUsage": {
+      "task": "plan_patch",
+      "model": "claude-sonnet-5-5",
+      "status": "ok",
+      "inputTokens": 702,
+      "outputTokens": 148,
+      "cacheCreationInputTokens": 6405,
+      "cacheReadInputTokens": 0,
+      "costMicroUsd": 18897,
+      "latencyMs": 2386
+    }
+  },
+  "usage": {
+    "task": "plan_patch",
+    "model": "claude-sonnet-5-5",
+    "status": "ok",
+    "inputTokens": 709,
+    "outputTokens": 488,
+    "cacheCreationInputTokens": 1121,
+    "cacheReadInputTokens": 5676,
+    "costMicroUsd": 10236,
+    "latencyMs": 3720
+  },
+  "recordedAt": "2026-11-07T09:57:16.406Z"
+}

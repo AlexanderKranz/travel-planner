@@ -36,6 +36,7 @@ const h = vi.hoisted(() => ({
   picks: [] as unknown[],
   drive: vi.fn(async () => null as unknown),
   lookups: vi.fn(),
+  interests: vi.fn(async () => [] as unknown[]),
   warm: vi.fn(),
   build: vi.fn((a: unknown) => ({ stored: { llm: { v: 1 }, index: {} }, header: {}, digest: {}, a })),
 }));
@@ -53,6 +54,7 @@ vi.mock("./events", () => ({ logEvent: h.logEvent }));
 vi.mock("./facts", () => ({ getTripFacts: h.getFacts }));
 vi.mock("./facts/drive-times", () => ({ getDriveTimes: h.drive }));
 vi.mock("./facts/activity-lookups", () => ({ loadActivityLookups: h.lookups }));
+vi.mock("./facts/places", () => ({ PLACES_CACHE_ONLY: 0, getInterestGroups: h.interests }));
 vi.mock("./warm", () => ({ scheduleActivityWarm: h.warm }));
 vi.mock("./ai/compose", () => ({ composePlan: h.compose, patchPlan: h.patch }));
 vi.mock("./ai/purpose-tags", () => ({ needsTags: h.needsTags, tagPurpose: h.tag }));
@@ -84,7 +86,11 @@ vi.mock("./plan-store", () => ({
   hasBusyPlan: (...args: unknown[]) => (h.hasBusy(...args), Promise.resolve(h.inFlight)),
 }));
 vi.mock("@/lib/plan/hash", () => ({ canonicalJson: JSON.stringify, planInputHash: () => "hash-new", purposeTagsHash: () => "th" }));
-vi.mock("@/lib/plan/input", () => ({ buildPlanInput: h.build, selectPlaces: () => ({ picks: h.picks, noSource: [] }) }));
+vi.mock("@/lib/plan/input", async (orig) => ({
+  ...(await orig<typeof import("@/lib/plan/input")>()),
+  buildPlanInput: h.build,
+  selectPlaces: () => ({ picks: h.picks, noSource: [] }),
+}));
 vi.mock("@/lib/plan/assemble", async (orig) => ({ ...(await orig<typeof import("@/lib/plan/assemble")>()), assemblePlan: h.assemble }));
 vi.mock("@/lib/plan/patch", async (orig) => ({ ...(await orig<typeof import("@/lib/plan/patch")>()), applyPatch: vi.fn() }));
 vi.mock("@/lib/plan/edit", () => ({ applyEdit: vi.fn() }));
@@ -699,6 +705,37 @@ describe("iteratePlan: change requests that need places (activities spec section
     expect(h.patch).toHaveBeenCalledTimes(1);
     expect(h.insert).not.toHaveBeenCalled();
     expect(h.release).toHaveBeenCalledTimes(1);
+  });
+
+  it("interests (issue #151): golf loads through the interest lookup, adds p ids and patches once more", async () => {
+    const golf = { osmType: "way", osmId: 42, name: "Golf Club", names: {}, category: "leisure=golf_course", lat: 36.51, lon: -4.88, distanceKm: 3.4, osmUrl: "https://www.openstreetmap.org/way/42" };
+    const input = { llm: { v: 1, places: [{ id: "p1", name: "Alcazaba", cat: "tourism=attraction", km: 1, i: "general" }], noSource: [] }, index: { p1: { key: "way/1", place: { lat: 36.5, lon: -4.9 } } } };
+    h.latest = { ...stored("hash-old", 1), plan: basePlan, input };
+    h.patch.mockResolvedValueOnce({ ok: true, data: { reply: "lade", days: [], needPlaces: { interests: ["golf"] } }, usage: {} }).mockResolvedValueOnce(answer);
+    h.lookups.mockResolvedValue({ activities: [] });
+    h.interests.mockResolvedValueOnce([{ interest: "golf", status: "ok", candidates: [golf], fetchedAt: T, stale: false }]);
+    const r = await iteratePlan(TRIP, 1, { chips: [], days: [2], text: "Finde einen Golfplatz" }, "de");
+    expect(r).toMatchObject({ ok: true });
+    expect(h.interests).toHaveBeenCalledWith(h.trip.destination, ["golf"], expect.anything(), 60_000);
+    const second = h.patch.mock.calls[1][0] as { loaded: boolean; llm: { places: { id: string; i: string }[] }; index: Record<string, { place: { source: string; fetchedAt: string } }> };
+    expect(second.loaded).toBe(true);
+    expect(second.llm.places.map((p) => [p.id, p.i])).toEqual([["p1", "general"], ["p2", "golf"]]);
+    // Shown with source and check date like every interest place.
+    expect(second.index.p2.place).toMatchObject({ source: "osm", fetchedAt: T });
+    expect(insertArg()[2]).toMatchObject({ inputHash: "hash-old", input: { index: { p2: expect.anything() } } });
+    expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "plan.patch_need_places", props: expect.objectContaining({ interests: "golf" }) }));
+  });
+
+  it("interests that fail to load: places_pending, warmed after the response with the interests", async () => {
+    h.patch.mockResolvedValueOnce({ ok: true, data: { reply: "lade", days: [], needPlaces: { interests: ["golf"] } }, usage: {} });
+    h.lookups.mockResolvedValue({ activities: [] });
+    h.interests.mockResolvedValueOnce([{ interest: "golf", status: "error" }]);
+    const r = await iteratePlan(TRIP, 1, { chips: [], days: [2], text: "Golf" }, "de");
+    expect(r).toMatchObject({ ok: false, error: "places_pending" });
+    expect(h.patch).toHaveBeenCalledTimes(1);
+    expect(h.insert).not.toHaveBeenCalled();
+    expect(h.warm).toHaveBeenCalledWith(h.trip.destination, expect.anything(), expect.anything(), expect.any(Number), ["golf"]);
+    expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "plan.places_pending", props: expect.objectContaining({ interests: "golf" }) }));
   });
 
   it("an unloadable request (unknown types only) keeps the first answer", async () => {

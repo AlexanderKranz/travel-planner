@@ -586,3 +586,21 @@ After QA (#139):
   answer is used for the request but never cached (its credits are still logged).
 - A second part with less than MIN_QUERY_WINDOW_MS (45 s) left runs cache only: `skipped` on a miss, not `error`.
 - `GEOAPIFY_HEADROOM` is documented against the lookups that can run at the same time.
+
+### Purpose interests in change requests (issue #151)
+
+- `needPlaces` can also ask for purpose interests that have a place source (`source: "osm"` in
+  `interest-sources.ts`, e.g. golf, beach, museums). On the wire they share `types` with the activity types (no extra
+  optional schema parameter); code splits them into `needPlaces.interests` (at most `MAX_INTEREST_QUERIES`, unknown and
+  prototype keys dropped). Interests without a source (christmas markets, nightlife, cruise, festivals) never load and
+  keep the "not covered" wording.
+- They load through `getInterestGroups`, the same lookup `getPlacesFacts` uses for the plan (same cache keys, radius
+  rule, Geoapify/Overpass order, `api_calls` logging), in parallel with the activity lookups and with the same budget.
+  A failed interest makes the request `places_pending`, enqueues an `interest` retry job and is warmed after the
+  response, like an activity group.
+- `extendInput` appends up to 8 places per interest to `places` (ids after the highest `p` id, `i` = the interest, no
+  drive time) and removes the interest from `noSource`; one that found nothing is added to `noSource`. The index
+  entries carry source and check date, so the day card shows them like every other interest place.
+- Prompt: only the patch addendum lists the loadable interest keys (`SYSTEM_RULES` and the generation cache prefix are
+  unchanged, no version bump). Eval: `golf.nogolfbase` (the golf trip planned for a beach purpose) and `golf.golfpatch`
+  ("Finde einen Golfplatz für Tag 2": first call `{interests: ["golf"]}`, second call a golf course ref on day 2).

@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { LlmPatch, LlmPlan, PurposeTags } from "@/lib/domain/plan";
 import { canonicalJson, planInputHash, purposeTagsHash } from "@/lib/plan/hash";
 import { buildEvalInput, evalPurpose, FIXTURE_IDS, PATCH_FEEDBACK } from "./build-input";
-import { evaluateFamilyPatch, evaluateUncoveredPatch, evaluateGenerate, evaluateNeedPatch, evaluatePatch, evaluateTags, formatResults, type NeedPatchRecording } from "./evaluate";
+import { evaluateFamilyPatch, evaluateGolfPatch, evaluateUncoveredPatch, evaluateGenerate, evaluateNeedPatch, evaluatePatch, evaluateTags, formatResults, type NeedPatchRecording } from "./evaluate";
 import { readRecording } from "./recorded";
 import { HONEST_WORDING, familyPatchChecks, familyPlaceChecks, golfPlaceChecks, kidsClaimChecks, openAirChecks, scheduleTimeChecks } from "./checks";
 import { scheduleNotes } from "./build-input";
@@ -65,6 +65,13 @@ describe.each(FIXTURE_IDS)("eval %s", (id) => {
   it.runIf(id === "cruise" && !!genRec && !!uncoveredRec)("recorded uncovered patch (addendum A3): kept as an idea, honest wording", () => {
     const p = evaluateUncoveredPatch(tags, genRec!.output, uncoveredRec!.output);
     expect(failed(p.results), formatResults(`${id} uncovered patch`, p.results)).toEqual([]);
+  });
+
+  const noGolfRec = readRecording<LlmPlan>(id, "nogolfbase");
+  const golfPatchRec = readRecording<NeedPatchRecording>(id, "golfpatch");
+  it.runIf(id === "golf" && !!noGolfRec && !!golfPatchRec)("recorded golf request on a purpose without golf (issue #151) loads golf and patches day 2", () => {
+    const p = evaluateGolfPatch(noGolfRec!.output, golfPatchRec!.output);
+    expect(failed(p.results), formatResults(`${id} golf request patch`, p.results)).toEqual([]);
   });
 
   it.runIf(id !== "wuerzburg" && !!genRec && !!patchRec)("recorded patch changes only the scoped days", () => {

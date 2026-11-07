@@ -4,6 +4,7 @@ import { MODEL_PLAN, type AiCtx, type AiResult } from "@/lib/domain/ai";
 import { ActivityKind, type LlmDay, type LlmPatch, type LlmPlan, type NeedPlaces, type Plan, type PlanDay, type PlanFeedback } from "@/lib/domain/plan";
 import { ACTIVITY_TYPES, isActivityType } from "@/lib/facts/activity-types";
 import { CUISINES, type Cuisine } from "@/lib/facts/cuisine";
+import { MAX_INTEREST_QUERIES, PLACE_INTEREST_KEYS, isPlaceInterest } from "@/lib/facts/interest-sources";
 import { CHIP_INSTRUCTIONS } from "@/lib/plan/chips";
 import { canonicalJson } from "@/lib/plan/hash";
 import type { PlanInput, PlanInputStored } from "@/lib/plan/input";
@@ -60,7 +61,8 @@ export const WirePatch = z.object({
   open: z.array(WireOpen).optional(),
   needPlaces: z
     .object({
-      types: z.array(z.string().describe(ACTIVITY_TYPES.join("|"))).optional(),
+      // Activity types and place interests (issue #151) share one field: no extra optional parameter.
+      types: z.array(z.string().describe([...ACTIVITY_TYPES, ...PLACE_INTEREST_KEYS].join("|"))).optional(),
       restaurants: z
         .object({
           cuisine: z
@@ -104,12 +106,18 @@ export function normalizePatch(w: z.infer<typeof WirePatch>): LlmPatch {
 const isCuisine = (c: string): c is Cuisine => (CUISINES as readonly string[]).includes(c);
 const cuisineList = (xs: string[] | undefined) => [...new Set((xs ?? []).map((x) => x.trim().toLowerCase()).filter(isCuisine))];
 
-/** Wire needPlaces -> NeedPlaces with only catalogue types and known cuisines; undefined when nothing is left. */
+/**
+ * Wire needPlaces -> NeedPlaces with only catalogue types, place interests (source osm, at most
+ * MAX_INTEREST_QUERIES) and known cuisines; undefined when nothing is left.
+ */
 function needPlacesOf(n: z.infer<typeof WirePatch>["needPlaces"]): NeedPlaces | undefined {
   if (!n) return undefined;
-  const types = [...new Set((n.types ?? []).map((t) => t.trim()).filter(isActivityType))];
+  const raw = [...new Set((n.types ?? []).map((t) => t.trim()))];
+  const types = raw.filter(isActivityType);
+  const interests = raw.filter(isPlaceInterest).slice(0, MAX_INTEREST_QUERIES);
   const out: NeedPlaces = {};
   if (types.length) out.types = types;
+  if (interests.length) out.interests = interests;
   if (n.restaurants) {
     const c = n.restaurants.cuisine;
     const include = cuisineList(c?.include);
@@ -126,7 +134,7 @@ function needPlacesOf(n: z.infer<typeof WirePatch>["needPlaces"]): NeedPlaces | 
   if (n.cafes) {
     out.cafes = { ...(n.cafes.kids === true ? { kids: true } : {}), ...(n.cafes.near?.trim() ? { near: n.cafes.near.trim() } : {}) };
   }
-  return out.types || out.restaurants || out.cafes ? out : undefined;
+  return out.types || out.interests || out.restaurants || out.cafes ? out : undefined;
 }
 
 export const inputBlock = (llm: PlanInput) => "INPUT\n" + canonicalJson(llm);

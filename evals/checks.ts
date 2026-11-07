@@ -501,3 +501,23 @@ export function needPatchChecks(a: { first: LlmPatch; next: Plan; stored: PlanIn
     check("day 1 has an escape room ref after loading", !!hit, day1.map((x) => `${x.text}${x.ref ? ` [${x.ref}]` : ""}`).join(" | ")),
   ];
 }
+
+/**
+ * Issue #151 patch eval (Costa del Sol, purpose without golf): "find a golf course for day 2". The first call asks for
+ * the golf interest; after loading, day 2 has a golf course ref and nothing says golf is not covered by the sources.
+ */
+export function golfNeedPatchChecks(a: { first: LlmPatch; next: Plan; stored: PlanInputStored }): CheckResult[] {
+  const day2 = a.next.days[1];
+  const acts = day2?.stops.flatMap((s) => s.acts) ?? [];
+  const golfKeys = new Set<string>(Object.values(a.stored.index).flatMap((e) => (e.place.category === "leisure=golf_course" ? [e.key] : [])));
+  const hit = acts.find((x) => x.ref && golfKeys.has(x.ref));
+  // Per sentence: the base purpose's beaches have no recording, so "beaches are not covered" is honest there.
+  const notCovered = (t: string) => t.split(/(?<=[.!?])\s+/).some((s) => /golf/i.test(s) && /geprüften quellen|verified sources/i.test(s));
+  const prose = day2 ? [day2.title, day2.note ?? "", day2.warn ?? "", ...acts.map((x) => x.text)] : [];
+  return [
+    check("first call requests the golf interest (needPlaces)", (a.first.needPlaces?.interests ?? []).includes("golf"), JSON.stringify(a.first.needPlaces ?? null)),
+    check("day 2 has a golf course ref after loading", !!hit, acts.map((x) => `${x.text}${x.ref ? ` [${x.ref}]` : ""}`).join(" | ")),
+    check("never says golf is not covered by the verified sources", !prose.some(notCovered), prose.filter(notCovered).join(" | ")),
+    check("never 'keine geprüften Orte gefunden'", !proseOf(a.next).some((t) => FALSE_WORDING.test(t))),
+  ];
+}

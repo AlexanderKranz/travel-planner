@@ -1,5 +1,5 @@
 import type { ActivityGroup, ActivityType, ActivityWish } from "@/lib/facts/activity-types";
-import type { ActivityGroupLookup, Fact, PlacesFacts, TripFacts } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, Fact, PlaceGroup, PlacesFacts, TripFacts } from "@/lib/domain/facts";
 import { sourceFor } from "@/lib/facts/interest-sources";
 
 /**
@@ -9,11 +9,13 @@ import { sourceFor } from "@/lib/facts/interest-sources";
  */
 export function placesPending(places: Fact<PlacesFacts>): string[] | null {
   if (places.status !== "ok") return places.reason === "provider_error" ? ["*"] : null;
-  const pending = places.data.groups
-    .filter((g) => g.status === "error" && sourceFor(g.interest).source === "osm")
-    .map((g) => g.interest);
+  const pending = interestGroupsPending(places.data.groups);
   return pending.length ? pending : null;
 }
+
+/** Interest groups with an OSM source that did not load (also a change request's interests, issue #151). */
+export const interestGroupsPending = (groups: readonly PlaceGroup[]): string[] =>
+  groups.filter((g) => g.status === "error" && sourceFor(g.interest).source === "osm").map((g) => g.interest);
 
 /**
  * Activity groups, restaurants and cafés that did not load, labelled `activities:<group>`, `restaurants`, `cafes`: `error`, and

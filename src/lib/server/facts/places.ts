@@ -15,7 +15,7 @@ import { matchesFilter, rankCandidates } from "@/lib/facts/places";
 import { fetchPlaces, hasGeoapifyKey } from "@/lib/integrations/geoapify";
 import { OVERPASS_CLIENT_TIMEOUT_MS, buildQuery, runQuery } from "@/lib/integrations/overpass";
 import { cacheKey, cached, type CachedResult } from "../api-cache";
-import { geoDestination, unavailable } from "./common";
+import { geoDestination, unavailable, type GeoDestination } from "./common";
 import { assertGeoapifyQuota } from "./geoapify-quota";
 
 const candidateSchema = z.object({
@@ -205,7 +205,50 @@ export async function retryInterestLookup(
 /**
  * Geoapify (and cached results) for all interests in parallel first; whatever is still missing then goes to
  * Overpass one interest at a time, on purpose: Overpass allows 2 slots per IP and is slow (see research doc).
+ * Same cache keys and radius rules for every caller (plan input, change requests). Throws only on unexpected errors.
  */
+export async function getInterestGroups(
+  dest: GeoDestination,
+  keys: readonly InterestOrGeneral[],
+  ctx: FactsCtx,
+  budgetMs: number,
+): Promise<PlaceGroup[]> {
+  const started = Date.now();
+  const baseRadius = tripRadiusKm(dest);
+  const anchor = { lat: Number(dest.lat.toFixed(3)), lon: Number(dest.lon.toFixed(3)) };
+  const groups: PlaceGroup[] = [];
+  let queried = 0;
+  const lookups = keys.map((interest) => ({ interest, anchor, radiusKm: radiusForInterest(interest, baseRadius), ctx }));
+  const fast = await Promise.all(lookups.map((l) => fastCandidates(l, budgetMs !== PLACES_CACHE_ONLY)));
+  for (const [i, interest] of keys.entries()) {
+    if (sourceFor(interest).source === "none") {
+      groups.push({ interest, status: "no_source" });
+      continue;
+    }
+    // Budget gate only for real network queries: cached interests are always served (they cost no time).
+    const fetchAllowed = () => {
+      const left = budgetMs - (Date.now() - started);
+      if (budgetMs === PLACES_CACHE_ONLY) return false;
+      if (queried > 0 && left < Math.min(MIN_QUERY_WINDOW_MS, OVERPASS_CLIENT_TIMEOUT_MS)) return false;
+      queried += 1;
+      return true;
+    };
+    const quick = fast[i];
+    const res = quick?.ok ? quick : await overpassCandidates(lookups[i], started + budgetMs, fetchAllowed);
+    if (!res.ok) {
+      groups.push({ interest, status: "error" }); // contract has no "pending": UI says "try again later"
+      continue;
+    }
+    groups.push(
+      res.data.length
+        ? { interest, status: "ok", candidates: res.data, fetchedAt: res.fetchedAt, stale: res.stale }
+        : { interest, status: "empty", fetchedAt: res.fetchedAt, stale: res.stale },
+    );
+  }
+  return groups;
+}
+
+/** The purpose's interests around the trip destination (`getInterestGroups`) as one fact. Never throws. */
 export async function getPlacesFacts(
   trip: Trip,
   purpose: TripPurpose | null,
@@ -215,47 +258,19 @@ export async function getPlacesFacts(
   try {
     const dest = geoDestination(trip);
     if (!dest) return unavailable("no_location");
-    const budgetMs = opts.budgetMs ?? VIEW_BUDGET_MS;
-    const started = Date.now();
     const { keys, customInterests } = interestsForTrip(purpose?.guided, purpose?.tags);
-    const baseRadius = tripRadiusKm(dest);
-    const anchor = { lat: Number(dest.lat.toFixed(3)), lon: Number(dest.lon.toFixed(3)) };
-    const groups: PlaceGroup[] = [];
-    const fetchedAts: string[] = [];
-    let stale = false;
-    let queried = 0;
-    const lookups = keys.map((interest) => ({ interest, anchor, radiusKm: radiusForInterest(interest, baseRadius), ctx }));
-    const fast = await Promise.all(lookups.map((l) => fastCandidates(l, budgetMs !== PLACES_CACHE_ONLY)));
-    for (const [i, interest] of keys.entries()) {
-      if (sourceFor(interest).source === "none") {
-        groups.push({ interest, status: "no_source" });
-        continue;
-      }
-      // Budget gate only for real network queries: cached interests are always served (they cost no time).
-      const fetchAllowed = () => {
-        const left = budgetMs - (Date.now() - started);
-        if (budgetMs === PLACES_CACHE_ONLY) return false;
-        if (queried > 0 && left < Math.min(MIN_QUERY_WINDOW_MS, OVERPASS_CLIENT_TIMEOUT_MS)) return false;
-        queried += 1;
-        return true;
-      };
-      const quick = fast[i];
-      const res = quick?.ok ? quick : await overpassCandidates(lookups[i], started + budgetMs, fetchAllowed);
-      if (!res.ok) {
-        groups.push({ interest, status: "error" }); // contract has no "pending": UI says "try again later"
-        continue;
-      }
-      fetchedAts.push(res.fetchedAt);
-      stale ||= res.stale;
-      groups.push(
-        res.data.length
-          ? { interest, status: "ok", candidates: res.data, fetchedAt: res.fetchedAt, stale: res.stale }
-          : { interest, status: "empty", fetchedAt: res.fetchedAt, stale: res.stale },
-      );
-    }
+    const groups = await getInterestGroups(dest, keys, ctx, opts.budgetMs ?? VIEW_BUDGET_MS);
     if (groups.length > 0 && groups.every((g) => g.status === "error")) {
       return unavailable("provider_error", "osm");
     }
+    const fetchedAts: string[] = [];
+    let stale = false;
+    for (const g of groups) {
+      if (g.status !== "ok" && g.status !== "empty") continue;
+      fetchedAts.push(g.fetchedAt);
+      stale ||= g.stale;
+    }
+    const baseRadius = tripRadiusKm(dest);
     const radiusKm = Math.max(...keys.map((k) => radiusForInterest(k, baseRadius)));
     return {
       status: "ok",

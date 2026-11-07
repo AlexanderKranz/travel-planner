@@ -291,6 +291,40 @@ export function selectPlaces(facts: TripFacts, fallbackKeys: InterestOrGeneral[]
   return { picks: taken.flat(), noSource };
 }
 
+/**
+ * One interest candidate -> its `places` row and index entry (pure). Shared by the plan input and by places a change
+ * request loads (`extendInput`), so both carry the same source and check date.
+ */
+export function interestPlace(
+  pick: Pick<PlacePick, "interest" | "c" | "key" | "fetchedAt">,
+  id: string,
+  a: { lang: Locale; ap?: number; drive?: DriveInput | null },
+): { row: PlanInput["places"][number]; entry: PlanIndexEntry } {
+  const { interest, c, key, fetchedAt } = pick;
+  const name = c.names[a.lang] ?? c.name;
+  const d = a.drive?.byKey[key];
+  const place: PlanPlace = {
+    name,
+    category: c.category,
+    lat: c.lat,
+    lon: c.lon,
+    distanceKm: round1(c.distanceKm),
+    airportKm: a.ap,
+    osmUrl: c.osmUrl,
+    wikipedia: c.wikipedia,
+    website: safeUrl(c.website),
+    source: "osm",
+    fetchedAt,
+    drive: d && a.drive ? { min: d.min, km: d.km, source: "openrouteservice", fetchedAt: a.drive.fetchedAt } : undefined,
+  };
+  for (const k of Object.keys(place) as (keyof PlanPlace)[]) if (place[k] === undefined) delete place[k];
+  const g = interestPlaceGroup(c);
+  return {
+    row: { id, name, cat: c.category, km: round1(c.distanceKm), min: d?.min, ap: a.ap, i: interest },
+    entry: g ? { key, place, g } : { key, place },
+  };
+}
+
 function placesInput(
   facts: TripFacts,
   lang: Locale,
@@ -300,29 +334,11 @@ function placesInput(
 ): PlacesOut {
   const sel = selectPlaces(facts, fallbackKeys);
   const out: PlacesOut = { places: [], index: {}, noSource: sel.noSource };
-  for (const { interest, c, key, fetchedAt } of sel.picks) {
+  for (const pick of sel.picks) {
     const id = `p${out.places.length + 1}`;
-    const name = c.names[lang] ?? c.name;
-    const ap = nearestGatewayKm(c, gateways);
-    const d = drive?.byKey[key];
-    out.places.push({ id, name, cat: c.category, km: round1(c.distanceKm), min: d?.min, ap, i: interest });
-    const place: PlanPlace = {
-      name,
-      category: c.category,
-      lat: c.lat,
-      lon: c.lon,
-      distanceKm: round1(c.distanceKm),
-      airportKm: ap,
-      osmUrl: c.osmUrl,
-      wikipedia: c.wikipedia,
-      website: safeUrl(c.website),
-      source: "osm",
-      fetchedAt,
-      drive: d && drive ? { min: d.min, km: d.km, source: "openrouteservice", fetchedAt: drive.fetchedAt } : undefined,
-    };
-    for (const k of Object.keys(place) as (keyof PlanPlace)[]) if (place[k] === undefined) delete place[k];
-    const g = interestPlaceGroup(c);
-    out.index[id] = g ? { key, place, g } : { key, place };
+    const { row, entry } = interestPlace(pick, id, { lang, ap: nearestGatewayKm(pick.c, gateways), drive });
+    out.places.push(row);
+    out.index[id] = entry;
   }
   return out;
 }
