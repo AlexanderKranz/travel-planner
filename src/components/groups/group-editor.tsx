@@ -44,7 +44,15 @@ type Props = {
 };
 
 /** Owner and write grantees (a read grantee gets `GroupView`). A recipient edits like the owner, minus the owner-only parts. */
-export function GroupEditor({ group, profileBirthdate, refs, ownerLabel = null }: Props) {
+export function GroupEditor({ group: groupProp, profileBirthdate, refs, ownerLabel = null }: Props) {
+  // The stored version the editor shows: the prop (fresh after a refresh) or the one "Load latest" took over, so the
+  // link controls always describe the entries in the form.
+  const [group, setGroup] = useState(groupProp);
+  const [prevProp, setPrevProp] = useState(groupProp);
+  if (groupProp !== prevProp) {
+    setPrevProp(groupProp);
+    setGroup(groupProp);
+  }
   const t = useTranslations("groups");
   const te = useTranslations("groups.editor");
   const ts = useTranslations("sharing");
@@ -135,6 +143,7 @@ export function GroupEditor({ group, profileBirthdate, refs, ownerLabel = null }
 
   /** The editor shows a group in the form state; "Load latest" takes another stored version over. */
   function applyStored(g: TravelGroup) {
+    setGroup(g);
     setName(g.name);
     setNotes(g.notes ?? "");
     setDescription(g.description ?? "");
@@ -172,6 +181,7 @@ export function GroupEditor({ group, profileBirthdate, refs, ownerLabel = null }
         return;
       }
       if (group) {
+        setGroup(result.data);
         setEntries(selfFirst(result.data.entries));
         setTraitKeys(result.data.traitKeys);
         setSavedText({ text: result.data.description, parse: result.data.parse });
@@ -375,11 +385,16 @@ export function GroupEditor({ group, profileBirthdate, refs, ownerLabel = null }
               setConflict(null);
             } else router.refresh();
           }}
-          // "Save anyway" sends no expected version: the draft replaces whatever is stored.
-          onOverwrite={() => {
-            setConflict(null);
-            save(undefined);
-          }}
+          // "Save anyway" sends no expected version: the draft replaces whatever is stored. Only offered when the latest
+          // version could be read, so the user saw what they overwrite.
+          onOverwrite={
+            conflict.latest
+              ? () => {
+                  setConflict(null);
+                  save(undefined);
+                }
+              : undefined
+          }
         />
       )}
       {saved && (
