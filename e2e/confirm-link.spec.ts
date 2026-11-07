@@ -94,6 +94,8 @@ test("recovery link: two GETs do not spend the token, the button does once", asy
   await page.goto(link);
   await page.getByRole("button", { name: "Weiter zum neuen Passwort" }).click();
   await expect(page).toHaveURL(/\/de\/settings\?focus=password/);
+  // The form is disabled until hydration; ClientForm focuses the marked field afterwards.
+  await expect(page.locator('input[name="new-password"]')).toBeFocused();
 
   // Second press of the same token fails.
   const ctx2 = await browser.newContext({ baseURL: BASE_URL });

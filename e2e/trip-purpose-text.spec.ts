@@ -65,7 +65,12 @@ test("shared trip shows the one-off purpose read-only", async ({ page, contextAs
   // The form's controls are disabled until hydration (ClientForm), so Playwright waits instead of submitting natively.
   const row = box.getByRole("listitem").filter({ hasText: bEmail });
   await box.getByText("Darf bearbeiten", { exact: true }).click();
-  await box.getByLabel("E-Mail-Adresse der Person").fill(bEmail);
+  // The box can remount while the page streams (a remounted form is enabled at once and loses typed text): refill until it sticks.
+  const emailInput = box.getByLabel("E-Mail-Adresse der Person");
+  await expect(async () => {
+    await emailInput.fill(bEmail);
+    await expect(emailInput).toHaveValue(bEmail, { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
   await box.getByRole("button", { name: "Teilen", exact: true }).click();
   await expect(row).toBeVisible({ timeout: 15_000 });
 

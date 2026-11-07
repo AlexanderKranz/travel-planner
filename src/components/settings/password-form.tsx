@@ -57,7 +57,7 @@ export function PasswordForm({ autoFocus = false }: { autoFocus?: boolean }) {
           value={password}
           onChange={(e) => setPasswordValue(e.target.value)}
           autoComplete="new-password"
-          autoFocus={autoFocus}
+          data-autofocus={autoFocus ? "" : undefined}
           minLength={PASSWORD_MIN}
           required
           error={

@@ -10,6 +10,9 @@
     "signIn": "Anmelden",
     "languages": "Sprache"
   },
+  "noscript": {
+    "message": "Bitte aktiviere JavaScript, sonst funktionieren Formulare und Schaltflächen nicht."
+  },
   "nav": {
     "appName": "Reiseplaner",
     "label": "Hauptnavigation",
