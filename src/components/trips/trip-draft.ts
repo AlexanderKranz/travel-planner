@@ -3,6 +3,8 @@ import { draftToCompositionInput, tripEntryToDraft, type EntryDraft } from "@/co
 
 /** Select value of "describe the group for this trip only" (never a real group id). */
 export const ONE_OFF_GROUP = "__text";
+/** Select value of "describe the purpose for this trip only" (never a real purpose id). */
+export const ONE_OFF_PURPOSE = "__text";
 
 export type DestinationDraft =
   | { mode: "none" }
@@ -36,7 +38,10 @@ export type TripDraft = {
   groupText: string;
   /** The user's corrected structure of the one-off group (composition rows). */
   groupStructure: EntryDraft[];
+  /** "" = none, ONE_OFF_PURPOSE = free text for this trip, else a saved purpose id. */
   purposeId: string;
+  /** Kept when the select moves away; only sent while ONE_OFF_PURPOSE is selected. */
+  purposeText: string;
   wantsFlights: boolean;
   useHomeAirports: boolean;
   originAirports: string[];
@@ -54,6 +59,7 @@ export const emptyTripDraft = (): TripDraft => ({
   groupText: "",
   groupStructure: [],
   purposeId: "",
+  purposeText: "",
   wantsFlights: false,
   useHomeAirports: true,
   originAirports: [],
@@ -86,7 +92,8 @@ export function draftFromTrip(trip: Trip): TripDraft {
     groupId: trip.groupId ?? (trip.groupText ? ONE_OFF_GROUP : ""),
     groupText: trip.groupText ?? "",
     groupStructure: (trip.groupStructure ?? []).map(tripEntryToDraft),
-    purposeId: trip.purposeId ?? "",
+    purposeId: trip.purposeId ?? (trip.purposeText ? ONE_OFF_PURPOSE : ""),
+    purposeText: trip.purposeText ?? "",
     wantsFlights: trip.wantsFlights,
     useHomeAirports: trip.originAirports.length === 0,
     originAirports: trip.originAirports,
@@ -139,7 +146,9 @@ export function draftToInput(draft: TripDraft): TripInput {
     ...(draft.groupId === ONE_OFF_GROUP && draft.groupText.trim()
       ? { groupText: draft.groupText.trim(), groupStructure: draft.groupStructure.map(draftToCompositionInput) }
       : {}),
-    purposeId: draft.purposeId || null,
+    purposeId: draft.purposeId && draft.purposeId !== ONE_OFF_PURPOSE ? draft.purposeId : null,
+    // One-off purpose: text only, exclusive with a saved purpose; empty = no purpose.
+    ...(draft.purposeId === ONE_OFF_PURPOSE && draft.purposeText.trim() ? { purposeText: draft.purposeText.trim() } : {}),
     wantsFlights: draft.wantsFlights,
     originAirports: draft.wantsFlights && !draft.useHomeAirports ? draft.originAirports : [],
     notes: draft.notes.trim() || undefined,

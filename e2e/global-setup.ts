@@ -156,6 +156,28 @@ export default async function globalSetup() {
       "insert destination search",
     ).id;
 
+    const typedSearchId = must(
+      await sb
+        .from("destination_searches")
+        .insert({
+          owner_id: a,
+          purpose_id: null,
+          purpose_text: "Ruhiges Abendessen zum Geburtstag",
+          purpose_name: "Ruhiges Abendessen zum Geburtstag",
+          locale: "de",
+          months: [3],
+          origins: [],
+          input_hash: createHash("sha256").update(`e2e-typed-${proj}`).digest("hex"),
+          input: { v: 1 },
+          status: "done",
+          cards: [DISCOVER_CARD],
+          drops: {},
+        })
+        .select("id")
+        .single<{ id: string }>(),
+      "insert typed destination search",
+    ).id;
+
     const tripId = await seedPlanTrip(sb, a, "E2E Plan", fixture.plan);
     const a11yTripId = await seedPlanTrip(sb, a, "E2E Share", fixture.plan);
     const token = randomBytes(32).toString("base64url");
@@ -167,7 +189,7 @@ export default async function globalSetup() {
       include_items: true,
     });
     if (sl.error) throw new Error(`insert share link: ${sl.error.message}`);
-    seed[proj] = { purposeId, searchId, tripId, a11yTripId, a11yToken: token, groupId: g.id, groupName } satisfies Seed;
+    seed[proj] = { purposeId, searchId, typedSearchId, tripId, a11yTripId, a11yToken: token, groupId: g.id, groupName } satisfies Seed;
 
     await ensureUser(sb, `s-${proj}`, "user", false);
     await writeStorageState(`s-${proj}`);

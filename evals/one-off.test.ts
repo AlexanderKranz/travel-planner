@@ -62,7 +62,7 @@ describe("E10: a typed one-off equals the saved purpose", () => {
     expect(oneOffTagsHash(text)).not.toBe(purposeTagsHash(evalPurpose("golf", null)!)); // the fixture purpose has constraints
   });
 
-  it("serving the saved list to the typed request relabels it; the draft has no purpose and the text in notes; serving it to the saved purpose restores it", async () => {
+  it("serving the saved list to the typed request relabels it; the draft has the text as one-off purpose, notes empty; serving it to the saved purpose restores it", async () => {
     const hash = ideasInputHash(ideaInput(evalPurpose("golf", tags)!));
     const initial = {
       id: "11111111-1111-4111-8111-111111111111", purpose_id: SAVED_ID, group_id: null, purpose_name: "Golftrip", purpose_text: null, locale: "de",
@@ -83,8 +83,9 @@ describe("E10: a typed one-off equals the saved purpose", () => {
     expect(typed.relabelled).toBe(true);
     expect(db.row()).toMatchObject({ purpose_id: null, purpose_text: text, purpose_name: oneOffLabel(text) });
     const draft = buildTripDraft(typed.search, card, ["FRA"]);
-    expect(draft.purposeId).toBe("");
-    expect(draft.notes).toBe(text);
+    expect(draft.purposeId).toBe("__text");
+    expect(draft.purposeText).toBe(text);
+    expect(draft.notes).toBe("");
     expect(JSON.stringify(draft)).not.toContain("Flache Plätze");
 
     // the same typed request again: nothing to write

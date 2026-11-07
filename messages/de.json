@@ -403,7 +403,7 @@
     },
     "form": {
       "fromSuggestion": "Aus einem Vorschlag vorausgefüllt. Prüfe die Angaben; erst mit dem Speichern wird etwas angelegt. Die KI-Begründung wird nicht in die Reise übernommen.",
-      "notesFromSearch": "Dein getippter Reisezweck steht in den Notizen. Speichere ihn auf der Vorschlagsseite als Reisezweck, um ihn wiederzuverwenden.",
+      "purposeFromSearch": "Dein eingetippter Zweck aus der Zielsuche steht hier. Auf der Vorschlagsseite kannst du ihn als Reisezweck speichern.",
       "invalid": "Bitte dieses Feld prüfen.",
       "destination": {
         "legend": "Ziel",
@@ -473,6 +473,11 @@
       "save": "Speichern",
       "create": "Reise anlegen",
       "saving": "Speichern…",
+      "purposeOneOff": "Nur für diese Reise beschreiben …",
+      "purposeText": {
+        "label": "Wofür ist diese Reise?",
+        "hint": "In eigenen Worten, z. B. „Golf mit einem Freund, flache Plätze, gutes Essen“. Gilt nur für diese Reise."
+      },
       "groupOneOff": "Nur für diese Reise beschreiben …",
       "groupText": {
         "label": "Wer reist mit (nur diese Reise)?",

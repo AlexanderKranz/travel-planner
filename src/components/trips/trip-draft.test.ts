@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TripInput } from "@/lib/domain";
-import { draftFromTrip, draftProblems, draftToInput, emptyTripDraft, ONE_OFF_GROUP } from "./trip-draft";
+import { draftFromTrip, draftProblems, draftToInput, emptyTripDraft, ONE_OFF_GROUP, ONE_OFF_PURPOSE } from "./trip-draft";
 
 describe("trip draft", () => {
   it("needs destination only; length defaults", () => {
@@ -92,5 +92,37 @@ describe("one-off group in the trip draft", () => {
     const input = TripInput.parse(draftToInput(draft));
     expect(input.groupText).toBe("Ich und Ben");
     expect(input.groupStructure).toMatchObject([{ kind: "composition", count: 2, age: { ageMode: "relativeToMe" } }]);
+  });
+
+  describe("one-off purpose", () => {
+    const base = () => {
+      const d = emptyTripDraft();
+      d.destination = { mode: "freetext", name: "Donau", countryCode: "" };
+      return d;
+    };
+    it("sends the trimmed text only while the option is selected", () => {
+      const d = base();
+      d.purposeId = ONE_OFF_PURPOSE;
+      d.purposeText = "  Ruhiger Geburtstag \n";
+      const input = TripInput.parse(draftToInput(d));
+      expect(input.purposeText).toBe("Ruhiger Geburtstag");
+      expect(input.purposeId).toBeNull();
+    });
+    it("empty text sends no purpose", () => {
+      const d = base();
+      d.purposeId = ONE_OFF_PURPOSE;
+      d.purposeText = "   ";
+      const input = TripInput.parse(draftToInput(d));
+      expect(input.purposeText).toBeUndefined();
+      expect(input.purposeId).toBeNull();
+    });
+    it("picking a saved purpose drops the kept text", () => {
+      const d = base();
+      d.purposeId = "22222222-2222-4222-8222-222222222222";
+      d.purposeText = "Ruhiger Geburtstag";
+      const input = TripInput.parse(draftToInput(d));
+      expect(input.purposeText).toBeUndefined();
+      expect(input.purposeId).toBe(d.purposeId);
+    });
   });
 });
