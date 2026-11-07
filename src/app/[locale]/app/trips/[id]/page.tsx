@@ -71,15 +71,26 @@ export default async function TripDetailPage({
   let ownerAge: number | null = null;
   let sharedOwnerBirthdate: string | null = null;
   let shareId: string | null = null;
-  if (!isOwner) {
-    const [ctxRes, incoming] = await Promise.all([getTripOwnerContext(trip.id), listSharedWithMe()]);
+  // The viewer's group shares: needed for a recipient of the trip, and for an own trip that uses someone else's group.
+  const groupIsForeign = !!groupRes?.ok && groupRes.data.access !== "owner";
+  let groupShareOwner: Person | null = null;
+  if (!isOwner || groupIsForeign) {
+    const [ctxRes, incoming] = await Promise.all([
+      isOwner ? null : getTripOwnerContext(trip.id),
+      listSharedWithMe(),
+    ]);
     const mine = incoming.ok ? incoming.data.find((s) => s.resource === "trip" && s.resourceId === trip.id) : undefined;
     shareId = mine?.id ?? null;
-    owner = mine?.owner ?? (ctxRes.ok ? ctxRes.data.owner : null);
-    ownerAge = ctxRes.ok ? ctxRes.data.ownerAge : null;
-    sharedOwnerBirthdate = ctxRes.ok ? ctxRes.data.ownerBirthdate : null;
+    owner = mine?.owner ?? (ctxRes?.ok ? ctxRes.data.owner : null);
+    ownerAge = ctxRes?.ok ? ctxRes.data.ownerAge : null;
+    sharedOwnerBirthdate = ctxRes?.ok ? ctxRes.data.ownerBirthdate : null;
+    if (groupRes?.ok) {
+      groupShareOwner = incoming.ok ? (incoming.data.find((s) => s.resource === "group" && s.resourceId === groupRes.data.id)?.owner ?? null) : null;
+    }
   }
-  // The real birthdate when the owner's group shows it on its is_self entry (decision A); else the age stand-in (PR 3 replaces both).
+  // The trip owner's birthdate: the real one when the owner's group shows it on its is_self entry (decision A). Without
+  // that entry the server sends only the age, and the age stands in for "about my age" (never displayed: there is no
+  // is_self row to show it on).
   const ownerBirthdate = isOwner
     ? profile.birthdate
     : (sharedOwnerBirthdate ?? (ownerAge === null ? null : birthdateForAge(ownerAge, ageDate)));
@@ -106,6 +117,14 @@ export default async function TripDetailPage({
       }
     : null;
   const purpose = purposeRes?.ok ? purposeRes.data : null;
+  // Who the group belongs to, for "(group owner)" and "about {name}'s age": the share's contact name (email as fallback),
+  // else the display name the server sent, else the trip owner when they own it.
+  const savedGroup = groupRes?.ok ? groupRes.data : null;
+  const groupOwnerLabel = !savedGroup
+    ? null
+    : groupShareOwner
+      ? personLabel(groupShareOwner)
+      : (savedGroup.owner?.name ?? (savedGroup.ownerId === trip.ownerId && owner ? personLabel(owner) : null));
 
   const partySize = groupPartySize(resolved);
   const startDate = trip.timing.kind === "date" ? trip.timing.startDate : null;
@@ -160,12 +179,16 @@ export default async function TripDetailPage({
       <Suspense fallback={<PanelFallback title={t("glance.title")} className={glanceAsideCls} />}>
         <GlancePanel {...panel} home={{ name: profile.homeLocation, timezone: profile.homeTimezone }} />
       </Suspense>
-      {!isOwner && owner && (
+      {((!isOwner && owner) || groupIsForeign) && (
         <SharedContext
           group={group?.resolved ?? null}
+          saved={groupRes?.ok ? groupRes.data : null}
           groupName={group?.name}
-          purpose={purpose}
-          ownerName={personLabel(owner)}
+          purpose={isOwner ? null : purpose}
+          ownerName={owner ? personLabel(owner) : ""}
+          tripOwnerId={trip.ownerId}
+          groupOwnerLabel={groupOwnerLabel}
+          aboutOwner={typeof refs === "object" && refs?.meIs === "groupOwner" ? groupOwnerLabel : null}
           canChange={trip.access === "write"}
         />
       )}

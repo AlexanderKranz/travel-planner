@@ -34,6 +34,7 @@ export function TripForm({
   groups,
   purposes,
   sharedPurposes = [],
+  sharedGroups = [],
   ownerName,
   ownerOnlyValues,
   countryCodes,
@@ -46,6 +47,8 @@ export function TripForm({
   purposes: Option[];
   /** Usable purposes shared with me, listed in their own optgroup with the owner's name. */
   sharedPurposes?: SharedOption[];
+  /** Groups shared with me (either level), listed in their own optgroup with the owner's name. */
+  sharedGroups?: SharedOption[];
   /** Write grantee editing a shared trip: the owner, named in "Only {name} can change the group and purpose". */
   ownerName?: string;
   /** Write grantee: the resolved names of the group and purpose, shown as read-only text. */
@@ -241,6 +244,15 @@ export function TripForm({
               {g.name}
             </option>
           ))}
+          {sharedGroups.length > 0 && (
+            <optgroup label={ts("sharedOptgroup")}>
+              {sharedGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {ts("optionShared", { name: g.name, owner: g.ownerName })}
+                </option>
+              ))}
+            </optgroup>
+          )}
           <option value={ONE_OFF_GROUP}>{t("groupOneOff")}</option>
         </SelectField>
         {oneOff && (

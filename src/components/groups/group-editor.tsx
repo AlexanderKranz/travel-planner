@@ -1,11 +1,15 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TextAreaField, TextField } from "@/components/ui/fields";
 import { errorAt, type Issue } from "@/components/ui/issues";
+import { ConflictNotice } from "@/components/sharing/conflict-notice";
+import { LinkErrorAlert } from "@/components/sharing/link-error";
+import { EntryLinkLine } from "@/components/sharing/entry-link";
+import { entryDeleteLocked, entryLinkView } from "@/components/sharing/entry-link-view";
 import { btnDanger, btnPrimary, btnSecondary, mutedCls } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
 import {
@@ -17,7 +21,8 @@ import {
   type TravelGroup,
   type TravelGroupInput,
 } from "@/lib/domain";
-import { createGroup, deleteGroup, updateGroup } from "@/lib/server/groups";
+import { ownAgeRefs, type AgeRefs } from "@/lib/group";
+import { createGroup, deleteGroup, getGroupForClient, updateGroup } from "@/lib/server/groups";
 import { AgePreview } from "./age-preview";
 import { draftToInput, emptyDraft, fromStored, hasTraitValue, parseToDrafts, type EntryDraft } from "./draft";
 import { GroupTextField } from "./group-text-field";
@@ -29,11 +34,25 @@ function selfFirst(stored: TravelGroup["entries"]): EntryDraft[] {
   return [...drafts.filter((d) => d.isSelf), ...drafts.filter((d) => !d.isSelf)];
 }
 
-type Props = { group?: TravelGroup; profileBirthdate: string | null };
+type Props = {
+  group?: TravelGroup;
+  profileBirthdate: string | null;
+  /** Age anchors for the preview; built on the server for the viewer (spec group-sharing G24). Default: own birthdate. */
+  refs?: AgeRefs;
+  /** Recipient: how to call the group owner (display name, else email); null = unknown. */
+  ownerLabel?: string | null;
+};
 
-export function GroupEditor({ group, profileBirthdate }: Props) {
+/** Owner and write grantees (a read grantee gets `GroupView`). A recipient edits like the owner, minus the owner-only parts. */
+export function GroupEditor({ group, profileBirthdate, refs, ownerLabel = null }: Props) {
   const t = useTranslations("groups");
+  const te = useTranslations("groups.editor");
+  const ts = useTranslations("sharing");
+  const f = useFormatter();
   const router = useRouter();
+  const isOwner = !group || group.access === "owner";
+  const [loadedAt, setLoadedAt] = useState(group?.updatedAt);
+  const [conflict, setConflict] = useState<{ latest: TravelGroup | null } | null>(null);
   const [name, setName] = useState(group?.name ?? "");
   const [notes, setNotes] = useState(group?.notes ?? "");
   const [description, setDescription] = useState(group?.description ?? "");
@@ -51,6 +70,32 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
   const [today] = useState(() => new Date().toISOString().slice(0, 10));
+
+  // Link state comes from the saved group (props, fresh after a refresh), never from the draft: a link is not a form field.
+  const stored = (draft: EntryDraft) => (draft.id ? group?.entries.find((e) => e.id === draft.id) : undefined);
+  const ownerTitle = ownerLabel ? ts("groupBlock.groupOwner", { name: ownerLabel }) : ts("groupBlock.ownerUnknown");
+  const claimable = !!group && group.entries.some((e) => entryLinkView(group, e).action === "claim");
+
+  function extraFor(draft: EntryDraft): React.ComponentProps<typeof EntryEditor>["extra"] {
+    if (!group) return undefined;
+    const entry = stored(draft);
+    if (!entry) return undefined;
+    const view = entryLinkView(group, entry);
+    const headingId = `entry-${entry.id}`;
+    const ownerRow = !isOwner && draft.isSelf;
+    return {
+      headingId,
+      title: ownerRow ? ownerTitle : undefined,
+      selfInfo: ownerRow ? (
+        <p className={`text-sm ${mutedCls}`}>
+          {group.owner?.birthdate ? `${ts("groupBlock.born", { date: f.dateTime(new Date(`${group.owner.birthdate}T12:00:00Z`), { dateStyle: "medium", timeZone: "UTC" }) })}. ` : ""}
+          {te("ownerOnlySelf", { name: ownerLabel ?? ts("groupBlock.ownerUnknown") })}
+        </p>
+      ) : undefined,
+      removeLocked: entryDeleteLocked(group, entry),
+      link: <EntryLinkLine entryId={entry.id} view={view} typedName={entry.kind === "member" ? (entry.name ?? "") : (entry.label ?? "")} nameId={headingId} />,
+    };
+  }
 
   const hasSelf = entries.some((e) => e.isSelf);
   const full = entries.length >= MAX_ENTRIES_PER_GROUP;
@@ -84,6 +129,23 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
     setError(null);
     setIssues(undefined);
     setSaved(false);
+    setConflict(null);
+    save(loadedAt);
+  }
+
+  /** The editor shows a group in the form state; "Load latest" takes another stored version over. */
+  function applyStored(g: TravelGroup) {
+    setName(g.name);
+    setNotes(g.notes ?? "");
+    setDescription(g.description ?? "");
+    setTraitKeys(g.traitKeys);
+    setEntries(selfFirst(g.entries));
+    setSavedText({ text: g.description, parse: g.parse });
+    setLoadedAt(g.updatedAt);
+  }
+
+  /** `expected` = the version the form was loaded with; undefined = no check ("Save anyway"). */
+  function save(expected: string | undefined) {
     const input: TravelGroupInput = {
       name,
       notes,
@@ -92,7 +154,17 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
       entries: entries.map((e) => draftToInput(e, traitKeys)),
     };
     start(async () => {
-      const result = group ? await updateGroup(group.id, input) : await createGroup(input);
+      const result = group
+        ? expected === undefined
+          ? await updateGroup(group.id, input)
+          : await updateGroup(group.id, input, expected)
+        : await createGroup(input);
+      if (!result.ok && result.error === "conflict" && group) {
+        // Someone else saved first. Keep the draft; read their version without applying it and let the user choose.
+        const latest = await getGroupForClient(group.id);
+        setConflict({ latest: latest.ok ? latest.data : null });
+        return;
+      }
       if (!result.ok) {
         setError(result.error);
         setIssues(result.issues);
@@ -103,6 +175,7 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
         setEntries(selfFirst(result.data.entries));
         setTraitKeys(result.data.traitKeys);
         setSavedText({ text: result.data.description, parse: result.data.parse });
+        setLoadedAt(result.data.updatedAt);
         setSaved(true);
         router.refresh();
       } else if (result.data.description) {
@@ -210,6 +283,8 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
               {t("entriesTitle")}
             </h2>
             <p className="text-sm text-muted">{t("entriesHint")}</p>
+            {claimable && <p className={`text-sm ${mutedCls}`}>{ts("link.hint")}</p>}
+            <LinkErrorAlert />
             {entries.length > 0 && (
               <ol className="flex flex-col gap-3">
                 {entries.map((draft, i) => (
@@ -221,6 +296,7 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
                     issues={issues}
                     onChange={(p) => patch(draft.key, p)}
                     onRemove={() => setEntries((list) => list.filter((e) => e.key !== draft.key))}
+                    extra={extraFor(draft)}
                   />
                 ))}
               </ol>
@@ -257,38 +333,62 @@ export function GroupEditor({ group, profileBirthdate }: Props) {
                   {t("addMemberHelp")}
                 </p>
               </div>
-              <div className="flex flex-col gap-1">
-                <button
-                  type="button"
-                  className={btnSecondary}
-                  disabled={full || hasSelf}
-                  aria-describedby="add-self-help"
-                  onClick={() => addEntry(emptyDraft("member", true))}
-                >
-                  {t("addSelf")}
-                </button>
-                <p id="add-self-help" className={`text-sm ${mutedCls}`}>
-                  {t("addSelfHelp")}
-                </p>
-              </div>
+              {isOwner && (
+                <div className="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    className={btnSecondary}
+                    disabled={full || hasSelf}
+                    aria-describedby="add-self-help"
+                    onClick={() => addEntry(emptyDraft("member", true))}
+                  >
+                    {t("addSelf")}
+                  </button>
+                  <p id="add-self-help" className={`text-sm ${mutedCls}`}>
+                    {t("addSelfHelp")}
+                  </p>
+                </div>
+              )}
             </div>
-            {hasSelf && !profileBirthdate && (
+            {isOwner && hasSelf && !profileBirthdate && (
               <p className="text-sm text-muted">{t("selfNoBirthdate")}</p>
             )}
           </section>
 
-          <AgePreview entries={entries} date={today} profileBirthdate={profileBirthdate} />
+          <AgePreview
+            entries={entries}
+            date={today}
+            refs={refs ?? ownAgeRefs(profileBirthdate)}
+            meId={group?.myEntryId ?? null}
+            ownerName={isOwner ? null : ownerLabel}
+          />
         </div>
       </details>
 
       <ErrorBanner error={error} />
+      {conflict && (
+        <ConflictNotice
+          pending={pending}
+          onLoadLatest={() => {
+            if (conflict.latest) {
+              applyStored(conflict.latest);
+              setConflict(null);
+            } else router.refresh();
+          }}
+          // "Save anyway" sends no expected version: the draft replaces whatever is stored.
+          onOverwrite={() => {
+            setConflict(null);
+            save(undefined);
+          }}
+        />
+      )}
       {saved && (
         <p role="status" className="text-sm text-ok">
           {t("saved")}
         </p>
       )}
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-between">
-        {group ? (
+        {group && isOwner ? (
           <button type="button" className={btnDanger} onClick={() => setConfirmDelete(true)}>
             {t("delete")}
           </button>

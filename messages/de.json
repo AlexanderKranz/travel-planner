@@ -173,7 +173,8 @@
       "exact": "{age} Jahre",
       "approx": "ca. {age} Jahre",
       "aboutMe": "etwa in meinem Alter",
-      "unknown": "Alter unbekannt"
+      "unknown": "Alter unbekannt",
+      "aboutOwner": "etwa im Alter von {name}"
     },
     "addCompositionHelp": "z. B. 4 Erwachsene, ca. 45 – ohne Namen",
     "addMemberHelp": "mit Name und optional Geburtsdatum",
@@ -220,6 +221,10 @@
       "ageExact": "{age} Jahre",
       "ageExactRange": "{min}–{max} Jahre",
       "ageAboutMe": "ähnliches Alter wie du"
+    },
+    "editor": {
+      "ownerOnlySelf": "Nur {name} kann ändern, wer „ich“ ist.",
+      "linkedLocked": "Mit jemandem verknüpft: nur diese Person oder der Besitzer kann den Eintrag löschen."
     }
   },
   "purposes": {
@@ -329,7 +334,7 @@
       "confirm": "Endgültig löschen",
       "cancel": "Abbrechen",
       "demoUnavailable": "Im Demo-Konto nicht verfügbar",
-      "sharedNote": "Reisen und Reisezwecke, die du geteilt hast, werden mitgelöscht; die Personen verlieren den Zugriff. Freigaben, die andere dir gegeben haben, enden einfach."
+      "sharedNote": "Reisen, Reisezwecke und Gruppen, die du geteilt hast, werden mitgelöscht; die Personen verlieren den Zugriff. Freigaben, die andere dir gegeben haben, enden einfach."
     },
     "home": {
       "label": "Heimatort (für die Zeitverschiebung)",
@@ -1291,7 +1296,10 @@
       "grantsThisMonth": "Freigaben diesen Monat",
       "lookups": "E-Mail-Suchen diesen Monat",
       "lookupMisses": "ohne Konto",
-      "readWrite": "{read} nur lesen, {write} bearbeiten"
+      "readWrite": "{read} nur lesen, {write} bearbeiten",
+      "groupShares": "Gruppen-Freigaben",
+      "groupsShared": "Geteilte Gruppen",
+      "entryLinks": "Verknüpfte Einträge"
     },
     "ai": {
       "title": "KI-Kosten",
@@ -1849,7 +1857,7 @@
     "adding": "Wird geteilt…",
     "count": "Geteilt mit {n} von {max}",
     "noGrants": "Noch mit niemandem geteilt.",
-    "groupNotice": "Die Person sieht die ganze Reise, auch die Reisegruppe mit Namen und Geburtsdaten.",
+    "groupNotice": "Die Person sieht die ganze Reise, auch die Reisegruppe mit Namen und Geburtsdaten (auch deins, wenn du dabei bist).",
     "purposeNotice": "Die Person kann diesen Reisezweck für eigene Reisen und Zielsuchen nutzen. Wer diese Reisen von ihr geteilt bekommt, sieht ihn dort.",
     "access": {
       "read": "Darf ansehen",
@@ -1886,7 +1894,11 @@
       "title": "Reisegruppe",
       "self": "{name} (Besitzer der Reise)",
       "ageYears": "{age} Jahre",
-      "people": "{count} Personen"
+      "people": "{count} Personen",
+      "groupOwner": "{name} (Besitzer der Gruppe)",
+      "born": "geb. {date}",
+      "openLink": "Gruppe öffnen",
+      "ownerUnknown": "Besitzer der Gruppe"
     },
     "purposeBlock": {
       "title": "Reisezweck",
@@ -1903,9 +1915,26 @@
       "demo_forbidden": "Teilen mit Personen ist im Demo-Konto nicht verfügbar.",
       "failed": "Etwas ist schiefgelaufen. Bitte versuche es später erneut.",
       "invalid": "Bitte prüfe die E-Mail-Adresse.",
-      "not_found": "Diese Freigabe gibt es nicht mehr."
+      "not_found": "Diese Freigabe gibt es nicht mehr.",
+      "already_linked": "Jemand anderes hat diesen Eintrag schon als sich markiert.",
+      "already_claimed": "Du hast in dieser Gruppe schon einen anderen Eintrag markiert. Nimm das zuerst zurück."
     },
     "conflictLoad": "Neueste Version laden",
-    "conflictOverwrite": "Trotzdem speichern"
+    "conflictOverwrite": "Trotzdem speichern",
+    "groupShareNotice": "Die Person sieht alle Einträge mit Namen und Geburtsdaten, auch deins, wenn du in der Gruppe bist. Sie kann die Gruppe für eigene Reisen nutzen und einen Eintrag als sich selbst markieren. Wer diese Reisen von ihr geteilt bekommt, sieht die Gruppe dort.",
+    "confirmLeaveGroup": "Du verlierst den Zugriff. Deine eigenen Reisen und Suchen mit dieser Gruppe verlieren sie. {name} behält die Gruppe.",
+    "sharedGroupHint": "Diese Gruppe ist mit dir geteilt. Du kannst sie für eigene Reisen und Zielsuchen auswählen.",
+    "groupViaTripHint": "Du siehst diese Gruppe, weil sie auf einer mit dir geteilten Reise verwendet wird. Du kannst sie ansehen, aber nicht verwenden oder ändern.",
+    "link": {
+      "thatsMe": "Das bin ich",
+      "notMe": "Das bin nicht ich",
+      "you": "Du",
+      "linkedTo": "{name} ✓",
+      "linked": "✓ Verknüpft",
+      "hint": "Markiere den Eintrag, der du bist. Sonst ändert sich nichts; der Besitzer sieht es. Du kannst nur einen Eintrag markieren.",
+      "remove": "Verknüpfung entfernen",
+      "removeFor": "Verknüpfung entfernen: {name}",
+      "confirmRemove": "{name} ist nicht mehr als dieser Eintrag markiert. Der Eintrag bleibt."
+    }
   }
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { CheckboxField, SelectField, TextField } from "@/components/ui/fields";
 import { errorAt, type Issue } from "@/components/ui/issues";
@@ -14,31 +15,49 @@ type Props = {
   issues?: Issue[];
   onChange: (patch: Partial<EntryDraft>) => void;
   onRemove: () => void;
+  /** Shared group (docs/specs/group-sharing.md 4.2): what differs for a recipient or for linked entries. */
+  extra?: {
+    /** Replaces "Me" as the heading of the `is_self` row (the owner's name for a recipient). */
+    title?: string;
+    /** Replaces the "comes from your settings" hint of the `is_self` row (owner's birthdate and age, who may change it). */
+    selfInfo?: ReactNode;
+    /** Link mark and button of this entry. */
+    link?: ReactNode;
+    /** Hide "Remove" and say why (the owner's `is_self` row, or an entry linked to someone else). */
+    removeLocked?: boolean;
+    /** Id the heading gets, so a link button can name the entry it belongs to. */
+    headingId?: string;
+  };
 };
 
-export function EntryEditor({ draft, index, traitKeys, issues, onChange, onRemove }: Props) {
+export function EntryEditor({ draft, index, traitKeys, issues, onChange, onRemove, extra }: Props) {
   const t = useTranslations("groups.entry");
   const bad = t("fieldInvalid");
   const at = (path: string) => errorAt(issues, `entries.${index}.${path}`, bad);
   const show = (k: TraitKey) => traitKeys.includes(k);
   const isMember = draft.kind === "member";
   const ageDisabled = draft.isSelf || (isMember && draft.birthdate !== "");
-  const title = draft.isSelf ? t("selfTitle") : isMember ? t("memberTitle") : t("compositionTitle");
+  const title = draft.isSelf ? (extra?.title ?? t("selfTitle")) : isMember ? t("memberTitle") : t("compositionTitle");
+  const te = useTranslations("groups.editor");
 
   return (
     <li className={`${cardCls} flex flex-col gap-4`}>
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-semibold">
+        <h3 id={extra?.headingId} className="min-w-0 break-words font-semibold">
           {index + 1}. {title}
         </h3>
-        <div className="flex gap-1">
-          <button type="button" className={btnSecondary} onClick={onRemove}>
-            {t("remove")}
-          </button>
-        </div>
+        {!extra?.removeLocked && (
+          <div className="flex gap-1">
+            <button type="button" className={btnSecondary} onClick={onRemove}>
+              {t("remove")}
+            </button>
+          </div>
+        )}
       </div>
 
-      {draft.isSelf && <p className={`text-sm ${mutedCls}`}>{t("selfHint")}</p>}
+      {draft.isSelf && (extra?.selfInfo ?? <p className={`text-sm ${mutedCls}`}>{t("selfHint")}</p>)}
+      {extra?.removeLocked && !draft.isSelf && <p className={`text-sm ${mutedCls}`}>{te("linkedLocked")}</p>}
+      {extra?.link}
 
       <div className="grid gap-4 sm:grid-cols-2">
         {!isMember && (

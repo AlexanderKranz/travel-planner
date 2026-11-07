@@ -2,10 +2,11 @@
 
 Hours Alex spent on the Travel Planner. Newest day first; update the total when adding a row.
 
-**Total: 23 hours** (8 days)
+**Total: 24 hours** (9 days)
 
 | Date | Hours | Notes |
 |---|---|---|
+| 2026-11-07 | 1 | |
 | 2026-11-06 | 2 | |
 | 2026-11-04 | 2 | |
 | 2026-11-01 | 2.5 | |

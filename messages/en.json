@@ -173,7 +173,8 @@
       "exact": "{age} years",
       "approx": "about {age} years",
       "aboutMe": "about my age",
-      "unknown": "age unknown"
+      "unknown": "age unknown",
+      "aboutOwner": "about {name}'s age"
     },
     "addCompositionHelp": "e.g. 4 adults, about 45 – no names",
     "addMemberHelp": "with a name and optional birthdate",
@@ -220,6 +221,10 @@
       "ageExact": "{age} years",
       "ageExactRange": "{min}–{max} years",
       "ageAboutMe": "similar age to you"
+    },
+    "editor": {
+      "ownerOnlySelf": "Only {name} can change who \"me\" is.",
+      "linkedLocked": "Linked to someone: only they or the owner can delete it."
     }
   },
   "purposes": {
@@ -329,7 +334,7 @@
       "confirm": "Delete permanently",
       "cancel": "Cancel",
       "demoUnavailable": "Not available in the demo account",
-      "sharedNote": "Trips and purposes you shared are deleted too; people you shared them with lose access. Shares others gave you simply end."
+      "sharedNote": "Trips, purposes and groups you shared are deleted too; people you shared them with lose access. Shares others gave you simply end."
     },
     "home": {
       "label": "Home place (for the time difference)",
@@ -1291,7 +1296,10 @@
       "grantsThisMonth": "Shares granted this month",
       "lookups": "Email lookups this month",
       "lookupMisses": "without an account",
-      "readWrite": "{read} read-only, {write} can edit"
+      "readWrite": "{read} read-only, {write} can edit",
+      "groupShares": "Group shares",
+      "groupsShared": "Groups shared",
+      "entryLinks": "Linked entries"
     },
     "ai": {
       "title": "AI cost",
@@ -1849,7 +1857,7 @@
     "adding": "Sharing…",
     "count": "Shared with {n} of {max}",
     "noGrants": "Not shared with anyone yet.",
-    "groupNotice": "They will see the whole trip, including the travel group with names and birthdates.",
+    "groupNotice": "They will see the whole trip, including the travel group with names and birthdates (yours too, if you are in it).",
     "purposeNotice": "They can use this purpose for their own trips and destination searches. People they share those trips with can see it there.",
     "access": {
       "read": "Can view",
@@ -1886,7 +1894,11 @@
       "title": "Travel group",
       "self": "{name} (trip owner)",
       "ageYears": "{age} years",
-      "people": "{count} people"
+      "people": "{count} people",
+      "groupOwner": "{name} (group owner)",
+      "born": "born {date}",
+      "openLink": "Open the group",
+      "ownerUnknown": "Group owner"
     },
     "purposeBlock": {
       "title": "Trip purpose",
@@ -1903,9 +1915,26 @@
       "demo_forbidden": "Sharing with people is not available in the demo account.",
       "failed": "Something went wrong. Please try again later.",
       "invalid": "Please check the email address.",
-      "not_found": "This share no longer exists."
+      "not_found": "This share no longer exists.",
+      "already_linked": "Someone else already said this is them.",
+      "already_claimed": "You already marked another entry in this group. Undo that first."
     },
     "conflictLoad": "Load latest version",
-    "conflictOverwrite": "Save anyway"
+    "conflictOverwrite": "Save anyway",
+    "groupShareNotice": "They will see every entry with names and birthdates, yours too if you are in the group. They can use the group for their own trips and mark an entry as themselves. People they share those trips with can see it there.",
+    "confirmLeaveGroup": "You lose access. Your own trips and searches that use this group lose it. {name} keeps the group.",
+    "sharedGroupHint": "This group is shared with you. You can pick it for your own trips and destination searches.",
+    "groupViaTripHint": "You see this group because it is used on a trip shared with you. You can view it, but not use or change it.",
+    "link": {
+      "thatsMe": "That's me",
+      "notMe": "That's not me",
+      "you": "You",
+      "linkedTo": "{name} ✓",
+      "linked": "✓ Linked",
+      "hint": "Mark the entry that is you. Nothing else changes; the owner sees it. You can mark only one entry.",
+      "remove": "Remove link",
+      "removeFor": "Remove link: {name}",
+      "confirmRemove": "{name} is no longer marked as this entry. The entry stays."
+    }
   }
 }

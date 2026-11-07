@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { TripSummary } from "@/lib/domain";
+import type { StoredEntry } from "@/lib/domain/group";
 import type { Grant } from "@/lib/domain/sharing";
 import type { ResolvedGroup } from "@/lib/group-text";
 import de from "../../../messages/de.json";
@@ -24,9 +25,12 @@ vi.mock("@/lib/server/sharing", () => ({
   leaveShare: vi.fn(),
 }));
 
+vi.mock("@/lib/server/group-links", () => ({ claimGroupEntry: vi.fn(), unclaimGroupEntry: vi.fn() }));
+
 import { TripCard } from "@/components/trips/trip-card";
 import { PeopleShare } from "./people-share";
 import { ShareBadge, SharedPill } from "./share-badge";
+import { GroupRows } from "./group-rows";
 import { SharedContext } from "./shared-context";
 
 const render = (node: ReactNode, locale: "de" | "en" = "en") =>
@@ -89,7 +93,7 @@ describe("PeopleShare", () => {
     expect(html).toContain('type="email"');
     expect(html).toContain('autoComplete="off"');
     expect(html).toContain("Can view");
-    expect(html).toContain("They will see the whole trip, including the travel group with names and birthdates.");
+    expect(html).toContain("They will see the whole trip, including the travel group with names and birthdates (yours too, if you are in it).");
     expect(html).toContain("Shared with 2 of 10");
     // name above the email; email alone when there is no name
     expect(html).toContain("ben@example.test");
@@ -101,6 +105,13 @@ describe("PeopleShare", () => {
     const html = render(<PeopleShare resource="purpose" {...props} />);
     expect(html).toContain("destination searches");
     expect(html).not.toContain("travel group with names");
+  });
+
+  it("group: its own notice (names, birthdates, own use, marking) and no trip text", () => {
+    const html = render(<PeopleShare resource="group" {...props} />);
+    expect(html).toContain("mark an entry as themselves");
+    expect(html).not.toContain("They will see the whole trip");
+    expect(render(<PeopleShare resource="group" {...props} />, "de")).toContain("einen Eintrag als sich selbst markieren");
   });
 
   it("admin: a user picker instead of the email field", () => {
@@ -156,5 +167,49 @@ describe("SharedContext", () => {
     );
     expect(html).toContain("/app/purposes/p1");
     expect(html).not.toContain("Only Mia");
+  });
+});
+
+describe("GroupRows: birthdates and labels per viewer", () => {
+  const rows = [
+    { id: "sa", kind: "member", count: 1, name: undefined, isSelf: true, birthdate: "1980-05-05", age: { status: "known", age: 46, approximate: false } },
+    { id: "eb", kind: "member", count: 1, name: "Bea", isSelf: false, birthdate: "2019-02-03", age: { status: "known", age: 7, approximate: false } },
+    { id: "ek", kind: "member", count: 1, name: "Kim", isSelf: false, age: { status: "known", age: 44, approximate: true } },
+  ] as unknown as ResolvedGroup["rows"];
+  const entries = [
+    { id: "sa", kind: "member", isSelf: true, position: 0 },
+    { id: "eb", kind: "member", isSelf: false, name: "Bea", position: 1, link: { kind: "me" } },
+    { id: "ek", kind: "member", isSelf: false, name: "Kim", position: 2 },
+  ] as unknown as StoredEntry[];
+  const base = { id: "g", ownerId: "A", entries };
+
+  it("shows every birthdate that exists and the owner's name on the is_self entry", () => {
+    const html = render(<GroupRows rows={rows} group={{ ...base, access: "read", myEntryId: null }} ownerLabel="Mia" />);
+    expect(html).toContain("Mia (group owner)");
+    expect(html).toContain("born May 5, 1980");
+    expect(html).toContain("born Feb 3, 2019");
+    expect(html).toContain("about 44 years");
+  });
+
+  it("the viewer's claimed entry reads 'You' with 'That's not me' and no other entry offers 'That's me'", () => {
+    const html = render(<GroupRows rows={rows} group={{ ...base, access: "read", myEntryId: "eb" }} ownerLabel="Mia" />);
+    expect(html).toContain("You");
+    expect(html).toContain("That&#x27;s not me");
+    expect(html).not.toContain("That&#x27;s me");
+    expect(html).not.toContain("linkedUserId");
+  });
+
+  it("before a claim the free entry offers 'That's me' (German: Das bin ich)", () => {
+    const free = entries.map((e) => (e.id === "eb" ? { ...e, link: undefined } : e));
+    const g = { ...base, entries: free, access: "write" as const, myEntryId: null };
+    expect(render(<GroupRows rows={rows} group={g} ownerLabel="Mia" />)).toContain("That&#x27;s me");
+    expect(render(<GroupRows rows={rows} group={g} ownerLabel="Mia" />, "de")).toContain("Das bin ich");
+  });
+
+  it("the owner's is_self row reads '(trip owner)' when the group owner owns the trip", () => {
+    const html = render(
+      <GroupRows rows={rows} group={{ ...base, access: "read", myEntryId: null }} ownerLabel="Mia" tripOwnerId="A" tripOwnerLabel="Mia" />,
+    );
+    expect(html).toContain("Mia (trip owner)");
   });
 });

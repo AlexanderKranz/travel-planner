@@ -37,6 +37,7 @@ export function DiscoverForm({
   sharedPurposes = [],
   initialPurposeId,
   groups,
+  sharedGroups = [],
   homeAirports,
   home,
   legacyHome,
@@ -47,6 +48,8 @@ export function DiscoverForm({
   /** Preselected saved purpose (own or shared), e.g. from the purpose page. */
   initialPurposeId?: string;
   groups: { id: string; name: string }[];
+  /** Groups shared with me (either level): own optgroup with the owner's name. */
+  sharedGroups?: { id: string; name: string; ownerName: string }[];
   homeAirports: string[];
   /** The demo account is shared: typed text gets a visibility notice (spec 13.6). */
   isDemo?: boolean;
@@ -229,7 +232,7 @@ export function DiscoverForm({
         </div>
       </fieldset>
 
-      {groups.length > 0 && (
+      {groups.length + sharedGroups.length > 0 && (
         <SelectField label={t("form.group")} hint={t("form.groupHint")} value={groupId} onChange={(e) => setGroupId(e.target.value)}>
           <option value="">{t("form.groupNone")}</option>
           {groups.map((g) => (
@@ -237,6 +240,15 @@ export function DiscoverForm({
               {g.name}
             </option>
           ))}
+          {sharedGroups.length > 0 && (
+            <optgroup label={ts("sharedOptgroup")}>
+              {sharedGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {ts("optionShared", { name: g.name, owner: g.ownerName })}
+                </option>
+              ))}
+            </optgroup>
+          )}
         </SelectField>
       )}
 

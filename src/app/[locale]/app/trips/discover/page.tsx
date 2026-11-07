@@ -8,7 +8,7 @@ import { maxBlockMinutes } from "@/lib/flights/constraint";
 import { listGroups } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
 import { listPurposes } from "@/lib/server/purposes";
-import { sharedPurposeOptions } from "@/components/sharing/helpers";
+import { sharedGroupOptions, sharedPurposeOptions } from "@/components/sharing/helpers";
 import { listSharedWithMe } from "@/lib/server/sharing";
 import { unwrap } from "@/lib/unwrap";
 
@@ -48,6 +48,7 @@ export default async function DiscoverPage({
         }
         initialPurposeId={purposeParam}
         groups={unwrap(groups, locale).map(({ id, name }) => ({ id, name }))}
+        sharedGroups={incoming.ok ? sharedGroupOptions(incoming.data) : []}
         homeAirports={p.homeAirports}
         home={home}
         legacyHome={home === null && p.homeLocation !== null}

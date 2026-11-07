@@ -140,7 +140,7 @@ export function PeopleShare({
               ))}
             </div>
           </fieldset>
-          <p className={`text-sm ${mutedCls}`}>{t(resource === "trip" ? "groupNotice" : "purposeNotice")}</p>
+          <p className={`text-sm ${mutedCls}`}>{t(resource === "trip" ? "groupNotice" : resource === "group" ? "groupShareNotice" : "purposeNotice")}</p>
           <div>
             <button type="submit" className={`${btnPrimary} w-full sm:w-auto`} disabled={pending || full || !target}>
               {pending ? t("adding") : t("add")}

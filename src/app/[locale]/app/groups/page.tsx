@@ -1,14 +1,20 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
+import { SharedPill } from "@/components/sharing/share-badge";
+import { SharedGroups } from "@/components/sharing/shared-lists";
 import { btnPrimary, cardCls, focusCls, mutedCls } from "@/components/ui/styles";
 import { listGroups } from "@/lib/server/groups";
+import { listSharedWithMe } from "@/lib/server/sharing";
 import { unwrap } from "@/lib/unwrap";
 
 export default async function GroupsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations("groups");
-  const groups = unwrap(await listGroups(), locale);
+  const [groupsRes, incomingRes] = await Promise.all([listGroups(), listSharedWithMe()]);
+  const groups = unwrap(groupsRes, locale);
+  // A failed shares read must not break the own list: the section simply stays hidden.
+  const incoming = incomingRes.ok ? incomingRes.data : [];
 
   return (
     <main className="flex flex-col gap-4">
@@ -36,11 +42,17 @@ export default async function GroupsPage({ params }: { params: Promise<{ locale:
                 {(g.description ?? g.notes) && (
                   <span className={`line-clamp-2 break-words text-sm ${mutedCls}`}>{g.description ?? g.notes}</span>
                 )}
+                {g.shareCount > 0 && (
+                  <span className="mt-2 flex flex-wrap gap-1">
+                    <SharedPill count={g.shareCount} />
+                  </span>
+                )}
               </Link>
             </li>
           ))}
         </ul>
       )}
+      <SharedGroups shares={incoming} />
     </main>
   );
 }
