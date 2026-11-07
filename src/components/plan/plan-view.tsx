@@ -99,6 +99,7 @@ export function PlanView({
       <ol className="flex flex-col gap-3" aria-label={t("daysLabel")}>
         {plan.days.map((d) => (
           <DayCard
+            dayCount={plan.days.length}
             key={d.n}
             day={d}
             places={plan.places}

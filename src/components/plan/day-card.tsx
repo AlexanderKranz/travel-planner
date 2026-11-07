@@ -1,5 +1,6 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { linkCls, mutedCls } from "@/components/ui/styles";
+import { kindLabelKey } from "@/lib/plan/kind-label";
 import { isUserBest, type Plan, type PlanActivity, type PlanDay, type PlanStop } from "@/lib/domain/plan";
 import { placeHref } from "@/lib/facts/sources";
 import { StatusBadge } from "@/components/items/status-badge";
@@ -97,8 +98,12 @@ function Activity({
   places,
   quickAdd,
   edit,
+  dayIndex,
+  dayCount,
 }: {
   act: PlanActivity;
+  dayIndex: number;
+  dayCount?: number;
   places: Plan["places"];
   quickAdd?: QuickAdd;
   /** Owner's latest version: remove/promote controls (patch-safety [D7]). */
@@ -112,7 +117,7 @@ function Activity({
   const add = quickAdd && place && act.ref ? quickAdd(place, act.ref) : null;
   const body = RowLayout({
     time,
-    label: <span className={kindCls(act.kind)}>{t(`kinds.${act.kind}`)}</span>,
+    label: <span className={kindCls(act.kind)}>{t(`kinds.${kindLabelKey(act.kind, dayIndex, dayCount)}`)}</span>,
     children: (
       <>
         {place && (
@@ -208,8 +213,11 @@ export function DayCard({
   fixed = [],
   renderQuickAdd,
   edit,
+  dayCount,
 }: {
   day: PlanDay;
+  /** Total days of the plan; lets travel items read Anreise/Abreise. */
+  dayCount?: number;
   places: Plan["places"];
   changed?: boolean;
   /** Booked/planned trip items with day + start time; merged into this day's rows in time order. */
@@ -279,6 +287,8 @@ export function DayCard({
                         <Activity
                           key={j}
                           act={r.act}
+                          dayIndex={day.n - 1}
+                          dayCount={dayCount}
                           places={places}
                           quickAdd={renderQuickAdd && ((p, ref) => renderQuickAdd(p, ref, day.n))}
                           edit={edit && { ctx: edit, at: { n: day.n, s: i, a: stop.acts.indexOf(r.act) } }}
