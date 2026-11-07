@@ -254,6 +254,8 @@ export async function updateGroup(
   if (!Id.safeParse(id).success) return fail("invalid");
   const parsed = TravelGroupInput.safeParse(input);
   if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
+  const expected = z.string().datetime({ offset: true }).optional().safeParse(expectedUpdatedAt);
+  if (!expected.success) return fail("invalid", zodIssues(expected.error));
   const { supabase } = session;
 
   const access = await accessTo(session, id);

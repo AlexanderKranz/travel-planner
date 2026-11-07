@@ -18,7 +18,7 @@ import { canEdit, type Access } from "@/lib/domain/sharing";
 import type { Trip } from "@/lib/domain/trip";
 import { applyEdit } from "@/lib/plan/edit";
 import { canonicalJson, planInputHash } from "@/lib/plan/hash";
-import { ageRefs, type AgeRefs } from "@/lib/group";
+import type { AgeRefs } from "@/lib/group";
 import { tripGroupSource } from "@/lib/group-text";
 import { buildPlanInput, type GroupContext } from "@/lib/plan/input";
 import { allPlacesPending, activityPlacesPending, blockingScope } from "@/lib/plan/places-pending";
@@ -58,7 +58,8 @@ import {
   type PlanRow,
   type StoredVersion,
 } from "./plan-store";
-import { loadGroupOwnerBirthdate, loadOwnerContext } from "./owner-context";
+import { loadAgeRefs } from "./age-refs";
+import { loadOwnerContext } from "./owner-context";
 import { getProfile } from "./profile";
 import { tagAndSave, wantsTags } from "./purpose-tagging";
 import { getPurpose } from "./purposes";
@@ -175,20 +176,8 @@ export async function loadPlanContext(
   // GROUP owner G, never on the viewer or the actor. T = G (every existing trip, the one-off group): T's birthdate for
   // both. G != T: G's profile birthdate, read with the secret key after the group was read through RLS (3.3); it fails
   // closed, like the trip owner's.
-  let groupOwnerBirthdate = birthdate;
-  const groupOwnerId = group?.ownerId && group.ownerId !== trip.ownerId ? group.ownerId : null;
-  if (groupOwnerId) {
-    const go = await loadGroupOwnerBirthdate(groupOwnerId);
-    if (!go) return err("failed");
-    groupOwnerBirthdate = go.birthdate;
-  }
-  const refs = ageRefs({
-    tripOwnerId: trip.ownerId,
-    tripOwnerBirthdate: birthdate,
-    groupOwnerId,
-    groupOwnerBirthdate,
-    entries: group?.entries ?? [],
-  });
+  const refs = await loadAgeRefs({ tripOwnerId: trip.ownerId, tripOwnerBirthdate: birthdate, group });
+  if (!refs) return err("failed");
   return {
     ok: true,
     ctx: {

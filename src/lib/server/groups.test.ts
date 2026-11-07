@@ -173,6 +173,12 @@ describe("updateGroup: optimistic check (spec 3.5) and database errors", () => {
     expect(replaceCalls()[1][1]).not.toHaveProperty("p_expected_updated_at");
   });
 
+  it("a malformed expectedUpdatedAt is invalid and nothing is written", async () => {
+    asOwner();
+    expect(await updateGroup(GROUP, payload(), "yesterday")).toMatchObject({ ok: false, error: "invalid" });
+    expect(h.rpc).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["40001", "conflict"],
     ["42501", "forbidden"],

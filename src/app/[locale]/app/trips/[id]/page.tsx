@@ -16,6 +16,7 @@ import { Locale, type FactsCtx } from "@/lib/domain";
 import { ageReferenceDate } from "@/lib/facts/trip-timing";
 import { groupPartySize, resolveGroup, tripGroupSource } from "@/lib/group-text";
 import { getGroupOnce, getPlanStateOnce, getProfileOnce, getPurposeOnce, getTripOnce } from "@/lib/server/request-reads";
+import { loadAgeRefs } from "@/lib/server/age-refs";
 import { getUserSession } from "@/lib/server/session";
 import { getTripOwnerContext, listGrants, listSharedWithMe } from "@/lib/server/sharing";
 import type { Person } from "@/lib/domain/sharing";
@@ -89,7 +90,12 @@ export default async function TripDetailPage({
     : trip.groupId
       ? null
       : tripGroupSource(trip);
-  const resolved = source ? resolveGroup(source, ageDate, ownerBirthdate) : null;
+  // The same anchors as the plan input (group-sharing 1.4): a group of someone else ages its is_self row from the group
+  // owner's birthdate, "about my age" follows the trip owner's linked entry. Unreadable owner profile: the old single birthdate.
+  const refs = groupRes?.ok
+    ? ((await loadAgeRefs({ tripOwnerId: trip.ownerId, tripOwnerBirthdate: ownerBirthdate, group: groupRes.data })) ?? ownerBirthdate)
+    : ownerBirthdate;
+  const resolved = source ? resolveGroup(source, ageDate, refs) : null;
   const group: ContextGroup | null = resolved
     ? {
         id: groupRes?.ok ? groupRes.data.id : undefined,

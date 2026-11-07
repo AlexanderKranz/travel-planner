@@ -1,5 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { sharedGroupOptions, sharedPurposeOptions } from "@/components/sharing/helpers";
+import { sharedPurposeOptions } from "@/components/sharing/helpers";
 import { TripForm } from "@/components/trips/trip-form";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import { Link } from "@/i18n/navigation";
@@ -49,10 +49,9 @@ export default async function NewTripPage({
         ...(purposes.ok ? purposes.data.map((p) => p.id) : []),
         ...(incoming.ok ? sharedPurposeOptions(incoming.data).map((p) => p.id) : []),
       ];
-      const usableGroupIds = [
-        ...(groups.ok ? groups.data.map((g) => g.id) : []),
-        ...(incoming.ok ? sharedGroupOptions(incoming.data).map((g) => g.id) : []),
-      ];
+      // Own groups only for now: the trip form's picker shows no shared groups yet (PR 3 adds the optgroup and then
+      // also lists sharedGroupOptions(incoming) here), and a draft must not carry an id the select cannot show.
+      const usableGroupIds = groups.ok ? groups.data.map((g) => g.id) : [];
       initialDraft = buildTripDraft(res.data, card, profileData.homeAirports, usablePurposeIds, usableGroupIds);
       backToList = res.data.id;
       // An unsaved typed purpose is put into the notes by buildTripDraft; the form says so (spec 13.5).

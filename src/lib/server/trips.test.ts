@@ -219,6 +219,14 @@ describe("updateTrip / getTrip / deleteTrip / listTrips", () => {
     expect(h.afterFns).toHaveLength(1);
   });
 
+  it("updateTrip: 23503 from an unusable group_id (check_group_ref) is not_found, other errors failed", async () => {
+    h.results["trips.select"] = { data: row };
+    h.results["trips.update"] = { error: { code: "23503" } };
+    expect(await updateTrip(row.id, input)).toEqual({ ok: false, error: "not_found" });
+    h.results["trips.update"] = { error: { code: "XX000" } };
+    expect(await updateTrip(row.id, input)).toEqual({ ok: false, error: "failed" });
+  });
+
   it("rejects non-uuid ids", async () => {
     expect(await getTrip("nope")).toMatchObject({ ok: false, error: "invalid" });
     expect(await deleteTrip("nope")).toMatchObject({ ok: false, error: "invalid" });
