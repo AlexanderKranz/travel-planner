@@ -3,9 +3,8 @@
 import { useHydrated } from "@/lib/hooks/use-hydrated";
 
 /**
- * Rendered on the server, removed once React hydrates. CSS shows it only after a few seconds (`.load-notice` in
- * globals.css), so a normal load never flashes it; it stays when the app scripts failed to load. With JavaScript off the
- * `<noscript>` style shows it at once. Browsers that cannot animate `display` never show it (same as before).
+ * Rendered on the server, removed once React hydrates. Hidden by CSS (`.load-notice` in globals.css) until the inline
+ * timer in `NoscriptNotice` shows it (scripts failed to load), or at once via the `<noscript>` style (JavaScript off).
  */
 export function LoadNotice({ text }: { text: string }) {
   const hydrated = useHydrated();
@@ -13,9 +12,9 @@ export function LoadNotice({ text }: { text: string }) {
   return (
     <>
       <noscript>
-        <style>{".load-notice{display:block;animation:none}"}</style>
+        <style>{".load-notice{display:block}"}</style>
       </noscript>
-      <p role="status" className="load-notice rounded-lg border border-danger-line bg-danger-bg p-3 text-sm text-danger-fg">
+      <p role="alert" className="load-notice rounded-lg border border-danger-line bg-danger-bg p-3 text-sm text-danger-fg">
         {text}
       </p>
     </>

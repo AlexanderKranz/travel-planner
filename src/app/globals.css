@@ -263,13 +263,7 @@ a {
   }
 }
 
-/* LoadNotice (src/components/ui/load-notice.tsx): hidden during a normal load, shown if hydration has not happened after 4 s. */
+/* LoadNotice (src/components/ui/load-notice.tsx): hidden until the inline timer in NoscriptNotice or the <noscript> style shows it. */
 .load-notice {
   display: none;
-  animation: load-notice-show 0s 4s forwards;
-}
-@keyframes load-notice-show {
-  to {
-    display: block;
-  }
 }
