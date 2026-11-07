@@ -2,7 +2,7 @@
 
 Status: accepted (Alex, 2026-11-04). Decisions marked "(Alex)" were made by Alex; the others are architect calls, accepted with the spec. Answers of 2026-11-04 applied: no notification email, PDF also for read access, shared purposes in "Find destinations", transitive purpose visibility accepted, shares of a disabled owner hidden, CLAUDE.md rule 6 amended. Review of PR #123 applied (2026-11-04): share writes only through a guarded function, disabled owners hidden on every recipient path, access of trip-only purposes, atomic cap, deploy safety. All decisions are listed as **[D#]** in section 11.
 Decisions and reasons: `docs/adr/0010-sharing-trips-and-purposes.md`. Conventions of the earlier specs apply unchanged (private schema, explicit grants, `(select auth.uid())`, composite same-owner FKs, DB + Zod limits, snake_case DB / camelCase TS, `ActionResult`, `logEvent` metadata only).
-Follow-up: sharing travel groups, entry links ("That's me") and the owner's birthdate on shared trips are specified in `docs/specs/group-sharing.md` (draft, issue #129). Where it differs from this spec (D4, 2.5 group FK, 4.3 group block), it wins once accepted.
+Follow-up: sharing travel groups, entry links ("That's me") and the owner's birthdate on shared trips are specified in `docs/specs/group-sharing.md` (accepted 2026-11-07, issue #129). Where it differs from this spec (D4, 2.5 group FK, 4.3 group block), it wins.
 
 Scope: an owner gives another existing user live access to one trip (with its plan, plan versions and items) or one trip purpose, read-only or read/write. The recipient finds it under "Shared with me", sees who shared it and the level, and can leave it. A shared purpose can be used for the recipient's own trips and destination searches.
 Not in scope: sharing travel groups (section 10), sharing with people who have no account, copies, notifications of any kind (no email, Alex), comments, live presence.
@@ -126,7 +126,7 @@ Trigger names: `plans_00_inherit_owner`, `trip_items_00_inherit_owner`, `plan_ve
   - `update public.trips set purpose_id = null where owner_id = old.grantee_id and purpose_id = old.purpose_id`. Those trips get a new `updated_at`, so their plans show as outdated; plan versions keep their snapshot.
   - `update public.destination_searches set purpose_id = null where owner_id = old.grantee_id and purpose_id = old.purpose_id`. The list keeps its `purpose_name` snapshot and cards, exactly as when a purpose is deleted (find-destinations section 9, "Purpose edited or deleted").
 - A disabled purpose owner does not clear existing references (nothing changes on disable); the referenced purpose is simply not readable for the recipient while the owner is disabled, and loading a plan context or search treats it like a missing purpose.
-- `group_id` keeps its composite FK on both tables: groups are not shareable. (Superseded by `docs/specs/group-sharing.md` 2.7 once accepted: plain FK plus `private.check_group_ref()`, the same pattern as purposes.)
+- `group_id` keeps its composite FK on both tables: groups are not shareable. (Superseded by `docs/specs/group-sharing.md` 2.7: plain FK plus `private.check_group_ref()`, the same pattern as purposes.)
 
 ### 2.6 Plans, versions, lock **[D11]**
 
@@ -314,7 +314,7 @@ Demo: unaffected (demo has no shares). Retention: unchanged (newest 10, 90 days)
 - Header badge as in the list plus "Leave" (`ConfirmDialog`: "You lose access. {name} keeps the trip."), then redirect to `/app`.
 - Read: plan view in read-only mode (the `readOnly` props from phase 5: no iterate chips, no edits, no open-item ticks, no regenerate), items `readOnly`, "Download PDF" shown, no share panel, no "Back to suggestions", no edit or delete buttons.
 - Write: everything except delete, share panel and "Back to suggestions". The trip form shows group and purpose as read-only text with the note "Only {name} can change the group and purpose." The plan view shows "by {name}" on versions created by someone else.
-- Group block: read-only list of all entries; the `is_self` entry shows the owner's name and age. (Being changed by `docs/specs/group-sharing.md` 4.4, issue #129: every member shows the birthdate next to the age, and the `is_self` entry the owner's profile birthdate.)
+- Group block: read-only list of all entries; the `is_self` entry shows the owner's name and age. (Changed by `docs/specs/group-sharing.md` 4.4, issue #129: every member shows the birthdate next to the age, and the `is_self` entry the owner's profile birthdate.)
 - Purpose on a shared trip: name and text read-only; a link to the purpose only when it is also shared with the viewer.
 - Shared purpose page: "Find destinations" button as on own purposes (opens the search with this purpose preselected).
 
@@ -421,7 +421,7 @@ Amended (Alex approved, 2026-11-04; applied by the orchestrator):
 ## 10. Later: sharing groups (not in scope)
 Groups are not shareable yet (Alex). Open problem for that step: the person you share with may already be a hand-entered member of your group ("Ben" with a typed birthdate). Linking that entry to Ben's account would let his own birthdate replace the typed one and show him "you" in the group, but there is no safe way to match a typed name to an account: names are not unique, and matching by email needs an email the member entry does not have. A future spec should let the owner link an entry to a grantee explicitly, and let the grantee confirm it, instead of guessing.
 
-**Now specified in `docs/specs/group-sharing.md`** (draft, issue #129, ADR 0011). Alex chose a different answer to the open problem: the recipient links an entry to themselves ("That's me"), immediately and without owner confirmation; the owner sees it and can remove it. The link is a label only: the recipient's profile birthdate never replaces the typed one.
+**Now specified in `docs/specs/group-sharing.md`** (accepted 2026-11-07, issue #129, ADR 0011). Alex chose a different answer to the open problem: the recipient links an entry to themselves ("That's me"), immediately and without owner confirmation; the owner sees it and can remove it. The link is a label only: the recipient's profile birthdate never replaces the typed one.
 
 ---
 
