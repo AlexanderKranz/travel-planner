@@ -91,9 +91,10 @@ export default async function TripDetailPage({
       ? null
       : tripGroupSource(trip);
   // The same anchors as the plan input (group-sharing 1.4): a group of someone else ages its is_self row from the group
-  // owner's birthdate, "about my age" follows the trip owner's linked entry. Unreadable owner profile: the old single birthdate.
+  // owner's birthdate, "about my age" follows the trip owner's linked entry. Unreadable owner profile: null
+  // (unknown ages, never the trip owner's birthdate on the group owner's row; fail closed like the pipeline).
   const refs = groupRes?.ok
-    ? ((await loadAgeRefs({ tripOwnerId: trip.ownerId, tripOwnerBirthdate: ownerBirthdate, group: groupRes.data })) ?? ownerBirthdate)
+    ? ((await loadAgeRefs({ tripOwnerId: trip.ownerId, tripOwnerBirthdate: ownerBirthdate, group: groupRes.data })) ?? null)
     : ownerBirthdate;
   const resolved = source ? resolveGroup(source, ageDate, refs) : null;
   const group: ContextGroup | null = resolved
