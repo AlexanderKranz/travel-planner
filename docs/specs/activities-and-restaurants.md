@@ -614,9 +614,12 @@ After QA (#139):
   café rows have no `i`; an interest place already listed there still only leaves `noSource`.
 - Backward compatible: a row with one interest keeps `i` as a string, so inputs without shared places (all three
   eval fixtures) are byte-identical and keep their hash; stored inputs with a string `i` stay valid (`StoredInput`
-  validates `llm` loosely, `placeInterests()` reads both forms). An input with a shared place gets a new hash by
-  itself. `SYSTEM_RULES` is unchanged (`i = interest`; a list is self-explanatory), so the generation cache prefix
-  stays and `PLAN_PROMPT_VERSION` stays `plan-7`: no existing plan's dedupe hash moves.
+  validates `llm` loosely, `placeInterests()` reads both forms). `SYSTEM_RULES` is unchanged (`i = interest`; a list
+  is self-explanatory), so the generation cache prefix stays and `PLAN_PROMPT_VERSION` stays `plan-7`.
+- Accepted effect on existing plans: the regenerate dedupe compares the hash of the rebuilt input with the stored
+  versions (`plan-pipeline.ts`). An existing trip whose interests share a place now builds `i` as a list, so its
+  next explicit "Plan neu erstellen" makes one new Sonnet call and writes a new version instead of returning
+  "unchanged" (once per affected trip). Trips without a shared place are not affected.
 
 ### Family change request on fresh recordings (issue #155)
 
