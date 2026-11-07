@@ -15,6 +15,7 @@ describe("shareErrorKey", () => {
     expect(shareErrorKey("no_account")).toBe("no_account");
     expect(shareErrorKey("self_share")).toBe("self_share");
     expect(shareErrorKey("limit_reached")).toBe("limit_reached");
+    expect(shareErrorKey("share_daily_limit")).toBe("share_daily_limit");
     expect(shareErrorKey("already_linked")).toBe("already_linked");
     expect(shareErrorKey("already_claimed")).toBe("already_claimed");
     expect(shareErrorKey("busy")).toBe("failed");

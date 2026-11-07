@@ -10,6 +10,7 @@ const SHARE_ERRORS = [
   "self_share",
   "limit_reached",
   "rate_limited",
+  "share_daily_limit",
   "forbidden",
   "demo_forbidden",
   "invalid",

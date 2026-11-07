@@ -25,6 +25,7 @@ export const STATUS: Record<ActionError, number> = {
   no_plan: 409,
   places_pending: 503,
   search_limit: 429,
+  share_daily_limit: 429,
   places_unavailable: 502,
   drive_unavailable: 503,
   home_required: 422,
