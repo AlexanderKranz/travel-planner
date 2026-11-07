@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Plan, type PlanDay, type PlanFeedback } from "@/lib/domain/plan";
 import fixture from "./__fixtures__/copenhagen.json";
 import type { PlanInputStored } from "./input";
-import { actCount, allowsNoteDrop, allowsShrink, guardPatch, isShrunk } from "./patch-guard";
+import { actCount, allowsNoteDrop, allowsShrink, guardPatch, isShrunk, lostActs } from "./patch-guard";
 
 const input = fixture.input as unknown as PlanInputStored;
 const base = () => Plan.parse(fixture.plan);
@@ -97,6 +97,41 @@ describe("guardPatch", () => {
     const r = guardPatch({ base: b, next, feedback: fb({ text: "x" }), index: input.index });
     expect(r.rejected.map((x) => x.n)).toEqual([2]);
     expect(r.plan.days.filter((d) => d.best).map((d) => d.n)).toEqual([2]);
+  });
+
+  // Issue #158: "golf on every day" replaces most of a full day with one long round; that is the requested change.
+  const golf = (from: string, until: string, kind: "sport" | "free" = "sport") => ({ at: from, until, kind, text: "18 Löcher", ref: "way/24361960" as const });
+  // Day 1 of the fixture: arrival (no time), then 13:00 lunch, 14:15, 15:30, 16:45 and 18:30 dinner. `only(round)` keeps
+  // the arrival and puts the round in place of everything else: 6 -> 2 activities, shrunk by count.
+  const only = (b: Plan, round: Partial<ReturnType<typeof golf>>) =>
+    withDay(b, 1, (d) => ({ ...d, stops: [{ ...d.stops[0], acts: [d.stops[0].acts[0], round as PlanDay["stops"][number]["acts"][number]] }] }));
+  const feedback = fb({ text: "wir möchten an jedem tag golf spielen" });
+
+  it("accepts a day where an added long activity took the time of the dropped ones", () => {
+    const b = base();
+    const next = only(b, golf("13:00", "18:30"));
+    expect(actCount(next.days[0])).toBe(2);
+    expect(lostActs(b.days[0], next.days[0])).toBe(1); // only dinner (18:30) is outside the round
+    const r = guardPatch({ base: b, next, feedback, index: input.index });
+    expect(r.rejected).toEqual([]);
+    expect(r.changedDays).toEqual([1]);
+  });
+
+  it("still rejects a long free-time block, a round without until, or dropped activities outside the round", () => {
+    const b = base();
+    const rejected = (round: Partial<ReturnType<typeof golf>>) =>
+      guardPatch({ base: b, next: only(b, round), feedback, index: input.index }).rejected.map((x) => x.n);
+    expect(rejected(golf("13:00", "20:00", "free"))).toEqual([1]);
+    expect(rejected({ ...golf("13:00", "20:00"), until: undefined })).toEqual([1]);
+    // A short round covers only lunch: the four later activities are lost.
+    expect(lostActs(b.days[0], only(b, golf("13:00", "14:00")).days[0])).toBe(4);
+    expect(rejected(golf("13:00", "14:00"))).toEqual([1]);
+  });
+
+  it("an empty patched day is rejected whatever it replaced", () => {
+    const b = base();
+    const empty = withDay(b, 1, (d) => ({ ...d, stops: [{ ...d.stops[0], acts: [] }] }));
+    expect(guardPatch({ base: b, next: empty, feedback, index: input.index }).rejected.map((x) => x.n)).toEqual([1]);
   });
 
   it("passes an untouched patch through as the same object", () => {

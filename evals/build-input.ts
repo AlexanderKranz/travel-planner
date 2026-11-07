@@ -147,6 +147,12 @@ export function noGolfPurpose(): TripPurpose {
   return { ...evalPurpose("golf", NO_GOLF_TAGS)!, name: "Strandwoche", text: "Entspannte Strandwoche mit einem Freund.", constraints: [] };
 }
 export const GOLF_PATCH_FEEDBACK: PlanFeedback = { chips: [], days: [2], text: "Finde einen Golfplatz für Tag 2" };
+/** Issue #158: golf on every day of the same trip, no day scope and no chips (the owner's production request). */
+export const GOLF_EVERY_DAY_FEEDBACK: PlanFeedback = {
+  chips: [],
+  days: [],
+  text: "wir möchten an jedem tag golf spielen. such geeignete golfplätze",
+};
 
 /** Addendum A3: a kind no catalogue type covers. The plan keeps it as an idea and says the sources do not cover it. */
 export const UNCOVERED_PATCH_FEEDBACK: PlanFeedback = { chips: [], days: [1], text: "Gib konkrete Beispiele für einen Kinderbauernhof an Tag 1" };

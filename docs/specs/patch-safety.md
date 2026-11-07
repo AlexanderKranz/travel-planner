@@ -45,7 +45,10 @@ were in the index), the fixed-item overlap guard (no fixed items; it never remov
 - **[D3] Shrink guard** (`src/lib/plan/patch-guard.ts`, run in `iteratePlan` after `applyPatch`). A patched day that
   lost more than half of its activities, or all of them, is replaced by the base day unless the feedback has
   "redo_day" for that day or text clearly asking to clear it ("komplett", "freier Tag", "nur noch", "everything",
-  "day off", …; "streichen" alone does not count). The rejection is never silent: the response carries
+  "day off", …; "streichen" alone does not count). Dropped activities that start inside the at–until window of an
+  activity the patch added (kind see/do/sport/food/shop, not free/rest/travel) count as replaced, not lost: "golf on
+  every day" puts a 09:00–13:30 round in place of the beach morning and lunch (issue #158); the day is only rejected
+  when it lost more than half by count and also by this replacement-aware count. The rejection is never silent: the response carries
   `rejectedDays`, the client shows "Tag 1 wurde nicht geändert, weil die Antwort unvollständig war. Bitte erneut
   versuchen." (the model reply is dropped when nothing else changed, because it describes the rejected change), and
   `app_events` gets `plan.patch_shrink_rejected` (days, activity counts, cost). If no day is left changed, no version
