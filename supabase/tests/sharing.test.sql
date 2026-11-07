@@ -501,6 +501,8 @@ update public.trips set purpose_tags = '{"v":2}'::jsonb, purpose_tags_hash = rep
 select is((select updated_at from public.trips where id = '5a000000-0000-4000-8000-00000000a2f1'), '2026-01-01T00:00:00Z'::timestamptz, 'a tag-only write does not move updated_at');
 update public.trips set purpose_text = 'Golf und Strand' where id = '5a000000-0000-4000-8000-00000000a2f1';
 select isnt((select updated_at from public.trips where id = '5a000000-0000-4000-8000-00000000a2f1'), '2026-01-01T00:00:00Z'::timestamptz, 'a change of the text moves updated_at');
+update public.trips set updated_at = '2026-01-01T00:00:00Z' where id = '5a000000-0000-4000-8000-00000000a2f1';
+select isnt((select updated_at from public.trips where id = '5a000000-0000-4000-8000-00000000a2f1'), '2026-01-01T00:00:00Z'::timestamptz, 'an update that only sets updated_at still bumps it');
 select throws_ok($$update public.trips set purpose_tags = '{"v":2}'::jsonb where id = '5a000000-0000-4000-8000-00000000a204'$$, '23514', null, 'tags without a hash are rejected');
 select lives_ok($$update public.trips set purpose_text = 'Golf mit einem Freund', purpose_tags = '{"v":2}'::jsonb, purpose_tags_hash = repeat('a', 64), purpose_tags_at = now() where id = '5a000000-0000-4000-8000-00000000a204'$$, 'the secret key writes purpose_text and the tags');
 reset role;

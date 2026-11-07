@@ -683,8 +683,9 @@ select lives_ok($$insert into public.trips (dest_kind, dest_name, length_days, g
 
 -- trips: one-off purpose text (migration 20261113120038), exclusive with a saved purpose
 select lives_ok($$update public.trips set purpose_text = E'Mamas 70.\nGeburtstag' where id = 'a0000000-0000-4000-8000-000000000092'$$, 'owner can set purpose_text (inner line break accepted)');
-select throws_ok($$update public.trips set purpose_id = 'a0000000-0000-4000-8000-0000000000b1' where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'saved purpose and one-off text are mutually exclusive');
-select lives_ok($$update public.trips set purpose_text = null, purpose_id = 'a0000000-0000-4000-8000-0000000000b1' where id = 'a0000000-0000-4000-8000-000000000092'$$, 'switching from the one-off text to a saved purpose works');
+insert into public.trip_purposes (name) values ('A text purpose');
+select throws_ok($$update public.trips set purpose_id = (select id from public.trip_purposes where name = 'A text purpose') where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'saved purpose and one-off text are mutually exclusive');
+select lives_ok($$update public.trips set purpose_text = null, purpose_id = (select id from public.trip_purposes where name = 'A text purpose') where id = 'a0000000-0000-4000-8000-000000000092'$$, 'switching from the one-off text to a saved purpose works');
 select throws_ok($$update public.trips set purpose_text = 'x' where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'one-off text with a saved purpose is rejected');
 select lives_ok($$update public.trips set purpose_id = null, purpose_text = 'x' where id = 'a0000000-0000-4000-8000-000000000092'$$, 'back to a one-off text');
 select throws_ok($$update public.trips set purpose_text = ' leading' where id = 'a0000000-0000-4000-8000-000000000092'$$, '23514', null, 'purpose_text with leading whitespace rejected');

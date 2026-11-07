@@ -64,8 +64,13 @@ create or replace function private.trips_set_updated_at()
   set search_path = ''
 as $$
 begin
-  if (to_jsonb(new) - 'updated_at' - 'purpose_tags' - 'purpose_tags_hash' - 'purpose_tags_at')
-     = (to_jsonb(old) - 'updated_at' - 'purpose_tags' - 'purpose_tags_hash' - 'purpose_tags_at') then
+  -- Keep updated_at only for a pure tag write: a tag column changed and nothing else did. Everything else (an edit, an
+  -- explicit updated_at bump such as private.group_changed / claim_entry, a no-op save) gets now() as before.
+  if (new.purpose_tags is distinct from old.purpose_tags
+      or new.purpose_tags_hash is distinct from old.purpose_tags_hash
+      or new.purpose_tags_at is distinct from old.purpose_tags_at)
+     and (to_jsonb(new) - 'updated_at' - 'purpose_tags' - 'purpose_tags_hash' - 'purpose_tags_at')
+       = (to_jsonb(old) - 'updated_at' - 'purpose_tags' - 'purpose_tags_hash' - 'purpose_tags_at') then
     new.updated_at := old.updated_at;
   else
     new.updated_at := now();
