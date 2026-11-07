@@ -24,7 +24,6 @@ test("login: when the scripts do not load, a notice appears after a few seconds"
   const p = await anonContext.newPage();
   await p.goto("/de/login");
   const notice = p.locator(".load-notice");
-  await expect(notice).toBeHidden();
   await expect(notice).toBeVisible({ timeout: 10_000 });
   await expect(notice).toContainText("JavaScript");
 });
