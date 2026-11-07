@@ -79,10 +79,11 @@ select is((select count(*)::int from pg_constraint c
    where c.conrelid in ('public.trips'::regclass, 'public.destination_searches'::regclass)
      and c.contype = 'f' and c.confrelid = 'public.trip_purposes'::regclass and cardinality(c.conkey) = 1
      and c.confdeltype = 'n'), 2, 'plain purpose FK with on delete set null on trips and destination_searches');
+-- group sharing (migration 20261112120037) replaced the composite group FK with a plain one plus check_group_ref
 select is((select count(*)::int from pg_constraint c
    where c.conrelid in ('public.trips'::regclass, 'public.destination_searches'::regclass)
-     and c.contype = 'f' and c.confrelid = 'public.travel_groups'::regclass and cardinality(c.conkey) = 2), 2,
-  'group_id keeps its composite same-owner FK');
+     and c.contype = 'f' and c.confrelid = 'public.travel_groups'::regclass and cardinality(c.conkey) = 2), 0,
+  'group_id has no composite same-owner FK any more (group-sharing.test.sql covers the plain FK)');
 select is((select array_agg(t.tgname::text order by t.tgname) from pg_trigger t
    where t.tgrelid = 'public.plan_versions'::regclass and not t.tgisinternal and (t.tgtype & 6) = 6),
   array['plan_versions_00_inherit_owner', 'plan_versions_assign_no'],
@@ -216,7 +217,7 @@ select throws_ok($$select * from public.share_resource('5a000000-0000-4000-8000-
   'P0001', 'no_account', 'demo account as grantee: no_account');
 select throws_ok($$select * from public.share_resource('5a000000-0000-4000-8000-0000000000a1', 'trip', '5a000000-0000-4000-8000-00000000a201', '5a000000-0000-4000-8000-0000000000ff', 'read')$$,
   'P0001', 'no_account', 'unknown grantee id: no_account');
-select throws_ok($$select * from public.share_resource('5a000000-0000-4000-8000-0000000000a1', 'group', '5a000000-0000-4000-8000-00000000a201', '5a000000-0000-4000-8000-0000000000b2', 'read')$$,
+select throws_ok($$select * from public.share_resource('5a000000-0000-4000-8000-0000000000a1', 'plan', '5a000000-0000-4000-8000-00000000a201', '5a000000-0000-4000-8000-0000000000b2', 'read')$$,
   'P0001', 'invalid', 'unknown resource kind: invalid');
 select throws_ok($$select * from public.share_resource('5a000000-0000-4000-8000-0000000000a1', 'trip', '5a000000-0000-4000-8000-00000000a201', '5a000000-0000-4000-8000-0000000000b2', 'admin')$$,
   'P0001', 'invalid', 'unknown access level: invalid');
@@ -723,8 +724,8 @@ select is((select (public.admin_share_stats(now() - interval '1 day') ->> 'looku
 select is((select (public.admin_share_stats(now() - interval '1 day') ->> 'lookupMissesThisMonth')::int), 1, 'admin_share_stats counts lookup misses');
 select is((select (public.admin_share_stats(now() - interval '1 day') ->> 'tripSharesWrite')::int), (select count(*)::int from public.trip_shares where access = 'write'), 'admin_share_stats counts write trip shares');
 select is((select (public.admin_share_stats(now() - interval '1 day') ->> 'recipients')::int),
-  (select count(distinct g)::int from (select grantee_id g from public.trip_shares union all select grantee_id from public.purpose_shares) x), 'admin_share_stats counts distinct recipients');
-select is((select (select count(*) from jsonb_object_keys(public.admin_share_stats(now() - interval '1 day')))::int), 9, 'admin_share_stats returns nine counters and nothing else');
+  (select count(distinct g)::int from (select grantee_id g from public.trip_shares union all select grantee_id from public.purpose_shares union all select grantee_id from public.group_shares) x), 'admin_share_stats counts distinct recipients');
+select is((select (select count(*) from jsonb_object_keys(public.admin_share_stats(now() - interval '1 day')))::int), 13, 'admin_share_stats returns thirteen counters and nothing else');
 select is((select (public.admin_share_stats(now() + interval '1 day') ->> 'grantsThisMonth')::int), 0, 'admin_share_stats: grants before the month start are not counted');
 reset role;
 set local request.jwt.claims = '{}';

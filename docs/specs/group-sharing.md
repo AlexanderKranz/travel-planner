@@ -527,3 +527,13 @@ Ground rule 4 is unaffected: `linked_user_id` stores no age; the owner's birthda
 - **[G22] (Alex)** Linking or unlinking outdates only the linked user's own trips that use the group, never the owner's.
 - **[G23] (Alex)** Labels are per viewer: "me"/"You" is the viewer's own entry (the `is_self` entry for the owner, the claimed entry for a recipient); the owner's entry shows the owner's display name to everyone else. Ages and the plan's `"self"` label follow the trip owner. Example in 1.5.
 - **[G24] (Alex)** The group page preview for a recipient uses the "about my age" rule of the recipient's own trips.
+
+---
+
+## 12. Implementation notes (PR 1, migration 37)
+- `claim_group_entry` checks the owner (`forbidden`) before visibility (`not_found`). The order in 2.6 would make `forbidden` unreachable: an owner's own group is not in `shared_group_ids()`, so the owner would always get `not_found`.
+- `unclaim_group_entry` returns the harmless no-op for an unlinked entry only to callers who can see the group (or the owner); everyone else gets `not_found`, so the function cannot be used to probe whether an entry id exists.
+- `claim_group_entry` catches the unique violation of `group_entries_one_link_idx` itself and raises `already_claimed` (P0001), so the server needs no extra 23505 mapping (it may keep one).
+- The DO block of 2.7 drops every two-column foreign key from `trips` and `destination_searches` to `travel_groups`, whatever its name, instead of guessing the default name; `destination_searches_group_idx` is added for the new plain FK (the composite FK had no index on `group_id`).
+- Existing tests changed because the behaviour they pinned is superseded: `sharing.test.sql` (composite group FK gone, `'group'` is now a valid resource so the "unknown kind" case uses `'plan'`, thirteen admin counters), `rls.test.sql` (an entry inserted into someone else's group now fails the owner policy with 42501 after the inherit-owner trigger instead of the composite FK with 23503; the privilege check names the four-argument `replace_group_entries`).
+- Claim vs. revoke race (QA review): `claim_group_entry` share-locks its route rows (the caller's `group_shares` row and the `trip_shares` and `trips` rows of trips using the group) before it locks the entry, and raises `not_found` when no route row is left. A revoke deletes or changes those rows, so it waits for the claim to commit and its prune trigger then sees the link; the lock order (route, then entry) matches the revoke path, so there is no deadlock. Covered by case 5 of `sharing-concurrency.sh`. The spec's steps 2 to 9 are otherwise unchanged.

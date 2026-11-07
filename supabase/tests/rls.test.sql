@@ -1,5 +1,5 @@
 -- pgTAP RLS / grants tests. Run with `supabase test db` (CI job `db-test`, see .github/workflows/ci.yml).
--- Written against migrations 20261027120001..20261110120035. Runs as postgres inside one transaction that is rolled back.
+-- Written against migrations 20261027120001..20261112120037. Runs as postgres inside one transaction that is rolled back.
 -- Uses no_plan() because the file is still being extended; finish() reports failures and `supabase test db`
 -- exits non-zero on any failed test.
 begin;
@@ -48,9 +48,10 @@ select is((select count(*)::int from u), 0, 'B cannot update A purpose');
 
 select throws_ok($$insert into public.travel_groups (owner_id, name) values ('aaaaaaaa-0000-4000-8000-000000000001', 'x')$$,
   '42501', null, 'B cannot insert a group owned by A (owner_id is not in the insert column grant)');
--- owner_id is not insertable by users (column grant), so it defaults to auth.uid() = B and the composite FK rejects A's group
+-- owner_id is not insertable by users (column grant); the inherit-owner trigger (group sharing, migration 37) gives the
+-- entry A's owner_id, so B's insert fails the owner policy
 select throws_ok($$insert into public.group_entries (group_id, kind) values ('a0000000-0000-4000-8000-0000000000a1', 'composition')$$,
-  '23503', null, 'B cannot attach an entry to A group (composite FK group_id, owner_id)');
+  '42501', null, 'B cannot attach an entry to A group (owner policy after the inherit-owner trigger)');
 select throws_ok($$insert into public.group_entries (group_id, owner_id, kind) values ('a0000000-0000-4000-8000-0000000000a1', 'aaaaaaaa-0000-4000-8000-000000000001', 'composition')$$,
   '42501', null, 'B cannot insert an entry as owner A (owner_id column not granted)');
 
@@ -128,7 +129,7 @@ select ok(not has_column_privilege('authenticated', 'public.trip_purposes', 'par
 select ok(not has_column_privilege('authenticated', 'public.trip_purposes', 'parsed_tags', 'insert'), 'authenticated: cannot insert parsed_tags');
 select ok(not has_table_privilege('authenticated', 'public.app_events', 'insert'), 'authenticated: no insert on app_events');
 select ok(not has_table_privilege('authenticated', 'public.signup_allowlist', 'update'), 'authenticated: no update on allowlist');
-select ok(not has_function_privilege('anon', 'public.replace_group_entries(uuid, jsonb, jsonb)', 'execute'), 'anon cannot call replace_group_entries');
+select ok(not has_function_privilege('anon', 'public.replace_group_entries(uuid, jsonb, jsonb, timestamptz)', 'execute'), 'anon cannot call replace_group_entries');
 select ok(has_function_privilege('anon', 'public.health_check()', 'execute'), 'anon can call health_check');
 select ok(has_function_privilege('authenticated', 'public.health_check()', 'execute'), 'authenticated can call health_check');
 select ok(not exists (
