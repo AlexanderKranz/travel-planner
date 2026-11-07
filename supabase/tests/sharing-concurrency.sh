@@ -212,7 +212,24 @@ LINKS="$("${PSQL[@]}" -c "select count(*) from public.group_entries where group_
 [ "$LINKS" = "1" ] || fail "case 4: $LINKS links exist, expected exactly one"
 rm -f "$RACE_OUT1" "$RACE_OUT2"
 
+# ---------- case 5: a claim races the revoke of its only route ----------
+GRP3="5c000000-0000-4000-8000-00000000f105"
+ENT_X3="5c000000-0000-4000-8000-00000000f1a4"
+"${PSQL[@]}" <<SQL >/dev/null
+insert into public.travel_groups (id, owner_id, name) values ('$GRP3', '$OWNER', 'Concurrency revoke group');
+insert into public.group_entries (id, group_id, owner_id, kind, name) values ('$ENT_X3', '$GRP3', '$OWNER', 'member', 'X3');
+select public.share_resource('$OWNER', 'group', '$GRP3', '$(uid 2)', 'read');
+SQL
+echo "case 5: a claim races the revoke of the group share"
+run_race claim-revoke "$(claim_sql 2 "$ENT_X3")" "delete from public.group_shares where group_id = '$GRP3' and grantee_id = '$(uid 2)'"
+grep -q "$GRP3" "$RACE_OUT1" || fail "case 5: session 1 did not claim the entry (output: $(cat "$RACE_OUT1"))"
+[ "$RACE_STATUS2" -eq 0 ] || fail "case 5: the revoke failed (output: $(cat "$RACE_OUT2"))"
+[ "$RACE_WAITED" -eq 1 ] || fail "case 5: the revoke was never seen waiting on the claim"
+LINK="$("${PSQL[@]}" -c "select coalesce(linked_user_id::text, '') from public.group_entries where id = '$ENT_X3'")"
+[ -z "$LINK" ] || fail "case 5: the link '$LINK' outlived the revoked route"
+rm -f "$RACE_OUT1" "$RACE_OUT2"
+
 if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi
-echo "OK: trip cap, group cap, same-entry claim and same-user claim all behaved under concurrency"
+echo "OK: trip cap, group cap, same-entry claim, same-user claim and claim-vs-revoke all behaved under concurrency"

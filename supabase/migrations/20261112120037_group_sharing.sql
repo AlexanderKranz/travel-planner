@@ -251,17 +251,13 @@ declare
   v_kind    text;
   v_is_self boolean;
   v_linked  uuid;
+  v_route   boolean;
 begin
   if v_uid is null or p_entry_id is null then
     raise exception 'forbidden' using errcode = 'P0001';
   end if;
 
-  -- The row lock serializes two people claiming the same entry: the second one sees the link and gets already_linked.
-  select e.group_id, e.owner_id, e.kind, e.is_self, e.linked_user_id
-    into v_group, v_owner, v_kind, v_is_self, v_linked
-    from public.group_entries e
-   where e.id = p_entry_id
-     for update;
+  select e.group_id, e.owner_id into v_group, v_owner from public.group_entries e where e.id = p_entry_id;
   if not found then
     raise exception 'not_found' using errcode = 'P0001';
   end if;
@@ -272,6 +268,32 @@ begin
   end if;
   -- A group the caller cannot see: the same answer as a missing row, no hint that the entry exists.
   if v_group <> all (private.shared_group_ids()) then
+    raise exception 'not_found' using errcode = 'P0001';
+  end if;
+
+  -- Claim vs. revoke race: a concurrent revoke (group share or trip share deleted, trip moved) prunes links in its own
+  -- trigger, but does not see a claim that is not committed yet, so the claim would outlive its last route. Share-lock
+  -- the route rows first: a revoke then waits for this transaction, and its prune trigger runs after our commit and
+  -- sees the link. A revoke that committed before we got the lock leaves no row to lock: not_found. The locks are taken
+  -- before the entry lock below, the same order as a revoke (route row, then the entries its prune touches), so the
+  -- two cannot deadlock.
+  perform 1 from public.group_shares gs
+   where gs.group_id = v_group and gs.grantee_id = v_uid for share;
+  v_route := found;
+  perform 1 from public.trip_shares s join public.trips t on t.id = s.trip_id
+   where s.grantee_id = v_uid and t.group_id = v_group for share of s, t;
+  v_route := v_route or found;
+  if not v_route then
+    raise exception 'not_found' using errcode = 'P0001';
+  end if;
+
+  -- The row lock serializes two people claiming the same entry: the second one sees the link and gets already_linked.
+  select e.kind, e.is_self, e.linked_user_id
+    into v_kind, v_is_self, v_linked
+    from public.group_entries e
+   where e.id = p_entry_id
+     for update;
+  if not found then
     raise exception 'not_found' using errcode = 'P0001';
   end if;
   if v_kind <> 'member' or v_is_self then

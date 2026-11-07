@@ -300,6 +300,9 @@ select lives_ok($$select public.reorder_group_entries('6a000000-0000-4000-8000-0
 with d as (delete from public.travel_groups where id = '6a000000-0000-4000-8000-00000000a001' returning 1)
 select is((select count(*)::int from d), 0, 'B cannot delete the group');
 select throws_ok($$update public.travel_groups set parsed_structure = '[]' where id = '6a000000-0000-4000-8000-00000000a001'$$, '42501', null, 'B cannot write parsed_structure');
+select throws_ok($$update public.group_entries set group_id = '6a000000-0000-4000-8000-00000000b001' where id = '6a000000-0000-4000-8000-00000000e003'$$, '42501', null, 'B cannot move an entry to another group (no group_id update privilege)');
+select throws_ok($$update public.group_entries set owner_id = '6a000000-0000-4000-8000-0000000000b2' where id = '6a000000-0000-4000-8000-00000000e003'$$, '42501', null, 'B cannot change the owner_id of an entry');
+select throws_ok($$update public.travel_groups set owner_id = '6a000000-0000-4000-8000-0000000000b2' where id = '6a000000-0000-4000-8000-00000000a001'$$, '42501', null, 'B cannot change the owner_id of the group');
 select throws_ok($$update public.group_entries set linked_user_id = '6a000000-0000-4000-8000-0000000000b2' where id = '6a000000-0000-4000-8000-00000000e003'$$, '42501', null, 'B cannot write linked_user_id');
 select throws_ok($$insert into public.group_entries (group_id, kind, name, linked_user_id) values ('6a000000-0000-4000-8000-00000000a001', 'member', 'Sneaky', '6a000000-0000-4000-8000-0000000000b2')$$, '42501', null, 'B cannot insert linked_user_id');
 select throws_ok($$insert into public.group_entries (group_id, kind, is_self) values ('6a000000-0000-4000-8000-00000000a001', 'member', true)$$, '42501', 'owner_only', 'B cannot insert an is_self entry');
@@ -821,6 +824,29 @@ select is((select count(*)::int from jsonb_object_keys(public.admin_share_stats(
 select ok((public.admin_share_stats(now() - interval '1 day'))::text !~ '[0-9a-f]{8}-[0-9a-f]{4}-', 'admin_share_stats holds no ids');
 reset role;
 set local request.jwt.claims = '{}';
+
+-- ---------- account deletion of owners ----------
+-- a trip owner whose shared trip uses someone else's group: B's trip TB1 (group of A) is shared with R, R is linked
+reset role;
+set local request.jwt.claims = '{}';
+select is((select linked_user_id from public.group_entries where id = '6a000000-0000-4000-8000-00000000e003'), '6a000000-0000-4000-8000-000000000072'::uuid, 'sanity: R is linked through the trip of B');
+insert into public.trips (id, owner_id, dest_kind, dest_name, length_days, group_id) values ('6a000000-0000-4000-8000-00000000c203', '6a000000-0000-4000-8000-0000000000c3', 'freetext', 'C trip with GA 3', 3, '6a000000-0000-4000-8000-00000000a001');
+insert into public.destination_searches (id, owner_id, group_id, purpose_name, locale, input_hash, input, status)
+  values ('6a000000-0000-4000-8000-00000000c302', '6a000000-0000-4000-8000-0000000000c3', '6a000000-0000-4000-8000-00000000a001', 'C search GA 2', 'en', repeat('9', 64), '{}', 'done');
+delete from auth.users where id = '6a000000-0000-4000-8000-0000000000b2';
+select is((select linked_user_id from public.group_entries where id = '6a000000-0000-4000-8000-00000000e003'), null::uuid, 'deleting the trip owner prunes the link that relied on the trip route');
+select is((select linked_user_id from public.group_entries where id = '6a000000-0000-4000-8000-00000000e005'), '6a000000-0000-4000-8000-0000000000c3'::uuid, 'deleting the trip owner leaves the link of C (group share route)');
+select is((select count(*)::int from public.group_shares where grantee_id = '6a000000-0000-4000-8000-0000000000b2'), 0, 'deleting a grantee removes its group shares');
+select is((select count(*)::int from public.travel_groups where id = '6a000000-0000-4000-8000-00000000a001'), 1, 'deleting a grantee leaves the group');
+-- the group owner: groups, shares, entries, links go; recipients keep trips and searches without the group
+delete from auth.users where id = '6a000000-0000-4000-8000-0000000000a1';
+select is((select count(*)::int from public.travel_groups where owner_id = '6a000000-0000-4000-8000-0000000000a1'), 0, 'deleting the group owner deletes the groups');
+select is((select count(*)::int from public.group_shares where owner_id = '6a000000-0000-4000-8000-0000000000a1'), 0, 'deleting the group owner deletes the group shares');
+select is((select count(*)::int from public.group_entries where group_id in ('6a000000-0000-4000-8000-00000000a001', '6a000000-0000-4000-8000-00000000a002', '6a000000-0000-4000-8000-00000000a003')), 0, 'deleting the group owner deletes the entries');
+select is((select count(*)::int from public.group_entries where linked_user_id is not null), 0, 'no link is left');
+select is((select count(*)::int from public.trips where id = '6a000000-0000-4000-8000-00000000c203' and group_id is null), 1, 'the trip of C stays and lost the group');
+select is((select count(*)::int from public.destination_searches where id = '6a000000-0000-4000-8000-00000000c302' and group_id is null), 1, 'the search of C stays and lost the group');
+select is((select count(*)::int from public.group_shares), 0, 'no group share is left');
 
 select * from finish();
 rollback;
