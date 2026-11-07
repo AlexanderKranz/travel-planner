@@ -58,18 +58,20 @@ test("shared trip shows the one-off purpose read-only", async ({ page, contextAs
   await submitTrip(page);
   const tripId = page.url().match(TRIP_URL) ? page.url().split("/").pop()! : "";
 
-  // Right after creating the trip the page may not be hydrated yet; a controlled input filled before that is reset.
-  await page.waitForLoadState("networkidle");
+  // Right after creating the trip the page may not be hydrated yet (a controlled input filled before is reset), and the
+  // box can remount while the page streams, so the status text is not reliable. The grant row in the list is.
   const box = page.getByTestId("people-share");
   const bEmail = emailOf(`b-${testInfo.project.name}`);
-  await box.getByText("Darf bearbeiten", { exact: true }).click();
-  await box.getByLabel("E-Mail-Adresse der Person").fill(bEmail);
-  await expect(box.getByLabel("E-Mail-Adresse der Person")).toHaveValue(bEmail);
+  await expect(async () => {
+    await box.getByText("Darf bearbeiten", { exact: true }).click();
+    await box.getByLabel("E-Mail-Adresse der Person").fill(bEmail);
+    await expect(box.getByLabel("E-Mail-Adresse der Person")).toHaveValue(bEmail, { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
   await box.getByRole("button", { name: "Teilen", exact: true }).click();
   await expect(
-    box.getByRole("status").filter({ hasText: "Geteilt." }),
+    box.getByRole("listitem").filter({ hasText: bEmail }),
     `alerts: ${await box.getByRole("alert").allInnerTexts()}`,
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 20_000 });
 
   const b = await (await contextAs("b")).newPage();
   await b.goto(`/de/app/trips/${tripId}`);
