@@ -142,6 +142,26 @@ describe("buildPlanInput", () => {
     expect(stored.llm.places).toHaveLength(3);
   });
 
+  it("a place two specific interests returned is listed once and carries both (issue #157); general is never added", () => {
+    const g = (interest: string, idx: number[]) =>
+      ({ interest, status: "ok", candidates: idx.map((i) => cand(i, "view")), fetchedAt: T, stale: false }) as PlaceGroup;
+    // way/1001: 2nd of photography, 1st of nature_wildlife. way/1021: last of photography (beyond its fair share
+    // cursor only if nature took it first), picked by nature. way/1000 is also in general: never added.
+    const nature = [1, 2, ...Array.from({ length: 12 }, (_, i) => i + 10)];
+    const { stored } = build(trip(), purpose(), [g("photography", [0, 1, 21]), g("nature_wildlife", [...nature, 21]), g("general", [0])]);
+    const byKey = new Map(Object.entries(stored.index).map(([id, e]) => [e.key as string, stored.llm.places.find((p) => p.id === id)!]));
+    expect(byKey.get("way/1000")!.i).toBe("photography");
+    expect(byKey.get("way/1001")!.i).toEqual(["photography", "nature_wildlife"]);
+    expect(byKey.get("way/1021")!.i).toEqual(["photography", "nature_wildlife"]);
+    expect(byKey.get("way/1002")!.i).toBe("nature_wildlife");
+    expect(new Set(Object.values(stored.index).map((e) => e.key)).size).toBe(stored.llm.places.length);
+  });
+
+  it("without shared places the input (and so its hash) is unchanged: i stays a string", () => {
+    const { stored } = build();
+    expect(stored.llm.places.every((p) => typeof p.i === "string")).toBe(true);
+  });
+
   it("adds gateway airports and ap only when flights are wanted", () => {
     const withF = build();
     expect(withF.stored.llm.airports?.[0].iata).toBe("AGP");

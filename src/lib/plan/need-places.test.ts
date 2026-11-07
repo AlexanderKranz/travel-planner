@@ -166,8 +166,25 @@ describe("needPlaces interests (issue #151)", () => {
         { interest: "family_activities", status: "ok", candidates: [{ ...view, osmId: 7 }], fetchedAt: T, stale: false },
       ],
     }, { lang: "de" });
-    expect(next.llm.places.map((p) => [p.id, p.i])).toEqual([["p4", "nature_wildlife"]]);
+    // Issue #157: the shared viewpoint says it serves photography too; the activity place (a1) has no `i`.
+    expect(next.llm.places.map((p) => [p.id, p.i])).toEqual([["p4", ["nature_wildlife", "photography"]]]);
     expect(next.llm.noSource).toEqual([]);
+  });
+
+  it("an interest that returns a place of the stored input adds itself to that row, without changing the stored input (issue #157)", () => {
+    const view = { ...golf[0], osmType: "node" as const, osmId: 9001, category: "tourism=viewpoint" };
+    const s = storedFor(3);
+    const row = { id: "p3", name: "Cala", cat: "tourism=viewpoint", km: 2, i: "photography" };
+    const stored: PlanInputStored = { ...s, llm: { ...s.llm, places: [row] }, index: { ...s.index, p3: { ...s.index.p3, key: "node/9001" } } };
+    const before = JSON.stringify(stored);
+    const req = resolveNeedPlaces({ interests: ["nature_wildlife", "photography"] }, stored)!;
+    const interests: PlaceGroup[] = [
+      { interest: "nature_wildlife", status: "ok", candidates: [view, { ...view, osmId: 9002 }], fetchedAt: T, stale: false },
+      { interest: "photography", status: "ok", candidates: [view], fetchedAt: T, stale: false },
+    ];
+    const next = extendInput(stored, req, { activities: [], interests }, { lang: "de" });
+    expect(next.llm.places.map((p) => [p.id, p.i])).toEqual([["p3", ["photography", "nature_wildlife"]], ["p4", "nature_wildlife"]]);
+    expect(JSON.stringify(stored)).toBe(before);
   });
 
   it("an interest that found nothing (or could not load, e.g. a free-text destination) goes to noSource", () => {
