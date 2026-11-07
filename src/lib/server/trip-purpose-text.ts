@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AiCtx } from "@/lib/domain/ai";
-import type { PurposeTags } from "@/lib/domain/plan";
+import { PurposeTags } from "@/lib/domain/plan";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
 import { oneOffTagsHash } from "@/lib/discover/one-off";
@@ -15,22 +15,35 @@ import { createSupabaseAdminClient } from "./supabase/admin";
  * Caches the Haiku tags of a trip's one-off purpose text on the trip row (spec trip-purpose-text P4). SECRET KEY (RLS
  * bypass) on purpose: users have no grant on purpose_tags* (they could otherwise plant tags that look machine-made),
  * and a write grantee may tag a trip they do not own. The id + owner_id filter (the row's owner, as read through RLS by
- * the caller) keeps the write scoped to that one row. The write moves trips.updated_at (trigger): callers must continue
- * with the returned value so the plan basis stays current. Null when nothing was written.
+ * the caller) keeps the write scoped to that one row.
+ * Compare-and-set: it writes only while the stored text is still `text` and the stored tags are not yet for it (hash
+ * differs or missing), so a second concurrent tagger (warm step vs. plan run) never overwrites the first result.
+ * The trigger does not move trips.updated_at for tag-only writes. Returns true when this call wrote.
  */
-export async function saveTripPurposeTags(
-  trip: { id: string; ownerId: string },
-  tags: PurposeTags,
-  hash: string,
-): Promise<{ updatedAt: string } | null> {
+export async function saveTripPurposeTags(trip: { id: string; ownerId: string }, tags: PurposeTags, text: string): Promise<boolean> {
   try {
+    const hash = oneOffTagsHash(text);
     const { data, error } = await createSupabaseAdminClient()
       .from("trips")
       .update({ purpose_tags: tags, purpose_tags_hash: hash, purpose_tags_at: new Date().toISOString() })
       .eq("id", trip.id)
       .eq("owner_id", trip.ownerId)
-      .select("updated_at");
-    return !error && data.length === 1 ? { updatedAt: data[0].updated_at as string } : null;
+      .eq("purpose_text", text)
+      .or(`purpose_tags_hash.is.null,purpose_tags_hash.neq.${hash}`)
+      .select("id");
+    return !error && data.length === 1;
+  } catch {
+    return false;
+  }
+}
+
+/** Tags another run stored for exactly this text (user session, RLS), else null. */
+async function readStoredTags(sb: SupabaseClient, tripId: string, text: string): Promise<PurposeTags | null> {
+  try {
+    const { data } = await sb.from("trips").select("purpose_text, purpose_tags, purpose_tags_hash").eq("id", tripId).maybeSingle<{ purpose_text: string | null; purpose_tags: unknown; purpose_tags_hash: string | null }>();
+    if (!data || data.purpose_text !== text || data.purpose_tags_hash !== oneOffTagsHash(text)) return null;
+    const parsed = PurposeTags.safeParse(data.purpose_tags);
+    return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
@@ -39,11 +52,7 @@ export async function saveTripPurposeTags(
 /** The tagging step for a one-off purpose (`isOneOffPurpose`) of a trip; same wants-tags test as a saved purpose. */
 export const wantsTripTags = (p: TripPurpose | null): p is TripPurpose => !!p && isOneOffPurpose(p) && p.tags == null && !!p.text?.trim();
 
-export type TaggedTripPurpose = {
-  purpose: TripPurpose;
-  /** New `trips.updated_at` after the tag write; the caller's trip, group (one-off) and purpose use it. Null = unchanged. */
-  updatedAt: string | null;
-};
+export type TaggedTripPurpose = { purpose: TripPurpose };
 
 /**
  * Tags the one-off purpose of a trip: an earlier result for the same text first (the owner's searches, saved purposes
@@ -58,7 +67,7 @@ export async function tagTripPurpose(
   purpose: TripPurpose,
   ctx: AiCtx,
 ): Promise<TaggedTripPurpose> {
-  const unchanged = { purpose, updatedAt: null };
+  const unchanged = { purpose };
   const text = purpose.text?.trim();
   if (!text) return unchanged;
   const hash = oneOffTagsHash(text);
@@ -79,6 +88,8 @@ export async function tagTripPurpose(
     if (!res.ok) return await fail(res.error);
     tags = res.data;
   }
-  const saved = await saveTripPurposeTags(trip, tags, hash);
-  return { purpose: { ...purpose, tags, updatedAt: saved?.updatedAt ?? purpose.updatedAt }, updatedAt: saved?.updatedAt ?? null };
+  const written = await saveTripPurposeTags(trip, tags, text);
+  // Lost the compare-and-set: another run stored tags for this text meanwhile. Use those (one set of tags per text).
+  if (!written) tags = (await readStoredTags(actor.sb, trip.id, text)) ?? tags;
+  return { purpose: { ...purpose, tags } };
 }

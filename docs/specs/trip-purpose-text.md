@@ -194,9 +194,17 @@ Steps 1 to 4 are in. Differences and additions to the text above:
 - **Other readers of the trip purpose.** Besides `loadPlanContext`, `scheduleTripWarm`, the trip page and the edit page,
   the three routes that load the purpose by `purposeId` (`/api/trips/[id]/flights`, `.../flights/nearby`, `.../places`)
   now resolve it with `tripPurpose` too, so the flight limit and the places match the plan.
-- **Plan basis after a tag write.** The pipeline's tag step replaces `ctx.trip.updatedAt` with the value returned by
-  `saveTripPurposeTags` and, for a one-off *group* (no `groupId`), `ctx.group.updatedAt` too: that group's `updatedAt` is
-  the trip's, so leaving it stale would make every new plan "outdated" at the next load.
+- **Tag writes do not move `trips.updated_at`.** Trigger `trips_set_updated_at` (own function
+  `private.trips_set_updated_at()` in the same migration) keeps `updated_at` when only `purpose_tags`, `purpose_tags_hash`
+  and `purpose_tags_at` change. Reason: the tags are a server-side cache, not an edit. Otherwise an edit form opened right
+  after saving would report `conflict`, and a plan would show as outdated just because it was tagged. This replaces the
+  earlier note that the form may report a conflict, and the pipeline no longer swaps in a new `updatedAt`. A plan built
+  from the raw-text fallback and tagged later is not outdated; its next generation has a different input hash (tags
+  replace the raw summary), so it simply produces a new version.
+- **Compare-and-set.** `saveTripPurposeTags(trip, tags, text)` writes only while the stored `purpose_text` still equals
+  `text` and `purpose_tags_hash` is missing or different from the hash of `text`. The warm step and a plan run can
+  tag at the same time; the first write wins and the other run reads the stored tags (`tagTripPurpose` re-reads and uses
+  them), so there is one set of tags per text. A second Haiku call may still be paid in that race.
 - **`wantsTripTags`** (in `trip-purpose-text.ts`) is the one-off counterpart of `wantsTags`; it is checked first, because
   `wantsTags` is also true for the transient purpose (id `""`) and must never reach `tagAndSave`.
 - **Lookup failure** in `tagTripPurpose` fails closed (no Haiku call, `purpose.tag_failed` with `reason: "lookup_failed"`),

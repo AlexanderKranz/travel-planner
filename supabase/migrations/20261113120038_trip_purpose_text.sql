@@ -54,3 +54,28 @@ begin
 end;
 $$;
 revoke all on function private.trips_owner_only() from public, anon, authenticated;
+
+-- Tag-only writes do not move updated_at (docs/specs/trip-purpose-text.md, implementation notes): the Haiku tags are a
+-- server-side cache of the text, not an edit. Otherwise a background tag write would make an edit form opened right
+-- after saving report a conflict, and flag a freshly built plan as outdated. Any other change still moves it.
+create or replace function private.trips_set_updated_at()
+  returns trigger
+  language plpgsql
+  set search_path = ''
+as $$
+begin
+  if (to_jsonb(new) - 'updated_at' - 'purpose_tags' - 'purpose_tags_hash' - 'purpose_tags_at')
+     = (to_jsonb(old) - 'updated_at' - 'purpose_tags' - 'purpose_tags_hash' - 'purpose_tags_at') then
+    new.updated_at := old.updated_at;
+  else
+    new.updated_at := now();
+  end if;
+  return new;
+end;
+$$;
+revoke all on function private.trips_set_updated_at() from public, anon, authenticated;
+
+drop trigger if exists trips_set_updated_at on public.trips;
+create trigger trips_set_updated_at
+  before update on public.trips
+  for each row execute function private.trips_set_updated_at();

@@ -858,20 +858,20 @@ describe("one-off trip purpose (spec trip-purpose-text P4, P5)", () => {
     const res = await loadPlanContext(TRIP);
     expect(res).toMatchObject({ ok: true, ctx: { purpose: null } });
   });
-  it("tags it once with the actor's id and continues with the returned updated_at for trip, one-off group and purpose", async () => {
+  it("tags it once with the actor's id; trip, one-off group and purpose keep their updatedAt (tag writes do not move it)", async () => {
     oneOff();
     h.trip.groupText = "5 Freunde";
     h.group = null;
-    h.tagTrip.mockImplementation(async (_actor: unknown, _trip: unknown, p: Record<string, unknown>) => ({ purpose: { ...p, tags: TAGS, updatedAt: "t2" }, updatedAt: "t2" }));
+    h.tagTrip.mockImplementation(async (_actor: unknown, _trip: unknown, p: Record<string, unknown>) => ({ purpose: { ...p, tags: TAGS } }));
     const res = await generatePlan(TRIP, "en");
     expect(res.ok).toBe(true);
     expect(h.tagTrip).toHaveBeenCalledOnce();
     expect(h.tagTrip.mock.calls[0][0]).toMatchObject({ userId: "u1" });
     expect(h.tag).not.toHaveBeenCalled();
     expect(h.saveTags).not.toHaveBeenCalled(); // not the saved-purpose path
-    expect(buildArg().trip.updatedAt).toBe("t2");
-    expect(buildArg().purpose).toMatchObject({ tags: TAGS, updatedAt: "t2" });
-    expect(buildArg().group?.updatedAt).toBe("t2");
+    expect(buildArg().trip.updatedAt).toBe("t");
+    expect(buildArg().purpose).toMatchObject({ tags: TAGS, updatedAt: "t" });
+    expect(buildArg().group?.updatedAt).toBe("t");
     delete h.trip.groupText;
   });
   it("tags already on the trip: no tagging step", async () => {
@@ -883,7 +883,7 @@ describe("one-off trip purpose (spec trip-purpose-text P4, P5)", () => {
   });
   it("a tagging failure still builds the plan from the raw text", async () => {
     oneOff();
-    h.tagTrip.mockImplementation(async (_a: unknown, _t: unknown, p: unknown) => ({ purpose: p, updatedAt: null }));
+    h.tagTrip.mockImplementation(async (_a: unknown, _t: unknown, p: unknown) => ({ purpose: p }));
     const res = await generatePlan(TRIP, "en");
     expect(res.ok).toBe(true);
     expect(buildArg().purpose).toMatchObject({ id: "", text: TEXT, tags: null, updatedAt: "t" });

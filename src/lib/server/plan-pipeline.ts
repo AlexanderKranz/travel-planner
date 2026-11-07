@@ -368,7 +368,7 @@ export async function generatePlan(
 ): Promise<PipelineResult> {
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
-  let c = loaded.ctx;
+  const c = loaded.ctx;
   if (!canEdit(c.access)) return err("forbidden");
   let locale: Locale = requestLocale;
   const g = await gate(c.session.userId);
@@ -393,20 +393,12 @@ export async function generatePlan(
     // 3. Haiku tags (once per purpose content, cached in parsed_*)
     let purpose = c.purpose;
     if (wantsTripTags(purpose)) {
-      // The trip's one-off purpose text (trip-purpose-text P4): tags are saved on the trip row, which moves its
-      // updated_at. Continue with the new value for trip, one-off group and purpose so the plan basis stays current.
+      // The trip's one-off purpose text (trip-purpose-text P4): tags are saved on the trip row; that write does not
+      // move updated_at, so the plan basis stays current.
       const blocked = await checkBudget(c, RESERVE_TAGS);
       if (blocked) return blocked;
       const tagged = await tagTripPurpose({ userId: c.session.userId, sb: c.sb }, c.trip, purpose, ai.ctx);
       purpose = tagged.purpose;
-      if (tagged.updatedAt) {
-        const updatedAt = tagged.updatedAt;
-        c = {
-          ...c,
-          trip: { ...c.trip, updatedAt },
-          group: c.group && !c.trip.groupId ? { ...c.group, updatedAt } : c.group,
-        };
-      }
     } else if (wantsTags(purpose)) {
       const blocked = await checkBudget(c, RESERVE_TAGS);
       if (blocked) return blocked;

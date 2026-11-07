@@ -40,7 +40,7 @@ beforeEach(() => {
   h.aiOn = true;
   h.budgetOk = true;
   h.warmFacts.mockClear();
-  h.tagTrip.mockReset().mockImplementation(async (_a: unknown, _t: unknown, p: object) => ({ purpose: { ...p, tags: TAGS }, updatedAt: "t1" }));
+  h.tagTrip.mockReset().mockImplementation(async (_a: unknown, _t: unknown, p: object) => ({ purpose: { ...p, tags: TAGS } }));
   h.tagAndSave.mockReset().mockImplementation(async (_u: string, p: object) => ({ ...p, tags: TAGS }));
   h.getPurpose.mockReset();
 });
