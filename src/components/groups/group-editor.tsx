@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -210,7 +211,7 @@ export function GroupEditor({ group: groupProp, profileBirthdate, refs, ownerLab
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-6">
+    <ClientForm onSubmit={onSubmit} className="flex flex-col gap-6">
       <TextField
         label={t("name")}
         value={name}
@@ -425,6 +426,6 @@ export function GroupEditor({ group: groupProp, profileBirthdate, refs, ownerLab
         onConfirm={onDelete}
         onCancel={() => setConfirmDelete(false)}
       />
-    </form>
+    </ClientForm>
   );
 }

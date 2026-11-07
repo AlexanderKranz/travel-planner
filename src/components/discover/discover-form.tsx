@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { AirportPicker } from "@/components/settings/airport-picker";
@@ -140,7 +141,7 @@ export function DiscoverForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-6" aria-busy={pending}>
+    <ClientForm onSubmit={onSubmit} className="flex flex-col gap-6" aria-busy={pending}>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-medium">{t("form.purposeSource")}</legend>
         {purposes.length > 0 && (
@@ -341,6 +342,6 @@ export function DiscoverForm({
           {pending ? t("form.submitting") : t("form.submit")}
         </button>
       </div>
-    </form>
+    </ClientForm>
   );
 }

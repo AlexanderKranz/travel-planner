@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { btnSecondary, inputCls, linkCls, mutedCls } from "@/components/ui/styles";
@@ -98,7 +99,7 @@ export function OpenItemsEditor({
           if (editing?.i === i) {
             return (
               <li key={key}>
-                <form
+                <ClientForm
                   className="flex flex-wrap items-center gap-2 py-1"
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -120,7 +121,7 @@ export function OpenItemsEditor({
                   <button type="button" className={smallBtn} onClick={() => setEditing(null)}>
                     {t("openItems.cancel")}
                   </button>
-                </form>
+                </ClientForm>
               </li>
             );
           }
@@ -166,7 +167,7 @@ export function OpenItemsEditor({
         })}
       </ul>
       {edit && items.length < MAX_OPEN_ITEMS && (
-        <form
+        <ClientForm
           className="mt-2 flex flex-wrap items-center gap-2"
           onSubmit={(e) => {
             e.preventDefault();
@@ -184,7 +185,7 @@ export function OpenItemsEditor({
           <button type="submit" className={btnSecondary} disabled={saving || !draft.trim()}>
             {t("openItems.add")}
           </button>
-        </form>
+        </ClientForm>
       )}
       <div aria-live="polite" className="empty:hidden">
         <ErrorBanner error={error} />

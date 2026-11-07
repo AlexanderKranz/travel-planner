@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -47,7 +48,7 @@ export function PasswordForm({ autoFocus = false }: { autoFocus?: boolean }) {
         {t("title")}
       </h2>
       <p className={`text-sm ${mutedCls}`}>{t("hint")}</p>
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <ClientForm onSubmit={onSubmit} className="flex flex-col gap-4">
         <TextField
           label={t("newLabel")}
           hint={t("rules", { min: PASSWORD_MIN, max: PASSWORD_MAX })}
@@ -56,7 +57,7 @@ export function PasswordForm({ autoFocus = false }: { autoFocus?: boolean }) {
           value={password}
           onChange={(e) => setPasswordValue(e.target.value)}
           autoComplete="new-password"
-          autoFocus={autoFocus}
+          data-autofocus={autoFocus ? "" : undefined}
           minLength={PASSWORD_MIN}
           required
           error={
@@ -88,7 +89,7 @@ export function PasswordForm({ autoFocus = false }: { autoFocus?: boolean }) {
             {t("save")}
           </button>
         </div>
-      </form>
+      </ClientForm>
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { signOut } from "@/lib/server/auth/actions";
 import { btnGhost } from "@/components/ui/styles";
 import { FeedbackEntryProvider } from "@/components/feedback/entry-context";
 import { NavLinks } from "./nav-links";
+import { NoscriptNotice } from "@/components/ui/noscript-notice";
 
 export async function AppShell({
   locale,
@@ -56,6 +57,7 @@ export async function AppShell({
         </div>
       </header>
       {/* Wide container (spec timed-items [D16]); pages stay at reading width unless their <main> sets data-wide. */}
+      <NoscriptNotice />
       <div id="content" tabIndex={-1} className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-8 [&>main:not([data-wide])]:mx-auto [&>main:not([data-wide])]:max-w-3xl">
         <FeedbackEntryProvider canReport={!isDemo}>{children}</FeedbackEntryProvider>
       </div>

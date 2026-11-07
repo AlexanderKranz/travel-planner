@@ -10,6 +10,9 @@
     "signIn": "Sign in",
     "languages": "Language"
   },
+  "noscript": {
+    "message": "Please enable JavaScript, otherwise forms and buttons will not work."
+  },
   "nav": {
     "appName": "Travel Planner",
     "label": "Main navigation",

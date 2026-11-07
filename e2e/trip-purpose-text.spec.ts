@@ -52,6 +52,7 @@ test("one-off purpose: empty text means no purpose", async ({ page }) => {
 });
 
 test("shared trip shows the one-off purpose read-only", async ({ page, contextAs }, testInfo) => {
+  test.setTimeout(150_000); // may wait out the per-minute share-lookup window (see below)
   await startTripForm(page, "geo");
   await page.getByLabel("Reisezweck (optional)").selectOption("__text");
   await page.getByLabel("Wofür ist diese Reise?").fill(TEXT);
@@ -62,14 +63,23 @@ test("shared trip shows the one-off purpose read-only", async ({ page, contextAs
   // box can remount while the page streams, so the status text is not reliable. The grant row in the list is.
   const box = page.getByTestId("people-share");
   const bEmail = emailOf(`b-${testInfo.project.name}`);
-  // Retry the whole sequence: a click before hydration submits the form natively (page reload, nothing shared).
+  // The form's controls are disabled until hydration (ClientForm), so Playwright waits instead of submitting natively.
   const row = box.getByRole("listitem").filter({ hasText: bEmail });
+  await expect(box.locator('form[data-hydrated="true"]')).toBeVisible();
+  await box.getByText("Darf bearbeiten", { exact: true }).click();
+  await expect(box.getByRole("radio", { name: "Darf bearbeiten" })).toBeChecked();
+  // The box can remount while the page streams (a remounted form is enabled at once and loses typed text): refill until it sticks.
+  const emailInput = box.getByLabel("E-Mail-Adresse der Person");
   await expect(async () => {
-    await box.getByText("Darf bearbeiten", { exact: true }).click();
-    await box.getByLabel("E-Mail-Adresse der Person").fill(bEmail);
+    await emailInput.fill(bEmail);
+    await expect(emailInput).toHaveValue(bEmail, { timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
+  // Earlier specs used up this user's per-minute lookup allowance (5, fixed 60 s window; the answer is the "too many
+  // searches" alert, not a bug), so press again until the window has passed. A refused lookup does not share anything.
+  await expect(async () => {
     await box.getByRole("button", { name: "Teilen", exact: true }).click();
-    await expect(row).toBeVisible({ timeout: 4000 });
-  }).toPass({ timeout: 40_000 });
+    await expect(row).toBeVisible({ timeout: 3000 });
+  }).toPass({ timeout: 90_000, intervals: [2000, 5000] });
 
   const b = await (await contextAs("b")).newPage();
   await b.goto(`/de/app/trips/${tripId}`);

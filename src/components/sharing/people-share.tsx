@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useId, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { btnPrimary, errorCls, inputCls, mutedCls } from "@/components/ui/styles";
@@ -80,7 +81,7 @@ export function PeopleShare({
       {off ? (
         <p className={`text-sm ${mutedCls}`}>{disabledReason}</p>
       ) : (
-        <form onSubmit={add} className="flex flex-col gap-3" noValidate>
+        <ClientForm onSubmit={add} className="flex flex-col gap-3" noValidate>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               {candidates ? (
@@ -146,7 +147,7 @@ export function PeopleShare({
               {pending ? t("adding") : t("add")}
             </button>
           </div>
-        </form>
+        </ClientForm>
       )}
       {error && (
         <p id={`${uid}-err`} role="alert" className={`rounded-lg border border-danger-line bg-danger-bg p-3 text-sm text-danger-fg`}>

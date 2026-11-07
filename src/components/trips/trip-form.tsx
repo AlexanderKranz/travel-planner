@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { AirportPicker } from "@/components/settings/airport-picker";
@@ -131,7 +132,7 @@ export function TripForm({
   const titleHint = t("titleHint");
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-6" noValidate>
+    <ClientForm onSubmit={onSubmit} className="flex flex-col gap-6" noValidate>
       <div id="field-destination">
         <DestinationPicker
           countryCodes={countryCodes}
@@ -426,6 +427,6 @@ export function TripForm({
           {pending ? t("saving") : trip ? t("save") : t("create")}
         </button>
       </div>
-    </form>
+    </ClientForm>
   );
 }

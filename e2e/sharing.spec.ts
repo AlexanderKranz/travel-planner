@@ -129,6 +129,7 @@ test("purpose: share, pick it for an own trip, unshare", async ({ page, seed, co
 
   // Read-only purpose page for B: fields disabled, no save, no delete, no people box.
   await b.goto(`/de/app/purposes/${seed.purposeId}`);
+  await expect(b.locator('form[data-hydrated="true"]').first()).toBeAttached();
   await expect(b.getByLabel("Name", { exact: true })).toBeDisabled();
   await expect(b.getByRole("button", { name: "Speichern" })).toHaveCount(0);
   await expect(b.getByRole("button", { name: "Reisezweck löschen" })).toHaveCount(0);

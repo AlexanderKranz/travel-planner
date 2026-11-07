@@ -1,5 +1,7 @@
 "use client";
 
+import { useHydrated } from "@/lib/hooks/use-hydrated";
+import { ClientForm } from "@/components/ui/client-form";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -12,6 +14,7 @@ export function DemoLogin() {
   const locale = useLocale();
   const [error, setError] = useState<ActionError | null>(null);
   const [pending, start] = useTransition();
+  const hydrated = useHydrated();
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,13 +33,13 @@ export function DemoLogin() {
       <h2 id="demo-title" className="text-lg font-semibold">
         {t("heading")}
       </h2>
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+      <ClientForm gate="submit" onSubmit={onSubmit} className="flex flex-col gap-3">
         <ErrorBanner error={error} />
-        <button type="submit" className={btnSecondary} disabled={pending}>
+        <button type="submit" className={btnSecondary} disabled={!hydrated || pending}>
           {t("button")}
         </button>
         <p className={`text-sm ${mutedCls}`}>{t("hint")}</p>
-      </form>
+      </ClientForm>
     </section>
   );
 }

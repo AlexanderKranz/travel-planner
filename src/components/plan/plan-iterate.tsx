@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useEffect, useId, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { btnPrimary, btnSecondary, cardCls, focusCls, inputCls, mutedCls } from "@/components/ui/styles";
@@ -151,7 +152,7 @@ export function PlanIterate({
         </p>
       )}
 
-      <form
+      <ClientForm
         className="flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
@@ -211,7 +212,7 @@ export function PlanIterate({
         <button type="submit" className={btnPrimary} disabled={!canApply} aria-busy={running}>
           {running ? t("applying") : t("apply")}
         </button>
-      </form>
+      </ClientForm>
 
       <div role="status" aria-live="polite" className="text-sm">
         {running && <p>{t("applyingHint")}</p>}

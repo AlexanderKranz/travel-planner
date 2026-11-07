@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useId, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { CheckboxField, SelectField, TextField } from "@/components/ui/fields";
@@ -55,7 +56,7 @@ export function ShareCreate({ tripId, disabledReason }: { tripId: string; disabl
 
   return (
     <div className="flex flex-col gap-3">
-      <form onSubmit={create} className="flex flex-col gap-3">
+      <ClientForm onSubmit={create} className="flex flex-col gap-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField label={t("label")} hint={t("labelHint")} value={label} maxLength={60} onChange={(e) => setLabel(e.target.value)} />
           <SelectField label={t("expiry.label")} value={expiry} onChange={(e) => setExpiry(e.target.value)}>
@@ -91,7 +92,7 @@ export function ShareCreate({ tripId, disabledReason }: { tripId: string; disabl
             {t("create")}
           </button>
         </div>
-      </form>
+      </ClientForm>
       <ErrorBanner error={error} />
       {url && (
         <div className="flex flex-col gap-2 rounded-lg border border-ok-line bg-ok-bg p-3 text-ok-fg">

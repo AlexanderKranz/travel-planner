@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { TextField } from "@/components/ui/fields";
@@ -37,7 +38,7 @@ export function FeedbackLookupForm() {
   return (
     <div className="flex flex-col gap-3">
       <h3 className="font-sans text-sm font-semibold text-heading">{t("title")}</h3>
-      <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <ClientForm onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
           <TextField
             label={t("label")}
@@ -55,7 +56,7 @@ export function FeedbackLookupForm() {
         <button type="submit" className={btnPrimary} disabled={pending || !ref.trim()}>
           {t("submit")}
         </button>
-      </form>
+      </ClientForm>
       <div aria-live="polite">
         {error && (
           <p role="alert" className="rounded-lg border border-danger-line bg-danger-bg p-3 text-sm text-danger-fg">
