@@ -90,21 +90,34 @@ describe("findTagsByHash (13.2: search rows first, then own and shared purposes)
     expect(calls[1].ops).toContainEqual(["eq", ["grantee_id", "u1"]]);
     expect(calls[2].ops).toContainEqual(["or", ["owner_id.eq.u1,id.in.(ps1,ps2)"]]);
   });
+  it("then an own trip with the same purpose_tags_hash (owner filter, shared trips are not used)", async () => {
+    const { sb, calls } = fakeSb([{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }, { data: [{ purpose_tags: TAGS }], error: null }]);
+    expect(await findTagsByHash(sb, "h", "u1")).toEqual({ tags: TAGS, from: "trip" });
+    expect(calls.map((c) => c.table)).toEqual(["destination_searches", "purpose_shares", "trip_purposes", "trips"]);
+    expect(calls[3].ops).toContainEqual(["eq", ["owner_id", "u1"]]);
+    expect(calls[3].ops).toContainEqual(["eq", ["purpose_tags_hash", "h"]]);
+  });
+  it("a purpose wins over a trip", async () => {
+    const { sb, calls } = fakeSb([{ data: [], error: null }, { data: [], error: null }, { data: [{ parsed_tags: TAGS }], error: null }]);
+    expect(await findTagsByHash(sb, "h", "u1")).toEqual({ tags: TAGS, from: "purpose" });
+    expect(calls.map((c) => c.table)).not.toContain("trips");
+  });
   it("without incoming shares only the own purposes are read", async () => {
-    const { sb, calls } = fakeSb([{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }]);
+    const { sb, calls } = fakeSb([{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }, { data: [], error: null }]);
     expect(await findTagsByHash(sb, "h", "u1")).toBeNull();
     expect(calls[2].ops).toContainEqual(["or", ["owner_id.eq.u1"]]);
   });
   it("invalid stored tags count as missing, a later valid row is used", async () => {
     const { sb } = fakeSb([{ data: [{ purpose_tags: { bad: 1 } }, { purpose_tags: TAGS }], error: null }]);
     expect(await findTagsByHash(sb, "h", "u1")).toEqual({ tags: TAGS, from: "search" });
-    const none = fakeSb([{ data: [{ purpose_tags: { bad: 1 } }], error: null }, { data: [], error: null }, { data: [{ parsed_tags: null }], error: null }]);
+    const none = fakeSb([{ data: [{ purpose_tags: { bad: 1 } }], error: null }, { data: [], error: null }, { data: [{ parsed_tags: null }], error: null }, { data: [{ purpose_tags: null }], error: null }]);
     expect(await findTagsByHash(none.sb, "h", "u1")).toBeNull();
   });
   it("a read error throws (the caller fails closed instead of spending a Haiku call)", async () => {
     await expect(findTagsByHash(fakeSb([{ data: null, error: { code: "x" } }]).sb, "h", "u1")).rejects.toThrow();
     await expect(findTagsByHash(fakeSb([{ data: [], error: null }, { data: null, error: { code: "x" } }]).sb, "h", "u1")).rejects.toThrow();
     await expect(findTagsByHash(fakeSb([{ data: [], error: null }, { data: [], error: null }, { data: null, error: { code: "x" } }]).sb, "h", "u1")).rejects.toThrow();
+    await expect(findTagsByHash(fakeSb([{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }, { data: null, error: { code: "x" } }]).sb, "h", "u1")).rejects.toThrow();
   });
 });
 

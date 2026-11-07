@@ -158,11 +158,12 @@ export async function listSearches(sb: SupabaseClient): Promise<StoredSearch[]> 
 // ---------- one-off purpose (spec section 13) ----------
 
 /** Tags stored on a search row or purpose with the hash they were made for. */
-export type FoundTags = { tags: PurposeTags; from: "search" | "purpose" };
+export type FoundTags = { tags: PurposeTags; from: "search" | "purpose" | "trip" };
 
 /**
  * Tag lookup of spec 13.2, user session: this owner's searches with `purpose_tags_hash = hash` (newest first), then
- * the purposes with `parsed_hash = hash` that are the user's own or shared with the user (`purpose_shares` to them).
+ * the purposes with `parsed_hash = hash` that are the user's own or shared with the user (`purpose_shares` to them), then the
+ * user's own trips with `purpose_tags_hash = hash` (one-off trip purposes).
  * RLS also returns purposes seen only through a shared trip; those are NOT used here (sharing spec 3.8), so the lookup
  * names the owner and the shared ids explicitly. `purposeTagsHash` covers exactly text, constraints and custom
  * interests, so equal hashes mean the tags were made from the same input. Invalid stored tags count as missing.
@@ -197,6 +198,21 @@ export async function findTagsByHash(sb: SupabaseClient, hash: string, userId: s
   for (const r of fromPurpose.data ?? []) {
     const t = PurposeTags.safeParse(r.parsed_tags);
     if (t.success) return { tags: t.data, from: "purpose" };
+  }
+  // The user's own trips with a one-off purpose text (trip-purpose-text P4). RLS also returns trips shared with the
+  // user, whose text is not theirs to reuse: filter by owner.
+  const fromTrip = await sb
+    .from("trips")
+    .select("purpose_tags")
+    .eq("owner_id", userId)
+    .eq("purpose_tags_hash", hash)
+    .order("updated_at", { ascending: false })
+    .limit(5)
+    .returns<{ purpose_tags: unknown }[]>();
+  if (fromTrip.error) throw new Error("trip read failed");
+  for (const r of fromTrip.data ?? []) {
+    const t = PurposeTags.safeParse(r.purpose_tags);
+    if (t.success) return { tags: t.data, from: "trip" };
   }
   return null;
 }
