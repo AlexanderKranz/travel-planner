@@ -164,9 +164,9 @@ describe("shareWith: finding the recipient", () => {
     expect(h.events.mock.calls[0][0].props).toEqual({ found: true });
   });
 
-  it("the 21st lookup of the Berlin day is rate_limited, before the lookup answers anything", async () => {
+  it("the 21st lookup of the Berlin day is share_daily_limit, before the lookup answers anything", async () => {
     h.lookupCount = 20;
-    expect(await shareWith(input())).toEqual({ ok: false, error: "rate_limited" });
+    expect(await shareWith(input())).toEqual({ ok: false, error: "share_daily_limit" });
     expect(lookupCalls()).toHaveLength(0);
     h.lookupCount = 19;
     expect(await shareWith(input())).toMatchObject({ ok: true });

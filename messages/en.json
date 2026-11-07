@@ -11,7 +11,7 @@
     "languages": "Language"
   },
   "noscript": {
-    "message": "Please enable JavaScript, otherwise forms and buttons will not work."
+    "message": "Some forms and buttons need JavaScript. If it is off or the page did not finish loading, please enable it or reload the page."
   },
   "nav": {
     "appName": "Travel Planner",
@@ -1922,7 +1922,8 @@
       "no_account": "This address has no account here. The app is invite-only; ask them to sign up first.",
       "self_share": "That is your own address.",
       "limit_reached": "You can share with at most {max} people.",
-      "rate_limited": "Too many lookups today. Please try again tomorrow.",
+      "rate_limited": "Too many shares in a short time. Please try again in a minute.",
+      "share_daily_limit": "Too many addresses checked today. Please try again tomorrow.",
       "forbidden": "Only the owner can do this.",
       "demo_forbidden": "Sharing with people is not available in the demo account.",
       "failed": "Something went wrong. Please try again later.",

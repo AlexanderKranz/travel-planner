@@ -303,7 +303,7 @@ Demo: unaffected (demo has no shares). Retention: unchanged (newest 10, 90 days)
 - Add form: email input (`type="email"`, `autocomplete="off"`), access as two chips in `grid-cols-2` ("Can view" | "Can edit"), button "Share". Admin: a native `<select>` of `listShareCandidates()` (email, name in brackets) instead of the input.
 - Notice above the button, always visible on trips: "They will see the whole trip, including the travel group with names and birthdates." On purposes: "They can use this purpose for their own trips and destination searches. People they share those trips with can see it there."
 - Rows: name or email (truncated, full value in `title`), the email in small text below when a name is shown, access select, remove button (`ConfirmDialog`). "Shared with {n} of 10".
-- States: `no_account`, `self_share`, `limit_reached`, `rate_limited`, `demo_forbidden` (block disabled with `sharing.demoDisabled`).
+- States: `no_account`, `self_share`, `limit_reached`, `rate_limited` (5 lookups per minute), `share_daily_limit` (20 lookups per day), `demo_forbidden` (block disabled with `sharing.demoDisabled`).
 - 360 px: input, chips and button stacked full width, rows wrap name above controls, touch targets `min-h-11`, no horizontal scroll. From `sm`: input and button in one row.
 
 ### 4.2 Lists
@@ -322,7 +322,7 @@ Demo: unaffected (demo has no shares). Retention: unchanged (newest 10, 90 days)
 The purpose select lists own purposes, then "Shared with me" purposes (optgroup) with the owner's name. Same in the "Find destinations" form (3.8).
 
 ### 4.5 i18n (de + en, same keys) **[D20]**
-`sharing.{title, people, intro, email, emailPlaceholder, pickUser, add, adding, count, groupNotice, purposeNotice, access.{read, write}, remove, confirmRemove, changeAccess, demoDisabled, sharedPill, sharedWithMe, badge, leave, confirmLeave, ownerOnly, ownerOnlyContext, by, busyBy, conflictPlan, conflictForm, sharedOptgroup, errors.{no_account, self_share, limit_reached, rate_limited, forbidden, failed}}`, `settings.deleteAccount.sharedNote`, `admin.usage.{tripShares, purposeShares, tripsShared, recipients, grantsThisMonth, lookups, lookupMisses}`.
+`sharing.{title, people, intro, email, emailPlaceholder, pickUser, add, adding, count, groupNotice, purposeNotice, access.{read, write}, remove, confirmRemove, changeAccess, demoDisabled, sharedPill, sharedWithMe, badge, leave, confirmLeave, ownerOnly, ownerOnlyContext, by, busyBy, conflictPlan, conflictForm, sharedOptgroup, errors.{no_account, self_share, limit_reached, rate_limited, share_daily_limit, forbidden, failed}}`, `settings.deleteAccount.sharedNote`, `admin.usage.{tripShares, purposeShares, tripsShared, recipients, grantsThisMonth, lookups, lookupMisses}`.
 
 ### 4.6 Admin page
 "Usage" section gets one row of share counts from `admin_share_stats` (2.8). Nothing per user.
@@ -349,7 +349,7 @@ Concurrency (`supabase/tests/sharing-concurrency.sh`, run in the `db-test` job a
 
 Unit (Vitest, next to the code):
 - `domain/sharing.test.ts`: Zod email normalisation, target union, limits; `MAX_SHARES_PER_RESOURCE` equals the SQL constant.
-- `server/sharing.test.ts` (mocked clients): demo → `demo_forbidden`; non-owner → `forbidden`; unknown email → `no_account` and a `sharing.lookup { found: false }` event; 21st lookup of the day → `rate_limited`; `userId` from a non-admin → `forbidden`; `p_owner` is always the session user; every `share_resource` error code maps to its `ActionError`; `created = false` logs `sharing.access_changed`, not `sharing.granted`; `setShareAccess` on another owner's row → `not_found` without an RPC call; events contain no email, name or title.
+- `server/sharing.test.ts` (mocked clients): demo → `demo_forbidden`; non-owner → `forbidden`; unknown email → `no_account` and a `sharing.lookup { found: false }` event; 21st lookup of the day → `share_daily_limit`; 6th lookup within a minute → `rate_limited`; `userId` from a non-admin → `forbidden`; `p_owner` is always the session user; every `share_resource` error code maps to its `ActionError`; `created = false` logs `sharing.access_changed`, not `sharing.granted`; `setShareAccess` on another owner's row → `not_found` without an RPC call; events contain no email, name or title.
 - Access mapping (`trip-mapping.test.ts`, purpose mapping): owner → `owner`; share row → its level; purpose reached only through a shared trip → `read` with `usable: false`.
 - `plan-pipeline.test.ts`: write grantee uses owner birthdate, home airports and plan locale (same input hash as the owner); read grantee → `forbidden` on every write path; AI usage logged with the actor's id; `hasBusyPlan` ignores a lock held by someone else.
 - `plan-document-owner.test.ts` and the owner PDF route: a read grantee gets the document and the PDF; a stranger gets 404.

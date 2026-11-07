@@ -11,7 +11,7 @@
     "languages": "Sprache"
   },
   "noscript": {
-    "message": "Bitte aktiviere JavaScript, sonst funktionieren Formulare und Schaltflächen nicht."
+    "message": "Einige Formulare und Schaltflächen brauchen JavaScript. Ist es aus oder hat die Seite nicht fertig geladen, aktiviere es bitte oder lade die Seite neu."
   },
   "nav": {
     "appName": "Reiseplaner",
@@ -1922,7 +1922,8 @@
       "no_account": "Diese Adresse hat hier kein Konto. Die App ist nur auf Einladung nutzbar; die Person muss sich zuerst anmelden.",
       "self_share": "Das ist deine eigene Adresse.",
       "limit_reached": "Du kannst mit höchstens {max} Personen teilen.",
-      "rate_limited": "Heute zu viele Suchen. Bitte versuche es morgen wieder.",
+      "rate_limited": "Zu viele Freigaben in kurzer Zeit. Bitte in einer Minute erneut versuchen.",
+      "share_daily_limit": "Heute schon zu viele Adressen geprüft. Bitte versuche es morgen wieder.",
       "forbidden": "Das darf nur der Besitzer.",
       "demo_forbidden": "Teilen mit Personen ist im Demo-Konto nicht verfügbar.",
       "failed": "Etwas ist schiefgelaufen. Bitte versuche es später erneut.",

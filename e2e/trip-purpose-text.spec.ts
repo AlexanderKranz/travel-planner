@@ -75,7 +75,7 @@ test("shared trip shows the one-off purpose read-only", async ({ page, contextAs
     await expect(emailInput).toHaveValue(bEmail, { timeout: 1000 });
   }).toPass({ timeout: 15_000 });
   // Earlier specs used up this user's per-minute lookup allowance (5, fixed 60 s window; the answer is the "too many
-  // searches" alert, not a bug), so press again until the window has passed. A refused lookup does not share anything.
+  // shares in a short time" alert, not a bug), so press again until the window has passed. A refused lookup does not share anything.
   await expect(async () => {
     await box.getByRole("button", { name: "Teilen", exact: true }).click();
     await expect(row).toBeVisible({ timeout: 3000 });

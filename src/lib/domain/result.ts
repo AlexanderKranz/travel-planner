@@ -24,6 +24,7 @@ export type ActionError =
   | "protected" // admin user action on yourself, the demo account or another admin
   | "already_member" // invite: this address already has an account
   | "email_failed" // invite: allowlisted, but the mail could not be sent
+  | "share_daily_limit" // share by email: daily address lookups used up (resets at Berlin midnight)
   | "search_limit" // destination search: daily runs used up (resetAt = next Berlin midnight)
   | "places_unavailable" // destination search: the geocoder is down, no place can be checked
   | "drive_unavailable" // drive search: no verified drive times (key missing, quota nearly used, ORS down)

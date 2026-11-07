@@ -17,3 +17,20 @@ test("login: before hydration the submit button is disabled and nothing lands in
   expect(url.pathname).toBe("/de/login");
   expect(url.search).not.toContain("email");
 });
+
+// #164: with JavaScript on but the app scripts failing, a notice explains the disabled form (not only under <noscript>).
+test("login: when the scripts do not load, a notice appears after a few seconds", async ({ anonContext }) => {
+  await anonContext.route("**/_next/static/**/*.js", (route) => route.abort());
+  const p = await anonContext.newPage();
+  await p.goto("/de/login");
+  const notice = p.locator(".load-notice");
+  await expect(notice).toBeVisible({ timeout: 10_000 });
+  await expect(notice).toContainText("JavaScript");
+});
+
+test("login: after hydration there is no load notice", async ({ anonContext }) => {
+  const p = await anonContext.newPage();
+  await p.goto("/de/login");
+  await expect(p.locator("form[data-hydrated=true]").first()).toBeVisible();
+  await expect(p.locator(".load-notice")).toHaveCount(0);
+});

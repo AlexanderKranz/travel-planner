@@ -144,7 +144,7 @@ async function resolveTarget(session: Session, isAdmin: boolean, target: ShareIn
     used = null;
   }
   if (used === null) return { ok: false, result: fail("failed") }; // fail closed: an unreadable count must not open the gate
-  if (used >= SHARE_LOOKUPS_PER_DAY) return { ok: false, result: fail("rate_limited") };
+  if (used >= SHARE_LOOKUPS_PER_DAY) return { ok: false, result: fail("share_daily_limit") };
 
   let found: string | null;
   try {

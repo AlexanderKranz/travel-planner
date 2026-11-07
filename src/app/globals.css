@@ -262,3 +262,8 @@ a {
     content: none !important;
   }
 }
+
+/* LoadNotice (src/components/ui/load-notice.tsx): hidden until the inline timer in NoscriptNotice or the <noscript> style shows it. */
+.load-notice {
+  display: none;
+}
