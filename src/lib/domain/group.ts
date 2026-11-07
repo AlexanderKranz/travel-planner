@@ -169,5 +169,9 @@ export function canClaim(group: Pick<TravelGroup, "access" | "myEntryId">, entry
 
 /** The shape that may reach a client component or a server action result: other users' account ids stay on the server. */
 export function withoutLinkedUserIds(group: TravelGroup): TravelGroup {
-  return { ...group, entries: group.entries.map(({ linkedUserId: _omit, ...entry }) => entry as StoredEntry) };
+  return { ...group, entries: group.entries.map((entry) => {
+      const copy = { ...entry };
+      delete copy.linkedUserId;
+      return copy;
+    }) };
 }
