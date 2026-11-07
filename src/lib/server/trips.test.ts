@@ -57,7 +57,7 @@ const row = {
   dest_place_name: "Marbella", dest_geo_id: 2513918, dest_country_code: "ES", dest_admin1: "Andalusia",
   dest_lat: 36.51, dest_lon: -4.88, dest_timezone: "Europe/Madrid", dest_radius_km: null, length_days: 5,
   start_date: null, months: [], group_id: null, group_text: null, group_structure: null, group_parsed: null,
-  group_parsed_hash: null, purpose_id: null, wants_flights: true, origin_airports: [],
+  group_parsed_hash: null, purpose_id: null, purpose_text: null, purpose_tags: null, purpose_tags_hash: null, wants_flights: true, origin_airports: [],
   notes: null, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z",
 };
 const input = { destination: { kind: "city" as const, geoId: 2513918 }, lengthDays: 5 };
@@ -133,7 +133,7 @@ describe("createTrip", () => {
     expect(ev.event).toBe("trip.created");
     expect(JSON.stringify(ev)).not.toMatch(/Secret|secret|Marbella/);
     expect(Object.keys(ev.props).sort()).toEqual(
-      ["destKind", "hasGroup", "hasGroupText", "hasPurpose", "lengthDays", "timingKind", "tripId"],
+      ["destKind", "hasGroup", "hasGroupText", "hasPurpose", "hasPurposeText", "lengthDays", "timingKind", "tripId"],
     );
     expect(h.afterFns).toHaveLength(1);
     await h.afterFns[0]();
@@ -290,6 +290,21 @@ describe("shared trips: access, conflicts and owner-only columns (sharing spec 3
     const res = await updateTrip(row.id, { ...input, lengthDays: 7, groupId: null, purposeId: null });
     expect(res).toMatchObject({ ok: true });
     expect(updateOp().payload).toMatchObject({ length_days: 7, group_id: GROUP, purpose_id: PURPOSE, group_text: null });
+  });
+
+  it("a write grantee keeps the stored one-off purpose text whatever the form sends", async () => {
+    h.results["trips.select"] = { data: { ...shared("write"), purpose_id: null, purpose_text: "Golf mit einem Freund" } };
+    h.results["trips.update"] = { data: { ...shared("write"), purpose_id: null, purpose_text: "Golf mit einem Freund" } };
+    await updateTrip(row.id, { ...input, purposeId: null, purposeText: "etwas anderes" });
+    expect(updateOp().payload).toMatchObject({ purpose_id: null, purpose_text: "Golf mit einem Freund" });
+  });
+
+  it("an owner's one-off purpose text is written, and a change warms again", async () => {
+    h.results["trips.select"] = { data: row };
+    h.results["trips.update"] = { data: { ...row, purpose_text: "Golf" } };
+    await updateTrip(row.id, { ...input, purposeText: "Golf" });
+    expect(updateOp().payload).toMatchObject({ purpose_id: null, purpose_text: "Golf" });
+    expect(h.afterFns).toHaveLength(1);
   });
 
   it("an owner's group and purpose changes are written as given", async () => {
