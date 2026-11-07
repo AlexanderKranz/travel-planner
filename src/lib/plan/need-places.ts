@@ -6,7 +6,7 @@ import { groupsForWishes, isActivityType, type ActivityGroup, type ActivityType 
 import { CUISINES, type CuisineWish } from "@/lib/facts/cuisine";
 import { MAX_INTEREST_QUERIES, isPlaceInterest } from "@/lib/facts/interest-sources";
 import { activitiesInput, cafesInput, maxId, restaurantsInput, selectWishPlaces } from "./activities-input";
-import { MIN_PLACES_PER_INTEREST, interestPlace, type PlanInputStored } from "./input";
+import { MIN_PLACES_PER_INTEREST, interestPlace, placeInterests, withInterest, type PlanInputStored } from "./input";
 
 /** Label of the wish a change request adds to the input (the model links it to FEEDBACK). */
 export const FEEDBACK_WISH = "FEEDBACK";
@@ -142,8 +142,9 @@ export function extendInput(
 /**
  * Interest places a change request loaded (issue #151) -> new `places` rows (ids after the highest p id, `i` = the
  * interest) and index entries, up to NEED_INTEREST_PLACES per interest, skipping places already in the input (they
- * keep their id and still count as places of the interest). An interest that found nothing (or has no group, e.g. a
- * free-text destination) goes to noSource; one with places leaves it. Mutates `known`. Pure otherwise.
+ * keep their id and still count as places of the interest; a `places` row gets the interest added to `i`, issue #157).
+ * An interest that found nothing (or has no group, e.g. a free-text destination) goes to noSource; one with places
+ * leaves it. Mutates `known`. Pure otherwise (rows of `stored` are copied, never changed).
  */
 function interestsInput(
   stored: PlanInputStored,
@@ -165,8 +166,12 @@ function interestsInput(
       for (const c of g.candidates) {
         if (count >= NEED_INTEREST_PLACES) break;
         const key = `${c.osmType}/${c.osmId}` as PlanInputStored["index"][string]["key"];
-        if (a.known.has(key)) {
+        const knownId = a.known.get(key);
+        if (knownId) {
           alreadyListed = true;
+          // A places row says which interests it serves; activity, restaurant and café rows have no `i`.
+          const at = places.findIndex((p) => p.id === knownId);
+          if (at >= 0) places[at] = withInterest(places[at], interest);
           continue;
         }
         const id = `p${++n}`;
@@ -177,7 +182,7 @@ function interestsInput(
         count += 1;
       }
     }
-    const listed = count > 0 || alreadyListed || places.some((p) => p.i === interest);
+    const listed = count > 0 || alreadyListed || places.some((p) => placeInterests(p).includes(interest));
     const at = noSource.indexOf(interest);
     if (listed && at >= 0) noSource.splice(at, 1);
     if (!listed && at < 0) noSource.push(interest);

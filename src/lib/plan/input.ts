@@ -70,8 +70,11 @@ export type PlanInput = {
     out: { f: string; t: string; dep: string; arr: string }[];
     back: { f: string; t: string; dep: string; arr: string }[];
   };
-  /** km = straight line from the destination point, min = drive minutes from there (code-computed), ap = km to the airport. */
-  places: { id: string /* p1.. */; name: string; cat: string; km: number; min?: number; ap?: number; i: string /* interest */ }[];
+  /**
+   * km = straight line from the destination point, min = drive minutes from there (code-computed), ap = km to the airport.
+   * i = the interest, or a list when the place serves several (issue #157; first = the one it was selected for).
+   */
+  places: PlanInputPlace[];
   /** Interests with no verified candidates. */
   noSource: string[];
   /** The user's booked/planned items with a day and start time (plan-4). Code renders them; the model plans around. */
@@ -85,6 +88,17 @@ export type PlanInput = {
   /** Cafés (addendum A2), only when the purpose or a change request asks for them. Ids `c1..`. */
   cafes?: CafesInput;
 };
+export type PlanInputPlace = { id: string /* p1.. */; name: string; cat: string; km: number; min?: number; ap?: number; i: string | string[] };
+
+/** Interests of a `places` row (`i` is a string when the place serves one, older inputs always have one). */
+export const placeInterests = (row: Pick<PlanInputPlace, "i">): string[] => (typeof row.i === "string" ? [row.i] : [...row.i]);
+
+/** The row with one more interest (same row when it already has it). Pure. */
+export function withInterest<T extends Pick<PlanInputPlace, "i">>(row: T, interest: string): T {
+  const xs = placeInterests(row);
+  return xs.includes(interest) ? row : { ...row, i: [...xs, interest] };
+}
+
 type Dow = "Mo" | "Tu" | "We" | "Th" | "Fr" | "Sa" | "Su";
 
 /** Stored per version: exact LLM input + place index (`p1` → OSM key and place). */
@@ -253,12 +267,15 @@ type PlacesOut = { places: PlanInput["places"]; index: PlanInputStored["index"];
 /** Cap for the pseudo interest "general" when the purpose has specific interests with places [D4]. */
 export const GENERAL_CAP = 8;
 
-export type PlacePick = { interest: InterestOrGeneral; c: PlaceCandidate; key: OsmKey; fetchedAt: string };
+/** `also`: further specific interests whose lookup returned the same place (issue #157), in purpose order. */
+export type PlacePick = { interest: InterestOrGeneral; c: PlaceCandidate; key: OsmKey; fetchedAt: string; also?: InterestOrGeneral[] };
 
 /**
  * Which candidates go into the LLM input (pure, also used for the drive-time request). Every interest with places
  * gets a fair share first (specific interests before "general", which is capped), then free slots are filled in
- * interest order up to MAX_PLACES. Result is grouped by interest in purpose order, so ids stay stable.
+ * interest order up to MAX_PLACES. Result is grouped by interest in purpose order, so ids stay stable. A place that
+ * several interests returned is listed once, under the first that took it, with the other specific interests in
+ * `also` ("general" is never added there: it says nothing a specific interest does not).
  */
 export function selectPlaces(facts: TripFacts, fallbackKeys: InterestOrGeneral[]): { picks: PlacePick[]; noSource: string[] } {
   if (facts.places.status !== "ok") return { picks: [], noSource: [...fallbackKeys] };
@@ -288,7 +305,16 @@ export function selectPlaces(facts: TripFacts, fallbackKeys: InterestOrGeneral[]
   const order = ok.map((_, i) => i).sort((a, b) => Number(ok[a].interest === "general") - Number(ok[b].interest === "general"));
   for (const gi of order) take(gi, quota(ok[gi]));
   for (const gi of order) take(gi, ok[gi].interest === "general" && specific > 0 ? quota(ok[gi]) : Infinity);
-  return { picks: taken.flat(), noSource };
+  const picks = taken.flat();
+  const byKey = new Map(picks.map((p) => [p.key as string, p]));
+  for (const g of ok) {
+    if (g.interest === "general") continue;
+    for (const c of g.candidates) {
+      const p = byKey.get(`${c.osmType}/${c.osmId}`);
+      if (p && p.interest !== g.interest && !p.also?.includes(g.interest)) p.also = [...(p.also ?? []), g.interest];
+    }
+  }
+  return { picks, noSource };
 }
 
 /**
@@ -296,11 +322,11 @@ export function selectPlaces(facts: TripFacts, fallbackKeys: InterestOrGeneral[]
  * request loads (`extendInput`), so both carry the same source and check date.
  */
 export function interestPlace(
-  pick: Pick<PlacePick, "interest" | "c" | "key" | "fetchedAt">,
+  pick: Pick<PlacePick, "interest" | "c" | "key" | "fetchedAt" | "also">,
   id: string,
   a: { lang: Locale; ap?: number; drive?: DriveInput | null },
 ): { row: PlanInput["places"][number]; entry: PlanIndexEntry } {
-  const { interest, c, key, fetchedAt } = pick;
+  const { interest, c, key, fetchedAt, also } = pick;
   const name = c.names[a.lang] ?? c.name;
   const d = a.drive?.byKey[key];
   const place: PlanPlace = {
@@ -320,7 +346,7 @@ export function interestPlace(
   for (const k of Object.keys(place) as (keyof PlanPlace)[]) if (place[k] === undefined) delete place[k];
   const g = interestPlaceGroup(c);
   return {
-    row: { id, name, cat: c.category, km: round1(c.distanceKm), min: d?.min, ap: a.ap, i: interest },
+    row: { id, name, cat: c.category, km: round1(c.distanceKm), min: d?.min, ap: a.ap, i: also?.length ? [interest, ...also] : interest },
     entry: g ? { key, place, g } : { key, place },
   };
 }

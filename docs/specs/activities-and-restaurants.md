@@ -604,3 +604,29 @@ After QA (#139):
 - Prompt: only the patch addendum lists the loadable interest keys (`SYSTEM_RULES` and the generation cache prefix are
   unchanged, no version bump). Eval: `golf.nogolfbase` (the golf trip planned for a beach purpose) and `golf.golfpatch`
   ("Finde einen Golfplatz für Tag 2": first call `{interests: ["golf"]}`, second call a golf course ref on day 2).
+
+### Places that serve several interests (issue #157)
+
+- A place that two specific interests return is still listed once, but its `places` row says so: `i` is the interest
+  it was selected for, or a list `[first, ...others]` when other interest lookups returned it too (generation:
+  `selectPlaces` scans every interest's candidates, "general" is never added; change requests: `extendInput` adds the
+  newly loaded interest to the existing row instead of only dropping it from `noSource`). Activity, restaurant and
+  café rows have no `i`; an interest place already listed there still only leaves `noSource`.
+- Backward compatible: a row with one interest keeps `i` as a string, so inputs without shared places (all three
+  eval fixtures) are byte-identical and keep their hash; stored inputs with a string `i` stay valid (`StoredInput`
+  validates `llm` loosely, `placeInterests()` reads both forms). `SYSTEM_RULES` is unchanged (`i = interest`; a list
+  is self-explanatory), so the generation cache prefix stays and `PLAN_PROMPT_VERSION` stays `plan-7`.
+- Accepted effect on existing plans: the regenerate dedupe compares the hash of the rebuilt input with the stored
+  versions (`plan-pipeline.ts`). An existing trip whose interests share a place now builds `i` as a list, so its
+  next explicit "Plan neu erstellen" makes one new Sonnet call and writes a new version instead of returning
+  "unchanged" (once per affected trip). Trips without a shared place are not affected.
+
+### Family change request on fresh recordings (issue #155)
+
+- "Gib konkrete Beispiele für einen Indoorspielplatz an Tag 1, falls es regnet": fresh runs keep the base plan's
+  Babalu Funpark (an indoor fun park, OSM `tourism=theme_park`) as the day-1 ref and add the loaded indoor_play place
+  as an alternative ("Regenalternative"). A patch-addendum rule "a requested kind becomes the ref, the previous ref
+  may stay in alts" did not change that in two live runs (also with "also as a rain or backup option"), so it was
+  not kept. The request asks for a rain option, which an alternative is: `familyPatchChecks` now accepts an indoor
+  play/pool place as ref or alternative (or the honest wording). `cruise.familypatch` re-recorded with the unchanged
+  prompt (passes).

@@ -56,7 +56,7 @@ describe.each(FIXTURE_IDS)("eval %s", (id) => {
   });
 
   const familyRec = readRecording<NeedPatchRecording>(id, "familypatch");
-  it.runIf(id === "cruise" && !!genRec && !!familyRec)("recorded family patch (addendum 1): indoor playground ref or honest wording", () => {
+  it.runIf(id === "cruise" && !!genRec && !!familyRec)("recorded family patch (addendum 1): indoor playground as ref or alternative, or honest wording", () => {
     const p = evaluateFamilyPatch(tags, genRec!.output, familyRec!.output);
     expect(failed(p.results), formatResults(`${id} family patch`, p.results)).toEqual([]);
   });
@@ -168,7 +168,7 @@ describe("addendum 1 checks", () => {
     expect(failed(kidsClaimChecks(planWith([{ kind: "food", text: "Regionale Küche", ref: "node/2" }]), stored))).toEqual([]);
   });
 
-  it("family patch: an indoor play ref or honest wording passes; an open-air pool or the false wording fails", () => {
+  it("family patch: an indoor play ref or alternative or honest wording passes; an open-air pool or the false wording fails", () => {
     const first = { reply: "r", days: [], needPlaces: { types: ["indoor_play" as const] } };
     expect(failed(familyPatchChecks({ first, next: planWith([{ kind: "do", text: "Toben bei Regen", ref: "node/3" }]), stored }))).toEqual([]);
     const honest = planWith([{ kind: "do", text: "Indoorspielplatz (Idee)" }], "Kein Indoorspielplatz in OpenStreetMap in der Nähe gelistet.");
@@ -180,9 +180,12 @@ describe("addendum 1 checks", () => {
     expect(names(withAlt)).toEqual(["day 1: no open-air pool as ref or alternative in December"]);
     expect(names(planWith([{ kind: "do", text: "Indoorspielplatz" }], "Keine geprüften Orte gefunden"))).toContain("never 'keine geprüften Orte gefunden'");
     expect(names(planWith([{ kind: "do", text: "Indoorspielplatz Kinderwelt" }]))).toEqual([
-      "day 1: indoor play/pool ref or honest wording",
+      "day 1: indoor play/pool as ref or alternative, or honest wording",
       "generic indoor venue only with the honest wording",
     ]);
+    // Issue #155: the requested indoor playground as the rain alternative next to the day's main pick passes.
+    expect(failed(familyPatchChecks({ first, next: planWith([{ kind: "do", text: "Spielen, drinnen", ref: "way/9", alts: ["node/3"] } as never]), stored }))).toEqual([]);
+    expect(names(planWith([{ kind: "do", text: "Spielen, drinnen", ref: "way/9" }]))).toEqual(["day 1: indoor play/pool as ref or alternative, or honest wording"]);
     expect(HONEST_WORDING.test("Indoorspielplätze sind nicht in den geprüften Quellen enthalten")).toBe(true);
   });
 });

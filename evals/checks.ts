@@ -4,7 +4,7 @@ import type { AssembleIssues } from "@/lib/plan/assemble";
 import { addDays } from "@/lib/facts/trip-timing";
 import { canonicalJson } from "@/lib/plan/hash";
 import { overlapsSlot } from "@/lib/plan/fixed-items";
-import type { PlanInputStored } from "@/lib/plan/input";
+import { placeInterests, type PlanInputStored } from "@/lib/plan/input";
 import { scheduleNotes, type EvalFixture, type FixtureId, type ScheduleEntry } from "./build-input";
 import { ACTIVITY_SOURCES, isOpenAirBath, type ActivityType } from "@/lib/facts/activity-types";
 import { FAST_FOOD_CUISINES, LOCAL_CUISINE } from "@/lib/facts/cuisine";
@@ -133,10 +133,10 @@ export function flightChecks(plan: Plan, fresh: boolean, stored?: PlanInputStore
   return r;
 }
 
-/** OSM key → interest of the input place (from the stored input). */
-export function refInterests(stored: PlanInputStored): Map<string, string> {
-  const byId = new Map(stored.llm.places.map((p) => [p.id, p.i]));
-  return new Map(Object.entries(stored.index).map(([id, v]) => [v.key, byId.get(id) ?? ""]));
+/** OSM key → interests of the input place (from the stored input; empty for activity and restaurant places). */
+export function refInterests(stored: PlanInputStored): Map<string, string[]> {
+  const byId = new Map(stored.llm.places.map((p) => [p.id, placeInterests(p)]));
+  return new Map(Object.entries(stored.index).map(([id, v]) => [v.key, byId.get(id) ?? []]));
 }
 
 const allActs = (plan: Plan) => plan.days.flatMap((d) => d.stops.flatMap((s) => s.acts.map((a) => ({ d: d.n, a }))));
@@ -162,9 +162,9 @@ export const FAMILY_TEXT = /\b(zoo|tierpark|tiergarten|aquarium|freizeitpark|ver
  */
 export function familyPlaceChecks(plan: Plan, stored: PlanInputStored): CheckResult[] {
   const interests = refInterests(stored);
-  const available = stored.llm.places.filter((p) => p.i === "family_activities").length;
+  const available = stored.llm.places.filter((p) => placeInterests(p).includes("family_activities")).length;
   const acts = allActs(plan);
-  const generic = acts.filter(({ a }) => FAMILY_TEXT.test(a.text) && !(a.ref && interests.get(a.ref) === "family_activities"));
+  const generic = acts.filter(({ a }) => FAMILY_TEXT.test(a.text) && !(a.ref && interests.get(a.ref)?.includes("family_activities")));
   return [
     check("family places reach the model", available > 0, "none in input"),
     check("zoo/park activities name a verified family place (ref)", generic.length === 0, generic.map(({ d, a }) => `d${d} ${a.text}`).slice(0, 3).join(" | ")),
@@ -441,8 +441,11 @@ export const HONEST_WORDING = /geprüften quellen|openstreetmap|nicht gefunden|k
 const FALSE_WORDING = /keine geprüften orte|no verified places/i;
 
 /**
- * Addendum 1 patch eval (cruise, toddler): "concrete indoor playground examples on day 1". Day 1 ends with a ref to
- * an indoor_play or (covered) swimming place, or says honestly that none is listed / covered; no open-air pool in
+ * Addendum 1 patch eval (cruise, toddler): "concrete indoor playground examples on day 1, if it rains". Day 1 ends
+ * with an indoor_play or (covered) swimming place as ref or alternative, or says honestly that none is listed /
+ * covered. Issue #155: the request is a rain option, so the loaded place may stand next to the day's main pick
+ * (fresh runs keep the base plan's indoor fun park, OSM tourism=theme_park, as ref even with a patch rule that the
+ * requested kind replaces it); no open-air pool in
  * December; never "keine geprüften Orte gefunden"; every day-1 activity about such a venue either has a ref or the
  * day states the honest wording (no generic venue presented as a suggestion).
  */
@@ -451,10 +454,11 @@ export function familyPatchChecks(a: { first: LlmPatch; next: Plan; stored: Plan
   const acts = day?.stops.flatMap((s) => s.acts) ?? [];
   const byKey = new Map(Object.values(a.stored.index).map((e) => [e.key as string, e.place]));
   const venue = (ref: string | undefined) => (ref ? byKey.get(ref) : undefined);
-  const indoorRefs = acts.filter((x) => {
-    const p = venue(x.ref);
+  const isIndoor = (k: string | undefined) => {
+    const p = venue(k);
     return !!p && FAMILY_INDOOR_CATS.has(p.category) && !isOpenAirBath({ name: p.name });
-  });
+  };
+  const indoorRefs = acts.filter((x) => !!x.ref && [x.ref, ...(x.alts ?? [])].some(isIndoor));
   // Issue #142: alternatives count too, and the classification is the input's (OSM note "Freibad" included).
   const classes = placeClasses(a.stored);
   const openAir = acts.filter((x) => !!x.ref && [x.ref, ...(x.alts ?? [])].some((k) => isOpenAirPlace(k, classes)));
@@ -464,7 +468,7 @@ export function familyPatchChecks(a: { first: LlmPatch; next: Plan; stored: Plan
   const show = (xs: typeof acts) => xs.map((x) => `${x.text}${x.ref ? ` [${venue(x.ref)?.name}]` : ""}`).join(" | ");
   return [
     check("first call requests indoor_play places (needPlaces)", (a.first.needPlaces?.types ?? []).includes("indoor_play"), JSON.stringify(a.first.needPlaces ?? null)),
-    check("day 1: indoor play/pool ref or honest wording", indoorRefs.length > 0 || honest, show(acts)),
+    check("day 1: indoor play/pool as ref or alternative, or honest wording", indoorRefs.length > 0 || honest, show(acts)),
     check("day 1: no open-air pool as ref or alternative in December", openAir.length === 0, show(openAir)),
     check("never 'keine geprüften Orte gefunden'", !proseOf(a.next).some((t) => FALSE_WORDING.test(t)), proseOf(a.next).filter((t) => FALSE_WORDING.test(t)).join(" | ")),
     check("generic indoor venue only with the honest wording", generic.length === 0 || honest, show(generic)),

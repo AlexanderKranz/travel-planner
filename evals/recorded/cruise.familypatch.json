@@ -4,7 +4,7 @@
   "inputHash": "8a8336249dac3e7f9c4c0496cf624af64cb59760764d959c0b35de20dfdbf9ba",
   "output": {
     "first": {
-      "reply": "Für Tag 1 enthält die Datenlage keinen geprüften Indoorspielplatz, daher lade ich passende Orte nach.",
+      "reply": "Für konkrete Indoorspielplätze am Tag 1 lade ich passende Orte in Passau nach.",
       "days": [],
       "needPlaces": {
         "types": [
@@ -13,7 +13,7 @@
       }
     },
     "second": {
-      "reply": "Tag 1: Als Indoorspielplatz ist jetzt der Indoor Inhalatorium eingeplant, Babalu und das Erlebnisbad stehen als Alternativen daneben.",
+      "reply": "Tag 1 enthält jetzt eine Regenalternative mit dem Indoor-Spielangebot, das in den geprüften Quellen gelistet ist.",
       "days": [
         {
           "n": 1,
@@ -33,11 +33,10 @@
                   "at": "10:30",
                   "until": "11:45",
                   "kind": "do",
-                  "text": "Spielen mit Kleinkind, drinnen (auch bei Regen)",
-                  "ref": "a1",
+                  "text": "Spielen mit Kleinkind, drinnen",
+                  "ref": "p4",
                   "alts": [
-                    "p4",
-                    "p3"
+                    "a1"
                   ]
                 },
                 {
@@ -65,8 +64,22 @@
               ]
             }
           ],
-          "note": "Abfahrt 16:00, rechtzeitig zurück an Bord sein. Bei Regen Indoorspielplatz nutzen, Altstadtbummel kürzen.",
+          "note": "Bei Regen vormittags Indoorspielplatz statt Funpark wählen, das Angebot liegt außerhalb des Zentrums.",
           "warn": "Kopfsteinpflaster in der Passauer Altstadt."
+        }
+      ],
+      "open": [
+        {
+          "text": "Öffnungszeiten der Spielangebote in Passau prüfen",
+          "day": 1
+        },
+        {
+          "text": "Genaue Ankunftszeit in Passau am Morgen beim Veranstalter erfragen",
+          "day": 5
+        },
+        {
+          "text": "Landgänge und Märkte der Route beim Veranstalter erfragen",
+          "day": 2
         }
       ]
     },
@@ -74,24 +87,24 @@
       "task": "plan_patch",
       "model": "claude-sonnet-5-5",
       "status": "ok",
-      "inputTokens": 883,
-      "outputTokens": 355,
-      "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 8138,
-      "costMicroUsd": 6944,
-      "latencyMs": 12255
+      "inputTokens": 874,
+      "outputTokens": 306,
+      "cacheCreationInputTokens": 8282,
+      "cacheReadInputTokens": 0,
+      "costMicroUsd": 25513,
+      "latencyMs": 3305
     }
   },
   "usage": {
     "task": "plan_patch",
     "model": "claude-sonnet-5-5",
     "status": "ok",
-    "inputTokens": 890,
-    "outputTokens": 967,
+    "inputTokens": 881,
+    "outputTokens": 564,
     "cacheCreationInputTokens": 2718,
-    "cacheReadInputTokens": 5532,
-    "costMicroUsd": 19351,
-    "latencyMs": 7929
+    "cacheReadInputTokens": 5676,
+    "costMicroUsd": 15332,
+    "latencyMs": 3931
   },
-  "recordedAt": "2026-11-06T16:08:54.830Z"
+  "recordedAt": "2026-11-07T17:21:59.404Z"
 }
