@@ -75,9 +75,21 @@ describe.each(FIXTURE_IDS)("eval %s", (id) => {
   });
 
   const everyDayRec = readRecording<NeedPatchRecording>(id, "golfeveryday");
-  it.runIf(id === "golf" && !!noGolfRec && !!everyDayRec)("recorded 'golf on every day' (issue #158): every day gets a round at a loaded course", () => {
+  // A missing recording fails here (no silent skip).
+  it.runIf(id === "golf")("recorded 'golf on every day' (issue #158): every day gets a round at a loaded course", () => {
+    expect(noGolfRec, "evals/recorded/golf.nogolfbase.json missing").toBeTruthy();
+    expect(everyDayRec, "evals/recorded/golf.golfeveryday.json missing").toBeTruthy();
     const p = evaluateGolfEveryDay(noGolfRec!.output, everyDayRec!.output);
     expect(failed(p.results), formatResults(`${id} golf every day`, p.results)).toEqual([]);
+  });
+  it.runIf(id === "golf")("'golf on every day' with day 2 wiped by one blanket activity: the guard reverts day 2", () => {
+    const rec = everyDayRec!.output;
+    const wipe = { n: 2, title: "Entdecken", stops: [{ place: "Marbella", acts: [{ kind: "do" as const, text: "Entdecken", at: "08:00", until: "22:00" }] }] };
+    const p = evaluateGolfEveryDay(noGolfRec!.output, { ...rec, second: { ...rec.second!, days: rec.second!.days.map((d) => (d.n === 2 ? wipe : d)) } });
+    const names = p.results.filter((r) => !r.ok).map((r) => r.name);
+    expect(names).toContain("shrink guard reverts no day");
+    expect(names).toContain("every day has a golf round at a loaded course");
+    expect(p.plan?.days[1].stops.flatMap((s) => s.acts).some((a) => a.text === "Entdecken")).toBe(false);
   });
 
   it.runIf(id !== "wuerzburg" && !!genRec && !!patchRec)("recorded patch changes only the scoped days", () => {
