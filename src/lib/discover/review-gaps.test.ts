@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { TripPurpose } from "@/lib/domain/purpose";
+import { ownAgeRefs } from "@/lib/group";
 import { buildIdeaInput } from "./input";
 import { ideasInputHash } from "./hash";
 import { kindOf } from "./names";
@@ -71,7 +72,7 @@ describe("REASON_BANNED: evasions (defects)", () => {
 
 const base = { id: "p", name: "x", constraints: [], text: null, guided: null, tags: null, createdAt: "", updatedAt: "" } as unknown as TripPurpose;
 const inputFor = (over: Partial<TripPurpose>, extra: { origins?: string[]; radiusKm?: number } = {}) =>
-  buildIdeaInput({ lang: "de", purpose: { ...base, ...over }, months: [], origins: extra.origins ?? [], radiusKm: extra.radiusKm, group: null, profileBirthdate: null, today: "2026-11-01" });
+  buildIdeaInput({ lang: "de", purpose: { ...base, ...over }, months: [], origins: extra.origins ?? [], radiusKm: extra.radiusKm, group: null, ageRefs: ownAgeRefs(null), today: "2026-11-01" });
 const modelSees = (over: Partial<TripPurpose>) => JSON.stringify(inputFor(over));
 
 describe("flight limit never reaches the model", () => {

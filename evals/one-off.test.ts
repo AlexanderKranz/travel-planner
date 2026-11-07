@@ -9,6 +9,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PurposeTags } from "@/lib/domain/plan";
 import { ideasInputHash } from "@/lib/discover/hash";
 import { buildIdeaInput } from "@/lib/discover/input";
+import { ownAgeRefs } from "@/lib/group";
 import { oneOffLabel, oneOffPurpose, oneOffTagsHash } from "@/lib/discover/one-off";
 import { buildTripDraft } from "@/lib/discover/prefill";
 import { purposeTagsHash } from "@/lib/plan/hash";
@@ -25,7 +26,7 @@ const text = FIXTURES.golf.purpose!.text!;
 const SAVED_ID = "22222222-2222-4222-8222-222222222222";
 
 const ideaInput = (purpose: ReturnType<typeof oneOffPurpose>) =>
-  buildIdeaInput({ lang: "de", purpose, months: [3], origins: ["FRA"], radiusKm: 2128, group: null, profileBirthdate: EVAL_PROFILE_BIRTHDATE, today: EVAL_TODAY });
+  buildIdeaInput({ lang: "de", purpose, months: [3], origins: ["FRA"], radiusKm: 2128, group: null, ageRefs: ownAgeRefs(EVAL_PROFILE_BIRTHDATE), today: EVAL_TODAY });
 
 /** In-memory single-row table: applies the update patch and returns the row, like PostgREST with `select()`. */
 function memoryDb(initial: SearchRow) {

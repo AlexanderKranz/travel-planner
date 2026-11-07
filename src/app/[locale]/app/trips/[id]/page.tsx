@@ -68,6 +68,7 @@ export default async function TripDetailPage({
   // share row for "Leave".
   let owner: Person | null = null;
   let ownerAge: number | null = null;
+  let sharedOwnerBirthdate: string | null = null;
   let shareId: string | null = null;
   if (!isOwner) {
     const [ctxRes, incoming] = await Promise.all([getTripOwnerContext(trip.id), listSharedWithMe()]);
@@ -75,8 +76,12 @@ export default async function TripDetailPage({
     shareId = mine?.id ?? null;
     owner = mine?.owner ?? (ctxRes.ok ? ctxRes.data.owner : null);
     ownerAge = ctxRes.ok ? ctxRes.data.ownerAge : null;
+    sharedOwnerBirthdate = ctxRes.ok ? ctxRes.data.ownerBirthdate : null;
   }
-  const ownerBirthdate = isOwner ? profile.birthdate : ownerAge === null ? null : birthdateForAge(ownerAge, ageDate);
+  // The real birthdate when the owner's group shows it on its is_self entry (decision A); else the age stand-in (PR 3 replaces both).
+  const ownerBirthdate = isOwner
+    ? profile.birthdate
+    : (sharedOwnerBirthdate ?? (ownerAge === null ? null : birthdateForAge(ownerAge, ageDate)));
   // A group or purpose that vanished (race) simply shows as "none". One resolution (saved entries > Haiku parse >
   // text only) feeds the strip, the party size and the flight passengers.
   const source = groupRes?.ok

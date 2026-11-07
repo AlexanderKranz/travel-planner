@@ -6,6 +6,7 @@ const h = vi.hoisted(() => ({
   profile: { role: "user", isDemo: false, locale: "de", birthdate: null, homeAirports: ["FRA", "MUC", "HAM"] } as Record<string, unknown>,
   purpose: { id: "11111111-1111-4111-8111-111111111111", name: "Golf", guided: { interests: ["golf"] }, constraints: [], tags: null, ownerId: "u1", access: "owner", usable: true, updatedAt: "t" } as Record<string, unknown>,
   group: null as unknown,
+  groupOwner: vi.fn(),
   env: { AI_ENABLED: "true", ANTHROPIC_API_KEY: "k" } as Record<string, string>,
   budgetOk: true,
   runs: 0,
@@ -33,6 +34,7 @@ vi.mock("../session", () => ({ getUserSession: async () => h.session }));
 vi.mock("../profile", () => ({ getProfile: async () => ({ ok: true, data: h.profile }) }));
 vi.mock("../purposes", () => ({ getPurpose: async () => (h.purpose ? { ok: true, data: h.purpose } : { ok: false, error: "not_found" }) }));
 vi.mock("../groups", () => ({ getGroup: async () => (h.group ? { ok: true, data: h.group } : { ok: false, error: "not_found" }) }));
+vi.mock("../owner-context", () => ({ loadGroupOwnerBirthdate: h.groupOwner }));
 vi.mock("../settings", () => ({ getEffectiveEnv: async () => h.env }));
 vi.mock("../events", () => ({ logEvent: h.logEvent }));
 vi.mock("../facts/ors-quota", () => ({ orsRequestsLeft: async () => h.orsLeft }));
@@ -177,6 +179,44 @@ describe("a purpose shared with the searcher (sharing spec 3.8)", () => {
     expect(h.logEvent).toHaveBeenCalledWith(
       expect.objectContaining({ event: "destination.searched", props: expect.objectContaining({ source: "saved" }) }),
     );
+  });
+});
+
+describe("a group shared with the searcher (group-sharing spec 3.3)", () => {
+  const GROUP = "55555555-5555-4555-8555-555555555555";
+  const entry = { id: "e1", position: 0, kind: "composition", count: 2, age: { ageMode: "relativeToMe" }, traits: {} };
+  const group = (o: Record<string, unknown> = {}) => ({
+    id: GROUP, ownerId: "owner-1", access: "read", usable: true, entries: [entry], traitKeys: [], ...o,
+  });
+
+  it("a group seen only through a shared trip is not usable: not_found, no run, no owner read", async () => {
+    h.group = group({ usable: false });
+    expect(await runDestinationSearch({ ...body, groupId: GROUP })).toMatchObject({ ok: false, error: "not_found" });
+    expect(h.propose).not.toHaveBeenCalled();
+    expect(h.claim1).not.toHaveBeenCalled();
+    expect(h.groupOwner).not.toHaveBeenCalled();
+  });
+
+  it("an own group needs no secret-key read", async () => {
+    h.group = group({ ownerId: "u1", access: "owner" });
+    expect(await runDestinationSearch({ ...body, groupId: GROUP })).toMatchObject({ ok: true });
+    expect(h.groupOwner).not.toHaveBeenCalled();
+  });
+
+  it("a shared group: 'about my age' is the group owner's until the searcher linked an entry", async () => {
+    h.profile = { ...h.profile, birthdate: "1960-01-01" }; // the searcher is old, the group owner is a child
+    h.groupOwner.mockResolvedValue({ birthdate: "2020-06-01", displayName: "Kid" });
+    h.group = group();
+    expect(await runDestinationSearch({ ...body, groupId: GROUP })).toMatchObject({ ok: true });
+    expect(h.groupOwner).toHaveBeenCalledWith("owner-1");
+    expect(h.propose.mock.calls[0][0].group).toEqual({ adults: 0, children: 2, toddlers: 0 });
+  });
+
+  it("an unreadable group owner profile fails closed", async () => {
+    h.groupOwner.mockResolvedValue(null);
+    h.group = group();
+    expect(await runDestinationSearch({ ...body, groupId: GROUP })).toMatchObject({ ok: false, error: "failed" });
+    expect(h.propose).not.toHaveBeenCalled();
   });
 });
 

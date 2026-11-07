@@ -25,9 +25,10 @@ export type GroupEntryRow = {
   age_as_of: string | null;
   notes: string | null;
   traits: unknown;
+  linked_user_id?: string | null;
 };
 
-export type GroupEntryWrite = Omit<GroupEntryRow, "id" | "group_id"> & { id?: string };
+export type GroupEntryWrite = Omit<GroupEntryRow, "id" | "group_id" | "linked_user_id"> & { id?: string };
 
 /**
  * Maps a validated entry to a DB row. `age_as_of` is set by the server: today,
@@ -80,6 +81,7 @@ export function rowToEntry(row: GroupEntryRow): StoredEntry {
     traits,
     age,
     ageAsOf: row.age_as_of ?? undefined,
+    linkedUserId: row.linked_user_id ?? undefined,
   };
   if (row.kind === "composition") {
     return { ...base, kind: "composition", count: row.count };
@@ -91,4 +93,33 @@ export function rowToEntry(row: GroupEntryRow): StoredEntry {
     name: row.name ?? undefined,
     birthdate: row.birthdate ?? undefined,
   };
+}
+
+/**
+ * The viewer's own entry and the display link of every entry (docs/specs/group-sharing.md 1.5). Owner: the `is_self`
+ * entry is "me", linked entries show the person's name when `names` knows it (else just "linked"). Recipient: the entry
+ * linked to the viewer is "me", every other linked entry is "linked" without a name. Entries are returned as new objects.
+ */
+export function withViewerLinks(
+  entries: StoredEntry[],
+  viewerId: string,
+  ownerId: string,
+  names: ReadonlyMap<string, string | null> = new Map(),
+): { entries: StoredEntry[]; myEntryId: string | null } {
+  const isOwner = viewerId === ownerId;
+  let myEntryId: string | null = null;
+  const out = entries.map((entry): StoredEntry => {
+    if (isOwner && entry.kind === "member" && entry.isSelf) {
+      myEntryId = entry.id;
+      return { ...entry, link: { kind: "me" } };
+    }
+    if (!entry.linkedUserId) return entry;
+    if (entry.linkedUserId === viewerId) {
+      myEntryId = entry.id;
+      return { ...entry, link: { kind: "me" } };
+    }
+    const name = isOwner ? names.get(entry.linkedUserId) : null;
+    return { ...entry, link: name ? { kind: "person", name } : { kind: "account" } };
+  });
+  return { entries: out, myEntryId };
 }

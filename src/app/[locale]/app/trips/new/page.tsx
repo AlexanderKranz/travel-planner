@@ -1,5 +1,5 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
-import { sharedPurposeOptions } from "@/components/sharing/helpers";
+import { sharedGroupOptions, sharedPurposeOptions } from "@/components/sharing/helpers";
 import { TripForm } from "@/components/trips/trip-form";
 import { linkCls, mutedCls } from "@/components/ui/styles";
 import { Link } from "@/i18n/navigation";
@@ -49,7 +49,11 @@ export default async function NewTripPage({
         ...(purposes.ok ? purposes.data.map((p) => p.id) : []),
         ...(incoming.ok ? sharedPurposeOptions(incoming.data).map((p) => p.id) : []),
       ];
-      initialDraft = buildTripDraft(res.data, card, profileData.homeAirports, usablePurposeIds);
+      const usableGroupIds = [
+        ...(groups.ok ? groups.data.map((g) => g.id) : []),
+        ...(incoming.ok ? sharedGroupOptions(incoming.data).map((g) => g.id) : []),
+      ];
+      initialDraft = buildTripDraft(res.data, card, profileData.homeAirports, usablePurposeIds, usableGroupIds);
       backToList = res.data.id;
       // An unsaved typed purpose is put into the notes by buildTripDraft; the form says so (spec 13.5).
       notesFromSearch = res.data.purposeId === null && !!res.data.purposeText;

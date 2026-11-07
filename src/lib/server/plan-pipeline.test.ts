@@ -6,6 +6,9 @@ const h = vi.hoisted(() => ({
   itemRows: [] as unknown[],
   trip: { id: "11111111-1111-4111-8111-111111111111", ownerId: "u1", access: "owner", lengthDays: 3, groupId: null, purposeId: "p1", timing: { kind: "none" }, updatedAt: "t" } as Record<string, unknown>,
   purpose: { id: "p1", ownerId: "u1", tags: null, updatedAt: "pu" } as Record<string, unknown>,
+  group: null as unknown,
+  groupOwnerCtx: { birthdate: "1960-01-01", displayName: "Gerda" } as unknown,
+  groupOwnerCalls: [] as string[],
   ownerCtx: { birthdate: "1980-05-06", homeAirports: ["MUC"], locale: "en", displayName: "Alice" } as unknown,
   logUsage: vi.fn(async () => {}),
   hasBusy: vi.fn(),
@@ -42,9 +45,9 @@ const stored = (hash: string, no: number) => ({ meta: { versionNo: no, model: nu
 
 vi.mock("./session", () => ({ getUserSession: async () => h.session }));
 vi.mock("./profile", () => ({ getProfile: async () => ({ ok: true, data: { role: "user", isDemo: false, birthdate: "1999-01-02", homeAirports: ["FRA"] } }) }));
-vi.mock("./owner-context", () => ({ loadOwnerContext: async () => h.ownerCtx }));
+vi.mock("./owner-context", () => ({ loadOwnerContext: async () => h.ownerCtx, loadGroupOwnerBirthdate: async (id: string) => (h.groupOwnerCalls.push(id), h.groupOwnerCtx) }));
 vi.mock("./trips", () => ({ getTrip: async () => ({ ok: true, data: h.trip }) }));
-vi.mock("./groups", () => ({ getGroup: async () => ({ ok: false }) }));
+vi.mock("./groups", () => ({ getGroup: async () => (h.group ? { ok: true, data: h.group } : { ok: false }) }));
 vi.mock("./purposes", () => ({ getPurpose: async () => ({ ok: true, data: h.purpose }) }));
 vi.mock("./events", () => ({ logEvent: h.logEvent }));
 vi.mock("./facts", () => ({ getTripFacts: h.getFacts }));
@@ -98,6 +101,7 @@ h.session.supabase = {
 import { resetRateLimits } from "./rate-limit";
 import { editPlanVersion, generatePlan, iteratePlan, loadPlanContext, loadPlanState, restoreVersion } from "./plan-pipeline";
 import { applyPatch } from "@/lib/plan/patch";
+import { ownAgeRefs } from "@/lib/group";
 
 const insertArg = () => h.insert.mock.calls[0] as unknown as [unknown, unknown, { input: Record<string, unknown>; inputHash: string }];
 const TRIP = "11111111-1111-4111-8111-111111111111";
@@ -124,6 +128,10 @@ beforeEach(() => {
   h.trip.access = "owner";
   h.trip.ownerId = "u1";
   h.trip.wantsFlights = undefined;
+  h.trip.groupId = null;
+  h.group = null;
+  h.groupOwnerCalls = [];
+  h.groupOwnerCtx = { birthdate: "1960-01-01", displayName: "Gerda" };
   h.ownerCtx = { birthdate: "1980-05-06", homeAirports: ["MUC"], locale: "en", displayName: "Alice" };
   h.planRow = { id: "plan1", latestVersion: 1, busyUntil: null };
   h.needsTags.mockReturnValue(false);
@@ -133,6 +141,62 @@ beforeEach(() => {
   h.trip.destination = { kind: "city", lat: 36.5, lon: -4.9 };
   h.compose.mockResolvedValue({ ok: true, data: {}, usage: {} });
   h.assemble.mockReturnValue({ ok: true, plan: Plan, issues: {} });
+});
+
+describe("group owner anchors (group-sharing spec 1.4, 3.3)", () => {
+  const GROUP = "33333333-3333-4333-8333-333333333333";
+  const entries = [
+    { id: "e-self", position: 0, kind: "member", isSelf: true, traits: {} },
+    { id: "e-me", position: 1, kind: "member", isSelf: false, name: "B", linkedUserId: "u1", traits: {} },
+    { id: "e-other", position: 2, kind: "member", isSelf: false, name: "C", traits: {} },
+  ];
+  const useGroup = (ownerId: string, es: unknown[] = entries) => {
+    h.trip.groupId = GROUP;
+    h.group = { id: GROUP, ownerId, updatedAt: "gu", entries: es, traitKeys: [] };
+  };
+
+  it("T = G (own group): no secret-key read, today's single-birthdate anchors", async () => {
+    useGroup("u1");
+    const res = await loadPlanContext(TRIP);
+    expect(res.ok && res.ctx.ageRefs).toEqual({ self: "1999-01-02", me: { birthdate: "1999-01-02" }, meIs: "tripOwner", tripOwnerEntryId: "e-self" });
+    expect(h.groupOwnerCalls).toEqual([]);
+  });
+
+  it("T != G: reads the group owner's birthdate (after the RLS read) and anchors on the entry T linked", async () => {
+    useGroup("g-owner");
+    const res = await loadPlanContext(TRIP);
+    expect(h.groupOwnerCalls).toEqual(["g-owner"]);
+    expect(res.ok && res.ctx.ageRefs).toEqual({
+      self: "1960-01-01",
+      me: { entryId: "e-me", fallback: "1999-01-02" },
+      meIs: "tripOwner",
+      tripOwnerEntryId: "e-me",
+    });
+  });
+
+  it("T != G without a link: 'about my age' is the group owner's", async () => {
+    useGroup("g-owner", [entries[0], entries[2]]);
+    const res = await loadPlanContext(TRIP);
+    expect(res.ok && res.ctx.ageRefs).toEqual({ self: "1960-01-01", me: { birthdate: "1960-01-01" }, meIs: "groupOwner", tripOwnerEntryId: null });
+  });
+
+  it("an unreadable group owner profile fails closed", async () => {
+    useGroup("g-owner");
+    h.groupOwnerCtx = null;
+    expect(await loadPlanContext(TRIP)).toMatchObject({ ok: false, error: "failed" });
+  });
+
+  it("a write grantee of T's trip gets the same anchors as T (the actor never matters)", async () => {
+    h.ownerCtx = { birthdate: "1999-01-02", homeAirports: ["FRA"], locale: "en", displayName: null }; // = T's own profile
+    h.trip.ownerId = "owner-1";
+    h.trip.access = "owner";
+    useGroup("g-owner", entries.map((e) => (e.id === "e-me" ? { ...e, linkedUserId: "owner-1" } : e)));
+    const own = await loadPlanContext(TRIP);
+    h.trip.access = "write";
+    const shared = await loadPlanContext(TRIP);
+    expect(own.ok && shared.ok && shared.ctx.ageRefs).toEqual(own.ok && own.ctx.ageRefs);
+    expect(shared.ok && shared.ctx.ageRefs.tripOwnerEntryId).toBe("e-me");
+  });
 });
 
 describe("shared trips (sharing spec 1.1, 1.2, 3.5)", () => {
@@ -150,7 +214,7 @@ describe("shared trips (sharing spec 1.1, 1.2, 3.5)", () => {
     h.trip.wantsFlights = true;
     const res = await generatePlan(TRIP, "de"); // the grantee's request locale must not decide
     expect(res).toMatchObject({ ok: true });
-    expect(h.build.mock.calls[0][0]).toMatchObject({ profileBirthdate: "1980-05-06", locale: "en" });
+    expect(h.build.mock.calls[0][0]).toMatchObject({ ageRefs: ownAgeRefs("1980-05-06"), locale: "en" });
     expect(h.getFacts.mock.calls[0][2]).toMatchObject({ locale: "en", userId: "u1" });
     expect(h.getFacts.mock.calls[0][3]).toMatchObject({ withFlights: { homeAirports: ["MUC"] } });
     expect(h.compose).toHaveBeenCalledTimes(1);
@@ -166,7 +230,7 @@ describe("shared trips (sharing spec 1.1, 1.2, 3.5)", () => {
     owner("write");
     await generatePlan(TRIP, "de"); // a grantee, other request locale
     const [own, shared] = h.build.mock.calls.map((c) => c[0] as Record<string, unknown>);
-    expect(shared.profileBirthdate).toBe(own.profileBirthdate);
+    expect(shared.ageRefs).toEqual(own.ageRefs);
     expect(shared.locale).toBe(own.locale);
     expect(h.getFacts.mock.calls[1][3]).toEqual(h.getFacts.mock.calls[0][3]);
     h.trip.wantsFlights = undefined;
@@ -183,7 +247,7 @@ describe("shared trips (sharing spec 1.1, 1.2, 3.5)", () => {
 
   it("the owner's request locale and own profile values are unchanged for the owner", async () => {
     await generatePlan(TRIP, "de");
-    expect(h.build.mock.calls[0][0]).toMatchObject({ profileBirthdate: "1999-01-02", locale: "de" });
+    expect(h.build.mock.calls[0][0]).toMatchObject({ ageRefs: { self: "1999-01-02", me: { birthdate: "1999-01-02" } }, locale: "de" });
   });
 
   it("AI usage is charged to the acting user, not to the owner", async () => {

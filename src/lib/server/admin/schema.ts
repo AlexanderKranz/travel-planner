@@ -33,6 +33,7 @@ export const ApiStatsRaw = z.object({
 /** Shape of public.admin_share_stats (migration 20261110120035): counts only, no ids, emails or titles. */
 export const ShareStatsRaw = z.object({
   tripSharesRead: n, tripSharesWrite: n, purposeSharesRead: n, purposeSharesWrite: n,
+  groupSharesRead: n, groupSharesWrite: n, groupsShared: n, entryLinks: n,
   tripsShared: n, recipients: n, grantsThisMonth: n, lookupsThisMonth: n, lookupMissesThisMonth: n,
 });
 

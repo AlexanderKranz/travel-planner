@@ -4,9 +4,11 @@ import type { EntryTraits, TraitKey } from "./domain/group";
 import type { GroupSummary } from "./domain/plan";
 import type { Trip } from "./domain/trip";
 import {
+  meAge,
   resolveGroupAges,
-  safeAgeOn,
+  toAgeRefs,
   stripTraits,
+  type AgeRefs,
   type AgeSource,
   type ResolvedAge,
   type ResolvedEntry,
@@ -65,10 +67,10 @@ export function normalizeParse(wire: WireGroupParse): GroupParse {
  * Age of a parsed traveller on the travel date (ages are computed, never stored).
  * relativeToMe = profile age on that date + offset; without a profile birthdate only "about my age" (offset 0).
  */
-export function resolveTravellerAge(t: Traveller, travelDate: string, profileBirthdate?: string | null): ResolvedAge {
+export function resolveTravellerAge(t: Traveller, travelDate: string, refs?: AgeRefs | string | null): ResolvedAge {
   if (t.ageMode === "relativeToMe") {
     const offset = t.ageOffset ?? 0;
-    const mine = profileBirthdate ? safeAgeOn(profileBirthdate, travelDate) : null;
+    const mine = meAge(toAgeRefs(refs), travelDate);
     if (mine === null) return offset === 0 ? { status: "aboutMyAge" } : { status: "unknown" };
     return { status: "known", age: Math.max(0, mine + offset), approximate: true };
   }
@@ -126,13 +128,13 @@ const joinNotes = (parts: (string | undefined)[]): string | undefined => parts.f
  * One resolution for plan input, party size and display. Order: saved entries (named members or the structure the
  * user corrected) > Haiku parse of the text > raw text only (cut, as notes).
  */
-export function resolveGroup(src: GroupSource, travelDate: string, profileBirthdate?: string | null): ResolvedGroup {
+export function resolveGroup(src: GroupSource, travelDate: string, refs?: AgeRefs | string | null): ResolvedGroup {
   const text = src.description?.trim() || undefined;
   const parse = text && src.parse && src.parse.travellers.length > 0 ? src.parse : null;
   const textNotes = text ? (parse ? parse.notes.join("; ") || undefined : text.slice(0, GROUP_TEXT_FALLBACK_CHARS)) : undefined;
 
   if (src.entries.length > 0) {
-    const ages = resolveGroupAges(src.entries, travelDate, profileBirthdate);
+    const ages = resolveGroupAges(src.entries, travelDate, refs);
     const rows = ages.map((r, i) => {
       const stored = src.entries[i];
       const traits = stripTraits(stored.traits, src.traitKeys);
@@ -147,7 +149,8 @@ export function resolveGroup(src: GroupSource, travelDate: string, profileBirthd
       count: t.count,
       label: t.label,
       isSelf: false,
-      age: resolveTravellerAge(t, travelDate, profileBirthdate),
+      isTripOwner: false,
+      age: resolveTravellerAge(t, travelDate, refs),
       role: t.role,
     }));
     const summary = summarizeRows(rows);

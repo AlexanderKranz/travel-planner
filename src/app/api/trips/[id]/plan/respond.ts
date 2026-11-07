@@ -33,6 +33,8 @@ export const STATUS: Record<ActionError, number> = {
   self_share: 422,
   protected: 403,
   already_member: 409,
+  already_linked: 409,
+  already_claimed: 409,
   email_failed: 502,
   invalid_credentials: 401,
   weak_password: 422,

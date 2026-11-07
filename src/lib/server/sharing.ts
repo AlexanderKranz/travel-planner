@@ -1,10 +1,10 @@
 "use server";
 
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { ageOn } from "@/lib/age";
 import { berlinToday } from "@/lib/date";
 import { ageReferenceDate } from "@/lib/facts/trip-timing";
+import type { GroupOwner } from "@/lib/domain/group";
 import { fail, zodIssues, type ActionError, type ActionResult } from "@/lib/domain/result";
 import {
   SHARE_LOOKUPS_PER_DAY,
@@ -22,12 +22,14 @@ import {
 import { berlinMidnight } from "./ai-usage";
 import { getAdminSession } from "./admin/gate";
 import { logEvent } from "./events";
+import { getGroup } from "./groups";
 import { loadOwnerContext } from "./owner-context";
 import { getProfile } from "./profile";
 import { PURPOSE_COLUMNS, type PurposeRow } from "./purpose-insert";
 import { rowToPurpose } from "./purpose-mapping";
 import { rateLimit } from "./rate-limit";
 import { getUserSession } from "./session";
+import { loadContacts, personOf } from "./share-contacts";
 import { createSupabaseAdminClient } from "./supabase/admin";
 import { rowToSummary, TRIP_COLUMNS, type TripSummaryRow } from "./trip-mapping";
 import { getTrip } from "./trips";
@@ -43,9 +45,9 @@ import { getTrip } from "./trips";
  * the link events `share.*`).
  */
 
-const TABLE = { trip: "trip_shares", purpose: "purpose_shares" } as const;
-const RESOURCE_TABLE = { trip: "trips", purpose: "trip_purposes" } as const;
-const RESOURCE_COLUMN = { trip: "trip_id", purpose: "purpose_id" } as const;
+const TABLE = { trip: "trip_shares", purpose: "purpose_shares", group: "group_shares" } as const;
+const RESOURCE_TABLE = { trip: "trips", purpose: "trip_purposes", group: "travel_groups" } as const;
+const RESOURCE_COLUMN = { trip: "trip_id", purpose: "purpose_id", group: "group_id" } as const;
 
 /** Per-minute lookup limit in memory (instances do not share it); the durable daily limit counts `app_events`. */
 const LOOKUPS_PER_MINUTE = 5;
@@ -67,19 +69,6 @@ const SHARE_ERRORS: Record<string, ActionError> = {
 function mapShareError(error: { code?: string; message?: string }): ActionError {
   return (error.code === "P0001" && error.message ? SHARE_ERRORS[error.message] : undefined) ?? "failed";
 }
-
-type ContactRow = { user_id: string; display_name: string | null; email: string };
-
-/** Name and email of every counterpart of the caller's share rows (`share_contacts`, user session). */
-async function loadContacts(sb: SupabaseClient): Promise<Map<string, Person> | null> {
-  const { data, error } = await sb.rpc("share_contacts");
-  if (error) return null;
-  return new Map(
-    ((data ?? []) as ContactRow[]).map((c) => [c.user_id, { id: c.user_id, name: c.display_name, email: c.email }]),
-  );
-}
-
-const personOf = (contacts: Map<string, Person>, id: string): Person => contacts.get(id) ?? { id, name: null, email: "" };
 
 /** Owner of a resource through RLS: `not_found` when invisible, `forbidden` when visible but not the viewer's. */
 async function requireOwnedResource(session: Session, resource: ShareResource, id: string): Promise<Failure | null> {
@@ -224,7 +213,7 @@ export async function shareWith(input: ShareInput): Promise<ActionResult<{ share
   return { ok: true, data: { shareId: res.row.share_id, created: res.row.created } };
 }
 
-type OwnShareRow = { id: string; grantee_id: string; trip_id?: string; purpose_id?: string };
+type OwnShareRow = { id: string; grantee_id: string; trip_id?: string; purpose_id?: string; group_id?: string };
 
 /** Changes the level of an existing grant. Update-only: a grant that was left or revoked meanwhile is `not_found`. */
 export async function setShareAccess(input: ShareAccessInput): Promise<ActionResult> {
@@ -270,7 +259,7 @@ export async function unshare(input: ShareIdInput): Promise<ActionResult> {
     .eq("id", shareId)
     .eq("owner_id", session.userId)
     .select(`id, ${RESOURCE_COLUMN[resource]}`)
-    .returns<{ id: string; trip_id?: string; purpose_id?: string }[]>();
+    .returns<{ id: string; trip_id?: string; purpose_id?: string; group_id?: string }[]>();
   if (error) return fail("failed");
   if (!data || data.length === 0) return fail("not_found");
   await logEvent({
@@ -294,7 +283,7 @@ export async function leaveShare(input: ShareIdInput): Promise<ActionResult> {
     .eq("id", shareId)
     .eq("grantee_id", session.userId)
     .select(`id, ${RESOURCE_COLUMN[resource]}`)
-    .returns<{ id: string; trip_id?: string; purpose_id?: string }[]>();
+    .returns<{ id: string; trip_id?: string; purpose_id?: string; group_id?: string }[]>();
   if (error) return fail("failed");
   if (!data || data.length === 0) return fail("not_found");
   await logEvent({
@@ -321,6 +310,21 @@ type IncomingPurposeRow = {
   created_at: string;
   trip_purposes: Omit<PurposeRow, "purpose_shares"> | null;
 };
+type IncomingGroupRow = {
+  id: string;
+  group_id: string;
+  owner_id: string;
+  access: ShareAccess;
+  created_at: string;
+  travel_groups: {
+    id: string;
+    name: string;
+    notes: string | null;
+    description: string | null;
+    updated_at: string;
+    group_entries: { count: number }[];
+  } | null;
+};
 
 /**
  * Everything shared with the viewer, newest first (RLS hides the shares of a disabled owner). Trips come as summaries
@@ -330,7 +334,7 @@ export async function listSharedWithMe(): Promise<ActionResult<IncomingShare[]>>
   const session = await getUserSession();
   if (!session) return fail("unauthenticated");
   const me = session.userId;
-  const [trips, purposes, contacts] = await Promise.all([
+  const [trips, purposes, groups, contacts] = await Promise.all([
     session.supabase
       .from("trip_shares")
       .select(`id, trip_id, owner_id, access, created_at, trips(${TRIP_COLUMNS}, travel_groups(name), trip_purposes(name))`)
@@ -343,9 +347,15 @@ export async function listSharedWithMe(): Promise<ActionResult<IncomingShare[]>>
       .eq("grantee_id", me)
       .order("created_at", { ascending: false })
       .returns<IncomingPurposeRow[]>(),
+    session.supabase
+      .from("group_shares")
+      .select(`id, group_id, owner_id, access, created_at, travel_groups(id, name, notes, description, updated_at, group_entries(count))`)
+      .eq("grantee_id", me)
+      .order("created_at", { ascending: false })
+      .returns<IncomingGroupRow[]>(),
     loadContacts(session.supabase),
   ]);
-  if (trips.error || purposes.error || !contacts) return fail("failed");
+  if (trips.error || purposes.error || groups.error || !contacts) return fail("failed");
 
   const out: IncomingShare[] = [];
   for (const r of trips.data) {
@@ -362,6 +372,32 @@ export async function listSharedWithMe(): Promise<ActionResult<IncomingShare[]>>
       createdAt: r.created_at,
       trip: rowToSummary(row as TripSummaryRow, me, owner),
       purpose: null,
+      group: null,
+    });
+  }
+  for (const r of groups.data) {
+    if (!r.travel_groups) continue;
+    const owner = personOf(contacts, r.owner_id);
+    out.push({
+      id: r.id,
+      resource: "group",
+      resourceId: r.group_id,
+      owner,
+      access: r.access,
+      createdAt: r.created_at,
+      trip: null,
+      purpose: null,
+      group: {
+        id: r.travel_groups.id,
+        name: r.travel_groups.name,
+        notes: r.travel_groups.notes ?? undefined,
+        description: r.travel_groups.description ?? undefined,
+        entryCount: r.travel_groups.group_entries[0]?.count ?? 0,
+        updatedAt: r.travel_groups.updated_at,
+        access: r.access,
+        sharedBy: owner,
+        shareCount: 0,
+      },
     });
   }
   for (const r of purposes.data) {
@@ -375,6 +411,7 @@ export async function listSharedWithMe(): Promise<ActionResult<IncomingShare[]>>
       access: r.access,
       createdAt: r.created_at,
       trip: null,
+      group: null,
       purpose: rowToPurpose(row, me),
     });
   }
@@ -416,13 +453,22 @@ export async function listShareCandidates(): Promise<ActionResult<ShareCandidate
   }
 }
 
+export type TripOwnerContext = {
+  owner: Person;
+  /** Profile birthdate of the trip owner, only when the trip's group is theirs and has an `is_self` entry (decision A). */
+  ownerBirthdate: string | null;
+  /** The owner's age on the travel date, always when they have a birthdate ("about my age" stand-in without `ownerBirthdate`). */
+  ownerAge: number | null;
+  /** Owner of the trip's group when it is someone else's (name, birthdate only with an `is_self` entry); else null. */
+  groupOwner: GroupOwner | null;
+};
+
 /**
- * Who owns a trip the viewer can see, and how old the owner is on the travel date: what a recipient's group block needs
- * for the `is_self` entry ("shown as the owner's display name with the age on the travel date", spec 1.1 and 4.3). The
- * owner's birthdate is read on the server (owner-context.ts) and never returned; the client gets the age only (null when
- * the owner has no birthdate).
+ * Who owns a trip the viewer can see, and the owner's birthdate for the group block's `is_self` entry (decision A,
+ * docs/specs/group-sharing.md 1.2 and 3.4). The owner's birthdate is read on the server (owner-context.ts) and returned
+ * only when the trip's group has an `is_self` entry; nothing else of the profile leaves the server.
  */
-export async function getTripOwnerContext(tripId: string): Promise<ActionResult<{ owner: Person; ownerAge: number | null }>> {
+export async function getTripOwnerContext(tripId: string): Promise<ActionResult<TripOwnerContext>> {
   const session = await getUserSession();
   if (!session) return fail("unauthenticated");
   const trip = await getTrip(tripId); // RLS: only a trip the viewer may see
@@ -441,9 +487,21 @@ export async function getTripOwnerContext(tripId: string): Promise<ActionResult<
       ownerAge = null; // travel date before the birthdate
     }
   }
+  // The trip's saved group (RLS again). Decision A: the owner's birthdate goes to the client only when the group has an
+  // `is_self` entry (that entry shows it); otherwise the age is all a viewer gets.
+  const group = t.groupId ? await getGroup(t.groupId) : null;
+  const g = group?.ok ? group.data : null;
+  const ownGroupWithSelf = !!g && g.ownerId === t.ownerId && g.entries.some((e) => e.kind === "member" && e.isSelf);
   const known = contacts.get(t.ownerId);
   return {
     ok: true,
-    data: { owner: known ?? { id: t.ownerId, name: owner.displayName, email: "" }, ownerAge },
+    data: {
+      owner: known ?? { id: t.ownerId, name: owner.displayName, email: "" },
+      ownerBirthdate: ownGroupWithSelf ? owner.birthdate : null,
+      ownerAge,
+      // A group of someone else (a recipient's trip with a shared group): its owner, with the same birthdate rule. Null
+      // when the viewer is that owner (they know themselves) or the trip has no saved group.
+      groupOwner: g && g.ownerId !== t.ownerId ? g.owner : null,
+    },
   };
 }
