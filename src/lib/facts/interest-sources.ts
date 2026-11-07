@@ -172,6 +172,14 @@ const known = new Set<string>(INTEREST_KEYS);
 export const isInterestKey = (s: string): s is InterestKey => known.has(s);
 
 /**
+ * Interests with a place source (`osm`): a change request may load them (`needPlaces`, issue #151). Interests with
+ * `source: "none"` (christmas markets, nightlife ...) never load and keep the "not covered" wording.
+ */
+export const PLACE_INTEREST_KEYS = INTEREST_KEYS.filter((k) => INTEREST_SOURCES[k].source === "osm");
+const placeKnown = new Set<string>(PLACE_INTEREST_KEYS);
+export const isPlaceInterest = (s: string): s is InterestKey => placeKnown.has(s);
+
+/**
  * Keys in purpose order (unique), then interest keys from Haiku tags (phase 3), custom text interests separately.
  * Without any known key: ["general"].
  * Keys with an OSM source are capped to MAX_INTEREST_QUERIES (guided keys first); `none` keys are all

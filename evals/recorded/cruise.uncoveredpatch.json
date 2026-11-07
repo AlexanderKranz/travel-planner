@@ -3,7 +3,7 @@
   "model": "claude-sonnet-5-5",
   "inputHash": "4ac32f916e044e0031dd207024dff7e3fe73a08e62a5f5bb46554c16ecbf0bd8",
   "output": {
-    "reply": "Kinderbauernhof ergänzt: Als Idee an Tag 1 ohne Ortsangabe, da solche Orte nicht in den geprüften Quellen stehen; Tierpark Irgenöd ist als Alternative hinterlegt.",
+    "reply": "Kinderbauernhöfe sind in den geprüften Quellen nicht enthalten; Tag 1 enthält jetzt nur eine Idee, dazu zwei verifizierte Tierparks als Alternativen.",
     "days": [
       {
         "n": 1,
@@ -23,11 +23,7 @@
                 "at": "10:30",
                 "until": "11:45",
                 "kind": "do",
-                "text": "Spielen mit Kleinkind, drinnen",
-                "ref": "p4",
-                "alts": [
-                  "p3"
-                ]
+                "text": "Tiere streicheln, Kinderbauernhof (Idee)"
               },
               {
                 "at": "12:15",
@@ -38,8 +34,11 @@
                 "at": "14:30",
                 "until": "15:30",
                 "kind": "see",
-                "text": "Kurzer Bummel, Altstadt (Trage statt Buggy)",
-                "ref": "p30"
+                "text": "",
+                "ref": "p30",
+                "alts": [
+                  "p29"
+                ]
               }
             ]
           },
@@ -54,22 +53,18 @@
             ]
           }
         ],
-        "note": "Kinderbauernhof: nicht in den geprüften Quellen enthalten, daher keine konkreten Beispiele. Tierpark Irgenöd (Tiere) wäre eine Alternative, aber zeitlich knapp.",
+        "note": "Kinderbauernhöfe sind nicht in den geprüften Quellen enthalten. Verifizierte Tierparks: Tierpark Irgenöd, Wildpark Ortenburg, beide eher weit.",
         "warn": "Kopfsteinpflaster in der Passauer Altstadt."
       }
     ],
     "open": [
       {
-        "text": "Kinderbauernhof in Passau selbst recherchieren und Besuchszeiten prüfen",
+        "text": "Kinderbauernhof in Passau selbst recherchieren und Öffnungszeiten prüfen",
         "day": 1
       },
       {
         "text": "Genaue Ankunftszeit in Passau am Morgen beim Veranstalter erfragen",
         "day": 5
-      },
-      {
-        "text": "Öffnungszeiten der Spielangebote in Passau prüfen",
-        "day": 1
       },
       {
         "text": "Landgänge und Märkte der Route beim Veranstalter erfragen",
@@ -81,12 +76,12 @@
     "task": "plan_patch",
     "model": "claude-sonnet-5-5",
     "status": "ok",
-    "inputTokens": 876,
-    "outputTokens": 670,
+    "inputTokens": 867,
+    "outputTokens": 595,
     "cacheCreationInputTokens": 0,
-    "cacheReadInputTokens": 8138,
-    "costMicroUsd": 10080,
-    "latencyMs": 13849
+    "cacheReadInputTokens": 8282,
+    "costMicroUsd": 9340,
+    "latencyMs": 4430
   },
-  "recordedAt": "2026-11-06T16:08:54.830Z"
+  "recordedAt": "2026-11-07T09:58:43.586Z"
 }

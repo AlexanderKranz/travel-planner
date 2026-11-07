@@ -15,21 +15,22 @@ import type { Locale } from "@/lib/domain/profile";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { ActionError } from "@/lib/domain/result";
 import { canEdit, type Access } from "@/lib/domain/sharing";
+import type { PlaceGroup } from "@/lib/domain/facts";
 import type { Trip } from "@/lib/domain/trip";
 import { applyEdit } from "@/lib/plan/edit";
 import { canonicalJson, planInputHash } from "@/lib/plan/hash";
 import type { AgeRefs } from "@/lib/group";
 import { tripGroupSource } from "@/lib/group-text";
 import { buildPlanInput, type GroupContext } from "@/lib/plan/input";
-import { allPlacesPending, activityPlacesPending, blockingScope } from "@/lib/plan/places-pending";
+import { allPlacesPending, activityPlacesPending, blockingScope, interestGroupsPending } from "@/lib/plan/places-pending";
 import { drivePicks } from "@/lib/plan/drive-picks";
 import { extendInput, resolveNeedPlaces, type NeedPlacesRequest } from "@/lib/plan/need-places";
 import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
 import { geoDestination } from "./facts/common";
 import { scheduleActivityWarm } from "./warm";
-import { jobsForActivityLookups, jobsForTripFacts } from "@/lib/places-retry";
+import { jobsForActivityLookups, jobsForInterests, jobsForTripFacts } from "@/lib/places-retry";
 import { enqueuePlaceRetries } from "./place-retries";
-import { PLACES_CACHE_ONLY } from "./facts/places";
+import { PLACES_CACHE_ONLY, getInterestGroups } from "./facts/places";
 import { applyPatch } from "@/lib/plan/patch";
 import { guardPatch } from "@/lib/plan/patch-guard";
 import { assemblePlan } from "@/lib/plan/assemble";
@@ -566,29 +567,43 @@ async function patchWithPlaces(
     props: {
       tripId: c.trip.id,
       types: need.types.join(","),
+      interests: (need.interests ?? []).join(","),
       restaurants: !!need.restaurants,
       near: !!need.restaurants?.near,
       cafes: !!need.cafes,
       budgetMs: Math.max(0, placesBudget),
     },
   });
-  const loaded = await loadActivityLookups(dest, req, factsCtx, Math.max(PLACES_CACHE_ONLY, placesBudget));
+  const budget = Math.max(PLACES_CACHE_ONLY, placesBudget);
+  const interests = need.interests ?? [];
+  // Interests (issue #151) go through the plan's own interest lookup (same cache keys, radius rules and logging),
+  // in parallel with the activity lookups. A free-text destination loads none (they end up in noSource).
+  const [loaded, interestGroups] = await Promise.all([
+    loadActivityLookups(dest, req, factsCtx, budget),
+    dest && interests.length
+      ? getInterestGroups(dest, interests, factsCtx, budget).catch(() => interests.map((interest): PlaceGroup => ({ interest, status: "error" })))
+      : Promise.resolve([]),
+  ]);
   // `error`, and `skipped` for lack of time (cache-only miss): retry after warming. A free-text destination passes.
-  const missing = activityPlacesPending(loaded, new Set(need.types));
+  const missing = [
+    ...activityPlacesPending(loaded, new Set(need.types)),
+    ...interestGroupsPending(interestGroups),
+  ];
   const tooLate = left() < SECOND_PATCH_MIN_MS;
   if (missing.length || tooLate) {
     if (missing.length) {
       // After the warm-up below, keep trying in the background (at most 30 min per search).
-      await enqueuePlaceRetries(
-        jobsForActivityLookups(
+      await enqueuePlaceRetries([
+        ...jobsForInterests(dest, interestGroups),
+        ...jobsForActivityLookups(
           dest && { lat: dest.lat, lon: dest.lon, kind: dest.kind },
           loaded,
           { restaurants: need.restaurants?.near, cafes: need.cafes?.near },
           { types: new Set(need.types) },
         ),
-      );
+      ]);
     }
-    if (missing.length) scheduleActivityWarm(dest, req, factsCtx, AFTER_LIMIT_MS - (Date.now() - a.started));
+    if (missing.length) scheduleActivityWarm(dest, req, factsCtx, AFTER_LIMIT_MS - (Date.now() - a.started), interests);
     await logEvent({
       event: "plan.places_pending",
       level: "warn",
@@ -600,7 +615,7 @@ async function patchWithPlaces(
   const blocked = await checkBudget(c, RESERVE_PATCH);
   if (blocked) return blocked;
   const country = c.trip.destination.kind === "freetext" ? null : c.trip.destination.countryCode;
-  const stored = extendInput(base.input, need, loaded, { lang: base.plan.locale as Locale, countryCode: country });
+  const stored = extendInput(base.input, need, { ...loaded, interests: interestGroups }, { lang: base.plan.locale as Locale, countryCode: country });
   const res = await patchPlan(
     { llm: stored.llm, plan: base.plan, index: stored.index, feedback: a.feedback, fixed: a.fixed, loaded: true, timeoutMs: left() - SECOND_PATCH_MARGIN_MS },
     a.ai.ctx,

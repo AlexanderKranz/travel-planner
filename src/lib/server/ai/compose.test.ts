@@ -167,6 +167,17 @@ describe("needPlaces (activities spec section 4)", () => {
     expect(normalizePatch(wire).needPlaces).toBeUndefined();
   });
 
+  it("interests with a place source share `types` on the wire (issue #151); interests without one never load", () => {
+    expect(normalizePatch({ ...wire, needPlaces: { types: [" golf ", "bowling", "golf"] } }).needPlaces).toEqual({ types: ["bowling"], interests: ["golf"] });
+    const none = normalizePatch({ ...wire, needPlaces: { types: ["christmas_markets", "nightlife", "constructor"] } });
+    expect(none.needPlaces).toBeUndefined();
+    expect(none.needPlacesUnusable).toBe(true);
+    const many = normalizePatch({ ...wire, needPlaces: { types: ["golf", "beach", "museums", "wellness", "history"] } }).needPlaces;
+    expect(many?.interests).toEqual(["golf", "beach", "museums", "wellness"]);
+    expect(PATCH_ADDENDUM).toMatch(/interests with places \(golf, beach, /);
+    expect(PATCH_ADDENDUM).not.toMatch(/christmas_markets/);
+  });
+
   it("cafés and kids (addendum A2/A4): kept only when set; a cafés-only request counts", () => {
     expect(normalizePatch({ ...wire, needPlaces: { cafes: { near: " a1 ", kids: true } } }).needPlaces).toEqual({ cafes: { near: "a1", kids: true } });
     expect(normalizePatch({ ...wire, needPlaces: { cafes: { near: " ", kids: false } } }).needPlaces).toEqual({ cafes: {} });

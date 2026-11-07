@@ -332,6 +332,8 @@ export const NeedPlaces = z.object({
     .optional(),
   /** Cafés (addendum A2); `kids` only when the request explicitly asks for child-friendly places (A4). */
   cafes: z.object({ near: z.string().optional(), kids: z.boolean().optional() }).optional(),
+  /** Purpose interests with a place source (issue #151, e.g. golf); code keeps only `source: "osm"` keys. */
+  interests: z.array(z.enum(INTEREST_KEYS)).optional(),
 });
 export type NeedPlaces = z.infer<typeof NeedPlaces>;
 export const LlmPatch = z.object({

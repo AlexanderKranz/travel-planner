@@ -3,7 +3,8 @@
  * Run: `npm run evals:live` with optional EVAL_FIXTURE=golf|cruise|wuerzburg and
  * EVAL_TASK=drive|tags|generate|needbase|patch|familypatch (comma-separated; default tags,generate,needbase,patch;
  * familypatch = the addendum-1 indoor playground request on the recorded cruise generation, uncoveredpatch = a
- * children's farm request (no catalogue type, A3); both cruise only). Usage goes to the ledger, not to ai_usage. Writes
+ * children's farm request (no catalogue type, A3); both cruise only; nogolfbase = the golf trip planned for a beach
+ * purpose, golfpatch = "find a golf course for day 2" on it (issue #151); both golf only). Usage goes to the ledger, not to ai_usage. Writes
  * evals/recorded/*.json. `drive` makes one live OpenRouteService matrix call (no Anthropic cost) for the places
  * of the current input and records it; run it after tags and before generate when the place selection changed.
  */
@@ -15,7 +16,7 @@ import { planInputHash, purposeTagsHash, canonicalJson } from "@/lib/plan/hash";
 import { composePlan, patchPlan } from "@/lib/server/ai/compose";
 import { tagPurpose } from "@/lib/server/ai/purpose-tags";
 import {
-  buildEvalInput, evalDrivePicks, evalPurpose, FAMILY_PATCH_FEEDBACK, FIXTURE_IDS, PATCH_FEEDBACK, UNCOVERED_PATCH_FEEDBACK, type DriveRecording, type FixtureId,
+  buildEvalInput, evalDrivePicks, evalPurpose, FAMILY_PATCH_FEEDBACK, FIXTURE_IDS, GOLF_PATCH_FEEDBACK, PATCH_FEEDBACK, UNCOVERED_PATCH_FEEDBACK, type DriveRecording, type FixtureId,
 } from "./build-input";
 import { fetchDriveMatrix } from "@/lib/integrations/openrouteservice";
 import { recordingPath } from "./recorded";
@@ -25,6 +26,9 @@ import {
   evaluateFamilyPatch,
   evaluateUncoveredPatch,
   evaluateGenerate,
+  evaluateGolfPatch,
+  buildNoGolfInput,
+  assembleNoGolfBase,
   evaluateNeedPatch,
   evaluatePatch,
   evaluateTags,
@@ -47,7 +51,7 @@ const pick = <T extends string>(env: string | undefined, all: readonly T[]): T[]
   env ? (env.split(",").map((s) => s.trim()).filter((s) => (all as readonly string[]).includes(s)) as T[]) : [...all];
 const fixtures = pick<FixtureId>(process.env.EVAL_FIXTURE, FIXTURE_IDS);
 const tasks = process.env.EVAL_TASK
-  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "needbase", "patch", "familypatch", "uncoveredpatch"])
+  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "needbase", "patch", "familypatch", "uncoveredpatch", "nogolfbase", "golfpatch"])
   : (["tags", "generate", "needbase", "patch"] as RecordedTask[]);
 
 const usd = (micro: number) => `$${(micro / 1e6).toFixed(4)}`;
@@ -194,6 +198,40 @@ describe.runIf(LIVE)("live evals", () => {
           console.log(`[${id}] uncovered reply: ${r.data.reply}\n${canonicalJson(r.data.days)}\nneedPlaces ${canonicalJson(r.data.needPlaces ?? null)}`);
           console.log(formatResults(`[${id}] uncovered patch`, evaluateUncoveredPatch(tags, llmPlan, r.data).results));
         } else console.log(`[${id}] uncovered patch failed: ${r.error}`);
+      }
+
+      // 3e. Issue #151: golf on a plan whose purpose lacks golf. The first call must ask for the golf interest; the
+      // second runs on the recorded Marbella golf lookup.
+      if (id === "golf") {
+        let baseLlm = readRecording<LlmPlan>(id, "nogolfbase")?.output ?? null;
+        if (tasks.includes("nogolfbase")) {
+          const built = buildNoGolfInput();
+          const r = await composePlan(built.stored.llm, ctxFor(id, "plan_generate", usage));
+          if (r.ok) {
+            baseLlm = r.data;
+            writeRecording(id, "nogolfbase", { promptVersion: PLAN_PROMPT_VERSION, model: MODEL_PLAN, inputHash: planInputHash(built.stored.llm), output: r.data, usage: r.usage, recordedAt });
+          } else console.log(`[${id}] nogolfbase failed: ${r.error}`);
+        }
+        if (tasks.includes("golfpatch") && baseLlm) {
+          const base = assembleNoGolfBase(baseLlm);
+          if (!base.plan) throw new Error(`nogolfbase plan does not assemble: ${base.reason}`);
+          const feedback = GOLF_PATCH_FEEDBACK;
+          const first = await patchPlan({ llm: base.built.stored.llm, plan: base.plan, index: base.built.stored.index, feedback }, ctxFor(id, "plan_patch", usage));
+          if (!first.ok) console.log(`[${id}] golf patch 1 failed: ${first.error}`);
+          else {
+            console.log(`[${id}] golf patch 1 needPlaces ${canonicalJson(first.data.needPlaces ?? null)}; reply: ${first.data.reply}`);
+            const extended = needPatchInput(id, base.built.stored, first.data);
+            const second = extended
+              ? await patchPlan({ llm: extended.llm, plan: base.plan, index: extended.index, feedback, loaded: true }, ctxFor(id, "plan_patch", usage))
+              : null;
+            if (second && !second.ok) console.log(`[${id}] golf patch 2 failed: ${second.error}`);
+            const rec: NeedPatchRecording = { first: first.data, second: second?.ok ? second.data : null, firstUsage: first.usage };
+            const inputHash = createHash("sha256").update(canonicalJson({ base: planInputHash(base.built.stored.llm), feedback })).digest("hex");
+            writeRecording(id, "golfpatch", { promptVersion: PLAN_PROMPT_VERSION, model: MODEL_PLAN, inputHash, output: rec, usage: second?.ok ? second.usage : first.usage, recordedAt });
+            if (second?.ok) console.log(`[${id}] golf reply: ${second.data.reply}\n${canonicalJson(second.data.days)}`);
+            console.log(formatResults(`[${id}] golf patch`, evaluateGolfPatch(baseLlm, rec).results));
+          }
+        }
       }
 
       const total = usage.reduce((s, u) => s + u.costMicroUsd, 0);

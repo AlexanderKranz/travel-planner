@@ -6,8 +6,10 @@ import { assemblePlan, type AssembleIssues } from "@/lib/plan/assemble";
 import { applyPatch } from "@/lib/plan/patch";
 import type { PlanInputStored } from "@/lib/plan/input";
 import { extendInput, resolveNeedPlaces } from "@/lib/plan/need-places";
-import { buildEvalInput, evalActivityLookups, FAMILY_PATCH_FEEDBACK, FIXTURES, PATCH_FEEDBACK, UNCOVERED_PATCH_FEEDBACK, type FixtureId } from "./build-input";
-import { uncoveredPatchChecks, familyPatchChecks, genericChecks, needPatchChecks, patchChecks, planChecks, rawRefs, tagChecks, type CheckResult } from "./checks";
+import {
+  buildEvalInput, evalActivityLookups, evalInterestGroups, FAMILY_PATCH_FEEDBACK, FIXTURES, GOLF_PATCH_FEEDBACK, NO_GOLF_TAGS, noGolfPurpose, PATCH_FEEDBACK, UNCOVERED_PATCH_FEEDBACK, type FixtureId,
+} from "./build-input";
+import { uncoveredPatchChecks, familyPatchChecks, genericChecks, golfNeedPatchChecks, needPatchChecks, patchChecks, planChecks, rawRefs, tagChecks, type CheckResult } from "./checks";
 
 export const RECORDED_GENERATED_AT = "2026-10-28T00:00:00.000Z";
 
@@ -99,7 +101,8 @@ export function needPatchInput(id: FixtureId, stored: PlanInputStored, first: Ll
   const req = resolveNeedPlaces(first.needPlaces, stored);
   if (!req) return null;
   const loaded = evalActivityLookups(id, req.groups);
-  return extendInput(stored, req, { activities: loaded.activities, restaurants: req.restaurants ? loaded.restaurants : undefined }, {
+  const interests = evalInterestGroups(id, req.interests ?? []);
+  return extendInput(stored, req, { activities: loaded.activities, restaurants: req.restaurants ? loaded.restaurants : undefined, interests }, {
     lang: FIXTURES[id].locale,
     countryCode: FIXTURES[id].trip.anchor.countryCode,
   });
@@ -164,6 +167,44 @@ export function evaluateUncoveredPatch(tags: PurposeTags | null, baseLlm: LlmPla
     ...uncoveredPatchChecks({ first: patch, next: res.plan, changedDays: res.changedDays }),
   ];
   return { plan: res.plan, results };
+}
+
+/** Issue #151 base: the golf fixture's trip planned for a purpose without golf (`nogolfbase` recording). */
+export function buildNoGolfInput() {
+  return buildEvalInput("golf", NO_GOLF_TAGS, noGolfPurpose());
+}
+
+export function assembleNoGolfBase(llm: LlmPlan) {
+  const built = buildNoGolfInput();
+  const res = assemblePlan({
+    llm,
+    stored: built.stored,
+    header: { ...built.header, generatedAt: RECORDED_GENERATED_AT, model: MODEL_PLAN },
+    digest: built.digest,
+    locale: FIXTURES.golf.locale,
+    flights: built.flights,
+  });
+  return { built, plan: res.ok ? res.plan : null, reason: res.ok ? undefined : res.reason };
+}
+
+/** Issue #151 patch eval: "find a golf course for day 2" loads the golf interest and patches day 2 with a ref. */
+export function evaluateGolfPatch(baseLlm: LlmPlan, rec: NeedPatchRecording) {
+  const base = assembleNoGolfBase(baseLlm);
+  if (!base.plan) return { plan: null, results: [{ name: "assemble base", ok: false, detail: base.reason }] as CheckResult[] };
+  const extended = needPatchInput("golf", base.built.stored, rec.first);
+  if (!extended || !rec.second) {
+    return { plan: null, results: [{ name: "needPlaces requested and second call made", ok: false, detail: JSON.stringify(rec.first.needPlaces ?? null) }] as CheckResult[] };
+  }
+  const scope = GOLF_PATCH_FEEDBACK.days;
+  const res = applyPatch({ base: base.plan, patch: rec.second, stored: extended, scope });
+  if (!res.ok) return { plan: null, results: [{ name: "applyPatch", ok: false, detail: res.reason }] as CheckResult[] };
+  const results: CheckResult[] = [
+    { name: "applyPatch", ok: true },
+    ...patchChecks({ id: "golf", base: base.plan, next: res.plan, changedDays: res.changedDays, scope }),
+    ...genericChecks({ plan: res.plan, stored: extended, rawRefs: rawRefs(rec.second.days), issues: res.issues }),
+    ...golfNeedPatchChecks({ first: rec.first, next: res.plan, stored: extended }),
+  ];
+  return { plan: res.plan, extended, results };
 }
 
 export const formatResults = (title: string, rs: CheckResult[]) =>

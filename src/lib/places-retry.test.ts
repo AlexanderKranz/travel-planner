@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "@/lib/domain/trip";
-import { jobsForActivityLookups, jobsForTripFacts, retryKey, RetrySpec, type RetryJob } from "./places-retry";
+import { jobsForActivityLookups, jobsForInterests, jobsForTripFacts, retryKey, RetrySpec, type RetryJob } from "./places-retry";
 
 const dest = { lat: 49.0123456, lon: 12.1012345, kind: "city" as const };
 const trip = {
@@ -97,5 +97,19 @@ describe("jobsForTripFacts", () => {
     const jobs = jobsForTripFacts(trip, { guided: { interests: ["museums"] } } as never, { places: { status: "unavailable", reason: "provider_error", source: "osm" } as never });
     expect(jobs.length).toBeGreaterThan(0);
     expect(new Set(jobs.map((j) => j.cache_key)).size).toBe(jobs.length);
+  });
+});
+
+describe("jobsForInterests (issue #151)", () => {
+  const geo = trip.destination as Parameters<typeof jobsForInterests>[0];
+  it("failed interests with a source only, with the plan's radius rule; none for a free-text destination", () => {
+    const jobs = jobsForInterests(geo, [
+      { interest: "golf", status: "error" },
+      { interest: "beach", status: "empty", fetchedAt: "x", stale: false },
+      { interest: "nightlife", status: "error" },
+    ]);
+    expect(jobs.map((j) => j.params)).toEqual([{ kind: "interest", interest: "golf", lat: 49.012, lon: 12.101, radiusKm: 40 }]);
+    expect(jobs[0].cache_key).toBe(jobsForTripFacts(trip, null, { places: okPlaces([{ interest: "golf", status: "error" }]) })[0].cache_key);
+    expect(jobsForInterests(null, [{ interest: "golf", status: "error" }])).toEqual([]);
   });
 });

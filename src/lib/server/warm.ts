@@ -8,6 +8,8 @@ import { budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage, type Role } fro
 import type { FactsCtx } from "@/lib/domain/facts";
 import { warmTripFacts } from "./facts";
 import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
+import { getInterestGroups } from "./facts/places";
+import type { InterestKey } from "@/lib/domain/interests";
 import type { GeoDestination } from "./facts/common";
 import { getPurpose } from "./purposes";
 import { tagAndSave, wantsTags } from "./purpose-tagging";
@@ -116,12 +118,17 @@ export function scheduleActivityWarm(
   req: ActivityLookupRequest,
   ctx: FactsCtx,
   budgetMs: number,
+  interests: readonly InterestKey[] = [],
 ): void {
   if (budgetMs <= 0) return;
   try {
     after(async () => {
       try {
-        await loadActivityLookups(dest, req, ctx, budgetMs);
+        // Interests (issue #151) in parallel with the activity lookups, like the plan's own facts.
+        await Promise.all([
+          loadActivityLookups(dest, req, ctx, budgetMs),
+          dest && interests.length ? getInterestGroups(dest, interests, ctx, budgetMs) : null,
+        ]);
       } catch {
         // warming is best effort
       }

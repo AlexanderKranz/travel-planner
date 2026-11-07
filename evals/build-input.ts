@@ -129,6 +129,25 @@ export const PATCH_FEEDBACK: Record<FixtureId, PlanFeedback> = {
  * indoor_play or swimming ref or the honest wording, never an invented name.
  */
 export const FAMILY_PATCH_FEEDBACK: PlanFeedback = { chips: [], days: [1], text: "Gib konkrete Beispiele für einen Indoorspielplatz an Tag 1, falls es regnet" };
+/**
+ * Issue #151: the golf fixture's trip with a purpose that lacks golf (a beach week, already tagged: no Haiku call),
+ * then the change request "find a golf course for day 2". Golf is not in the base input, so the first call must ask
+ * for the golf interest (needPlaces), which loads the recorded Marbella golf lookup.
+ */
+export const NO_GOLF_TAGS: PurposeTags = {
+  v: 2,
+  interests: ["beach"],
+  custom: [],
+  pace: "relaxed",
+  hard: [],
+  soft: ["quiet beaches"],
+  summary: "Relaxed beach week with a friend.",
+};
+export function noGolfPurpose(): TripPurpose {
+  return { ...evalPurpose("golf", NO_GOLF_TAGS)!, name: "Strandwoche", text: "Entspannte Strandwoche mit einem Freund.", constraints: [] };
+}
+export const GOLF_PATCH_FEEDBACK: PlanFeedback = { chips: [], days: [2], text: "Finde einen Golfplatz für Tag 2" };
+
 /** Addendum A3: a kind no catalogue type covers. The plan keeps it as an idea and says the sources do not cover it. */
 export const UNCOVERED_PATCH_FEEDBACK: PlanFeedback = { chips: [], days: [1], text: "Gib konkrete Beispiele für einen Kinderbauernhof an Tag 1" };
 
@@ -296,11 +315,11 @@ function flightsFact(id: FixtureId, trip: Trip, purpose: TripPurpose | null): Fa
   return { status: "ok", data, source: "aerodatabox", sourceUrl: "https://aerodatabox.com", fetchedAt: EVAL_FETCHED_AT, stale: false };
 }
 
-export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null): TripFacts {
+/** Recorded interest lookups as `getInterestGroups` returns them (also for a change request's interests). */
+export function evalInterestGroups(id: FixtureId, keys: readonly InterestOrGeneral[]): PlaceGroup[] {
   const a = FIXTURES[id].trip.anchor;
   const anchor = { lat: Number(a.lat.toFixed(3)), lon: Number(a.lon.toFixed(3)) };
-  const { keys, customInterests } = interestsForTrip(purpose?.guided, purpose?.tags);
-  const groups: PlaceGroup[] = keys.map((interest) => {
+  return keys.map((interest): PlaceGroup => {
     const src = sourceFor(interest);
     if (src.source === "none") return { interest, status: "no_source" };
     const raw = OSM[id][interest];
@@ -310,6 +329,12 @@ export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null
       ? { interest, status: "ok", candidates, fetchedAt: EVAL_FETCHED_AT, stale: false }
       : { interest, status: "empty", fetchedAt: EVAL_FETCHED_AT, stale: false };
   });
+}
+
+export function evalFacts(id: FixtureId, trip: Trip, purpose: TripPurpose | null): TripFacts {
+  const a = FIXTURES[id].trip.anchor;
+  const { keys, customInterests } = interestsForTrip(purpose?.guided, purpose?.tags);
+  const groups = evalInterestGroups(id, keys);
   const { basis, dates } = daylightDates(trip, EVAL_TODAY);
   const flights = flightsFact(id, trip, purpose);
   const acts = ACTIVITY_OSM[id] ? evalActivityLookups(id, groupsForWishes(purpose?.tags?.activities ?? [])) : null;
@@ -379,11 +404,14 @@ export function evalItems(id: FixtureId): SharedItem[] {
   }));
 }
 
-/** Everything the pipeline would build for this fixture, given (recorded or live) purpose tags. */
-export function buildEvalInput(id: FixtureId, tags: PurposeTags | null) {
+/**
+ * Everything the pipeline would build for this fixture, given (recorded or live) purpose tags. `purposeOverride`
+ * replaces the fixture's purpose (the golf-request eval runs on a Costa del Sol trip whose purpose lacks golf).
+ */
+export function buildEvalInput(id: FixtureId, tags: PurposeTags | null, purposeOverride?: TripPurpose) {
   const trip = evalTrip(id);
   const group = evalGroup(id);
-  const purpose = evalPurpose(id, tags);
+  const purpose = purposeOverride ?? evalPurpose(id, tags);
   const facts = evalFacts(id, trip, purpose);
   const built = buildPlanInput({
     drive: evalDrive(id),
