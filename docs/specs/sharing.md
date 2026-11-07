@@ -2,6 +2,7 @@
 
 Status: accepted (Alex, 2026-11-04). Decisions marked "(Alex)" were made by Alex; the others are architect calls, accepted with the spec. Answers of 2026-11-04 applied: no notification email, PDF also for read access, shared purposes in "Find destinations", transitive purpose visibility accepted, shares of a disabled owner hidden, CLAUDE.md rule 6 amended. Review of PR #123 applied (2026-11-04): share writes only through a guarded function, disabled owners hidden on every recipient path, access of trip-only purposes, atomic cap, deploy safety. All decisions are listed as **[D#]** in section 11.
 Decisions and reasons: `docs/adr/0010-sharing-trips-and-purposes.md`. Conventions of the earlier specs apply unchanged (private schema, explicit grants, `(select auth.uid())`, composite same-owner FKs, DB + Zod limits, snake_case DB / camelCase TS, `ActionResult`, `logEvent` metadata only).
+Follow-up: sharing travel groups, entry links ("That's me") and the owner's birthdate on shared trips are specified in `docs/specs/group-sharing.md` (draft, issue #129). Where it differs from this spec (D4, 2.5 group FK, 4.3 group block), it wins once accepted.
 
 Scope: an owner gives another existing user live access to one trip (with its plan, plan versions and items) or one trip purpose, read-only or read/write. The recipient finds it under "Shared with me", sees who shared it and the level, and can leave it. A shared purpose can be used for the recipient's own trips and destination searches.
 Not in scope: sharing travel groups (section 10), sharing with people who have no account, copies, notifications of any kind (no email, Alex), comments, live presence.
@@ -31,7 +32,7 @@ Not in scope: sharing travel groups (section 10), sharing with people who have n
 
 - Live access, not copies (Alex). Two levels `read` and `write` (Alex).
 - PDF for every access level (Alex): it only renders what the recipient can already see.
-- Group on a shared trip: the recipient sees the full group, names and birthdates, read-only (Alex). The `is_self` entry is the owner: shown as the owner's display name with the age on the travel date, not with the owner's profile birthdate **[D4]**. The groups list of the recipient never shows it.
+- Group on a shared trip: the recipient sees the full group, names and birthdates, read-only (Alex). The `is_self` entry is the owner: shown as the owner's display name with the age on the travel date, not with the owner's profile birthdate **[D4]**. The groups list of the recipient never shows it. **Being changed** by `docs/specs/group-sharing.md` [G4] (decision A, Alex; issue #129): the `is_self` entry shows the owner's profile birthdate too, and every member's birthdate is shown, not only the age.
 - Purpose on a shared trip: shown read-only on the trip (Alex). Editing it or picking it for own trips or searches needs a purpose share. A purpose share at either level allows picking it **[D5]**. A purpose reached only through a shared trip has access `read` and is not usable (3.1).
 - `purpose_id` on a shared trip is owner-only, like `group_id` (owner-only group: Alex; purpose and the trip's one-off group text: architect, as recommended in the brief). The purpose is the owner's data, and a write grantee could otherwise attach their own purpose to the owner's trip **[D3]**.
 - AI costs are charged to the acting user: their daily budget, their rate limits, their `ai_usage` rows (Alex). Already true in code, because every caller uses `session.userId`; the spec only keeps it that way.
@@ -125,7 +126,7 @@ Trigger names: `plans_00_inherit_owner`, `trip_items_00_inherit_owner`, `plan_ve
   - `update public.trips set purpose_id = null where owner_id = old.grantee_id and purpose_id = old.purpose_id`. Those trips get a new `updated_at`, so their plans show as outdated; plan versions keep their snapshot.
   - `update public.destination_searches set purpose_id = null where owner_id = old.grantee_id and purpose_id = old.purpose_id`. The list keeps its `purpose_name` snapshot and cards, exactly as when a purpose is deleted (find-destinations section 9, "Purpose edited or deleted").
 - A disabled purpose owner does not clear existing references (nothing changes on disable); the referenced purpose is simply not readable for the recipient while the owner is disabled, and loading a plan context or search treats it like a missing purpose.
-- `group_id` keeps its composite FK on both tables: groups are not shareable.
+- `group_id` keeps its composite FK on both tables: groups are not shareable. (Superseded by `docs/specs/group-sharing.md` 2.7 once accepted: plain FK plus `private.check_group_ref()`, the same pattern as purposes.)
 
 ### 2.6 Plans, versions, lock **[D11]**
 
@@ -313,7 +314,7 @@ Demo: unaffected (demo has no shares). Retention: unchanged (newest 10, 90 days)
 - Header badge as in the list plus "Leave" (`ConfirmDialog`: "You lose access. {name} keeps the trip."), then redirect to `/app`.
 - Read: plan view in read-only mode (the `readOnly` props from phase 5: no iterate chips, no edits, no open-item ticks, no regenerate), items `readOnly`, "Download PDF" shown, no share panel, no "Back to suggestions", no edit or delete buttons.
 - Write: everything except delete, share panel and "Back to suggestions". The trip form shows group and purpose as read-only text with the note "Only {name} can change the group and purpose." The plan view shows "by {name}" on versions created by someone else.
-- Group block: read-only list of all entries; the `is_self` entry shows the owner's name and age.
+- Group block: read-only list of all entries; the `is_self` entry shows the owner's name and age. (Being changed by `docs/specs/group-sharing.md` 4.4, issue #129: every member shows the birthdate next to the age, and the `is_self` entry the owner's profile birthdate.)
 - Purpose on a shared trip: name and text read-only; a link to the purpose only when it is also shared with the viewer.
 - Shared purpose page: "Find destinations" button as on own purposes (opens the search with this purpose preselected).
 
@@ -420,13 +421,15 @@ Amended (Alex approved, 2026-11-04; applied by the orchestrator):
 ## 10. Later: sharing groups (not in scope)
 Groups are not shareable yet (Alex). Open problem for that step: the person you share with may already be a hand-entered member of your group ("Ben" with a typed birthdate). Linking that entry to Ben's account would let his own birthdate replace the typed one and show him "you" in the group, but there is no safe way to match a typed name to an account: names are not unique, and matching by email needs an email the member entry does not have. A future spec should let the owner link an entry to a grantee explicitly, and let the grantee confirm it, instead of guessing.
 
+**Now specified in `docs/specs/group-sharing.md`** (draft, issue #129, ADR 0011). Alex chose a different answer to the open problem: the recipient links an entry to themselves ("That's me"), immediately and without owner confirmation; the owner sees it and can remove it. The link is a label only: the recipient's profile birthdate never replaces the typed one.
+
 ---
 
 ## 11. Decisions
 - **[D1] (Alex)** Scope: trips (with plan, versions, items) and trip purposes. Groups later. Live access, no copies. Two levels, `read` and `write`.
 - **[D2] (Alex)** Write allows editing trip fields, generating and patching the plan, items. The PDF is open to every access level (Alex, 2026-11-04). Owner only: delete, share and unshare, share links, the group. Recipient can leave. Shown under "Shared with me" with owner and level. Group on a shared trip fully visible (names, birthdates), read-only; the share box says so. Purpose on a shared trip read-only; editing or own use needs a purpose share. AI costs go to the acting user. Demo neither shares nor receives. Owner types an existing user's email, success only for existing accounts (enumeration accepted, rate-limited); admins pick from a list of all users except demo.
 - **[D3]** `purpose_id` on a shared trip is owner-only, like `group_id` (Alex); the trip's one-off group (`group_text`, `group_structure`) counts as "the group" and is owner-only too.
-- **[D4]** The `is_self` entry is shown to recipients as the owner's name and computed age, without the owner's profile birthdate: that birthdate belongs to the profile, not the group.
+- **[D4]** The `is_self` entry is shown to recipients as the owner's name and computed age, without the owner's profile birthdate: that birthdate belongs to the profile, not the group. **Reversed by `docs/specs/group-sharing.md` [G4]** (decision A, Alex; issue #129): recipients of shared trips and shared groups see the owner's display name with the profile birthdate on the `is_self` entry, and every member's birthdate.
 - **[D5]** A purpose share at either level allows picking it for own trips and searches; `write` also allows editing. Purpose references use a plain FK plus a trigger (same owner or shared with the row owner). Unshare and leave clear the reference. A purpose used on a shared trip is visible to the people that trip is shared with, whoever owns the purpose (accepted by Alex, 2026-11-04); it has access `read` and is not usable for their own trips or searches.
 - **[D6]** Plans on shared trips use the owner's birthdate, home airports and plan locale, so the hash and language do not depend on who presses the button.
 - **[D7]** Two access tables, `trip_shares` and `purpose_shares`, instead of one polymorphic table: real FKs with cascades on the resource and on both users, simple unique keys.
@@ -444,7 +447,7 @@ Groups are not shareable yet (Alex). Open problem for that step: the person you 
 - **[D19]** Share box inside the existing share panel and on the purpose page; badges and "Shared with me" sections on the existing lists.
 - **[D20]** New i18n namespace `sharing` (the `share` namespace stays for links).
 - **[D21] (Alex, 2026-11-04)** A shared purpose (read or write) can be used in "Find destinations". The list belongs to the searcher and stays owner-only; `destination_searches.purpose_id` gets the same plain FK and trigger as trips. Unshare or leave clears it, and the list keeps its label and cards, as after a purpose delete.
-- **[D22]** Tags of a shared purpose are read from the owner's purpose without a new Haiku call. Only an untagged purpose gets the existing once-per-purpose call, charged to the searcher and saved on the owner's purpose for every later user.
+- **[D22]** Tags of a shared purpose are read from the owner's purpose without a new Haiku call. Only an untagged purpose gets the existing once-per-purpose Haiku call, charged to the searcher and saved on the owner's purpose for every later user.
 - **[D23]** No cross-user list reuse: the search hash stays per searching owner, so a recipient never receives a list built for the purpose owner. "Save as purpose" links only own purposes.
 - **[D24] (orchestrator, after review of PR #123)** Grants are created and changed only by `public.share_resource`, a `security definer` function executable by `service_role` only and called by the server action after it authorized the session. Clients have no insert or update privilege on the share tables, so the email-only rule, the admin-only user list, the lookup limits and the events cannot be bypassed. Delete (unshare, leave) stays direct under RLS: it only removes access and needs no limit.
 - **[D25] (orchestrator, after review of PR #123)** The 10-grantee cap is enforced inside `share_resource` under a row lock on the resource (`for no key update`), after an existing grant is resolved, so changing a level works at capacity and parallel calls cannot exceed 10.
