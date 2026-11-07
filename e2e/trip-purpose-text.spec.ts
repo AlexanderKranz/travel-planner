@@ -58,11 +58,18 @@ test("shared trip shows the one-off purpose read-only", async ({ page, contextAs
   await submitTrip(page);
   const tripId = page.url().match(TRIP_URL) ? page.url().split("/").pop()! : "";
 
+  // Right after creating the trip the page may not be hydrated yet; a controlled input filled before that is reset.
+  await page.waitForLoadState("networkidle");
   const box = page.getByTestId("people-share");
-  await box.getByLabel("E-Mail-Adresse der Person").fill(emailOf(`b-${testInfo.project.name}`));
+  const bEmail = emailOf(`b-${testInfo.project.name}`);
   await box.getByText("Darf bearbeiten", { exact: true }).click();
+  await box.getByLabel("E-Mail-Adresse der Person").fill(bEmail);
+  await expect(box.getByLabel("E-Mail-Adresse der Person")).toHaveValue(bEmail);
   await box.getByRole("button", { name: "Teilen", exact: true }).click();
-  await expect(box.getByRole("status").filter({ hasText: "Geteilt." })).toBeVisible();
+  await expect(
+    box.getByRole("status").filter({ hasText: "Geteilt." }),
+    `alerts: ${await box.getByRole("alert").allInnerTexts()}`,
+  ).toBeVisible();
 
   const b = await (await contextAs("b")).newPage();
   await b.goto(`/de/app/trips/${tripId}`);
