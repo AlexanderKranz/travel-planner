@@ -22,16 +22,29 @@ const service = () => {
   return createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 };
 
-const groups = new Map<string, { id: string; owner: string }>();
+const previousBirthdate = new Map<string, string | null>();
+const nameOf = (project: string) => `Teilgruppe ${project}`;
+
+/** The spec's group is found by name, so a restarted worker (after a failure) still finds and removes it. */
+async function findGroup(project: string, ownerId?: string) {
+  const sb = service();
+  let q = sb.from("travel_groups").select("id, owner_id").eq("name", nameOf(project));
+  if (ownerId) q = q.eq("owner_id", ownerId);
+  const r = await q.limit(1).maybeSingle<{ id: string; owner_id: string }>();
+  return r.data ? { id: r.data.id, owner: r.data.owner_id } : null;
+}
 
 async function ensureGroup(project: string, seedGroupId: string) {
-  const known = groups.get(project);
+  const known = await findGroup(project);
   if (known) return known;
   const sb = service();
   const owner = (await sb.from("travel_groups").select("owner_id").eq("id", seedGroupId).single<{ owner_id: string }>()).data!.owner_id;
-  // The owner's profile birthdate is what recipients see on the is_self entry (decision A).
+  // The owner's profile birthdate is what recipients see on the is_self entry (decision A). The previous value is
+  // restored in afterAll; global-setup also resets it.
+  const prev = await sb.from("profiles").select("birthdate").eq("id", owner).single<{ birthdate: string | null }>();
+  previousBirthdate.set(owner, prev.data?.birthdate ?? null);
   await sb.from("profiles").update({ birthdate: "1980-05-05" }).eq("id", owner);
-  const g = await sb.from("travel_groups").insert({ owner_id: owner, name: `Teilgruppe ${project}`, trait_keys: [] }).select("id").single<{ id: string }>();
+  const g = await sb.from("travel_groups").insert({ owner_id: owner, name: nameOf(project), trait_keys: [] }).select("id").single<{ id: string }>();
   if (g.error) throw new Error(g.error.message);
   const e = await sb.from("group_entries").insert(
     [
@@ -42,9 +55,7 @@ async function ensureGroup(project: string, seedGroupId: string) {
     { defaultToNull: false },
   );
   if (e.error) throw new Error(e.error.message);
-  const made = { id: g.data!.id, owner };
-  groups.set(project, made);
-  return made;
+  return { id: g.data!.id, owner };
 }
 
 test.describe.configure({ mode: "serial" });
@@ -222,12 +233,11 @@ test("group: B uses the shared group for an own trip, claims there, A unshares",
   expect(gone?.status()).toBe(404);
 });
 
-test("group: cleanup", async ({ seed }, testInfo) => {
-  const g = groups.get(testInfo.project.name);
-  expect(seed.groupId).toBeTruthy();
+test.afterAll(async ({}, testInfo) => {
+  const g = await findGroup(testInfo.project.name);
   if (!g) return;
   const sb = service();
   await sb.from("travel_groups").delete().eq("id", g.id);
-  await sb.from("profiles").update({ birthdate: null }).eq("id", g.owner);
-  groups.delete(testInfo.project.name);
+  // Back to what it was; after a worker restart the map is empty and the seeded value (null, reset by global-setup) applies.
+  await sb.from("profiles").update({ birthdate: previousBirthdate.get(g.owner) ?? null }).eq("id", g.owner);
 });

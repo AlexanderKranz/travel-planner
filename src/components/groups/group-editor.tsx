@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { TextAreaField, TextField } from "@/components/ui/fields";
 import { errorAt, type Issue } from "@/components/ui/issues";
 import { ConflictNotice } from "@/components/sharing/conflict-notice";
+import { LinkErrorAlert } from "@/components/sharing/link-error";
 import { EntryLinkLine } from "@/components/sharing/entry-link";
 import { entryDeleteLocked, entryLinkView } from "@/components/sharing/entry-link-view";
 import { btnDanger, btnPrimary, btnSecondary, mutedCls } from "@/components/ui/styles";
@@ -21,7 +22,7 @@ import {
   type TravelGroupInput,
 } from "@/lib/domain";
 import { ownAgeRefs, type AgeRefs } from "@/lib/group";
-import { createGroup, deleteGroup, getGroup, updateGroup } from "@/lib/server/groups";
+import { createGroup, deleteGroup, getGroupForClient, updateGroup } from "@/lib/server/groups";
 import { AgePreview } from "./age-preview";
 import { draftToInput, emptyDraft, fromStored, hasTraitValue, parseToDrafts, type EntryDraft } from "./draft";
 import { GroupTextField } from "./group-text-field";
@@ -160,7 +161,7 @@ export function GroupEditor({ group, profileBirthdate, refs, ownerLabel = null }
         : await createGroup(input);
       if (!result.ok && result.error === "conflict" && group) {
         // Someone else saved first. Keep the draft; read their version without applying it and let the user choose.
-        const latest = await getGroup(group.id);
+        const latest = await getGroupForClient(group.id);
         setConflict({ latest: latest.ok ? latest.data : null });
         return;
       }
@@ -283,6 +284,7 @@ export function GroupEditor({ group, profileBirthdate, refs, ownerLabel = null }
             </h2>
             <p className="text-sm text-muted">{t("entriesHint")}</p>
             {claimable && <p className={`text-sm ${mutedCls}`}>{ts("link.hint")}</p>}
+            <LinkErrorAlert />
             {entries.length > 0 && (
               <ol className="flex flex-col gap-3">
                 {entries.map((draft, i) => (

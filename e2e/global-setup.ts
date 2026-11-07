@@ -63,7 +63,7 @@ async function ensureUser(sb: SupabaseClient, key: string, role: "user" | "admin
   // Seeded users have finished the getting-started guide; "s-<project>" has not (start.spec.ts).
   const p = await sb
     .from("profiles")
-    .update({ role, display_name: key, locale: "de", home_airports: [], onboarding_done_at: onboarded ? new Date().toISOString() : null })
+    .update({ role, display_name: key, locale: "de", home_airports: [], birthdate: null, onboarding_done_at: onboarded ? new Date().toISOString() : null })
     .eq("id", id);
   if (p.error) throw new Error(`profile: ${p.error.message}`);
   // Start from a clean slate on re-runs.

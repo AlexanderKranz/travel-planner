@@ -11,6 +11,7 @@ import {
   type TraitKey,
   type TravelGroup,
   type TravelGroupSummary,
+  withoutLinkedUserIds,
 } from "@/lib/domain/group";
 import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
 import { accessOf, type ShareAccess } from "@/lib/domain/sharing";
@@ -162,6 +163,14 @@ async function loadGroupParsed(session: Session, id: string): Promise<ActionResu
   return saved ? loadGroup(session, id) : res;
 }
 
+/** Results of the actions a client component calls: no other user's account id (the editor needs only `link`). */
+const forClient = (r: ActionResult<TravelGroup>): ActionResult<TravelGroup> => (r.ok ? { ok: true, data: withoutLinkedUserIds(r.data) } : r);
+
+/** `getGroup` for client components ("Load latest" in the editor): same group without linked account ids. */
+export async function getGroupForClient(id: string): Promise<ActionResult<TravelGroup>> {
+  return forClient(await getGroup(id));
+}
+
 /** Creates a group with its entries (array order = display order). */
 export async function createGroup(input: TravelGroupInput): Promise<ActionResult<TravelGroup>> {
   const session = await getUserSession();
@@ -201,7 +210,7 @@ export async function createGroup(input: TravelGroupInput): Promise<ActionResult
     userId: session.userId,
     props: { groupId: group.id, entries: parsed.data.entries.length },
   });
-  return loadGroupParsed(session, group.id);
+  return forClient(await loadGroupParsed(session, group.id));
 }
 
 /** The viewer's access to a group through RLS: `not_found` when invisible. */
@@ -301,7 +310,7 @@ export async function updateGroup(
     if (error.code === INSUFFICIENT_PRIVILEGE) return fail("forbidden");
     return fail(error.code === "P0002" ? "not_found" : error.code === "22023" ? "invalid" : "failed");
   }
-  return loadGroupParsed(session, id);
+  return forClient(await loadGroupParsed(session, id));
 }
 
 export async function deleteGroup(id: string): Promise<ActionResult> {

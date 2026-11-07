@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { LinkErrorAlert } from "@/components/sharing/link-error";
 import { GroupRows } from "@/components/sharing/group-rows";
 import { entryLinkView } from "@/components/sharing/entry-link-view";
 import { cardCls, mutedCls } from "@/components/ui/styles";
@@ -40,6 +41,7 @@ export function GroupView({
       {resolved.source === "entries" ? (
         <>
           {claimable && <p className={`text-sm ${mutedCls}`}>{ts("link.hint")}</p>}
+          <LinkErrorAlert />
           <GroupRows
             rows={resolved.rows}
             group={group}

@@ -4,6 +4,7 @@ import { cardCls, linkCls, mutedCls } from "@/components/ui/styles";
 import type { TripPurpose } from "@/lib/domain";
 import type { TravelGroup } from "@/lib/domain/group";
 import type { ResolvedGroup } from "@/lib/group-text";
+import { LinkErrorAlert } from "./link-error";
 import { entryLinkView } from "./entry-link-view";
 import { GroupRows } from "./group-rows";
 
@@ -62,6 +63,7 @@ export function SharedContext({
             />
           )}
           {hasClaim && <p className={`text-sm ${mutedCls}`}>{t("link.hint")}</p>}
+          <LinkErrorAlert />
           {group?.notes && <p className={`text-sm ${mutedCls}`}>{group.notes}</p>}
           {saved && saved.access !== "owner" && (
             <Link href={`/app/groups/${saved.id}`} className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>

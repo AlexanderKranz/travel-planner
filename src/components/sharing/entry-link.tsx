@@ -1,14 +1,13 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { btnSecondary } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
-import type { ActionError } from "@/lib/domain";
 import { claimGroupEntry, unclaimGroupEntry } from "@/lib/server/group-links";
 import type { EntryLinkView } from "./entry-link-view";
-import { shareErrorKey } from "./helpers";
+import { setLinkError } from "./link-error";
 
 /**
  * "That's me", "That's not me" or the owner's "Remove link" for one entry (docs/specs/group-sharing.md 4.2). Full width
@@ -30,13 +29,11 @@ export function EntryLinkAction({
 }) {
   const t = useTranslations("sharing");
   const router = useRouter();
-  const uid = useId();
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState<ActionError | null>(null);
   const [pending, start] = useTransition();
 
   function run() {
-    setError(null);
+    setLinkError(null);
     start(async () => {
       const r = action === "claim" ? await claimGroupEntry({ entryId }) : await unclaimGroupEntry({ entryId });
       setOpen(false);
@@ -44,7 +41,7 @@ export function EntryLinkAction({
         router.refresh();
         return;
       }
-      setError(r.error);
+      setLinkError(r.error);
       if (r.error === "already_linked" || r.error === "already_claimed") router.refresh();
     });
   }
@@ -62,11 +59,6 @@ export function EntryLinkAction({
       >
         {label}
       </button>
-      {error && (
-        <p id={`${uid}-err`} role="alert" className="text-sm text-danger-fg">
-          {t(`errors.${shareErrorKey(error)}`, { max: 0 })}
-        </p>
-      )}
       {open && (
         <ConfirmDialog
           open

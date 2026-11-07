@@ -7,6 +7,7 @@ import { PeopleBox } from "@/components/sharing/people-box";
 import { SharedHeader } from "@/components/sharing/shared-header";
 import { cardCls } from "@/components/ui/styles";
 import { berlinToday } from "@/lib/date";
+import { withoutLinkedUserIds } from "@/lib/domain/group";
 import { canEdit } from "@/lib/domain/sharing";
 import { getGroup } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
@@ -40,7 +41,7 @@ export default async function EditGroupPage({
       {share && <p className="text-sm text-muted">{ts("sharedGroupHint")}</p>}
       {!isOwner && !share && <p className="text-sm text-muted">{ts("groupViaTripHint")}</p>}
       {canEdit(g.access) ? (
-        <GroupEditor group={g} profileBirthdate={profile.birthdate} refs={refs} ownerLabel={ownerLabel} />
+        <GroupEditor group={withoutLinkedUserIds(g)} profileBirthdate={profile.birthdate} refs={refs} ownerLabel={ownerLabel} />
       ) : (
         <>
           <p role="note" className="rounded-lg border border-info-line bg-info-bg p-3 text-sm text-info-fg">
