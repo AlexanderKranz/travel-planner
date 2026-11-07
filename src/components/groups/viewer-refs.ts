@@ -16,7 +16,10 @@ export function viewerAgeRefs(
 ): AgeRefs {
   if (!group || group.access === "owner" || !group.owner) return ownAgeRefs(viewer.birthdate);
   const o = group.owner;
-  const ownerBirthdate = o.birthdate ?? (o.ageToday === null ? null : birthdateForAge(o.ageToday, today));
+  // The stand-in only without an `is_self` row: there it would be displayed as the owner's birthdate.
+  const hasSelfRow = group.entries.some((e) => e.kind === "member" && e.isSelf);
+  const ownerBirthdate =
+    o.birthdate ?? (hasSelfRow || o.ageToday === null ? null : birthdateForAge(o.ageToday, today));
   return ageRefs({
     tripOwnerId: viewer.id,
     tripOwnerBirthdate: viewer.birthdate,

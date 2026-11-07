@@ -46,4 +46,10 @@ describe("viewerAgeRefs", () => {
     const rows = resolveGroupAges([src(member("kid"))], TODAY, r);
     expect(rows[0].age).toEqual({ status: "known", age: 50, approximate: true });
   });
+
+  it("with an is_self row but no birthdate sent: no stand-in, so no computed birthdate can be displayed", () => {
+    const entries = [member("self", { isSelf: true } as Partial<StoredEntry>), member("kid")];
+    const r = viewerAgeRefs(shared(entries, null, 50), { id: "B", birthdate: null }, TODAY);
+    expect(r.self).toBeNull();
+  });
 });
