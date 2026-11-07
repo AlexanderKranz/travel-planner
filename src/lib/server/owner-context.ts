@@ -21,6 +21,36 @@ const Row = z.object({
   display_name: z.string().nullable(),
 });
 
+const BirthdateRow = z.object({
+  birthdate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable(),
+  display_name: z.string().nullable(),
+});
+
+/**
+ * The GROUP owner's profile birthdate and display name (docs/specs/group-sharing.md 3.3), for the `is_self` entry of a
+ * shared group (decision A) and for the anchors of a recipient's own trip (`ageRefs`). Same rules as `loadOwnerContext`:
+ * secret key, two explicit columns, called only AFTER the group was read through RLS as the viewer (so never for a
+ * disabled owner), and callers hand the client the birthdate only when the group has an `is_self` entry. Null when the
+ * profile cannot be read; callers then fail closed.
+ */
+export async function loadGroupOwnerBirthdate(
+  groupOwnerId: string,
+): Promise<{ birthdate: string | null; displayName: string | null } | null> {
+  try {
+    const { data, error } = await createSupabaseAdminClient()
+      .from("profiles")
+      .select("birthdate, display_name")
+      .eq("id", groupOwnerId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const row = BirthdateRow.safeParse(data);
+    if (!row.success) return null;
+    return { birthdate: row.data.birthdate, displayName: row.data.display_name };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Reads the owner's profile values with the SECRET KEY (RLS bypass is intended and the only way: `profiles` is
  * self-only). Rules: one explicit column list, never `*`; call it only AFTER the trip was read through RLS as the

@@ -1,6 +1,7 @@
 import type { TripPurpose } from "@/lib/domain/purpose";
 import { parseMaxFlightHours } from "@/lib/flights/constraint";
 import { isInterestKey } from "@/lib/facts/interest-sources";
+import type { AgeRefs } from "@/lib/group";
 import { resolveGroup, type GroupSource } from "@/lib/group-text";
 import { getAirport } from "@/lib/integrations/airports";
 import { FALLBACK_SUMMARY_CHARS } from "@/lib/plan/input";
@@ -118,7 +119,7 @@ export type IdeaInputSource = {
   /** Drive search: the start place instead of airports (`origins` is empty then). */
   drive?: { homeName: string; homeCell: string };
   group: GroupSource | null;
-  profileBirthdate: string | null;
+  ageRefs: AgeRefs;
   today: string;
   exclude?: readonly string[];
 };
@@ -128,7 +129,7 @@ export function buildIdeaInput(s: IdeaInputSource): IdeaInput {
   const from = clean(s.origins.flatMap((o) => (getAirport(o)?.city ? [getAirport(o)!.city] : [])));
   const fromIata = [...new Set(s.origins.filter((o) => getAirport(o)))];
   // Counts only: no names, ages or notes. A text-only group has no counts and is left out.
-  const summary = s.group ? resolveGroup(s.group, ageDateFor(months, s.today), s.profileBirthdate).summary : null;
+  const summary = s.group ? resolveGroup(s.group, ageDateFor(months, s.today), s.ageRefs).summary : null;
   const group =
     summary && summary.adults + summary.children + summary.toddlers > 0
       ? { adults: summary.adults, children: summary.children, toddlers: summary.toddlers }

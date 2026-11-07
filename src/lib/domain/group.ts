@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BirthDate, optionalText } from "./common";
+import type { Access, Person } from "./sharing";
 import { GROUP_TEXT_MAX, type GroupParse } from "./group-text";
 
 export const AgeMode = z.enum(["exact", "approx", "relativeToMe"]);
@@ -99,8 +100,22 @@ export const TravelGroupInput = z
 export type TravelGroupInput = z.input<typeof TravelGroupInput>;
 export type TravelGroupParsed = z.output<typeof TravelGroupInput>;
 
+/** How the VIEWER sees a linked entry (spec group-sharing 1.5): their own, a named linked person (owner view), or someone linked. */
+export type EntryLink = { kind: "me" } | { kind: "person"; name: string } | { kind: "account" };
+
 /** Entry as read from the DB (ordered, with server-set ageAsOf). */
-export type StoredEntry = GroupEntry & { id: string; position: number; ageAsOf?: string };
+export type StoredEntry = GroupEntry & {
+  id: string;
+  position: number;
+  ageAsOf?: string;
+  /** Server use (age anchors); not secret, readable through RLS anyway. */
+  linkedUserId?: string;
+  /** Display, per viewer; the owner's is_self entry gets { kind: "me" } for the owner only. */
+  link?: EntryLink;
+};
+
+/** The group owner as recipients see them (decision A). `birthdate` only when the group has an is_self entry. */
+export type GroupOwner = { id: string; name: string | null; birthdate: string | null; ageToday: number | null };
 
 export type TravelGroup = {
   id: string;
@@ -113,6 +128,15 @@ export type TravelGroup = {
   createdAt: string;
   updatedAt: string;
   entries: StoredEntry[];
+  ownerId: string;
+  /** The viewer's access: owner, the level of their group share, or `read` when seen only through a shared trip. */
+  access: Access;
+  /** Pickable for own trips and searches: own, or a group share at either level (not a group seen via a shared trip). */
+  usable: boolean;
+  /** null for the owner. */
+  owner: GroupOwner | null;
+  /** The viewer's own entry: is_self for the owner, the claimed entry for a recipient. */
+  myEntryId: string | null;
 };
 
 export type TravelGroupSummary = {
@@ -122,4 +146,23 @@ export type TravelGroupSummary = {
   description?: string;
   entryCount: number;
   updatedAt: string;
+  access: Access;
+  sharedBy: Person | null;
+  /** Grants on an own group (0 for recipients). */
+  shareCount: number;
 };
+
+export const EntryLinkInput = z.object({ entryId: z.string().uuid() });
+export type EntryLinkInput = z.input<typeof EntryLinkInput>;
+
+/** "That's me" is offered on an entry: viewer is not the owner, has no claim in this group, entry is a free named member. */
+export function canClaim(group: Pick<TravelGroup, "access" | "myEntryId">, entry: StoredEntry): boolean {
+  return (
+    group.access !== "owner" &&
+    group.myEntryId === null &&
+    entry.kind === "member" &&
+    !entry.isSelf &&
+    !entry.linkedUserId &&
+    !entry.link
+  );
+}

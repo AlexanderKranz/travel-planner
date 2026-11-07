@@ -18,6 +18,7 @@ import { interestKeysOf } from "@/lib/discover/verifiability";
 import { driveHintRadiusKm, homeCell } from "@/lib/drive/estimate";
 import { maxBlockMinutes } from "@/lib/flights/constraint";
 import { flightRadiusKm, MAX_ORIGINS } from "@/lib/flights/estimate";
+import { ageRefs, ownAgeRefs } from "@/lib/group";
 import type { GroupSource } from "@/lib/group-text";
 import { placeLabel } from "@/lib/geocode-client";
 import { isKnownIata } from "@/lib/integrations/airports";
@@ -29,6 +30,7 @@ import { tagPurpose } from "../ai/purpose-tags";
 import { logEvent } from "../events";
 import { orsRequestsLeft } from "../facts/ors-quota";
 import { getGroup } from "../groups";
+import { loadGroupOwnerBirthdate } from "../owner-context";
 import { getProfile } from "../profile";
 import { tagAndSave, wantsTags } from "../purpose-tagging";
 import { getPurpose } from "../purposes";
@@ -273,10 +275,30 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
     purpose = oneOffPurpose(typed, null);
   }
   let group: GroupSource | null = null;
+  let refs = ownAgeRefs(c.birthdate);
   if (input.groupId) {
     const g = await getGroup(input.groupId);
     if (!g.ok) return err(g.error === "not_found" || g.error === "invalid" ? "not_found" : "failed");
+    // Readable is not enough: a group seen only through a shared trip is not usable (group-sharing spec 3.3), the same
+    // answer as the database trigger gives for the row.
+    if (!g.data.usable) return err("not_found");
     group = g.data;
+    // T = the searcher. A group of someone else: its owner's birthdate is the anchor of `is_self` and, until the searcher
+    // marked an entry as themselves, of "about my age" (secret key, after the RLS read above; fails closed).
+    const groupOwnerId = g.data.ownerId !== c.userId ? g.data.ownerId : null;
+    let groupOwnerBirthdate = c.birthdate;
+    if (groupOwnerId) {
+      const go = await loadGroupOwnerBirthdate(groupOwnerId);
+      if (!go) return err("failed");
+      groupOwnerBirthdate = go.birthdate;
+    }
+    refs = ageRefs({
+      tripOwnerId: c.userId,
+      tripOwnerBirthdate: c.birthdate,
+      groupOwnerId,
+      groupOwnerBirthdate,
+      entries: g.data.entries,
+    });
   }
   const params = resolveSearchParams(input, purpose, c.homeAirports);
   if (!params.ok) return err(params.error);
@@ -301,7 +323,7 @@ export async function runDestinationSearch(raw: unknown): Promise<SearchResult> 
       radiusKm: radiusKm ?? undefined,
       ...(start ? { drive: { homeName: start.name, homeCell: homeCell(start) } } : {}),
       group,
-      profileBirthdate: c.birthdate,
+      ageRefs: refs,
       today: berlinToday(),
     });
     return { input: ideaInput, hash: ideasInputHash(ideaInput) };

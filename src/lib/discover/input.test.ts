@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { GroupSource } from "@/lib/group-text";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import { IDEAS_PROMPT_VERSION, MODEL_IDEAS } from "@/lib/domain/ai";
+import { ownAgeRefs } from "@/lib/group";
 import { ideasInputHash } from "./hash";
 import { ageDateFor, buildIdeaInput, mentionsFlight, monthStartOnOrAfter, withoutFlightSentences, type IdeaInputSource } from "./input";
 
@@ -28,7 +29,7 @@ const src = (o: Partial<IdeaInputSource> = {}): IdeaInputSource => ({
   origins: ["FRA"],
   radiusKm: 2128,
   group: null,
-  profileBirthdate: null,
+  ageRefs: ownAgeRefs(null),
   today: "2026-11-01",
   ...o,
 });

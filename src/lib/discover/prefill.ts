@@ -26,6 +26,11 @@ export function buildTripDraft(
    * does not end in `not_found`. Omitted = no check (callers without the list).
    */
   usablePurposeIds?: readonly string[],
+  /**
+   * Ids of the groups the user may still use (own and shared with them). A group that is no longer in the list (unshared
+   * or left meanwhile) gives an empty `groupId`, as for purposes. Omitted = no check.
+   */
+  usableGroupIds?: readonly string[],
 ): TripDraft {
   const base = emptyTripDraft();
   const profileFirstTwo = profileHomeAirports.slice(0, 2);
@@ -45,7 +50,7 @@ export function buildTripDraft(
       radiusKm: null,
     },
     timing: search.months.length > 0 ? { mode: "months", startDate: "", months: [...search.months] } : base.timing,
-    groupId: search.groupId ?? "",
+    groupId: search.groupId && (!usableGroupIds || usableGroupIds.includes(search.groupId)) ? search.groupId : "",
     purposeId: search.purposeId && (!usablePurposeIds || usablePurposeIds.includes(search.purposeId)) ? search.purposeId : "",
     ...(unsavedOneOff ? { notes: search.purposeText! } : {}),
     wantsFlights: hasOrigins,

@@ -8,6 +8,7 @@ import type { Trip } from "@/lib/domain/trip";
 import { daylightFor } from "@/lib/facts/daylight";
 import { canonicalJson, planInputHash } from "./hash";
 import { GENERAL_CAP, MAX_PLACES, buildPlanInput, localHhmm, selectPlaces, type GroupContext } from "./input";
+import { ageRefs, ownAgeRefs } from "@/lib/group";
 import { groupPartySize, resolveGroup, tripGroupSource } from "@/lib/group-text";
 
 const T = "2026-10-01T00:00:00.000Z";
@@ -33,6 +34,7 @@ const trip = (over: Partial<Trip> = {}): Trip => ({
 });
 
 const group: TravelGroup = {
+  ownerId: "o1", access: "owner", usable: true, owner: null, myEntryId: null,
   id: "g1", name: "Familie", notes: "Buggy", traitKeys: ["needsNap"], createdAt: T, updatedAt: "2026-10-02T00:00:00.000Z",
   entries: [
     { id: "e1", position: 0, kind: "member", isSelf: true, traits: {} },
@@ -66,7 +68,7 @@ const facts = (t: Trip, groups: PlaceGroup[]): TripFacts => ({
 });
 
 const build = (t = trip(), p: TripPurpose | null = purpose(), groups = [okGroup("golf", 30), okGroup("general", 30, 100), { interest: "christmas_markets", status: "no_source" } as PlaceGroup]) =>
-  buildPlanInput({ trip: t, group, purpose: p, profileBirthdate: "1980-05-01", facts: facts(t, groups), locale: "de", today: "2026-10-28" });
+  buildPlanInput({ trip: t, group, purpose: p, ageRefs: ownAgeRefs("1980-05-01"), facts: facts(t, groups), locale: "de", today: "2026-10-28" });
 
 describe("buildPlanInput", () => {
   it("sends ages, labels and traits but no names or birthdates", () => {
@@ -126,12 +128,12 @@ describe("buildPlanInput", () => {
     const t = trip();
     const groups = [okGroup("golf", 3)];
     const drive = { byKey: { "way/1000": { min: 12, km: 9.4 }, "way/1002": { min: 41, km: 38 } }, fetchedAt: "2026-10-28T09:00:00.000Z" };
-    const { stored } = buildPlanInput({ trip: t, group: null, purpose: purpose(), profileBirthdate: null, facts: facts(t, groups), locale: "de", today: "2026-10-28", drive });
+    const { stored } = buildPlanInput({ trip: t, group: null, purpose: purpose(), ageRefs: ownAgeRefs(null), facts: facts(t, groups), locale: "de", today: "2026-10-28", drive });
     expect(stored.llm.places.map((p) => p.min)).toEqual([12, undefined, 41]);
     expect(stored.index.p1.place.drive).toEqual({ min: 12, km: 9.4, source: "openrouteservice", fetchedAt: "2026-10-28T09:00:00.000Z" });
     expect(stored.index.p2.place.drive).toBeUndefined();
     expect(canonicalJson(stored.llm)).not.toMatch(/openrouteservice|09:00:00/);
-    const without = buildPlanInput({ trip: t, group: null, purpose: purpose(), profileBirthdate: null, facts: facts(t, groups), locale: "de", today: "2026-10-28" });
+    const without = buildPlanInput({ trip: t, group: null, purpose: purpose(), ageRefs: ownAgeRefs(null), facts: facts(t, groups), locale: "de", today: "2026-10-28" });
     expect(without.stored.llm.places.every((p) => p.min === undefined)).toBe(true);
   });
 
@@ -182,7 +184,7 @@ describe("buildPlanInput", () => {
 
   it("works with nothing but a freetext destination", () => {
     const t = trip({ destination: { kind: "freetext", name: "Irgendwo", countryCode: null }, timing: { kind: "none" }, notes: undefined });
-    const r = buildPlanInput({ trip: t, group: null, purpose: null, profileBirthdate: null, facts: { ...facts(t, []), places: { status: "unavailable", reason: "no_location" }, daylight: { status: "unavailable", reason: "no_location" }, country: { status: "unavailable", reason: "no_country" } }, locale: "en", today: "2026-10-28" });
+    const r = buildPlanInput({ trip: t, group: null, purpose: null, ageRefs: ownAgeRefs(null), facts: { ...facts(t, []), places: { status: "unavailable", reason: "no_location" }, daylight: { status: "unavailable", reason: "no_location" }, country: { status: "unavailable", reason: "no_country" } }, locale: "en", today: "2026-10-28" });
     expect(r.stored.llm).toMatchObject({ lang: "en", trip: { dest: "Irgendwo", kind: "freetext", days: 3, flights: true }, places: [], noSource: ["general"] });
     expect(r.header.group).toBeNull();
   });
@@ -201,7 +203,7 @@ describe("fixed items in the input (plan-4)", () => {
   });
   const withFlights = (t: Trip, items: Parameters<typeof buildPlanInput>[0]["items"]) =>
     buildPlanInput({
-      trip: t, group, purpose: purpose(), profileBirthdate: null,
+      trip: t, group, purpose: purpose(), ageRefs: ownAgeRefs(null),
       facts: { ...facts(t, [okGroup("golf", 5)]), flights: proxyFlights as Fact<FlightsFacts> },
       locale: "de", today: "2026-10-28", items,
     });
@@ -248,7 +250,7 @@ describe("group from text [group-text D5]", () => {
   });
   const run = (g: GroupContext | null, birth: string | null = "1980-05-01") => {
     const t = trip({ groupId: null });
-    return buildPlanInput({ trip: t, group: g, purpose: null, profileBirthdate: birth, facts: facts(t, []), locale: "de", today: "2026-10-28" });
+    return buildPlanInput({ trip: t, group: g, purpose: null, ageRefs: ownAgeRefs(birth), facts: facts(t, []), locale: "de", today: "2026-10-28" });
   };
 
   it("parse: relative ages computed on the travel date, summary and header badges agree", () => {
@@ -312,7 +314,7 @@ describe("cafés and kids tags in the built input (addendum 1)", () => {
   const run = (kids: boolean) =>
     buildPlanInput({
       trip: trip(), group, purpose: purpose({ tags: { ...tags, cuisine: { local: false, include: [], exclude: [], ...(kids ? { kids: true } : {}) } } }),
-      profileBirthdate: null, facts: { ...facts(trip(), []), ...extra }, locale: "de", today: "2026-10-28",
+      ageRefs: ownAgeRefs(null), facts: { ...facts(trip(), []), ...extra }, locale: "de", today: "2026-10-28",
     }).stored;
   it("tags.cuisine.kids reaches cafes.kids, ask.kids and k; tagged places first", () => {
     const s = run(true);
@@ -328,5 +330,55 @@ describe("cafés and kids tags in the built input (addendum 1)", () => {
     expect(JSON.stringify(s.llm.cafes)).not.toContain('"k"');
     expect(JSON.stringify(s.llm.restaurants)).not.toContain('"k"');
     expect(s.llm.restaurants!.ask).toBeUndefined();
+  });
+});
+
+describe("the 'self' label follows the trip owner (group-sharing spec 1.4, 3.1)", () => {
+  const OWNER_BIRTH = "1960-05-01"; // group owner G: 77 on the trip date
+  const ENTRY_BIRTH = "1990-05-01"; // typed birthdate of entry "B": 47
+  const sharedGroup: GroupContext = {
+    updatedAt: T,
+    ownerId: "g-owner",
+    traitKeys: [],
+    entries: [
+      { id: "e-g", kind: "member", isSelf: true, traits: {}, position: 0 },
+      { id: "e-b", kind: "member", isSelf: false, name: "Bea", birthdate: ENTRY_BIRTH, linkedUserId: "t-owner", traits: {}, position: 1 },
+      { id: "e-c", kind: "member", isSelf: false, name: "Cy", age: { ageMode: "relativeToMe" }, traits: {}, position: 2 },
+    ],
+  };
+  const run = (tripOwnerId: string, linked: boolean) => {
+    const t = trip({ groupId: "g1" });
+    const entries = linked ? sharedGroup.entries : sharedGroup.entries.map((e) => ({ ...e, linkedUserId: undefined }));
+    const refs = ageRefs({ tripOwnerId, tripOwnerBirthdate: "1999-01-01", groupOwnerId: "g-owner", groupOwnerBirthdate: OWNER_BIRTH, entries });
+    return buildPlanInput({ trip: t, group: sharedGroup, purpose: null, ageRefs: refs, facts: facts(t, []), locale: "de", today: "2026-10-28" });
+  };
+
+  it("T linked to entry B: 'self' on B (no label of its own), the is_self row is a plain traveller with G's age", () => {
+    const { stored } = run("t-owner", true);
+    expect(stored.llm.group!.entries).toEqual([
+      { n: 1, age: 77 }, // G's is_self row, no label
+      { n: 1, age: 47, label: "self" }, // entry B
+      { n: 1, age: 47, approx: true }, // Cy: "about my age" = entry B's typed age
+    ]);
+  });
+
+  it("T not linked: no 'self' anywhere, 'about my age' is the group owner's", () => {
+    const { stored } = run("t-other", false);
+    expect(stored.llm.group!.entries).toEqual([{ n: 1, age: 77 }, { n: 1, age: 47 }, { n: 1, age: 77, approx: true }]);
+    expect(canonicalJson(stored)).not.toMatch(/self/);
+  });
+
+  it("T = G: byte-identical to today's single-birthdate input (existing hashes do not move)", () => {
+    const t = trip({ groupId: "g1" });
+    const mine = { ...sharedGroup, ownerId: "t-owner" };
+    const refs = ageRefs({ tripOwnerId: "t-owner", tripOwnerBirthdate: OWNER_BIRTH, groupOwnerId: "t-owner", groupOwnerBirthdate: OWNER_BIRTH, entries: mine.entries });
+    const now = buildPlanInput({ trip: t, group: mine, purpose: null, ageRefs: refs, facts: facts(t, []), locale: "de", today: "2026-10-28" });
+    const before = buildPlanInput({ trip: t, group: mine, purpose: null, ageRefs: ownAgeRefs(OWNER_BIRTH), facts: facts(t, []), locale: "de", today: "2026-10-28" });
+    expect(planInputHash(now.stored.llm)).toBe(planInputHash(before.stored.llm));
+    expect(now.stored.llm.group!.entries[0]).toEqual({ n: 1, age: 77, label: "self" });
+  });
+
+  it("the actor does not enter: the same rows give the same hash", () => {
+    expect(planInputHash(run("t-owner", true).stored.llm)).toBe(planInputHash(run("t-owner", true).stored.llm));
   });
 });

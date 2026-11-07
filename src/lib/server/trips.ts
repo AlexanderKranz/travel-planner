@@ -32,7 +32,7 @@ import {
 } from "./trip-mapping";
 
 const Id = z.string().uuid();
-const FK_VIOLATION = "23503"; // groupId of another user (composite FK) or a purpose that is not usable (trigger)
+const FK_VIOLATION = "23503"; // a group or purpose that is not usable (usable-by triggers)
 const INSUFFICIENT_PRIVILEGE = "42501"; // owner-only columns (trigger trips_owner_only) or a policy refusal
 
 type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;

@@ -16,6 +16,7 @@ import { Locale, type FactsCtx } from "@/lib/domain";
 import { ageReferenceDate } from "@/lib/facts/trip-timing";
 import { groupPartySize, resolveGroup, tripGroupSource } from "@/lib/group-text";
 import { getGroupOnce, getPlanStateOnce, getProfileOnce, getPurposeOnce, getTripOnce } from "@/lib/server/request-reads";
+import { loadAgeRefs } from "@/lib/server/age-refs";
 import { getUserSession } from "@/lib/server/session";
 import { getTripOwnerContext, listGrants, listSharedWithMe } from "@/lib/server/sharing";
 import type { Person } from "@/lib/domain/sharing";
@@ -68,6 +69,7 @@ export default async function TripDetailPage({
   // share row for "Leave".
   let owner: Person | null = null;
   let ownerAge: number | null = null;
+  let sharedOwnerBirthdate: string | null = null;
   let shareId: string | null = null;
   if (!isOwner) {
     const [ctxRes, incoming] = await Promise.all([getTripOwnerContext(trip.id), listSharedWithMe()]);
@@ -75,8 +77,12 @@ export default async function TripDetailPage({
     shareId = mine?.id ?? null;
     owner = mine?.owner ?? (ctxRes.ok ? ctxRes.data.owner : null);
     ownerAge = ctxRes.ok ? ctxRes.data.ownerAge : null;
+    sharedOwnerBirthdate = ctxRes.ok ? ctxRes.data.ownerBirthdate : null;
   }
-  const ownerBirthdate = isOwner ? profile.birthdate : ownerAge === null ? null : birthdateForAge(ownerAge, ageDate);
+  // The real birthdate when the owner's group shows it on its is_self entry (decision A); else the age stand-in (PR 3 replaces both).
+  const ownerBirthdate = isOwner
+    ? profile.birthdate
+    : (sharedOwnerBirthdate ?? (ownerAge === null ? null : birthdateForAge(ownerAge, ageDate)));
   // A group or purpose that vanished (race) simply shows as "none". One resolution (saved entries > Haiku parse >
   // text only) feeds the strip, the party size and the flight passengers.
   const source = groupRes?.ok
@@ -84,7 +90,13 @@ export default async function TripDetailPage({
     : trip.groupId
       ? null
       : tripGroupSource(trip);
-  const resolved = source ? resolveGroup(source, ageDate, ownerBirthdate) : null;
+  // The same anchors as the plan input (group-sharing 1.4): a group of someone else ages its is_self row from the group
+  // owner's birthdate, "about my age" follows the trip owner's linked entry. Unreadable owner profile: null
+  // (unknown ages, never the trip owner's birthdate on the group owner's row; fail closed like the pipeline).
+  const refs = groupRes?.ok
+    ? ((await loadAgeRefs({ tripOwnerId: trip.ownerId, tripOwnerBirthdate: ownerBirthdate, group: groupRes.data })) ?? null)
+    : ownerBirthdate;
+  const resolved = source ? resolveGroup(source, ageDate, refs) : null;
   const group: ContextGroup | null = resolved
     ? {
         id: groupRes?.ok ? groupRes.data.id : undefined,

@@ -44,3 +44,12 @@ export function sharedPurposeOptions(shares: IncomingShare[]): SharedPurposeOpti
       : [],
   );
 }
+
+export type SharedGroupOption = { id: string; name: string; ownerName: string };
+
+/** Groups shared with me (either level) that can be picked for own trips and searches, with the owner's name. */
+export function sharedGroupOptions(shares: IncomingShare[]): SharedGroupOption[] {
+  return shares.flatMap((s) =>
+    s.resource === "group" && s.group ? [{ id: s.group.id, name: s.group.name, ownerName: personLabel(s.owner) }] : [],
+  );
+}

@@ -219,6 +219,17 @@ describe("updateTrip / getTrip / deleteTrip / listTrips", () => {
     expect(h.afterFns).toHaveLength(1);
   });
 
+  it("updateTrip: 23503 from an unusable group_id (check_group_ref) is not_found, other errors failed", async () => {
+    h.results["trips.select"] = { data: row };
+    h.results["trips.update"] = { error: { code: "23503" } };
+    const unusable = "33333333-3333-4333-8333-333333333333";
+    expect(await updateTrip(row.id, { ...input, groupId: unusable })).toEqual({ ok: false, error: "not_found" });
+    const sent = h.ops.find((o) => o.table === "trips" && o.op === "update")!.payload as Record<string, unknown>;
+    expect(sent.group_id).toBe(unusable); // the group reference reached the update the trigger rejects
+    h.results["trips.update"] = { error: { code: "XX000" } };
+    expect(await updateTrip(row.id, { ...input, groupId: unusable })).toEqual({ ok: false, error: "failed" });
+  });
+
   it("rejects non-uuid ids", async () => {
     expect(await getTrip("nope")).toMatchObject({ ok: false, error: "invalid" });
     expect(await deleteTrip("nope")).toMatchObject({ ok: false, error: "invalid" });

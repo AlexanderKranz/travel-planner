@@ -7,6 +7,7 @@ import type { Trip } from "@/lib/domain/trip";
 import { BATH_CATEGORIES, isOpenAirBath, type ActivityGroup } from "@/lib/facts/activity-types";
 import { tripRadiusKm, interestsForTrip, isInterestKey } from "@/lib/facts/interest-sources";
 import { addDays, ageReferenceDate, selectedMonths } from "@/lib/facts/trip-timing";
+import type { AgeRefs } from "@/lib/group";
 import { resolveGroup, type GroupSource } from "@/lib/group-text";
 import { gatewayAirports, nearestGatewayKm } from "./airports";
 import { fixedItemsOf, fixedSlots, type FixedSlot } from "./fixed-items";
@@ -113,13 +114,19 @@ export function interestPlaceGroup(c: Pick<PlaceCandidate, "category" | "name" |
  * What the plan needs to know about the travellers: a saved group (TravelGroup fits), or the one-off group of a trip
  * (no saved entries of its own, only text, the user's corrected structure as `entries`, and the Haiku parse).
  */
-export type GroupContext = GroupSource & { updatedAt: string };
+export type GroupContext = GroupSource & {
+  updatedAt: string;
+  /** Owner of a saved group (absent for the one-off group, which is always the trip owner's). */
+  ownerId?: string;
+  /** Saved entries carry the user they are linked to (age anchors, docs/specs/group-sharing.md 1.4). */
+  entries: { linkedUserId?: string }[];
+};
 
 export type BuildPlanInputArgs = {
   trip: Trip;
   group: GroupContext | null;
   purpose: TripPurpose | null;
-  profileBirthdate: string | null;
+  ageRefs: AgeRefs;
   facts: TripFacts;
   locale: Locale;
   today: string;
@@ -201,16 +208,16 @@ export function localHhmm(instant: string | null, timeZone: string): string | un
 function groupInput(
   group: GroupContext,
   refDate: string,
-  profileBirthdate: string | null,
+  refs: AgeRefs,
 ): { input: NonNullable<PlanInput["group"]>; summary: GroupSummary } {
   // Resolution order (spec group-text [D5]): saved entries > Haiku parse > raw text as notes.
-  const r = resolveGroup(group, refDate, profileBirthdate);
+  const r = resolveGroup(group, refDate, refs);
   const entries: NonNullable<PlanInput["group"]>["entries"] = r.rows.map((row) => ({
     n: row.count,
     age: row.age.status === "known" ? row.age.age : undefined,
     approx: row.age.status === "known" && row.age.approximate ? (true as const) : undefined,
     // No names, no birthdates [D6]. Parsed rows without an age carry their role as label.
-    label: row.label ?? (row.isSelf ? "self" : row.age.status === "unknown" ? row.role : undefined),
+    label: row.label ?? (row.isTripOwner ? "self" : row.age.status === "unknown" ? row.role : undefined),
     traits: row.traits,
     notes: row.notes,
   }));
@@ -363,7 +370,7 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   }
 
   const refDate = ageReferenceDate(trip, today) ?? today;
-  const g = group ? groupInput(group, refDate, a.profileBirthdate) : null;
+  const g = group ? groupInput(group, refDate, a.ageRefs) : null;
 
   const months = selectedMonths(trip);
   const weather = facts.weather.status === "ok" ? facts.weather : null;

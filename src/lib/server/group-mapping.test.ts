@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { entryToRow, rowToEntry, type GroupEntryRow } from "./group-mapping";
+import type { StoredEntry } from "@/lib/domain/group";
+import { entryToRow, rowToEntry, withViewerLinks, type GroupEntryRow } from "./group-mapping";
 
 const TODAY = "2026-10-27";
 
@@ -60,5 +61,39 @@ describe("rowToEntry", () => {
   it("maps a member with stated age and tolerates broken traits", () => {
     const entry = rowToEntry({ ...row, kind: "member", count: 1, name: "Ben", age_mode: "approx", age: 4, age_as_of: "2026-01-01", traits: { bogus: 1 } });
     expect(entry).toMatchObject({ kind: "member", name: "Ben", isSelf: false, age: { ageMode: "approx", age: 4 }, ageAsOf: "2026-01-01", traits: {} });
+  });
+
+  it("maps linked_user_id to linkedUserId, and never writes it", () => {
+    const entry = rowToEntry({ ...row, kind: "member", count: 1, name: "Ben", linked_user_id: "u2" });
+    expect(entry.linkedUserId).toBe("u2");
+    expect(entryToRow(entry, 0, TODAY)).not.toHaveProperty("linked_user_id");
+  });
+});
+
+describe("withViewerLinks (group-sharing spec 1.5)", () => {
+  const OWNER = "owner";
+  const B = "user-b";
+  const C = "user-c";
+  const mk = (id: string, over: Record<string, unknown> = {}): StoredEntry =>
+    ({ id, position: 0, kind: "member", isSelf: false, name: id, traits: {}, ...over }) as StoredEntry;
+  const entries = [mk("a", { isSelf: true, name: undefined }), mk("b", { linkedUserId: B }), mk("c", { linkedUserId: C }), mk("free")];
+
+  it("owner: is_self is 'me', linked entries show the name when known, else 'linked'", () => {
+    const { entries: out, myEntryId } = withViewerLinks(entries, OWNER, OWNER, new Map([[B, "Bea"]]));
+    expect(out.map((e) => e.link)).toEqual([{ kind: "me" }, { kind: "person", name: "Bea" }, { kind: "account" }, undefined]);
+    expect(myEntryId).toBe("a");
+  });
+
+  it("recipient B: own entry is 'me', others are 'linked' without a name, the owner's is_self has no link", () => {
+    const { entries: out, myEntryId } = withViewerLinks(entries, B, OWNER, new Map([[C, "Cy"]]));
+    expect(out.map((e) => e.link)).toEqual([undefined, { kind: "me" }, { kind: "account" }, undefined]);
+    expect(myEntryId).toBe("b");
+  });
+
+  it("recipient without a claim has no own entry; the input is not mutated", () => {
+    const { entries: out, myEntryId } = withViewerLinks(entries, "user-d", OWNER);
+    expect(myEntryId).toBeNull();
+    expect(out.map((e) => e.link?.kind)).toEqual([undefined, "account", "account", undefined]);
+    expect(entries.some((e) => e.link)).toBe(false);
   });
 });

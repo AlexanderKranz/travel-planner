@@ -18,6 +18,7 @@ import { canEdit, type Access } from "@/lib/domain/sharing";
 import type { Trip } from "@/lib/domain/trip";
 import { applyEdit } from "@/lib/plan/edit";
 import { canonicalJson, planInputHash } from "@/lib/plan/hash";
+import type { AgeRefs } from "@/lib/group";
 import { tripGroupSource } from "@/lib/group-text";
 import { buildPlanInput, type GroupContext } from "@/lib/plan/input";
 import { allPlacesPending, activityPlacesPending, blockingScope } from "@/lib/plan/places-pending";
@@ -57,6 +58,7 @@ import {
   type PlanRow,
   type StoredVersion,
 } from "./plan-store";
+import { loadAgeRefs } from "./age-refs";
 import { loadOwnerContext } from "./owner-context";
 import { getProfile } from "./profile";
 import { tagAndSave, wantsTags } from "./purpose-tagging";
@@ -110,6 +112,8 @@ export type PlanContext = {
    * hash and plan whoever starts the run.
    */
   birthdate: string | null;
+  /** Anchors for `is_self` and "about my age" (spec group-sharing 1.4); equal to `birthdate` for both when T = G. */
+  ageRefs: AgeRefs;
   homeAirports: string[];
   /** Language of a first plan on a shared trip: the owner's locale (null for the owner: their request locale counts). */
   ownerLocale: Locale | null;
@@ -168,6 +172,12 @@ export async function loadPlanContext(
     homeAirports = owner.homeAirports;
     ownerLocale = owner.locale;
   }
+  // Who `is_self` and "about my age" refer to (docs/specs/group-sharing.md 1.4). They depend on the TRIP owner T and the
+  // GROUP owner G, never on the viewer or the actor. T = G (every existing trip, the one-off group): T's birthdate for
+  // both. G != T: G's profile birthdate, read with the secret key after the group was read through RLS (3.3); it fails
+  // closed, like the trip owner's.
+  const refs = await loadAgeRefs({ tripOwnerId: trip.ownerId, tripOwnerBirthdate: birthdate, group });
+  if (!refs) return err("failed");
   return {
     ok: true,
     ctx: {
@@ -178,6 +188,7 @@ export async function loadPlanContext(
       access: trip.access,
       ownerId: trip.ownerId,
       birthdate,
+      ageRefs: refs,
       homeAirports,
       ownerLocale,
       trip,
@@ -422,7 +433,7 @@ export async function generatePlan(
       trip: c.trip,
       group: c.group,
       purpose,
-      profileBirthdate: c.birthdate,
+      ageRefs: c.ageRefs,
       facts,
       locale,
       today: berlinToday(),

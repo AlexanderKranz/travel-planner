@@ -40,7 +40,7 @@ describe("flight ui helpers", () => {
   });
 
   it("counts adults for links", () => {
-    const e = (count: number, age: ResolvedEntry["age"]): ResolvedEntry => ({ kind: "composition", count, isSelf: false, age });
+    const e = (count: number, age: ResolvedEntry["age"]): ResolvedEntry => ({ kind: "composition", count, isSelf: false, isTripOwner: false, age });
     expect(adultsFromEntries(null)).toBe(1);
     expect(adultsFromEntries([e(2, { status: "known", age: 40, approximate: false }), e(1, { status: "known", age: 3, approximate: false }), e(1, { status: "unknown" })])).toBe(3);
     expect(adultsFromEntries([e(1, { status: "known", age: 5, approximate: false })])).toBe(1);

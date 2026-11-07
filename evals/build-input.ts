@@ -21,6 +21,7 @@ import fraDeparturesPast from "@/lib/integrations/__fixtures__/aerodatabox/fids-
 import agpDeparturesPast from "@/lib/integrations/__fixtures__/aerodatabox/fids-departures-AGP-2026-03-18-past.json";
 import malagaArchive from "@/lib/integrations/__fixtures__/open-meteo/archive-malaga-2016-2025.json";
 import type { FlightsFacts } from "@/lib/domain/flights";
+import { ownAgeRefs } from "@/lib/group";
 import type { ItemCategory, ItemStatus, SharedItem } from "@/lib/domain/items";
 import type { ActivityGroupLookup, CountryFacts, Fact, InterestOrGeneral, PlaceGroup, RestaurantLookup, TripFacts, WeatherFacts } from "@/lib/domain/facts";
 import type { StoredEntry, TravelGroup } from "@/lib/domain/group";
@@ -209,7 +210,20 @@ export function evalGroup(id: FixtureId): TravelGroup | null {
     age: c.ageMode === "relativeToMe" ? { ageMode: "relativeToMe" } : { ageMode: c.ageMode, age: c.age ?? 0 },
     // no ageAsOf: the fixture states ages at travel time
   }));
-  return { id: `eval-${id}-group`, name: "Eval", notes: g.notes, traitKeys: [], createdAt: EVAL_UPDATED_AT, updatedAt: EVAL_UPDATED_AT, entries };
+  return {
+    id: `eval-${id}-group`,
+    name: "Eval",
+    notes: g.notes,
+    traitKeys: [],
+    createdAt: EVAL_UPDATED_AT,
+    updatedAt: EVAL_UPDATED_AT,
+    entries,
+    ownerId: "eval",
+    access: "owner",
+    usable: true,
+    owner: null,
+    myEntryId: null,
+  };
 }
 
 export function evalPurpose(id: FixtureId, tags: PurposeTags | null): TripPurpose | null {
@@ -377,7 +391,7 @@ export function buildEvalInput(id: FixtureId, tags: PurposeTags | null) {
     trip,
     group,
     purpose,
-    profileBirthdate: EVAL_PROFILE_BIRTHDATE,
+    ageRefs: ownAgeRefs(EVAL_PROFILE_BIRTHDATE),
     facts,
     locale: FIXTURES[id].locale,
     today: EVAL_TODAY,

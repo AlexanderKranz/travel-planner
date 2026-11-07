@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ageOn } from "@/lib/age";
-import { birthdateForAge, personLabel, shareErrorKey, sharedPurposeOptions } from "./helpers";
+import { birthdateForAge, personLabel, shareErrorKey, sharedGroupOptions, sharedPurposeOptions } from "./helpers";
 
 describe("personLabel", () => {
   it("prefers the name and falls back to the email", () => {
@@ -32,7 +32,7 @@ describe("birthdateForAge", () => {
 
 describe("sharedPurposeOptions", () => {
   const owner = { id: "o", name: "Mia", email: "m@x.test" };
-  const base = { id: "s", resourceId: "p", owner, access: "read" as const, createdAt: "", trip: null };
+  const base = { id: "s", resourceId: "p", owner, access: "read" as const, createdAt: "", trip: null, group: null };
   it("lists usable purpose shares only, labelled with the owner", () => {
     const purpose = (id: string, usable: boolean) => ({ id, name: `P${id}`, usable }) as never;
     const out = sharedPurposeOptions([
@@ -42,5 +42,20 @@ describe("sharedPurposeOptions", () => {
       { ...base, resource: "trip", purpose: null },
     ]);
     expect(out).toEqual([{ id: "1", name: "P1", ownerName: "Mia" }]);
+  });
+});
+
+describe("sharedGroupOptions", () => {
+  const owner = { id: "o", name: "Mia", email: "m@x.test" };
+  const base = { id: "s", resourceId: "g", owner, access: "write" as const, createdAt: "", trip: null, purpose: null };
+  it("lists group shares (either level) with the owner's name, nothing else", () => {
+    const group = { id: "g1", name: "Friends" } as never;
+    expect(
+      sharedGroupOptions([
+        { ...base, resource: "group", group },
+        { ...base, resource: "group", group: null },
+        { ...base, resource: "trip", group: null },
+      ]),
+    ).toEqual([{ id: "g1", name: "Friends", ownerName: "Mia" }]);
   });
 });

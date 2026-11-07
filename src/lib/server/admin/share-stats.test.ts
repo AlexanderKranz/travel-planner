@@ -4,6 +4,7 @@ import { shapeDashboard } from "./shape";
 
 const raw = {
   tripSharesRead: 3, tripSharesWrite: 2, purposeSharesRead: 1, purposeSharesWrite: 0,
+  groupSharesRead: 2, groupSharesWrite: 1, groupsShared: 2, entryLinks: 3,
   tripsShared: 4, recipients: 3, grantsThisMonth: 2, lookupsThisMonth: 7, lookupMissesThisMonth: 1,
 };
 

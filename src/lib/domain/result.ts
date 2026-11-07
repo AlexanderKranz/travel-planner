@@ -31,6 +31,8 @@ export type ActionError =
   | "places_pending" // places with a source did not load yet; retry or generate anyway
   | "invalid_credentials" // password login: wrong email, wrong password or no password (always the same)
   | "weak_password" // rejected by Supabase (too short, leaked-password protection)
+  | "already_linked" // group entry: someone else is linked to it
+  | "already_claimed" // group entry: the viewer already claimed another entry of this group
   | "same_password" // new password equals the current one
   | "reauth_required" // "secure password change": sign in again, then retry
   | "failed";

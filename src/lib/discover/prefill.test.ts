@@ -35,6 +35,16 @@ describe("buildTripDraft (D11)", () => {
     expect(buildTripDraft(search, card, []).purposeId).toBe(search.purposeId);
   });
 
+  it("a group that is no longer usable (unshared or left meanwhile) gives an empty groupId; a usable one is kept", () => {
+    const withGroup = { ...search, groupId: "33333333-3333-4333-8333-333333333333" };
+    expect(buildTripDraft(withGroup, card, [], undefined, []).groupId).toBe("");
+    expect(buildTripDraft(withGroup, card, [], undefined, ["99999999-9999-4999-8999-999999999999"]).groupId).toBe("");
+    expect(buildTripDraft(withGroup, card, [], undefined, [withGroup.groupId]).groupId).toBe(withGroup.groupId);
+    // no list given: no check (as before); no group at all stays empty
+    expect(buildTripDraft(withGroup, card, []).groupId).toBe(withGroup.groupId);
+    expect(buildTripDraft(search, card, [], undefined, []).groupId).toBe("");
+  });
+
   it("no months -> no timing", () => {
     expect(buildTripDraft({ ...search, months: [] }, card, []).timing.mode).toBe("none");
   });

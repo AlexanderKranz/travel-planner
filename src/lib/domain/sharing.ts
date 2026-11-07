@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { TravelGroupSummary } from "./group";
 import type { TripPurpose } from "./purpose";
 import type { TripSummary } from "./trip";
 
@@ -8,7 +9,7 @@ export const SHARE_ACCESS = ["read", "write"] as const;
 export type ShareAccess = (typeof SHARE_ACCESS)[number];
 /** What the viewer is for a trip or purpose: the owner, or a grantee at one of the two levels. */
 export type Access = "owner" | ShareAccess;
-export const SHARE_RESOURCES = ["trip", "purpose"] as const;
+export const SHARE_RESOURCES = ["trip", "purpose", "group"] as const;
 export type ShareResource = (typeof SHARE_RESOURCES)[number];
 /** Mirrored by `share_resource` step 6 in migration 20261110120035; a test compares them. */
 export const MAX_SHARES_PER_RESOURCE = 10;
@@ -56,6 +57,8 @@ export type IncomingShare = {
   createdAt: string;
   trip: TripSummary | null;
   purpose: TripPurpose | null;
+  /** Set for resource "group". */
+  group: TravelGroupSummary | null;
 };
 /** Admin list of people to share with (no email field for admins). */
 export type ShareCandidate = { id: string; email: string; name: string | null };

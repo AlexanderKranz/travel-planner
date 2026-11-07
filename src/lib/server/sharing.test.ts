@@ -26,6 +26,7 @@ const h = vi.hoisted(() => ({
   events: vi.fn(),
   trip: { ok: true, data: {} } as unknown,
   owner: null as unknown,
+  group: null as unknown,
 }));
 
 function builder(table: string) {
@@ -54,6 +55,7 @@ vi.mock("./profile", () => ({ getProfile: async () => h.profile }));
 vi.mock("./events", () => ({ logEvent: h.events }));
 vi.mock("./ai-usage", () => ({ berlinMidnight: () => new Date("2026-11-04T23:00:00.000Z") }));
 vi.mock("./trips", () => ({ getTrip: async () => h.trip }));
+vi.mock("./groups", () => ({ getGroup: async () => h.group }));
 vi.mock("./owner-context", () => ({ loadOwnerContext: async () => h.owner }));
 vi.mock("./supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
@@ -98,7 +100,7 @@ beforeEach(() => {
   h.session = true;
   h.isAdmin = false;
   h.profile = { ok: true, data: { isDemo: false, role: "user" } };
-  h.results = { "trips.select": { data: { owner_id: ME } } };
+  h.results = { "trips.select": { data: { owner_id: ME } }, "group_shares.select": { data: [] } };
   h.calls = [];
   h.contacts = [];
   h.lookupCount = 0;
@@ -106,6 +108,7 @@ beforeEach(() => {
   h.profiles = [];
   h.trip = { ok: true, data: {} };
   h.owner = null;
+  h.group = { ok: false, error: "not_found" };
   h.adminRpc.mockReset().mockImplementation(async (name: string) => (name === "share_user_by_email" ? { data: GRANTEE, error: null } : rpcOk()));
   h.events.mockReset();
 });
@@ -312,6 +315,52 @@ describe("setShareAccess", () => {
   });
 });
 
+describe("group resource (docs/specs/group-sharing.md 3.2)", () => {
+  const GROUP = "44444444-4444-4444-8444-444444444444";
+
+  it("shareWith reads travel_groups as the owner and calls share_resource with p_resource group", async () => {
+    h.results["travel_groups.select"] = { data: { owner_id: ME } };
+    const res = await shareWith(input({ resource: "group", resourceId: GROUP, access: "read" }));
+    expect(res).toEqual({ ok: true, data: { shareId: SHARE, created: true } });
+    expect(h.calls[0].table).toBe("travel_groups");
+    expect(shareCalls()[0][1]).toMatchObject({ p_owner: ME, p_resource: "group", p_resource_id: GROUP, p_access: "read" });
+    expect(h.events).toHaveBeenCalledWith({
+      event: "sharing.granted",
+      userId: ME,
+      props: { resource: "group", resourceId: GROUP, access: "read", via: "email" },
+    });
+  });
+
+  it("somebody else's group is forbidden, an invisible one not_found", async () => {
+    h.results["travel_groups.select"] = { data: { owner_id: OWNER } };
+    expect(await shareWith(input({ resource: "group", resourceId: GROUP }))).toEqual({ ok: false, error: "forbidden" });
+    h.results["travel_groups.select"] = { data: null };
+    expect(await shareWith(input({ resource: "group", resourceId: GROUP }))).toEqual({ ok: false, error: "not_found" });
+    expect(h.adminRpc).not.toHaveBeenCalled();
+  });
+
+  it("setShareAccess uses group_shares and the group column; unshare and leave log the group id", async () => {
+    h.results["group_shares.select"] = { data: { id: SHARE, grantee_id: GRANTEE, group_id: GROUP } };
+    expect(await setShareAccess({ resource: "group", shareId: SHARE, access: "write" })).toEqual({ ok: true });
+    expect(h.calls[0].table).toBe("group_shares");
+    expect(shareCalls()[0][1]).toMatchObject({ p_resource: "group", p_resource_id: GROUP, p_share_id: SHARE });
+
+    h.results["group_shares.delete"] = { data: [{ id: SHARE, group_id: GROUP }] };
+    expect(await unshare({ resource: "group", shareId: SHARE })).toEqual({ ok: true });
+    expect(await leaveShare({ resource: "group", shareId: SHARE })).toEqual({ ok: true });
+    expect(h.events).toHaveBeenCalledWith({ event: "sharing.revoked", userId: ME, props: { resource: "group", resourceId: GROUP } });
+    expect(h.events).toHaveBeenCalledWith({ event: "sharing.left", userId: ME, props: { resource: "group", resourceId: GROUP } });
+  });
+
+  it("listGrants lists the grants of an own group", async () => {
+    h.results["travel_groups.select"] = { data: { owner_id: ME } };
+    h.results["group_shares.select"] = { data: [{ id: SHARE, grantee_id: GRANTEE, access: "read", created_at: "c" }] };
+    h.contacts = [{ user_id: GRANTEE, display_name: "Carol", email: EMAIL }];
+    expect(await listGrants("group", GROUP)).toMatchObject({ ok: true, data: [{ id: SHARE, access: "read", grantee: { name: "Carol" } }] });
+    expect(h.calls[1].eqs).toEqual([["group_id", GROUP]]);
+  });
+});
+
 describe("unshare and leaveShare (direct deletes under RLS)", () => {
   it("unshare deletes as the owner; 0 rows is not_found; the event carries ids only", async () => {
     h.results["trip_shares.delete"] = { data: [] };
@@ -333,7 +382,7 @@ describe("unshare and leaveShare (direct deletes under RLS)", () => {
   });
 
   it("validate input and session; a database error is failed", async () => {
-    expect(await unshare({ resource: "group" as never, shareId: SHARE })).toMatchObject({ ok: false, error: "invalid" });
+    expect(await unshare({ resource: "plan" as never, shareId: SHARE })).toMatchObject({ ok: false, error: "invalid" });
     expect(await leaveShare({ resource: "trip", shareId: "x" })).toMatchObject({ ok: false, error: "invalid" });
     h.results["trip_shares.delete"] = { error: { code: "XX000" } };
     expect(await unshare({ resource: "trip", shareId: SHARE })).toEqual({ ok: false, error: "failed" });
@@ -370,7 +419,7 @@ describe("listGrants", () => {
     h.results["trips.select"] = { data: null };
     expect(await listGrants("trip", TRIP)).toEqual({ ok: false, error: "not_found" });
     expect(await listGrants("trip", "x")).toEqual({ ok: false, error: "invalid" });
-    expect(await listGrants("group" as never, TRIP)).toEqual({ ok: false, error: "invalid" });
+    expect(await listGrants("plan" as never, TRIP)).toEqual({ ok: false, error: "invalid" });
   });
 
   it("returns the grants with name and email from share_contacts", async () => {
@@ -419,8 +468,37 @@ describe("listSharedWithMe", () => {
       trip: null,
       purpose: { id: "p1", ownerId: OWNER, access: "write", usable: true },
     });
-    expect(h.calls.map((c) => c.table).sort()).toEqual(["purpose_shares", "trip_shares"]);
+    expect(h.calls.map((c) => c.table).sort()).toEqual(["group_shares", "purpose_shares", "trip_shares"]);
     expect(h.calls.every((c) => c.eqs.some(([k, v]) => k === "grantee_id" && v === ME))).toBe(true);
+  });
+
+  it("maps group shares to a summary with the owner and the level", async () => {
+    h.contacts = [{ user_id: OWNER, display_name: "Olga", email: "olga@example.com" }];
+    h.results["trip_shares.select"] = { data: [] };
+    h.results["purpose_shares.select"] = { data: [] };
+    h.results["group_shares.select"] = {
+      data: [
+        {
+          id: "s-group", group_id: "g1", owner_id: OWNER, access: "write", created_at: "2026-11-03T00:00:00Z",
+          travel_groups: { id: "g1", name: "Friends", notes: null, description: "5 friends", updated_at: "u", group_entries: [{ count: 4 }] },
+        },
+        { id: "s-gone", group_id: "g2", owner_id: OWNER, access: "read", created_at: "c", travel_groups: null },
+      ],
+    };
+    const res = await listSharedWithMe();
+    const person = { id: OWNER, name: "Olga", email: "olga@example.com" };
+    expect(res).toEqual({
+      ok: true,
+      data: [
+        {
+          id: "s-group", resource: "group", resourceId: "g1", owner: person, access: "write", createdAt: "2026-11-03T00:00:00Z",
+          trip: null, purpose: null,
+          group: { id: "g1", name: "Friends", notes: undefined, description: "5 friends", entryCount: 4, updatedAt: "u", access: "write", sharedBy: person, shareCount: 0 },
+        },
+      ],
+    });
+    h.results["group_shares.select"] = { error: { code: "x" } };
+    expect(await listSharedWithMe()).toEqual({ ok: false, error: "failed" });
   });
 
   it("skips shares whose resource cannot be read and fails when a read fails", async () => {
@@ -472,12 +550,40 @@ describe("getTripOwnerContext", () => {
     data: { id: TRIP, ownerId: OWNER, access, timing: { kind: "date", startDate: "2030-06-15" }, lengthDays: 5 },
   });
 
-  it("returns the owner's person and the age on the travel date, never the birthdate", async () => {
+  const group = (ownerId: string, entries: unknown[], owner: unknown = null) => ({
+    ok: true,
+    data: { id: "g1", ownerId, entries, owner },
+  });
+  const withTripGroup = (access: string) => ({ ok: true, data: { ...(trip(access).data as object), groupId: "g1" } });
+
+  it("returns the owner's person and the age, but no birthdate without a group with an is_self entry", async () => {
     h.trip = trip("read");
     h.contacts = [{ user_id: OWNER, display_name: "Olga", email: "olga@example.com" }];
     h.owner = { birthdate: "1990-06-16", homeAirports: [], locale: "de", displayName: "Olga" };
     const res = await getTripOwnerContext(TRIP);
-    expect(res).toEqual({ ok: true, data: { owner: { id: OWNER, name: "Olga", email: "olga@example.com" }, ownerAge: 39 } });
+    expect(res).toEqual({
+      ok: true,
+      data: { owner: { id: OWNER, name: "Olga", email: "olga@example.com" }, ownerBirthdate: null, ownerAge: 39, groupOwner: null },
+    });
+    expect(JSON.stringify(res)).not.toContain("1990");
+  });
+
+  it("returns the owner's birthdate when the trip's own group has an is_self entry (decision A)", async () => {
+    h.trip = withTripGroup("read");
+    h.owner = { birthdate: "1990-06-16", homeAirports: [], locale: "de", displayName: "Olga" };
+    h.group = group(OWNER, [{ id: "e1", kind: "member", isSelf: true }]);
+    expect(await getTripOwnerContext(TRIP)).toMatchObject({ ok: true, data: { ownerBirthdate: "1990-06-16", ownerAge: 39, groupOwner: null } });
+    h.group = group(OWNER, [{ id: "e1", kind: "member", isSelf: false }, { id: "e2", kind: "composition" }]);
+    expect(await getTripOwnerContext(TRIP)).toMatchObject({ ok: true, data: { ownerBirthdate: null, ownerAge: 39 } });
+  });
+
+  it("a group of someone else: its owner comes along, the trip owner's birthdate stays home", async () => {
+    h.trip = withTripGroup("read");
+    h.owner = { birthdate: "1990-06-16", homeAirports: [], locale: "de", displayName: "Olga" };
+    const groupOwner = { id: "g-owner", name: "Gerda", birthdate: "1960-01-01", ageToday: 66 };
+    h.group = group("g-owner", [{ id: "e1", kind: "member", isSelf: true }], groupOwner);
+    const res = await getTripOwnerContext(TRIP);
+    expect(res).toMatchObject({ ok: true, data: { ownerBirthdate: null, groupOwner } });
     expect(JSON.stringify(res)).not.toContain("1990");
   });
 
