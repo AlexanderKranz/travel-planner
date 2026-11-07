@@ -7,9 +7,10 @@ import { applyPatch } from "@/lib/plan/patch";
 import type { PlanInputStored } from "@/lib/plan/input";
 import { extendInput, resolveNeedPlaces } from "@/lib/plan/need-places";
 import {
-  buildEvalInput, evalActivityLookups, evalInterestGroups, FAMILY_PATCH_FEEDBACK, FIXTURES, GOLF_PATCH_FEEDBACK, NO_GOLF_TAGS, noGolfPurpose, PATCH_FEEDBACK, UNCOVERED_PATCH_FEEDBACK, type FixtureId,
+  buildEvalInput, evalActivityLookups, evalInterestGroups, FAMILY_PATCH_FEEDBACK, FIXTURES, GOLF_EVERY_DAY_FEEDBACK, GOLF_PATCH_FEEDBACK, NO_GOLF_TAGS, noGolfPurpose, PATCH_FEEDBACK, UNCOVERED_PATCH_FEEDBACK, type FixtureId,
 } from "./build-input";
-import { uncoveredPatchChecks, familyPatchChecks, genericChecks, golfNeedPatchChecks, needPatchChecks, patchChecks, planChecks, rawRefs, tagChecks, type CheckResult } from "./checks";
+import { guardPatch } from "@/lib/plan/patch-guard";
+import { uncoveredPatchChecks, familyPatchChecks, genericChecks, golfEveryDayChecks, golfNeedPatchChecks,needPatchChecks, patchChecks, planChecks, rawRefs, tagChecks, type CheckResult } from "./checks";
 
 export const RECORDED_GENERATED_AT = "2026-10-28T00:00:00.000Z";
 
@@ -207,5 +208,30 @@ export function evaluateGolfPatch(baseLlm: LlmPlan, rec: NeedPatchRecording) {
   return { plan: res.plan, extended, results };
 }
 
-export const formatResults = (title: string, rs: CheckResult[]) =>
+/**
+ * Issue #158 patch eval: "golf on every day" without day scope on the no-golf base. Runs the production path after
+ * the second call: applyPatch (all days in scope) and the shrink guard, then checks every day.
+ */
+export function evaluateGolfEveryDay(baseLlm: LlmPlan, rec: NeedPatchRecording) {
+  const base = assembleNoGolfBase(baseLlm);
+  if (!base.plan) return { plan: null, results: [{ name: "assemble base", ok: false, detail: base.reason }] as CheckResult[] };
+  const extended = needPatchInput("golf", base.built.stored, rec.first);
+  if (!extended || !rec.second) {
+    return { plan: null, results: [{ name: "needPlaces requested and second call made", ok: false, detail: JSON.stringify(rec.first.needPlaces ?? null) }] as CheckResult[] };
+  }
+  const feedback = GOLF_EVERY_DAY_FEEDBACK;
+  const res = applyPatch({ base: base.plan, patch: rec.second, stored: extended, scope: feedback.days });
+  if (!res.ok) return { plan: null, results: [{ name: "applyPatch", ok: false, detail: res.reason }] as CheckResult[] };
+  const guarded = guardPatch({ base: base.plan, next: res.plan, feedback, index: extended.index });
+  const all = base.plan.days.map((d) => d.n);
+  const results: CheckResult[] = [
+    { name: "applyPatch", ok: true },
+    ...patchChecks({ id: "golf", base: base.plan, next: guarded.plan, changedDays: guarded.changedDays, scope: all }),
+    ...genericChecks({ plan: guarded.plan, stored: extended, rawRefs: rawRefs(rec.second.days), issues: res.issues }),
+    ...golfEveryDayChecks({ first: rec.first, second: rec.second, next: guarded.plan, rejected: guarded.rejected.map((r) => r.n) }),
+  ];
+  return { plan: guarded.plan, extended, patched: res, guarded, results };
+}
+
+export const formatResults =(title: string, rs: CheckResult[]) =>
   [title, ...rs.map((r) => `  ${r.ok ? "PASS" : "FAIL"} ${r.name}${r.ok || !r.detail ? "" : ` (${r.detail})`}`)].join("\n");

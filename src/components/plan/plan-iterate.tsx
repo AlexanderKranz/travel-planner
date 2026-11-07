@@ -1,12 +1,13 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { btnPrimary, btnSecondary, cardCls, focusCls, inputCls, mutedCls } from "@/components/ui/styles";
 import { useRouter } from "@/i18n/navigation";
 import type { ActionError } from "@/lib/domain";
 import { PLAN_CHIPS, type PlanChip } from "@/lib/domain/plan";
 import { editPlan } from "@/lib/server/plans";
+import { carriedReply, carryReply, dropCarriedReply, newVersionOf } from "./carried-reply";
 import { asPlanError, range, toggleIn } from "./helpers";
 import { PlanErrorBanner, PlanRunner } from "./plan-runner";
 
@@ -71,7 +72,11 @@ export function PlanIterate({
   const [text, setText] = useState("");
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<ActionError | null>(null);
-  const [reply, setReply] = useState<string | null>(null);
+  // The answer that wrote this version survives the remount on the new version (carried-reply.ts); read once.
+  const [reply, setReply] = useState<string | null>(() => carriedReply(tripId, baseVersion));
+  useEffect(() => {
+    dropCarriedReply(tripId, baseVersion);
+  }, [tripId, baseVersion]);
   const [swapA, setSwapA] = useState(1);
   const [swapB, setSwapB] = useState(Math.min(2, dayCount));
   const [pending, start] = useTransition();
@@ -96,7 +101,7 @@ export function PlanIterate({
           feedback: { chips, days, ...(text.trim() ? { text: text.trim() } : {}) },
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; reply?: string; unchanged?: boolean; rejectedDays?: number[]; notice?: string };
+      const json = (await res.json().catch(() => ({}))) as { error?: string; reply?: string; unchanged?: boolean; rejectedDays?: number[]; notice?: string; state?: unknown };
       if (!res.ok) {
         setError(asPlanError(json.error));
         return;
@@ -105,7 +110,10 @@ export function PlanIterate({
       const rejectedText = rejected.length ? t("shrinkRejected", { count: rejected.length, days: rejected.join(", ") }) : null;
       const unchangedText = json.notice === "places_not_loadable" ? t("placesNotLoadable") : t("noChange");
       const main = rejected.length && json.unchanged ? null : json.unchanged ? unchangedText : (json.reply ?? t("done"));
-      setReply([main, rejectedText].filter(Boolean).join(" "));
+      const message = [main, rejectedText].filter(Boolean).join(" ");
+      const next = newVersionOf(json.state, baseVersion);
+      if (next !== null) carryReply(tripId, next, message);
+      setReply(message);
       setChips([]);
       setDays([]);
       setText("");
@@ -123,6 +131,8 @@ export function PlanIterate({
     start(async () => {
       const r = await editPlan(tripId, baseVersion, e);
       if (r.ok) {
+        const next = newVersionOf(r.data, baseVersion);
+        if (next !== null) carryReply(tripId, next, t("saved"));
         setReply(t("saved"));
         router.refresh();
       } else setError(asPlanError(r.error));

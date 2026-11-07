@@ -1,0 +1,269 @@
+{
+  "promptVersion": "plan-7",
+  "model": "claude-sonnet-5-5",
+  "inputHash": "cd3f29796e0ca588506c92c90d6ae92311fe21bdbd48123d41008eba32ccd50c",
+  "output": {
+    "first": {
+      "reply": "Für tägliches Golfen werden zuerst geeignete Golfplätze in der Region geladen.",
+      "days": [],
+      "needPlaces": {
+        "interests": [
+          "golf"
+        ]
+      }
+    },
+    "second": {
+      "reply": "Jeden Tag steht jetzt eine Golfrunde auf dem Plan, mit Plätzen aus der Liste; am Anreisetag sind es nur 9 Löcher am Abend.",
+      "days": [
+        {
+          "n": 1,
+          "title": "Ankunft & Abendrunde",
+          "stops": [
+            {
+              "place": "Marbella",
+              "acts": [
+                {
+                  "kind": "travel",
+                  "text": "Ankunft und Transfer"
+                },
+                {
+                  "at": "17:30",
+                  "kind": "travel",
+                  "text": "Check-in im Hotel",
+                  "ref": "",
+                  "alts": []
+                },
+                {
+                  "at": "18:15",
+                  "until": "19:45",
+                  "kind": "sport",
+                  "text": "Kurze Runde, 9 Löcher zum Einspielen",
+                  "ref": "p8",
+                  "alts": [
+                    "p1",
+                    "p2"
+                  ]
+                },
+                {
+                  "at": "20:15",
+                  "kind": "food",
+                  "text": "Leichtes Abendessen im Ort"
+                }
+              ]
+            }
+          ],
+          "warn": "Dämmerung gegen 19:50, Runde nur verkürzt spielbar."
+        },
+        {
+          "n": 2,
+          "title": "Golf & ruhiger Strand",
+          "stops": [
+            {
+              "place": "Marbella",
+              "acts": [
+                {
+                  "at": "09:00",
+                  "until": "13:30",
+                  "kind": "sport",
+                  "text": "18 Löcher, entspannte Runde",
+                  "ref": "p1",
+                  "alts": [
+                    "p8",
+                    "p2"
+                  ]
+                },
+                {
+                  "at": "14:00",
+                  "until": "15:15",
+                  "kind": "food",
+                  "text": "Spätes Mittagessen mit Meerblick"
+                },
+                {
+                  "at": "15:30",
+                  "until": "17:30",
+                  "kind": "free",
+                  "text": "Ruhiger Strandabschnitt, Sonnen und Spazieren"
+                },
+                {
+                  "at": "20:00",
+                  "kind": "food",
+                  "text": "Abendessen in der Altstadt"
+                }
+              ]
+            }
+          ],
+          "note": "Ruhige Strände sind nicht in den geprüften Quellen enthalten."
+        },
+        {
+          "n": 3,
+          "title": "Golf, Strand & Hafen",
+          "stops": [
+            {
+              "place": "Marbella",
+              "acts": [
+                {
+                  "at": "08:30",
+                  "until": "13:00",
+                  "kind": "sport",
+                  "text": "18 Löcher, früh starten",
+                  "ref": "p2",
+                  "alts": [
+                    "p3",
+                    "p1"
+                  ]
+                },
+                {
+                  "at": "13:30",
+                  "until": "14:45",
+                  "kind": "food",
+                  "text": "Mittagessen, spanische Tapas"
+                },
+                {
+                  "at": "15:15",
+                  "until": "17:30",
+                  "kind": "free",
+                  "text": "Liegestuhl und Lesen am Strand"
+                }
+              ]
+            }
+          ],
+          "note": "Tisch am Hafen ist bereits gebucht, Abend bleibt frei dafür."
+        },
+        {
+          "n": 4,
+          "title": "Golf an der Küste",
+          "stops": [
+            {
+              "place": "Marbella",
+              "acts": [
+                {
+                  "at": "09:00",
+                  "until": "13:30",
+                  "kind": "sport",
+                  "text": "18 Löcher, Küstenplatz",
+                  "ref": "p3",
+                  "alts": [
+                    "p4",
+                    "p5"
+                  ]
+                },
+                {
+                  "at": "14:00",
+                  "until": "15:15",
+                  "kind": "food",
+                  "text": "Fisch zum Mittag, Küstenlokal"
+                },
+                {
+                  "at": "15:45",
+                  "until": "17:45",
+                  "kind": "free",
+                  "text": "Kleine ruhige Bucht, Strandzeit"
+                },
+                {
+                  "at": "20:00",
+                  "kind": "food",
+                  "text": "Abendessen nach Wahl"
+                }
+              ]
+            }
+          ],
+          "warn": "Im März ist das Meer kalt, Wind kann den Strand auskühlen."
+        },
+        {
+          "n": 5,
+          "title": "Frühe Runde & Abreise",
+          "stops": [
+            {
+              "place": "Marbella",
+              "acts": [
+                {
+                  "at": "07:45",
+                  "until": "12:15",
+                  "kind": "sport",
+                  "text": "Frühe Abschlussrunde, 18 Löcher",
+                  "ref": "p8",
+                  "alts": [
+                    "p1",
+                    "p2"
+                  ]
+                },
+                {
+                  "at": "12:30",
+                  "until": "13:15",
+                  "kind": "food",
+                  "text": "Schneller Imbiss"
+                },
+                {
+                  "at": "13:15",
+                  "until": "14:15",
+                  "kind": "travel",
+                  "text": "Auschecken und Transfer zum Flughafen"
+                }
+              ]
+            }
+          ],
+          "note": "Rückflug am Nachmittag, Puffer für Mietwagenabgabe einplanen."
+        }
+      ],
+      "summary": "Entspannte Woche an der Costa del Sol mit täglicher Golfrunde in der Nähe von Marbella. Nachmittags bleibt Zeit für ruhige Strandstunden, am Anreisetag gibt es nur eine kurze Abendrunde.",
+      "notes": [
+        {
+          "kind": "tip",
+          "text": "Strände unter der Woche und morgens sind am ruhigsten."
+        },
+        {
+          "kind": "tip",
+          "text": "Der Wind kann stark sein, Windschutz einpacken."
+        },
+        {
+          "kind": "warning",
+          "text": "Strände sind nicht in den geprüften Quellen enthalten, daher keine konkreten Orte."
+        },
+        {
+          "kind": "tip",
+          "text": "Sonnenschutz ist auch im März wichtig."
+        }
+      ],
+      "open": [
+        {
+          "text": "Startzeiten für alle Golfrunden reservieren"
+        },
+        {
+          "text": "Verfügbarkeit der Abendrunde prüfen",
+          "day": 1
+        },
+        {
+          "text": "Transfer vom Flughafen zum Hotel organisieren",
+          "day": 1
+        },
+        {
+          "text": "Transfer zum Flughafen für Rückflug planen",
+          "day": 5
+        }
+      ]
+    },
+    "firstUsage": {
+      "task": "plan_patch",
+      "model": "claude-sonnet-5-5",
+      "status": "ok",
+      "inputTokens": 1539,
+      "outputTokens": 65,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 6405,
+      "costMicroUsd": 5009,
+      "latencyMs": 1855
+    }
+  },
+  "usage": {
+    "task": "plan_patch",
+    "model": "claude-sonnet-5-5",
+    "status": "ok",
+    "inputTokens": 1546,
+    "outputTokens": 2496,
+    "cacheCreationInputTokens": 0,
+    "cacheReadInputTokens": 6797,
+    "costMicroUsd": 29411,
+    "latencyMs": 16230
+  },
+  "recordedAt": "2026-11-07T10:44:18.589Z"
+}

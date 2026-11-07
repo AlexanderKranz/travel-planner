@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { Plan, type PlanDay, type PlanFeedback } from "@/lib/domain/plan";
 import fixture from "./__fixtures__/copenhagen.json";
 import type { PlanInputStored } from "./input";
-import { actCount, allowsNoteDrop, allowsShrink, guardPatch, isShrunk } from "./patch-guard";
+import { dropOverlaps } from "./fixed-items";
+import { MAX_REPLACED_PER_ACT, MAX_REPLACING_MIN, actCount, allowsNoteDrop, allowsShrink, guardPatch, isShrunk, lostActs } from "./patch-guard";
 
 const input = fixture.input as unknown as PlanInputStored;
 const base = () => Plan.parse(fixture.plan);
@@ -98,6 +99,87 @@ describe("guardPatch", () => {
     expect(r.rejected.map((x) => x.n)).toEqual([2]);
     expect(r.plan.days.filter((d) => d.best).map((d) => d.n)).toEqual([2]);
   });
+
+  // Issue #158: "golf on every day" replaces most of a full day with one long round at a verified course.
+  type Act = PlanDay["stops"][number]["acts"][number];
+  const REF = "way/24361960" as const; // in the fixture's index
+  const golf = (from: string, until: string, over: Partial<Act> = {}): Act => ({ at: from, until, kind: "sport", text: "18 Löcher", ref: REF, ...over });
+  // Day 1 of the fixture: arrival (no time), then 13:00 lunch, 14:15, 15:30, 16:45 and 18:30 dinner. `only(act)` keeps
+  // the arrival and puts the act in place of everything else: 6 -> 2 activities, shrunk by count.
+  const only = (b: Plan, act: Act) => withDay(b, 1, (d) => ({ ...d, stops: [{ ...d.stops[0], acts: [d.stops[0].acts[0], act] }] }));
+  const feedback = fb({ text: "wir möchten an jedem tag golf spielen" });
+  const verified = new Set(Object.values(input.index).map((e) => e.key as string));
+  const rejectedFor = (b: Plan, act: Act) => guardPatch({ base: b, next: only(b, act), feedback, index: input.index }).rejected.map((x) => x.n);
+
+  it("accepts a day where a round at a verified course took the time of the dropped activities", () => {
+    const b = base();
+    const next = only(b, golf("13:00", "18:30"));
+    expect(actCount(next.days[0])).toBe(2);
+    // Four dropped activities start inside the round, but one round replaces at most 3; 16:45 and dinner are lost.
+    expect(lostActs(b.days[0], next.days[0], verified)).toBe(2);
+    const r = guardPatch({ base: b, next, feedback, index: input.index });
+    expect(r.rejected).toEqual([]);
+    expect(r.changedDays).toEqual([1]);
+  });
+
+  it("rejects a day wiped by one blanket activity (QA H1)", () => {
+    const b = base();
+    expect(rejectedFor(b, { kind: "do", text: "Entdecken", at: "08:00", until: "22:00" })).toEqual([1]); // no ref
+    expect(rejectedFor(b, { kind: "do", text: "Stadtbummel", at: "13:00", until: "18:30" })).toEqual([1]); // generic, no ref
+    expect(rejectedFor(b, golf("08:00", "22:00"))).toEqual([1]); // longer than MAX_REPLACING_MIN
+    expect(rejectedFor(b, golf("12:00", "20:00", { kind: "food" }))).toEqual([1]); // a long meal
+    expect(rejectedFor(b, golf("13:00", "18:30", { kind: "free" }))).toEqual([1]);
+    expect(rejectedFor(b, golf("13:00", "18:30", { ref: "node/1" }))).toEqual([1]); // not a verified place
+    expect(rejectedFor(b, golf("13:00", "18:30", { until: undefined }))).toEqual([1]);
+    expect(rejectedFor(b, golf("13:00", "14:00"))).toEqual([1]); // covers only lunch
+    expect(MAX_REPLACING_MIN).toBe(360);
+    expect(MAX_REPLACED_PER_ACT).toBe(3);
+  });
+
+  it("window boundaries: start inclusive, until exclusive, end within 30 min slack, untimed stays lost (QA M1)", () => {
+    const see = (at: string | undefined, until: string | undefined, text: string): Act => ({ kind: "see", text, ...(at ? { at } : {}), ...(until ? { until } : {}) });
+    const day = (acts: Act[]): PlanDay => ({ n: 1, date: null, title: "T", stops: [{ place: "Marbella", acts }] }) as PlanDay;
+    const baseDay = day([
+      see("09:00", "10:00", "before the round"),
+      see("10:00", "11:00", "at the round's start"),
+      see("11:00", "12:30", "ends 30 min after"),
+      see("11:30", "13:00", "ends 60 min after"),
+      see("12:00", "13:00", "at the round's until"),
+      see(undefined, undefined, "untimed"),
+    ]);
+    const next = day([golf("10:00", "12:00")]);
+    // Replaced: "at the round's start" and "ends 30 min after"; the other four are lost.
+    expect(lostActs(baseDay, next, verified)).toBe(4);
+  });
+
+  it("acts of a fixed stop are never replaced; a round over a fixed item is dropped before the guard (QA M2)", () => {
+    const fixedDay: PlanDay = {
+      n: 1,
+      date: null,
+      title: "Hafen",
+      stops: [
+        { place: "Hafen", from: "08:00", to: "12:00", fixed: true, acts: [{ kind: "see", text: "Altstadt", at: "09:00", until: "10:00" }, { kind: "see", text: "Markt", at: "10:30", until: "11:30" }] },
+      ],
+    } as PlanDay;
+    const patched: PlanDay = { ...fixedDay, stops: [{ ...fixedDay.stops[0], acts: [] }, { place: "Marbella", acts: [golf("08:30", "12:00")] }] };
+    expect(lostActs(fixedDay, patched, verified)).toBe(2);
+
+    // Fixed items (INPUT.fixed) are not acts: applyPatch's guardFixed drops an added act that overlaps one, so it
+    // cannot stand in for anything when D3 runs.
+    const b = base();
+    const next = only(b, golf("13:00", "18:30"));
+    const cut = dropOverlaps(next.days[0], [{ day: 1, from: "14:00", to: "15:00" }]);
+    expect(cut.dropped).toBe(1);
+    const guarded = guardPatch({ base: b, next: withDay(b, 1, () => cut.day), feedback, index: input.index });
+    expect(guarded.rejected.map((x) => x.n)).toEqual([1]);
+  });
+
+  it("an empty patched day is rejected whatever it replaced", () => {
+    const b = base();
+    const empty = withDay(b, 1, (d) => ({ ...d, stops: [{ ...d.stops[0], acts: [] }] }));
+    expect(guardPatch({ base: b, next: empty, feedback, index: input.index }).rejected.map((x) => x.n)).toEqual([1]);
+  });
+
 
   it("passes an untouched patch through as the same object", () => {
     const b = base();

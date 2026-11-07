@@ -503,6 +503,25 @@ export function needPatchChecks(a: { first: LlmPatch; next: Plan; stored: PlanIn
 }
 
 /**
+ * Issue #158 (Costa del Sol, purpose without golf): "golf on every day", no day scope. The first call asks for the
+ * golf interest; after loading and the shrink guard, every day has a round at a loaded course (golfPlaceChecks: no
+ * sport activity without a golf course ref), no day was reverted, and the full days keep a meal.
+ */
+export function golfEveryDayChecks(a: { first: LlmPatch; second: LlmPatch; next: Plan; rejected: number[] }): CheckResult[] {
+  const noGolf = a.next.days.filter((d) => golfRefs(a.next, d).length === 0).map((d) => d.n);
+  const inner = a.next.days.slice(1, -1);
+  const noMeal = inner.filter((d) => !d.stops.some((s) => s.acts.some((x) => x.kind === "food"))).map((d) => d.n);
+  return [
+    check("first call requests the golf interest (needPlaces)", (a.first.needPlaces?.interests ?? []).includes("golf"), JSON.stringify(a.first.needPlaces ?? null)),
+    check("second call returns every day", a.second.days.length === a.next.days.length, `returned ${a.second.days.map((d) => d.n).join(",")}`),
+    check("shrink guard reverts no day", a.rejected.length === 0, `reverted ${a.rejected.join(",")}`),
+    check("every day has a golf round at a loaded course", noGolf.length === 0, `no golf on day ${noGolf.join(",")}`),
+    ...golfPlaceChecks(a.next),
+    check("full days keep a meal", noMeal.length === 0, `no meal on day ${noMeal.join(",")}`),
+  ];
+}
+
+/**
  * Issue #151 patch eval (Costa del Sol, purpose without golf): "find a golf course for day 2". The first call asks for
  * the golf interest; after loading, day 2 has a golf course ref and nothing says golf is not covered by the sources.
  */
