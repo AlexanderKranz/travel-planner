@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { TripSummary } from "@/lib/domain";
+import type { StoredEntry } from "@/lib/domain/group";
 import type { Grant } from "@/lib/domain/sharing";
 import type { ResolvedGroup } from "@/lib/group-text";
 import de from "../../../messages/de.json";
@@ -179,7 +180,7 @@ describe("GroupRows: birthdates and labels per viewer", () => {
     { id: "sa", kind: "member", isSelf: true, position: 0 },
     { id: "eb", kind: "member", isSelf: false, name: "Bea", position: 1, link: { kind: "me" } },
     { id: "ek", kind: "member", isSelf: false, name: "Kim", position: 2 },
-  ] as never;
+  ] as unknown as StoredEntry[];
   const base = { id: "g", ownerId: "A", entries };
 
   it("shows every birthdate that exists and the owner's name on the is_self entry", () => {
@@ -199,7 +200,7 @@ describe("GroupRows: birthdates and labels per viewer", () => {
   });
 
   it("before a claim the free entry offers 'That's me' (German: Das bin ich)", () => {
-    const free = entries.map((e: { id: string }) => (e.id === "eb" ? { ...e, link: undefined } : e)) as never;
+    const free = entries.map((e) => (e.id === "eb" ? { ...e, link: undefined } : e));
     const g = { ...base, entries: free, access: "write" as const, myEntryId: null };
     expect(render(<GroupRows rows={rows} group={g} ownerLabel="Mia" />)).toContain("That&#x27;s me");
     expect(render(<GroupRows rows={rows} group={g} ownerLabel="Mia" />, "de")).toContain("Das bin ich");
