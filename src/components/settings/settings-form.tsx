@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -64,7 +65,7 @@ export function SettingsForm({ profile }: { profile: Profile }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+    <ClientForm onSubmit={onSubmit} className="flex flex-col gap-5">
       <TextField
         label={t("displayName")}
         value={displayName}
@@ -117,6 +118,6 @@ export function SettingsForm({ profile }: { profile: Profile }) {
           {t("save")}
         </button>
       </div>
-    </form>
+    </ClientForm>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { TextField } from "@/components/ui/fields";
@@ -49,7 +50,7 @@ export function LoginForm({ linkInvalid, invited = false }: { linkInvalid: boole
           <h2 className="text-lg font-semibold">{t("sentTitle")}</h2>
           <p className={mutedCls}>{t("sentBody")}</p>
         </div>
-        <form onSubmit={onVerify} className="flex flex-col gap-4">
+        <ClientForm onSubmit={onVerify} className="flex flex-col gap-4">
           <TextField
             label={t("codeLabel")}
             hint={t("codeHint")}
@@ -66,7 +67,7 @@ export function LoginForm({ linkInvalid, invited = false }: { linkInvalid: boole
           <button type="submit" className={btnPrimary} disabled={pending || code.length !== 6}>
             {t("verify")}
           </button>
-        </form>
+        </ClientForm>
         <button
           type="button"
           className={btnSecondary}
@@ -124,7 +125,7 @@ export function LoginForm({ linkInvalid, invited = false }: { linkInvalid: boole
   if (step === "password" || step === "forgot") {
     const forgot = step === "forgot";
     return (
-      <form onSubmit={forgot ? onForgot : onPassword} className="flex flex-col gap-4">
+      <ClientForm onSubmit={forgot ? onForgot : onPassword} className="flex flex-col gap-4">
         {forgot && <p className={`text-sm ${mutedCls}`}>{t("password.forgotIntro")}</p>}
         <TextField
           label={t("emailLabel")}
@@ -159,12 +160,12 @@ export function LoginForm({ linkInvalid, invited = false }: { linkInvalid: boole
         <button type="button" className={`${linkCls} min-h-11 self-start`} onClick={() => switchMode("email")}>
           {t("password.useLink")}
         </button>
-      </form>
+      </ClientForm>
     );
   }
 
   return (
-    <form onSubmit={onRequest} className="flex flex-col gap-4">
+    <ClientForm onSubmit={onRequest} className="flex flex-col gap-4">
       {invited && !linkInvalid && (
         <p role="status" className="rounded-lg border border-line bg-sunken p-3 text-sm text-ink">
           {t("invited")}
@@ -196,6 +197,6 @@ export function LoginForm({ linkInvalid, invited = false }: { linkInvalid: boole
         {t("password.usePassword")}
       </button>
       <p className={`text-sm ${mutedCls}`}>{t("inviteOnly")}</p>
-    </form>
+    </ClientForm>
   );
 }

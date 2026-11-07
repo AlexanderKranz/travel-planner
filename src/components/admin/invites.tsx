@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -54,7 +55,7 @@ export function InvitesSection({ entries }: { entries: InviteEntry[] }) {
   return (
     <Section id="admin-invites" title={t("title")} collapsed>
       <p className={mutedCls}>{t("intro")}</p>
-      <form onSubmit={onInvite} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <ClientForm onSubmit={onInvite} className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
           <TextField
             label={t("emailLabel")}
@@ -69,7 +70,7 @@ export function InvitesSection({ entries }: { entries: InviteEntry[] }) {
         <button type="submit" className={btnPrimary} disabled={pending || !email}>
           {t("submit")}
         </button>
-      </form>
+      </ClientForm>
       <div aria-live="polite">
         {msg && (
           <p

@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -67,14 +68,14 @@ export function SavePurpose({ searchId, defaultName }: { searchId: string; defau
       <h2 id={`${id}-title`} className="text-sm font-semibold">
         {t("title")}
       </h2>
-      <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end" aria-busy={pending}>
+      <ClientForm onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row sm:items-end" aria-busy={pending}>
         <div className="sm:flex-1">
           <TextField label={t("name")} value={name} maxLength={PURPOSE_NAME_MAX} onChange={(e) => setName(e.target.value)} required />
         </div>
         <button type="submit" className={btnSecondary} disabled={pending || name.trim().length === 0}>
           {pending ? t("saving") : t("submit")}
         </button>
-      </form>
+      </ClientForm>
       <ErrorBanner error={error} />
     </section>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/fields";
@@ -131,7 +132,7 @@ export function ItemForm({
       }}
       className="m-0 h-dvh max-h-none w-full max-w-none overflow-y-auto bg-card p-4 text-ink backdrop:bg-black/50 sm:m-auto sm:h-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-lg sm:border sm:border-line-strong sm:p-5"
     >
-      <form onSubmit={submit} noValidate className="flex flex-col gap-3">
+      <ClientForm onSubmit={submit} noValidate className="flex flex-col gap-3">
         <h2 id={titleId} className="text-lg font-semibold">
           {item ? t("edit") : t("add")}
         </h2>
@@ -263,7 +264,7 @@ export function ItemForm({
             {t("save")}
           </button>
         </div>
-      </form>
+      </ClientForm>
     </dialog>
   );
 }

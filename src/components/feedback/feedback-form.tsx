@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState } from "react";
@@ -116,7 +117,7 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKind;
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
+    <ClientForm onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium">{t("form.kind")}</legend>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -200,6 +201,6 @@ export function FeedbackForm({ initialKind, from }: { initialKind: FeedbackKind;
       <button type="submit" className={`${btnPrimary} self-start`} disabled={busy}>
         {busy ? t("form.sending") : t("form.submit")}
       </button>
-    </form>
+    </ClientForm>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -41,7 +42,7 @@ export function GroupForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <ClientForm onSubmit={onSubmit} className="flex flex-col gap-4">
       <TextField
         label={t("name")}
         placeholder={t("namePlaceholder")}
@@ -70,6 +71,6 @@ export function GroupForm() {
           {createdName ? t("another") : t("save")}
         </button>
       </div>
-    </form>
+    </ClientForm>
   );
 }

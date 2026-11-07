@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { ErrorBanner } from "@/components/ui/error-banner";
@@ -30,13 +31,13 @@ export function DemoLogin() {
       <h2 id="demo-title" className="text-lg font-semibold">
         {t("heading")}
       </h2>
-      <form onSubmit={onSubmit} className="flex flex-col gap-3">
+      <ClientForm onSubmit={onSubmit} className="flex flex-col gap-3">
         <ErrorBanner error={error} />
         <button type="submit" className={btnSecondary} disabled={pending}>
           {t("button")}
         </button>
         <p className={`text-sm ${mutedCls}`}>{t("hint")}</p>
-      </form>
+      </ClientForm>
     </section>
   );
 }

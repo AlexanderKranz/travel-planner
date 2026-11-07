@@ -1,5 +1,6 @@
 "use client";
 
+import { ClientForm } from "@/components/ui/client-form";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { AirportPicker } from "@/components/settings/airport-picker";
@@ -64,7 +65,7 @@ export function AboutForm({ initial }: { initial: AboutValues }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+    <ClientForm onSubmit={onSubmit} className="flex flex-col gap-5">
       <TextField
         hint={t("nameWhy")}
         label={ts("displayName")}
@@ -124,6 +125,6 @@ export function AboutForm({ initial }: { initial: AboutValues }) {
           {t("settings")}
         </Link>
       </div>
-    </form>
+    </ClientForm>
   );
 }
