@@ -186,3 +186,23 @@ constraints.
 - No "save as purpose" from a trip (the text can be copied to a new purpose by hand; a button is a follow-up).
 - No guided fields or constraints for the one-off (by design: text only).
 - No tags preview in the form; nothing about the tags is shown to the user, as for saved purposes.
+
+## Implementation notes (backend)
+
+Steps 1 to 4 are in. Differences and additions to the text above:
+
+- **Other readers of the trip purpose.** Besides `loadPlanContext`, `scheduleTripWarm`, the trip page and the edit page,
+  the three routes that load the purpose by `purposeId` (`/api/trips/[id]/flights`, `.../flights/nearby`, `.../places`)
+  now resolve it with `tripPurpose` too, so the flight limit and the places match the plan.
+- **Plan basis after a tag write.** The pipeline's tag step replaces `ctx.trip.updatedAt` with the value returned by
+  `saveTripPurposeTags` and, for a one-off *group* (no `groupId`), `ctx.group.updatedAt` too: that group's `updatedAt` is
+  the trip's, so leaving it stale would make every new plan "outdated" at the next load.
+- **`wantsTripTags`** (in `trip-purpose-text.ts`) is the one-off counterpart of `wantsTags`; it is checked first, because
+  `wantsTags` is also true for the transient purpose (id `""`) and must never reach `tagAndSave`.
+- **Lookup failure** in `tagTripPurpose` fails closed (no Haiku call, `purpose.tag_failed` with `reason: "lookup_failed"`),
+  like the destination search.
+- **`findTagsByHash`** returns `from: "trip"` for the third source; the destination search's `tagsFrom` log field accepts it.
+- **Eval** (`evals/trip-purpose-text.test.ts`) compares the one-off with the saved golf purpose *without constraints*: the
+  fixture's constraint "max 3 h flight from FRA" sets the flight limit, a one-off has no constraints, so with them the
+  flights block would differ. The text-only parts (places, drive times, group, items) are identical.
+- **Not run locally:** the pgTAP additions (no Docker on the dev machine); they run in the CI job `db-test`.

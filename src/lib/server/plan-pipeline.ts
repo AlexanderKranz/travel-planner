@@ -20,6 +20,7 @@ import { applyEdit } from "@/lib/plan/edit";
 import { canonicalJson, planInputHash } from "@/lib/plan/hash";
 import type { AgeRefs } from "@/lib/group";
 import { tripGroupSource } from "@/lib/group-text";
+import { tripPurpose } from "@/lib/purpose-source";
 import { buildPlanInput, type GroupContext } from "@/lib/plan/input";
 import { allPlacesPending, activityPlacesPending, blockingScope } from "@/lib/plan/places-pending";
 import { drivePicks } from "@/lib/plan/drive-picks";
@@ -63,6 +64,7 @@ import { loadOwnerContext } from "./owner-context";
 import { getProfile } from "./profile";
 import { tagAndSave, wantsTags } from "./purpose-tagging";
 import { getPurpose } from "./purposes";
+import { tagTripPurpose, wantsTripTags } from "./trip-purpose-text";
 import { rateLimit } from "./rate-limit";
 import { getUserSession } from "./session";
 import { getTrip } from "./trips";
@@ -159,7 +161,8 @@ export async function loadPlanContext(
     const src = tripGroupSource(trip);
     if (src) group = { ...src, updatedAt: trip.updatedAt };
   }
-  if (p?.ok) purpose = p.data;
+  // The saved purpose, else the trip's one-off text (spec trip-purpose-text P5).
+  purpose = tripPurpose(trip, p?.ok ? p.data : null);
   // A non-owner (write or read grantee): the plan belongs to the owner, so the pipeline uses the OWNER's birthdate, home
   // airports and locale. Read here, after the trip was visible through RLS, with the secret key (owner-context.ts).
   let birthdate = profile.data.birthdate;
@@ -365,7 +368,7 @@ export async function generatePlan(
 ): Promise<PipelineResult> {
   const loaded = await loadPlanContext(tripId);
   if (!loaded.ok) return loaded;
-  const c = loaded.ctx;
+  let c = loaded.ctx;
   if (!canEdit(c.access)) return err("forbidden");
   let locale: Locale = requestLocale;
   const g = await gate(c.session.userId);
@@ -389,7 +392,22 @@ export async function generatePlan(
     if (c.access !== "owner") locale = await sharedPlanLocale(c, plan);
     // 3. Haiku tags (once per purpose content, cached in parsed_*)
     let purpose = c.purpose;
-    if (wantsTags(purpose)) {
+    if (wantsTripTags(purpose)) {
+      // The trip's one-off purpose text (trip-purpose-text P4): tags are saved on the trip row, which moves its
+      // updated_at. Continue with the new value for trip, one-off group and purpose so the plan basis stays current.
+      const blocked = await checkBudget(c, RESERVE_TAGS);
+      if (blocked) return blocked;
+      const tagged = await tagTripPurpose({ userId: c.session.userId, sb: c.sb }, c.trip, purpose, ai.ctx);
+      purpose = tagged.purpose;
+      if (tagged.updatedAt) {
+        const updatedAt = tagged.updatedAt;
+        c = {
+          ...c,
+          trip: { ...c.trip, updatedAt },
+          group: c.group && !c.trip.groupId ? { ...c.group, updatedAt } : c.group,
+        };
+      }
+    } else if (wantsTags(purpose)) {
       const blocked = await checkBudget(c, RESERVE_TAGS);
       if (blocked) return blocked;
       purpose = await tagAndSave(c.session.userId, purpose, ai.ctx);

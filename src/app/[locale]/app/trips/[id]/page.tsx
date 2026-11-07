@@ -15,6 +15,7 @@ import { berlinToday } from "@/lib/date";
 import { Locale, type FactsCtx } from "@/lib/domain";
 import { ageReferenceDate } from "@/lib/facts/trip-timing";
 import { groupPartySize, resolveGroup, tripGroupSource } from "@/lib/group-text";
+import { tripPurpose } from "@/lib/purpose-source";
 import { getGroupOnce, getPlanStateOnce, getProfileOnce, getPurposeOnce, getTripOnce } from "@/lib/server/request-reads";
 import { loadAgeRefs } from "@/lib/server/age-refs";
 import { getUserSession } from "@/lib/server/session";
@@ -116,7 +117,8 @@ export default async function TripDetailPage({
         resolved,
       }
     : null;
-  const purpose = purposeRes?.ok ? purposeRes.data : null;
+  // The saved purpose, else the trip's one-off text (trip-purpose-text P5).
+  const purpose = tripPurpose(trip, purposeRes?.ok ? purposeRes.data : null);
   // Who the group belongs to, for "(group owner)" and "about {name}'s age": the share's contact name (email as fallback),
   // else the display name the server sent, else the trip owner when they own it.
   const savedGroup = groupRes?.ok ? groupRes.data : null;

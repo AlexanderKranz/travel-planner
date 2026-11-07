@@ -22,6 +22,7 @@ const h = vi.hoisted(() => ({
   compose: vi.fn(),
   patch: vi.fn(),
   tag: vi.fn(),
+  tagTrip: vi.fn(),
   needsTags: vi.fn(() => false),
   insert: vi.fn(async () => 2),
   release: vi.fn(async () => {}),
@@ -55,6 +56,10 @@ vi.mock("./facts/drive-times", () => ({ getDriveTimes: h.drive }));
 vi.mock("./facts/activity-lookups", () => ({ loadActivityLookups: h.lookups }));
 vi.mock("./warm", () => ({ scheduleActivityWarm: h.warm }));
 vi.mock("./ai/compose", () => ({ composePlan: h.compose, patchPlan: h.patch }));
+vi.mock("./trip-purpose-text", () => ({
+  wantsTripTags: (p: { id: string; tags: unknown; text?: string } | null) => !!p && p.id === "" && p.tags == null && !!p.text,
+  tagTripPurpose: h.tagTrip,
+}));
 vi.mock("./ai/purpose-tags", () => ({ needsTags: h.needsTags, tagPurpose: h.tag }));
 vi.mock("./ai-usage", () => ({
   isAiEnabled: () => true,
@@ -129,6 +134,10 @@ beforeEach(() => {
   h.trip.ownerId = "u1";
   h.trip.wantsFlights = undefined;
   h.trip.groupId = null;
+  h.trip.purposeId = "p1";
+  delete h.trip.purposeText;
+  delete h.trip.purposeTags;
+  h.trip.updatedAt = "t";
   h.group = null;
   h.groupOwnerCalls = [];
   h.groupOwnerCtx = { birthdate: "1960-01-01", displayName: "Gerda" };
@@ -822,5 +831,68 @@ describe("review: money and lock edges of the early lock", () => {
     expect(res).toMatchObject({ ok: true });
     expect(h.compose).not.toHaveBeenCalled();
     expect(h.release).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("one-off trip purpose (spec trip-purpose-text P4, P5)", () => {
+  const TEXT = "Golf mit einem Freund, flache Plätze";
+  const TAGS = { v: 2, interests: ["golf"], custom: [], hard: [], soft: [], summary: "Golf" };
+  const oneOff = () => {
+    h.trip.purposeId = null;
+    h.trip.purposeText = TEXT;
+  };
+  const buildArg = () => h.build.mock.calls[0][0] as { trip: { updatedAt: string }; group: { updatedAt: string } | null; purpose: { id: string; text: string; tags: unknown; updatedAt: string; usable: boolean } | null };
+
+  it("loadPlanContext resolves the text into the transient purpose (owner, access, trip.updatedAt)", async () => {
+    oneOff();
+    const res = await loadPlanContext(TRIP);
+    expect(res).toMatchObject({ ok: true, ctx: { purpose: { id: "", text: TEXT, tags: null, usable: false, ownerId: "u1", access: "owner", updatedAt: "t" } } });
+  });
+  it("a saved purpose is used as before and the text path is not touched", async () => {
+    await generatePlan(TRIP, "en");
+    expect(h.tagTrip).not.toHaveBeenCalled();
+    expect(buildArg().purpose).toMatchObject({ id: "p1" });
+  });
+  it("without a purpose there is none", async () => {
+    h.trip.purposeId = null;
+    const res = await loadPlanContext(TRIP);
+    expect(res).toMatchObject({ ok: true, ctx: { purpose: null } });
+  });
+  it("tags it once with the actor's id and continues with the returned updated_at for trip, one-off group and purpose", async () => {
+    oneOff();
+    h.trip.groupText = "5 Freunde";
+    h.group = null;
+    h.tagTrip.mockImplementation(async (_actor: unknown, _trip: unknown, p: Record<string, unknown>) => ({ purpose: { ...p, tags: TAGS, updatedAt: "t2" }, updatedAt: "t2" }));
+    const res = await generatePlan(TRIP, "en");
+    expect(res.ok).toBe(true);
+    expect(h.tagTrip).toHaveBeenCalledOnce();
+    expect(h.tagTrip.mock.calls[0][0]).toMatchObject({ userId: "u1" });
+    expect(h.tag).not.toHaveBeenCalled();
+    expect(h.saveTags).not.toHaveBeenCalled(); // not the saved-purpose path
+    expect(buildArg().trip.updatedAt).toBe("t2");
+    expect(buildArg().purpose).toMatchObject({ tags: TAGS, updatedAt: "t2" });
+    expect(buildArg().group?.updatedAt).toBe("t2");
+    delete h.trip.groupText;
+  });
+  it("tags already on the trip: no tagging step", async () => {
+    oneOff();
+    h.trip.purposeTags = TAGS;
+    await generatePlan(TRIP, "en");
+    expect(h.tagTrip).not.toHaveBeenCalled();
+    expect(buildArg().purpose).toMatchObject({ tags: TAGS });
+  });
+  it("a tagging failure still builds the plan from the raw text", async () => {
+    oneOff();
+    h.tagTrip.mockImplementation(async (_a: unknown, _t: unknown, p: unknown) => ({ purpose: p, updatedAt: null }));
+    const res = await generatePlan(TRIP, "en");
+    expect(res.ok).toBe(true);
+    expect(buildArg().purpose).toMatchObject({ id: "", text: TEXT, tags: null, updatedAt: "t" });
+    expect(buildArg().trip.updatedAt).toBe("t");
+  });
+  it("the budget gate comes before the tags call", async () => {
+    oneOff();
+    h.budgetOk = false;
+    expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "budget_exceeded" });
+    expect(h.tagTrip).not.toHaveBeenCalled();
   });
 });
