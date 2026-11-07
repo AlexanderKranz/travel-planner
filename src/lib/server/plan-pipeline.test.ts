@@ -37,6 +37,7 @@ const h = vi.hoisted(() => ({
   drive: vi.fn(async () => null as unknown),
   lookups: vi.fn(),
   interests: vi.fn(async () => [] as unknown[]),
+  enqueue: vi.fn<(jobs: unknown[]) => Promise<void>>(async () => {}),
   warm: vi.fn(),
   build: vi.fn((a: unknown) => ({ stored: { llm: { v: 1 }, index: {} }, header: {}, digest: {}, a })),
 }));
@@ -55,6 +56,7 @@ vi.mock("./facts", () => ({ getTripFacts: h.getFacts }));
 vi.mock("./facts/drive-times", () => ({ getDriveTimes: h.drive }));
 vi.mock("./facts/activity-lookups", () => ({ loadActivityLookups: h.lookups }));
 vi.mock("./facts/places", () => ({ PLACES_CACHE_ONLY: 0, getInterestGroups: h.interests }));
+vi.mock("./place-retries", () => ({ enqueuePlaceRetries: h.enqueue }));
 vi.mock("./warm", () => ({ scheduleActivityWarm: h.warm }));
 vi.mock("./ai/compose", () => ({ composePlan: h.compose, patchPlan: h.patch }));
 vi.mock("./ai/purpose-tags", () => ({ needsTags: h.needsTags, tagPurpose: h.tag }));
@@ -735,6 +737,11 @@ describe("iteratePlan: change requests that need places (activities spec section
     expect(h.patch).toHaveBeenCalledTimes(1);
     expect(h.insert).not.toHaveBeenCalled();
     expect(h.warm).toHaveBeenCalledWith(h.trip.destination, expect.anything(), expect.anything(), expect.any(Number), ["golf"]);
+    // Background retry: the plan's interest job (rounded point, golf's 40 km minimum radius).
+    expect(h.enqueue).toHaveBeenCalledTimes(1);
+    expect(h.enqueue.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ kind: "interest", params: { kind: "interest", interest: "golf", lat: 36.5, lon: -4.9, radiusKm: 40 } }),
+    ]);
     expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "plan.places_pending", props: expect.objectContaining({ interests: "golf" }) }));
   });
 

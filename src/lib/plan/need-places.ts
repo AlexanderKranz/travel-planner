@@ -141,9 +141,9 @@ export function extendInput(
 
 /**
  * Interest places a change request loaded (issue #151) -> new `places` rows (ids after the highest p id, `i` = the
- * interest) and index entries, up to NEED_INTEREST_PLACES per interest, skipping places already in the input. An
- * interest that found nothing (or has no group, e.g. a free-text destination) goes to noSource; one that now has
- * places leaves it. Mutates `known`. Pure otherwise.
+ * interest) and index entries, up to NEED_INTEREST_PLACES per interest, skipping places already in the input (they
+ * keep their id and still count as places of the interest). An interest that found nothing (or has no group, e.g. a
+ * free-text destination) goes to noSource; one with places leaves it. Mutates `known`. Pure otherwise.
  */
 function interestsInput(
   stored: PlanInputStored,
@@ -158,11 +158,17 @@ function interestsInput(
   for (const interest of keys) {
     const g = groups.find((x) => x.interest === interest);
     let count = 0;
+    // A candidate already in the input (another interest, the activities block, or an earlier key of this call) is
+    // a verified place for this interest too: the interest must not land in noSource ("not covered" would be false).
+    let alreadyListed = false;
     if (g?.status === "ok") {
       for (const c of g.candidates) {
         if (count >= NEED_INTEREST_PLACES) break;
         const key = `${c.osmType}/${c.osmId}` as PlanInputStored["index"][string]["key"];
-        if (a.known.has(key)) continue;
+        if (a.known.has(key)) {
+          alreadyListed = true;
+          continue;
+        }
         const id = `p${++n}`;
         const { row, entry } = interestPlace({ interest, c, key, fetchedAt: g.fetchedAt }, id, { lang: a.lang });
         places.push(row);
@@ -171,7 +177,7 @@ function interestsInput(
         count += 1;
       }
     }
-    const listed = count > 0 || places.some((p) => p.i === interest);
+    const listed = count > 0 || alreadyListed || places.some((p) => p.i === interest);
     const at = noSource.indexOf(interest);
     if (listed && at >= 0) noSource.splice(at, 1);
     if (!listed && at < 0) noSource.push(interest);

@@ -152,6 +152,24 @@ describe("needPlaces interests (issue #151)", () => {
     expect(new Set(Object.values(again.index).map((e) => e.key)).size).toBe(Object.keys(again.index).length);
   });
 
+  it("candidates already listed (shared by two interests, or in activities) still cover the interest: never noSource (QA M1)", () => {
+    const view = { ...golf[0], osmType: "node" as const, osmId: 9001, category: "tourism=viewpoint" };
+    const s = storedFor(3);
+    // node/7 is already an activity place (a1).
+    const stored: PlanInputStored = { ...s, llm: { ...s.llm, noSource: ["photography", "family_activities"] }, index: { ...s.index, a1: { key: "node/7", place: s.index.p1.place } } };
+    const req = resolveNeedPlaces({ interests: ["nature_wildlife", "photography", "family_activities"] }, stored)!;
+    const next = extendInput(stored, req, {
+      activities: [],
+      interests: [
+        { interest: "nature_wildlife", status: "ok", candidates: [view], fetchedAt: T, stale: false },
+        { interest: "photography", status: "ok", candidates: [view], fetchedAt: T, stale: false },
+        { interest: "family_activities", status: "ok", candidates: [{ ...view, osmId: 7 }], fetchedAt: T, stale: false },
+      ],
+    }, { lang: "de" });
+    expect(next.llm.places.map((p) => [p.id, p.i])).toEqual([["p4", "nature_wildlife"]]);
+    expect(next.llm.noSource).toEqual([]);
+  });
+
   it("an interest that found nothing (or could not load, e.g. a free-text destination) goes to noSource", () => {
     const s = storedFor(3);
     const req = resolveNeedPlaces({ interests: ["golf", "beach"] }, s)!;
