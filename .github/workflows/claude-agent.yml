@@ -110,7 +110,7 @@ jobs:
             sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
 
-      - uses: anthropics/claude-code-action@d535f5172dec02b204866b393d6b20b9b2aaf98d # v1.0.266
+      - uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe # v1.0.269
         env:
           # Remove secrets from the subprocesses Claude starts. This may also strip the GitHub token
           # that `gh` needs: if `gh pr create` fails on the first run, Alex opens the PR from the pushed branch.
