@@ -174,7 +174,7 @@ export function TripForm({
             onChange={(e) => set({ lengthDays: e.target.value === "" ? NaN : Number(e.target.value) })}
             aria-invalid={bad("lengthDays") ? true : undefined}
             aria-describedby="trip-length-hint"
-            className={`${inputCls} w-24 text-center`}
+            className={`${inputCls.replace("w-full", "w-24")} text-center`}
           />
           <button
             type="button"
@@ -185,7 +185,7 @@ export function TripForm({
           >
             <span aria-hidden="true">+</span>
           </button>
-          <span className="text-sm">{t("lengthUnit")}</span>
+          <span className="shrink-0 whitespace-nowrap text-sm">{t("lengthUnit")}</span>
         </div>
         <p id="trip-length-hint" className={bad("lengthDays") ? "text-sm text-danger" : "text-sm text-muted"}>
           {bad("lengthDays") ? t("lengthInvalid", { max: MAX_TRIP_DAYS }) : t("lengthHint", { max: MAX_TRIP_DAYS })}
