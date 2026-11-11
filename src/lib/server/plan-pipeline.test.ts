@@ -806,7 +806,7 @@ describe("iteratePlan: needPlaces edges (QA)", () => {
   it("unusable needPlaces with no days: unchanged with a fixed notice, never the model's reply", async () => {
     h.patch.mockResolvedValueOnce({ ok: true, data: { reply: "Ich lade sie jetzt", days: [], needPlacesUnusable: true }, usage: {} });
     const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "Laser Maze" }, "de");
-    expect(r).toMatchObject({ ok: true, data: { unchanged: true, notice: "places_not_loadable" } });
+    expect(r).toMatchObject({ ok: true, data: { unchanged: true, notice: { code: "places_not_loadable", places: [] } } });
     expect(r.ok && r.data.reply).toBeFalsy();
     expect(h.insert).not.toHaveBeenCalled();
     expect(h.lookups).not.toHaveBeenCalled();
@@ -815,7 +815,7 @@ describe("iteratePlan: needPlaces edges (QA)", () => {
   it("second call asks again without days: unchanged with the notice, no version", async () => {
     h.patch.mockResolvedValueOnce(ask).mockResolvedValueOnce({ ok: true, data: { reply: "lade noch mehr", days: [], needPlacesUnusable: true }, usage: {} });
     const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "Escape Rooms" }, "de");
-    expect(r).toMatchObject({ ok: true, data: { unchanged: true, notice: "places_not_loadable" } });
+    expect(r).toMatchObject({ ok: true, data: { unchanged: true, notice: { code: "places_not_loadable", places: [] } } });
     expect(h.insert).not.toHaveBeenCalled();
   });
 

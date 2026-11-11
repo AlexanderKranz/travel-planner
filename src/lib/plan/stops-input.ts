@@ -184,7 +184,7 @@ export function stopPointsOf(resolved: readonly ResolvedStop[]): StopPoints {
 
 /** Stops of an input as resolved stops again (for lookups around them): id, name, point, days from the rows. Pure. */
 export function resolvedFromInput(stored: Pick<PlanInputStored, "llm" | "stopPoints">): ResolvedStop[] {
-  const rows = stored.llm.trip.stops ?? [];
+  const rows = stored.llm.trip?.stops ?? [];
   return (stored.llm.stopPlaces ?? []).map((p) => {
     const point = stored.stopPoints?.[p.id];
     const days = [...new Set(rows.filter((r) => r.at === p.id).map((r) => r.day))].sort((x, y) => x - y);
@@ -220,7 +220,7 @@ export function extendInputWithStops(
 
 /** Stops of a stored input that need a new lookup: nothing usable (`s` error/skipped) or a failed restaurants/cafés block. */
 export function stopsToRetry(stored: Pick<PlanInputStored, "llm" | "stopPoints">, scopeDays: readonly number[]): string[] {
-  const rows = stored.llm.trip.stops ?? [];
+  const rows = stored.llm.trip?.stops ?? [];
   return (stored.llm.stopPlaces ?? [])
     .filter((p) => stored.stopPoints?.[p.id])
     .filter((p) => p.s === "error" || p.s === "skipped" || failedStatus(p.restaurants?.s) || failedStatus(p.cafes?.s))
