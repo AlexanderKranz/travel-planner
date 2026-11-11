@@ -48,6 +48,7 @@ import { getTripFacts } from "./facts";
 import { getDriveTimes } from "./facts/drive-times";
 import { stopDestination, stopDriveTimes } from "./facts/stops";
 import { prepareStopsForPatch, stopPrepBudget } from "./plan-stops";
+import { notesDeriver } from "./itinerary-notes";
 import { resolveTripStops } from "./trip-stops";
 import { getGroup } from "./groups";
 import {
@@ -417,8 +418,8 @@ export async function generatePlan(
     }
 
     // Trip stops (confirmed, else derived from the notes): their places are looked up beside the destination's.
-    // TODO(integration): pass notesDeriver(session) (itinerary-notes) so a parser miss may use the Haiku text path.
-    const stops = await resolveTripStops(c.trip);
+    // Notes are read as the acting user: parser first, Haiku text path on a miss (itinerary-upload [D10]).
+    const stops = await resolveTripStops(c.trip, notesDeriver(c.session));
     // 4. facts + input
     const facts = await getTripFacts(
       c.trip,
@@ -736,6 +737,7 @@ export async function iteratePlan(
       scopeDays: fb.data.days,
       locale: base.plan.locale as Locale,
       userId: c.session.userId,
+      derive: notesDeriver(c.session),
       budgetMs: stopPrepBudget(started + ITERATE_DEADLINE_MS - Date.now()),
     });
     const input = prep.stored;

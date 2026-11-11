@@ -8,6 +8,7 @@ import { budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage, type Role } fro
 import type { AiCtx } from "@/lib/domain/ai";
 import type { FactsCtx } from "@/lib/domain/facts";
 import { warmTripFacts } from "./facts";
+import { notesDeriver } from "./itinerary-notes";
 import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
 import { getInterestGroups } from "./facts/places";
 import type { InterestKey } from "@/lib/domain/interests";
@@ -66,7 +67,7 @@ export async function scheduleTripWarm(session: Session, trip: Trip, locale: Loc
         }
         // The saved purpose, else the trip's one-off text (trip-purpose-text P5).
         const purpose = await withTags(session, tripPurpose(trip, saved), trip);
-        await warmTripFacts(trip, purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: WARM_BUDGET_MS });
+        await warmTripFacts(trip, purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: WARM_BUDGET_MS, derive: notesDeriver(session) });
       } catch {
         // warming is best effort
       }

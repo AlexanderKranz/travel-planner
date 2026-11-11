@@ -6,7 +6,7 @@ import type { TripStop } from "@/lib/domain/trip-stops";
 import { referenceDates } from "@/lib/facts/trip-timing";
 import { jobsForStops, jobsForTripFacts } from "@/lib/places-retry";
 import { enqueuePlaceRetries } from "../place-retries";
-import { resolveTripStops } from "../trip-stops";
+import { resolveTripStops, type DeriveStopsFromNotes } from "../trip-stops";
 import { getCountryFacts } from "./country";
 import { getDaylightFacts } from "./daylight";
 import { getFlightsFacts } from "./flights";
@@ -93,12 +93,12 @@ export async function warmTripFacts(
   trip: Trip,
   purpose: TripPurpose | null,
   ctx: FactsCtx,
-  options: { budgetMs?: number } = {},
+  options: { budgetMs?: number; derive?: DeriveStopsFromNotes } = {},
 ): Promise<void> {
   try {
     // Confirmed stops, else stops derived from the notes (itinerary-upload [D10]); none for most trips.
-    // TODO(integration): pass notesDeriver(session) where the warm-up has a session (itinerary-notes); no request session in after().
-    const stops = await resolveTripStops(trip);
+    // after() has no request session, so the caller passes a deriver bound to the saving user (scheduleTripWarm).
+    const stops = await resolveTripStops(trip, options.derive);
     const [facts] = await Promise.all([
       collect(trip, purpose, ctx, options.budgetMs ?? WARM_BUDGET_MS, undefined, stops.length ? { list: stops, overpass: "allowed", afterDestination: true } : undefined),
       getDestinationPicture(trip, ctx), // fills api_cache so the share page (cache-only) can show it

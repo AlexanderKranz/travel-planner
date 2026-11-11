@@ -69,7 +69,7 @@ describe("warmTripFacts with stops", () => {
   it("[P7] the warm-up resolves the stops, looks them up AFTER the destination with Overpass allowed, and queues their failures", async () => {
     h.resolveStops.mockResolvedValue(STOPS);
     await warmTripFacts(trip, null, ctx, { budgetMs: 200_000 });
-    expect(h.resolveStops).toHaveBeenCalledWith(trip);
+    expect(h.resolveStops).toHaveBeenCalledWith(trip, undefined);
     expect(h.order.indexOf("stops")).toBeGreaterThan(h.order.indexOf("activities"));
     expect(h.order.indexOf("stops")).toBeGreaterThan(h.order.indexOf("places"));
     const opts = h.getStopFacts.mock.calls[0][4] as { budgetMs: number; overpass: string };

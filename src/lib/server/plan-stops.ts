@@ -10,7 +10,7 @@ import { extendInputWithStops, resolvedFromInput, stopPointsOf, stopRows, stopsT
 import { jobsForStops } from "@/lib/places-retry";
 import { enqueuePlaceRetries } from "./place-retries";
 import { getStopFacts, lookupStops, stopDriveTimes } from "./facts/stops";
-import { resolveTripStops } from "./trip-stops";
+import { resolveTripStops, type DeriveStopsFromNotes } from "./trip-stops";
 
 /** The upgrade of an old input and the retry of failed stops share this much time, cache and Geoapify only (port-places [P8]). */
 export const STOP_PREP_MAX_MS = 30_000;
@@ -44,6 +44,8 @@ export async function prepareStopsForPatch(a: {
   scopeDays: readonly number[];
   locale: Locale;
   userId: string;
+  /** How notes-derived stops are read; the pipeline passes `notesDeriver(session)`. */
+  derive?: DeriveStopsFromNotes;
   budgetMs: number;
 }): Promise<StopPrep> {
   const base: StopPrep = { stored: a.input, upgraded: false, retried: 0, tripHasStops: !!a.input.llm.trip?.stops?.length };
@@ -58,8 +60,7 @@ export async function prepareStopsForPatch(a: {
     let tripHasStops = !!stored.llm.trip?.stops?.length;
 
     if (!tripHasStops) {
-      // TODO(integration): pass notesDeriver(session) (itinerary-notes).
-      const stops = await resolveTripStops(a.trip);
+      const stops = await resolveTripStops(a.trip, a.derive);
       tripHasStops = stops.length > 0;
       if (stops.length && a.budgetMs > 0) {
         const facts = await getStopFacts(a.trip, stops, a.purpose, ctx, { budgetMs: left(), overpass: "cache_only" });
