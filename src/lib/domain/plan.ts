@@ -81,6 +81,8 @@ export const PlanPlace = z.object({
       km: z.number().min(0),
       source: z.literal("openrouteservice"),
       fetchedAt: z.string(),
+      /** Name of the stop the drive is measured from; absent = from the destination point. */
+      from: z.string().optional(),
     })
     .optional(),
 });
