@@ -1,6 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("server-only", () => ({}));
+const h = vi.hoisted(() => ({ session: null as unknown, deriver: vi.fn(), notesDeriver: vi.fn() }));
+vi.mock("./session", () => ({ getUserSession: async () => h.session }));
+vi.mock("./itinerary-notes", () => ({ notesDeriver: h.notesDeriver }));
+
 import type { Trip } from "@/lib/domain/trip";
-import { resolveTripStops } from "./trip-stops";
+import { deriveStopsFromNotes, resolveTripStops } from "./trip-stops";
 
 const base = { lengthDays: 5 } as Trip;
 
@@ -31,7 +37,18 @@ describe("resolveTripStops [D10]", () => {
     expect(await resolveTripStops({ ...base, notes: "neu" }, async () => { throw new Error("boom"); })).toEqual([]);
   });
 
-  it("the default seam derives nothing yet", async () => {
-    expect(await resolveTripStops({ ...base, notes: "Tag 1 Hafen" })).toEqual([]);
+  it("the default deriver acts for the request's user (parser, cache, Haiku on a miss)", async () => {
+    h.session = { userId: "u1" };
+    h.deriver.mockResolvedValue({ notes: "Tag 1 Hafen", stops: [{ day: 1, place: "Hafen" }] });
+    h.notesDeriver.mockReturnValue(h.deriver);
+    expect(await resolveTripStops({ ...base, notes: "Tag 1 Hafen" })).toEqual([{ day: 1, place: "Hafen" }]);
+    expect(h.notesDeriver).toHaveBeenCalledWith(h.session);
+  });
+
+  it("the default deriver without a session is parser and cache only (no actor for an AI call)", async () => {
+    h.session = null;
+    h.notesDeriver.mockReset().mockReturnValue(async () => null);
+    await deriveStopsFromNotes({ ...base, notes: "x" });
+    expect(h.notesDeriver).toHaveBeenCalledWith(null);
   });
 });

@@ -1,5 +1,8 @@
+import "server-only";
 import type { Trip } from "@/lib/domain/trip";
 import { tripStops, type DerivedStops, type TripStop } from "@/lib/domain/trip-stops";
+import { notesDeriver } from "./itinerary-notes";
+import { getUserSession } from "./session";
 
 /**
  * Stops derived from `trip.notes` (itinerary-upload [D10]): prefilter, then parser, then the Haiku text path on a
@@ -12,10 +15,20 @@ import { tripStops, type DerivedStops, type TripStop } from "@/lib/domain/trip-s
 export type DeriveStopsFromNotes = (trip: Trip) => Promise<DerivedStops | null>;
 
 /**
- * SEAM for the itinerary-extract work: today nothing is derived, so trips without confirmed stops resolve to none.
- * The parser/Haiku agent replaces the body (or passes its own function to `resolveTripStops`). No LLM call here.
+ * Default deriver, on behalf of the current request's user (`getUserSession`): parser (0 tokens), then the owner's
+ * cache, then Haiku on a parser miss when that user can edit the trip (the trip's `access` was computed for the same
+ * viewer). Without a request scope or a session it is parser and cache only. Callers that already hold a session
+ * (the warm-up in `after()`) should pass `notesDeriver(session)` from `./itinerary-notes` explicitly.
  */
-export const deriveStopsFromNotes: DeriveStopsFromNotes = async () => null;
+export const deriveStopsFromNotes: DeriveStopsFromNotes = async (trip) => {
+  let session: Awaited<ReturnType<typeof getUserSession>> = null;
+  try {
+    session = await getUserSession();
+  } catch {
+    session = null; // outside a request scope
+  }
+  return notesDeriver(session)(trip);
+};
 
 /**
  * The stops the plan uses, resolved on the server ([D10]): confirmed `trips.stops` > stops derived from the notes >
