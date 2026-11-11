@@ -22,7 +22,7 @@ export const PRICES: Record<AiModel, { input: number; output: number; cacheWrite
   [MODEL_TAGS]: { input: 0.1, output: 0.5, cacheWrite: 0.125, cacheRead: 0.01 },
 };
 
-export type AiTask = "purpose_tags" | "group_parse" | "destination_ideas" | "plan_generate" | "plan_patch";
+export type AiTask = "purpose_tags" | "group_parse" | "destination_ideas" | "itinerary_extract" | "plan_generate" | "plan_patch";
 export type AiUsageStatus = "ok" | "refusal" | "max_tokens" | "invalid_output" | "error";
 
 /** Metadata of one Claude call, logged to `ai_usage`. Never prompt or response content. */
