@@ -1,6 +1,6 @@
 "use client";
 
-import { MAX_ITINERARY_IMAGE_B64, type ItineraryExtractInput } from "@/lib/domain/itinerary";
+import { MAX_ITINERARY_IMAGE_B64, MAX_ITINERARY_TOTAL_B64, type ItineraryExtractInput } from "@/lib/domain/itinerary";
 import { fitSize, hasTextLayer, MAX_IMAGE_EDGE, MAX_PDF_PAGES, MAX_SCAN_PAGES, type ItinerarySource } from "./itinerary-read";
 
 /**
@@ -12,7 +12,7 @@ type UploadImage = Extract<ItineraryExtractInput, { kind: "images" }>["images"][
 export type ReadResult = { source: ItinerarySource; pages: number; truncatedTo?: number };
 
 /** JPEG qualities tried in turn until the image fits 2 MB (the first is the spec's 0.85). */
-const QUALITIES = [0.85, 0.7, 0.55];
+const QUALITIES = [0.85, 0.7, 0.55, 0.4];
 
 function toBase64(blob: Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -29,10 +29,10 @@ const toBlob = (canvas: HTMLCanvasElement, quality: number) =>
   );
 
 /** Re-encoding through a canvas drops EXIF, including GPS. */
-async function canvasToImage(canvas: HTMLCanvasElement): Promise<UploadImage> {
+async function canvasToImage(canvas: HTMLCanvasElement, maxB64 = MAX_ITINERARY_IMAGE_B64): Promise<UploadImage> {
   for (const q of QUALITIES) {
     const data = await toBase64(await toBlob(canvas, q));
-    if (data.length <= MAX_ITINERARY_IMAGE_B64) return { mediaType: "image/jpeg", data };
+    if (data.length <= maxB64) return { mediaType: "image/jpeg", data };
   }
   throw new Error("image too large");
 }
@@ -114,7 +114,8 @@ export async function readPdf(file: File): Promise<ReadResult> {
       const viewport = page.getViewport({ scale });
       const canvas = newCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
       await page.render({ canvas, viewport }).promise;
-      images.push(await canvasToImage(canvas));
+      // All pages go in one request: split the request budget (MAX_ITINERARY_TOTAL_B64) across them.
+      images.push(await canvasToImage(canvas, Math.min(MAX_ITINERARY_IMAGE_B64, Math.floor(MAX_ITINERARY_TOTAL_B64 / scanPages))));
     }
     return result({ kind: "images", images }, scanPages);
   } finally {

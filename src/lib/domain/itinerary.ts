@@ -36,6 +36,11 @@ export const ITINERARY_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] a
 export const MAX_ITINERARY_IMAGES = 3;
 /** Max base64 length of one downscaled image (2 MB of bytes, [D9]). */
 export const MAX_ITINERARY_IMAGE_B64 = Math.ceil((2 * 1024 * 1024 * 4) / 3);
+/**
+ * Max base64 length of all images of one request together (3 MB of bytes). Vercel refuses request bodies over
+ * 4.5 MB, so 3 x 2 MB cannot be sent at once; a scan splits this budget across its pages.
+ */
+export const MAX_ITINERARY_TOTAL_B64 = Math.ceil((3 * 1024 * 1024 * 4) / 3);
 /** Cap of the prefiltered text (section 3.2). */
 export const MAX_ITINERARY_TEXT = 8000;
 
@@ -47,7 +52,10 @@ export const ItineraryExtractInput = z.discriminatedUnion("kind", [
     images: z
       .array(z.object({ mediaType: z.enum(ITINERARY_IMAGE_TYPES), data: z.string().min(1).max(MAX_ITINERARY_IMAGE_B64) }))
       .min(1)
-      .max(MAX_ITINERARY_IMAGES),
+      .max(MAX_ITINERARY_IMAGES)
+      .refine((imgs) => imgs.reduce((n, i) => n + i.data.length, 0) <= MAX_ITINERARY_TOTAL_B64, {
+        message: "Images too large together",
+      }),
   }),
 ]);
 export type ItineraryExtractInput = z.infer<typeof ItineraryExtractInput>;
