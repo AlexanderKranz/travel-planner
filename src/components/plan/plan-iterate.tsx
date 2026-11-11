@@ -10,6 +10,7 @@ import { PLAN_CHIPS, type PlanChip } from "@/lib/domain/plan";
 import { editPlan } from "@/lib/server/plans";
 import { carriedReply, carryReply, dropCarriedReply, newVersionOf } from "./carried-reply";
 import { asPlanError, range, toggleIn } from "./helpers";
+import { unchangedMessage } from "./iterate-notice";
 import { PlanErrorBanner, PlanRunner } from "./plan-runner";
 
 export type IterateBlock = null | "notLatest" | "busy" | "aiDisabled" | "budget" | "outdated";
@@ -102,14 +103,18 @@ export function PlanIterate({
           feedback: { chips, days, ...(text.trim() ? { text: text.trim() } : {}) },
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; reply?: string; unchanged?: boolean; rejectedDays?: number[]; notice?: string; state?: unknown };
+      const json = (await res.json().catch(() => ({}))) as { error?: string; reply?: string; unchanged?: boolean; rejectedDays?: number[]; notice?: unknown; state?: unknown };
       if (!res.ok) {
         setError(asPlanError(json.error));
         return;
       }
       const rejected = Array.isArray(json.rejectedDays) ? json.rejectedDays.filter((n) => Number.isInteger(n)) : [];
       const rejectedText = rejected.length ? t("shrinkRejected", { count: rejected.length, days: rejected.join(", ") }) : null;
-      const unchangedText = json.notice === "places_not_loadable" ? t("placesNotLoadable") : t("noChange");
+      const unchangedText = unchangedMessage(
+        json,
+        (key, values) => t(key as Parameters<typeof t>[0], values),
+        (items) => new Intl.ListFormat(locale, { style: "long", type: "conjunction" }).format(items),
+      );
       const main = rejected.length && json.unchanged ? null : json.unchanged ? unchangedText : (json.reply ?? t("done"));
       const message = [main, rejectedText].filter(Boolean).join(" ");
       const next = newVersionOf(json.state, baseVersion);

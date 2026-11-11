@@ -287,7 +287,8 @@
       "label": "Maximum flight time (direct)",
       "any": "Any",
       "hours": "up to {h} h"
-    }
+    },
+    "purposeHint": "Upload the itinerary with ports and times on the trip."
   },
   "settings": {
     "title": "Settings",
@@ -487,6 +488,58 @@
         "hint": "Free text, for example “Ben and I, similar age”. Not saved as a travel group."
       },
       "groupStructureHelp": "Optional: enter people and ages exactly. This takes precedence over the recognised text."
+    },
+    "stops": {
+      "title": "Stops & times",
+      "multiStop": "Several stops (cruise or round trip)",
+      "hint": "For example a cruise itinerary or the legs of a round trip. Optional.",
+      "clearConfirm": "Remove the saved stops?",
+      "clearYes": "Yes, remove",
+      "clearNo": "Keep them",
+      "upload": "Choose document",
+      "camera": "Take photo",
+      "uploadHint": "PDF or photo, up to 15 MB. The file is not stored.",
+      "reading": "Reading document …",
+      "fromNotes": "Take from notes",
+      "derived": "Found in your notes: {count, plural, one {# stop} other {# stops}}",
+      "takeOver": "Use these",
+      "add": "Add stop",
+      "remove": "Remove stop {n}",
+      "stopN": "Stop {n}",
+      "day": "Day",
+      "dayOption": "Day {n} ({date})",
+      "dayOptionNoDate": "Day {n}",
+      "place": "Place",
+      "arrive": "Arrival",
+      "depart": "Departure",
+      "sea": "Day at sea",
+      "note": "Note",
+      "invalidRow": "Please check place and day.",
+      "invalidList": "Please check the marked stops.",
+      "empty": "No stops yet.",
+      "proposal": "Found {count, plural, one {# stop} other {# stops}}. Please check.",
+      "proposalBelow": "Newly found: {count, plural, one {# stop} other {# stops}}. Please check.",
+      "replace": "Replace",
+      "fillMissing": "Add missing days",
+      "discard": "Discard",
+      "takeDates": "Use trip dates: {range} ({days} days)",
+      "readOnly": "Read-only access: the stops cannot be changed.",
+      "flag": {
+        "outsideTrip": "Outside the trip dates",
+        "noTripDate": "The trip has no date yet",
+        "yearGuessed": "Year added, please check",
+        "fromImage": "Read from the image, please compare",
+        "timeUnclear": "Time not readable"
+      },
+      "error": {
+        "unreadable": "The document could not be read.",
+        "noStops": "No stops found. You can type them below.",
+        "tooLarge": "The file is too large (max 15 MB).",
+        "unsupportedType": "Please use PDF, JPG, PNG or WebP.",
+        "tooManyPages": "Only the first {pages} pages were read.",
+        "aiOff": "Automatic reading is not available right now. Please type the stops.",
+        "limit": "Daily limit reached. Try tomorrow or type the stops."
+      }
     }
   },
   "facts": {
@@ -814,7 +867,7 @@
     "dayShort": "Day",
     "bestDay": "Best day",
     "changed": "Changed",
-    "fromNotes": "from your notes",
+    "fromNotes": "from your trip details",
     "windowBoth": "{from}–{to}",
     "windowFrom": "from {time}",
     "windowUntil": "until {time}",
@@ -941,7 +994,11 @@
         "b": "with day",
         "apply": "Swap"
       },
-      "shrinkRejected": "{count, plural, one {Day {days} was} other {Days {days} were}} not changed because the answer was incomplete. Please try again."
+      "shrinkRejected": "{count, plural, one {Day {days} was} other {Days {days} were}} not changed because the answer was incomplete. Please try again.",
+      "stopsNotFound": "Nothing changed: {places} was not found in the place data. Please check the place name under “Stops & times”.",
+      "stopsUnchecked": "Nothing changed: the places in {places} could not be loaded yet. They load in the background; please try again in a few minutes.",
+      "stopsCapped": "Nothing changed: the app no longer loads places for {places} (at most 10 stops per trip).",
+      "stopsUnknown": "Nothing changed: the app does not know any stops of this trip. Enter them under “Stops & times” to get concrete places there too."
     },
     "versions": {
       "aria": "Version history",
@@ -1005,7 +1062,9 @@
       "working": "Saving…",
       "markBest": "Mark day {n} as best day",
       "unmarkBest": "Remove the best-day mark from day {n}"
-    }
+    },
+    "driveTitleStop": "By car from {stop}, {km} km (OpenRouteService, checked {date})",
+    "driveCreditStop": "Drive times: © openrouteservice.org, from {stop}"
   },
   "items": {
     "title": "Bookings and costs",
