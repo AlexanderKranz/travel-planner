@@ -107,7 +107,7 @@ export async function schedulePurposeWarm(session: Session, purposeId: string): 
         for (const row of rows) {
           const left = WARM_BUDGET_MS - (Date.now() - started);
           if (left < 30_000) break;
-          await warmTripFacts(rowToTrip(row, session.userId), purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: left });
+          await warmTripFacts(rowToTrip(row, session.userId), purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: left, derive: notesDeriver(session) });
         }
       } catch {
         // warming is best effort
