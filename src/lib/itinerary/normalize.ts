@@ -81,7 +81,17 @@ export type SourceIndex = { folded: string; words: Set<string>; times: Set<strin
 export function indexSource(text: string): SourceIndex {
   const folded = ` ${foldText(text)} `;
   const times = new Set<string>();
-  for (const line of text.normalize("NFC").split(/\r\n|\r|\n/)) for (const t of findTimes(matchKey(line))) times.add(t.hhmm);
+  for (const line of text.normalize("NFC").split(/\r\n|\r|\n/)) {
+    const key = matchKey(line);
+    for (const t of findTimes(key)) times.add(t.hhmm);
+    // Hours that only get their unit at the end of a range: "7 bis 12 Uhr", "von 15-21 h", "7 to 11 am".
+    for (const m of key.matchAll(/(?<![\d.:])(\d{1,2})\s*(?:bis|-|–|to)\s*\d{1,2}(?:[:.]\d{2})?\s*(uhr|h|am|pm)(?![a-z])/g)) {
+      const h = Number(m[1]) + (m[2] === "pm" && Number(m[1]) < 12 ? 12 : 0);
+      if (h <= 23) times.add(`${String(h).padStart(2, "0")}:00`);
+    }
+    if (/\b(noon|mittag|mittags)\b/.test(key)) times.add("12:00");
+    if (/\b(midnight|mitternacht)\b/.test(key)) times.add("00:00");
+  }
   return { folded, words: new Set(folded.trim().split(" ")), times };
 }
 

@@ -113,3 +113,11 @@ describe("StoredRawStops", () => {
     expect(StoredRawStops.safeParse([{ place: "Passau", flags: ["evil"] }]).success).toBe(false);
   });
 });
+
+describe("indexSource times", () => {
+  it("knows the start hour of a range with the unit at the end, and noon", () => {
+    const src = indexSource("21.12. Dürnstein (7 bis 12 Uhr), Melk 15-21 h\nDec 21 Melk 3 to 9 pm, Dürnstein 7 am to noon");
+    for (const t of ["07:00", "12:00", "15:00", "21:00"]) expect(src.times.has(t)).toBe(true);
+    expect(src.times.has("08:00")).toBe(false);
+  });
+});

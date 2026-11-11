@@ -81,7 +81,7 @@ function headerOf(words: string[]): Header | null {
 }
 
 /** Builds the stops of one line from its tokens. */
-function buildStops(toks: Tok[]): Build[] {
+function buildStops(toks: Tok[], line: string): Build[] {
   const builds: Build[] = [];
   let cur: Build | null = null;
   let marker: { m: Marker; german: boolean } | null = null;
@@ -108,7 +108,12 @@ function buildStops(toks: Tok[]): Build[] {
       }
       if (FILLER_WORDS.has(w) || /^\d/.test(w)) continue;
       let b: Build = cur ?? start();
-      if (b.placeStart !== undefined && !b.placeOpen && hasSlot(b)) b = start();
+      if (b.placeStart !== undefined && !b.placeOpen && hasSlot(b)) {
+        // A second port on the line starts with a capital ("…, Melk 15:00"); a trailing verb ("… 8 Uhr bestellen") is
+        // not a port and is skipped.
+        if (!/^[\p{Lu}\d]/u.test(line.slice(t.start, t.end))) continue;
+        b = start();
+      }
       if (b.placeStart === undefined) b.placeStart = t.start;
       b.placeEnd = t.end;
       b.placeOpen = true;
@@ -266,7 +271,7 @@ export function readStops(text: string): { stops: RawStop[]; incomplete: number 
       }
     }
 
-    const builds = sea ? [] : buildStops(toks);
+    const builds = sea ? [] : buildStops(toks, line);
     const flagsOf = (b?: Build): ItineraryFlag[] => (unclear.length > 0 || b?.unclear ? ["time_unclear"] : []);
     const noteOf = (b?: Build) => {
       const parts = [b?.daypart ? daypartNote(b.daypart, line.slice(b.daypart.start, b.daypart.end), header) : "", ...parens].filter(Boolean);

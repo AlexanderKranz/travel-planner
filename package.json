@@ -13,6 +13,8 @@
     "evals:group-text": "EVAL_LIVE=1 vitest run --config evals/vitest.config.ts evals/group-text.eval.ts",
     "evals:patch-shrink": "EVAL_LIVE=1 vitest run --config evals/vitest.config.ts evals/patch-shrink.eval.ts",
     "evals:tags-cases": "EVAL_LIVE=1 vitest run --config evals/vitest.config.ts evals/tags-cases.eval.ts",
+    "evals:itinerary": "EVAL_LIVE=1 vitest run --config evals/vitest.config.ts evals/itinerary.eval.ts",
+    "evals:itinerary-docs": "EVAL_DOCS=1 vitest run --config evals/vitest.config.ts evals/itinerary-docs.gen.ts",
     "typecheck": "tsc --noEmit",
     "e2e": "playwright test",
     "airports:build": "node scripts/airports/build.mjs",
