@@ -3,7 +3,7 @@ import { LlmPatch, LlmPlan, PurposeTags } from "@/lib/domain/plan";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import type { AiUsageRecord } from "@/lib/domain/ai";
-import { CLIENT_MAX_RETRIES, CLIENT_TIMEOUT_MS, callStructured, clientOptions, estimateFailedCostMicroUsd, outputFormat } from "./client";
+import { CLIENT_MAX_RETRIES, CLIENT_TIMEOUT_MS, FAILED_IMAGE_TOKENS, callStructured, clientOptions, estimateFailedCostMicroUsd, outputFormat } from "./client";
 
 vi.mock("server-only", () => ({}));
 
@@ -130,6 +130,36 @@ describe("callStructured", () => {
     const blocks = [{ text: "x".repeat(3000) }];
     expect(estimateFailedCostMicroUsd({ model: "claude-sonnet-5-5", system: "y".repeat(1000), blocks })).toBe(2000);
     expect(estimateFailedCostMicroUsd({ model: "claude-haiku-5-5", system: "y".repeat(1000), blocks })).toBe(100);
+  });
+
+  it("counts FAILED_IMAGE_TOKENS per image block, never the base64 length", () => {
+    // 400 chars → 100 tokens, + 2 × 1600 image tokens = 3300 × 0.1 µUSD (Haiku) = 330.
+    const image = { image: { mediaType: "image/jpeg" as const, data: "A".repeat(100_000) } };
+    const blocks = [{ text: "x".repeat(200) }, image, image];
+    expect(FAILED_IMAGE_TOKENS).toBe(1600);
+    expect(estimateFailedCostMicroUsd({ model: "claude-haiku-5-5", system: "y".repeat(200), blocks })).toBe(330);
+  });
+
+  it("sends an image block as a base64 image source next to the text blocks", async () => {
+    const t = setup(msg('{"a":1}'));
+    const create = t.create;
+    await callStructured(
+      {
+        task: "itinerary_extract",
+        model: "claude-haiku-5-5",
+        schema: z.object({ a: z.number() }),
+        effort: "low",
+        maxTokens: 10,
+        system: "S",
+        blocks: [{ text: "IMAGES" }, { image: { mediaType: "image/png", data: "iVBORw0KGgo=" } }],
+      },
+      { client: { messages: { create } } as unknown as Anthropic, onUsage: async () => {} },
+    );
+    const params = (create.mock.calls[0] as unknown[])[0] as { messages: { content: unknown[] }[] };
+    expect(params.messages[0].content).toEqual([
+      { type: "text", text: "IMAGES" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "iVBORw0KGgo=" } },
+    ]);
   });
 
   it("makes one attempt within the route budget", () => {

@@ -10,7 +10,25 @@ export function outputFormat<S extends z.ZodType>(schema: S) {
   return zodOutputFormat(schema);
 }
 
-export type StructuredRequest<S extends z.ZodType> = {
+export type ImageMediaType = "image/jpeg" | "image/png" | "image/webp";
+export type TextBlock = { text: string; cache?: boolean };
+/** A base64 image (downscaled in the browser, magic bytes checked by the caller). */
+export type ImageBlock = { image: { mediaType: ImageMediaType; data: string } };
+export type RequestBlock = TextBlock | ImageBlock;
+
+/** Input tokens counted per image when a failed call returned no usage (a <= 1568 px image is about 1600 tokens). */
+export const FAILED_IMAGE_TOKENS = 1600;
+
+const isImage = (b: RequestBlock): b is ImageBlock => "image" in b;
+
+/** SDK content block of one request block. */
+export function contentBlock(b: RequestBlock): Anthropic.ContentBlockParam {
+  if (isImage(b)) return { type: "image", source: { type: "base64", media_type: b.image.mediaType, data: b.image.data } };
+  return b.cache ? { type: "text", text: b.text, cache_control: { type: "ephemeral" } } : { type: "text", text: b.text };
+}
+
+/** `B` = the block kinds a request may carry: text only by default; the itinerary extraction also sends images. */
+export type StructuredRequest<S extends z.ZodType, B extends RequestBlock = TextBlock> = {
   task: AiTask;
   model: AiModel;
   schema: S;
@@ -20,8 +38,8 @@ export type StructuredRequest<S extends z.ZodType> = {
   noThinking?: boolean;
   /** Cached system block. */
   system: string;
-  /** User content blocks in order; `cache: true` adds an ephemeral cache breakpoint. */
-  blocks: { text: string; cache?: boolean }[];
+  /** User content blocks in order; `cache: true` adds an ephemeral cache breakpoint. Images: itinerary extraction only. */
+  blocks: B[];
   /** Per-call client timeout, at most CLIENT_TIMEOUT_MS (a request with a shared deadline passes what is left). */
   timeoutMs?: number;
 };
@@ -53,13 +71,14 @@ function defaultClient(): Anthropic {
  * Conservative cost for a failed call whose usage the API never returned (timeout, 5xx, network):
  * the whole prompt (system + blocks, ~4 chars per token) billed once at the uncached input price, output at 0.
  * Input is the part we can bound from our side; output of an aborted call is unknown, and charging max_tokens
- * would block the budget after a few outages. Token columns stay 0 (they are not measured); only the cost is
+ * would block the budget after a few outages. An image block counts FAILED_IMAGE_TOKENS. Token columns stay 0 (they are not measured); only the cost is
  * estimated (at least 1 µUSD), so the daily budget still counts the attempt.
  */
-export function estimateFailedCostMicroUsd(req: Pick<StructuredRequest<z.ZodType>, "model" | "system" | "blocks">): number {
-  const chars = req.system.length + req.blocks.reduce((sum, b) => sum + b.text.length, 0);
+export function estimateFailedCostMicroUsd(req: Pick<StructuredRequest<z.ZodType, RequestBlock>, "model" | "system" | "blocks">): number {
+  const chars = req.system.length + req.blocks.reduce((sum, b) => sum + (isImage(b) ? 0 : b.text.length), 0);
+  const images = req.blocks.filter(isImage).length;
   const cost = costMicroUsd(req.model, {
-    inputTokens: Math.ceil(chars / 4),
+    inputTokens: Math.ceil(chars / 4) + images * FAILED_IMAGE_TOKENS,
     outputTokens: 0,
     cacheCreationInputTokens: 0,
     cacheReadInputTokens: 0,
@@ -84,7 +103,7 @@ export function errorCode(e: unknown): string {
  * No prefill, thinking adaptive by default unless `noThinking`, no abort signal (the server finishes and saves).
  */
 export async function callStructured<S extends z.ZodType>(
-  req: StructuredRequest<S>,
+  req: StructuredRequest<S, RequestBlock>,
   ctx: AiCtx,
 ): Promise<AiResult<z.infer<S>>> {
   const client = ctx.client ?? defaultClient();
@@ -129,11 +148,7 @@ export async function callStructured<S extends z.ZodType>(
       messages: [
         {
           role: "user",
-          content: req.blocks.map((b) =>
-            b.cache
-              ? { type: "text" as const, text: b.text, cache_control: { type: "ephemeral" as const } }
-              : { type: "text" as const, text: b.text },
-          ),
+          content: req.blocks.map(contentBlock),
         },
       ],
       ...(req.noThinking ? { thinking: { type: "disabled" as const } } : {}),
