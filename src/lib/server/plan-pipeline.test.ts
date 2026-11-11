@@ -41,6 +41,9 @@ const h = vi.hoisted(() => ({
   enqueue: vi.fn<(jobs: unknown[]) => Promise<void>>(async () => {}),
   warm: vi.fn(),
   build: vi.fn((a: unknown) => ({ stored: { llm: { v: 1 }, index: {} }, header: {}, digest: {}, a })),
+  prep: vi.fn(),
+  resolveStops: vi.fn(async () => [] as unknown[]),
+  stopDrive: vi.fn(async () => ({}) as unknown),
 }));
 
 const Plan = { header: { basis: {}, timing: { kind: "none" } }, days: [{ n: 1 }, { n: 2 }, { n: 3 }] };
@@ -58,6 +61,9 @@ vi.mock("./facts/drive-times", () => ({ getDriveTimes: h.drive }));
 vi.mock("./facts/activity-lookups", () => ({ loadActivityLookups: h.lookups }));
 vi.mock("./facts/places", () => ({ PLACES_CACHE_ONLY: 0, getInterestGroups: h.interests }));
 vi.mock("./place-retries", () => ({ enqueuePlaceRetries: h.enqueue }));
+vi.mock("./trip-stops", () => ({ resolveTripStops: h.resolveStops }));
+vi.mock("./facts/stops", async (orig) => ({ ...(await orig<typeof import("./facts/stops")>()), stopDriveTimes: h.stopDrive }));
+vi.mock("./plan-stops", () => ({ prepareStopsForPatch: h.prep, stopPrepBudget: (left: number) => Math.min(30_000, left - 240_000) }));
 vi.mock("./warm", () => ({ scheduleActivityWarm: h.warm }));
 vi.mock("./ai/compose", () => ({ composePlan: h.compose, patchPlan: h.patch }));
 vi.mock("./trip-purpose-text", () => ({
@@ -158,6 +164,9 @@ beforeEach(() => {
   h.trip.destination = { kind: "city", lat: 36.5, lon: -4.9 };
   h.compose.mockResolvedValue({ ok: true, data: {}, usage: {} });
   h.assemble.mockReturnValue({ ok: true, plan: Plan, issues: {} });
+  h.resolveStops.mockResolvedValue([]);
+  h.stopDrive.mockResolvedValue({});
+  h.prep.mockImplementation(async (a: { input: unknown }) => ({ stored: a.input, upgraded: false, retried: 0, tripHasStops: false }));
 });
 
 describe("group owner anchors (group-sharing spec 1.4, 3.3)", () => {
@@ -938,5 +947,168 @@ describe("one-off trip purpose (spec trip-purpose-text P4, P5)", () => {
     h.budgetOk = false;
     expect(await generatePlan(TRIP, "en")).toMatchObject({ ok: false, error: "budget_exceeded" });
     expect(h.tagTrip).not.toHaveBeenCalled();
+  });
+});
+
+describe("port places in the pipeline (docs/specs/port-places.md)", () => {
+  const STOPS = [{ day: 2, place: "Wien" }, { day: 3, place: "Dürnstein" }];
+  const point = { lat: 48.2, lon: 16.37, geoId: 1 };
+  const stopFacts = (id: string, over: Record<string, unknown> = {}) => ({
+    stop: { id, name: id === "s1" ? "Wien" : "Dürnstein", days: [2], role: "stop", point, status: "ok" },
+    places: [],
+    restaurants: { status: "ok", restaurants: [] },
+    ...over,
+  });
+
+  describe("generate", () => {
+    it("the stops go to the facts and to the input builder, with their drive times", async () => {
+      h.resolveStops.mockResolvedValue(STOPS);
+      h.facts = { places: { status: "unavailable", reason: "no_location" }, stops: [stopFacts("s1")] };
+      h.stopDrive.mockResolvedValue({ s1: { byKey: {}, fetchedAt: "f" } });
+      await generatePlan(TRIP, "de");
+      expect(h.getFacts.mock.calls[0][3]).toMatchObject({ stops: STOPS });
+      expect(h.stopDrive).toHaveBeenCalledWith(h.facts.stops, expect.objectContaining({ userId: "u1" }));
+      expect(h.build.mock.calls[0][0]).toMatchObject({ stops: STOPS, stopDrive: { s1: { byKey: {}, fetchedAt: "f" } } });
+    });
+
+    it("a trip without stops builds exactly as before: no stop drive call", async () => {
+      await generatePlan(TRIP, "de");
+      expect(h.stopDrive).not.toHaveBeenCalled();
+      expect(h.build.mock.calls[0][0]).toMatchObject({ stops: [] });
+    });
+
+    it("[P7] a stop whose lookup failed never makes Generate answer places_pending: stop:s1 is recorded, a retry job is queued", async () => {
+      h.resolveStops.mockResolvedValue(STOPS);
+      h.facts = {
+        places: { status: "unavailable", reason: "no_location" },
+        stops: [stopFacts("s1", { restaurants: { status: "error", restaurants: [] } }), stopFacts("s2"), { stop: { id: "s3", name: "Kaputt", days: [4], role: "stop", status: "error" }, places: [] }],
+      };
+      const r = await generatePlan(TRIP, "de");
+      expect(r.ok).toBe(true);
+      expect(h.compose).toHaveBeenCalledTimes(1);
+      expect(insertArg()[2].input.pendingPlaces).toEqual(["stop:s1", "stop:s3"]);
+      const jobs = h.enqueue.mock.calls.flatMap((c) => c[0] as { kind: string; params: { dest?: { lat: number } } }[]);
+      expect(jobs).toEqual(expect.arrayContaining([expect.objectContaining({ kind: "restaurants", params: expect.objectContaining({ dest: { lat: 48.2, lon: 16.37, kind: "city" } }) })]));
+    });
+
+    it("blocking interests of the destination still block, stops beside them do not change that", async () => {
+      h.resolveStops.mockResolvedValue(STOPS);
+      h.facts = { places: { status: "ok", data: { radiusKm: 40, groups: [{ interest: "golf", status: "error" }], customInterests: [] } }, stops: [stopFacts("s1")] };
+      expect(await generatePlan(TRIP, "de")).toMatchObject({ ok: false, error: "places_pending" });
+    });
+
+    it("healthy stops leave pendingPlaces out", async () => {
+      h.resolveStops.mockResolvedValue(STOPS);
+      h.facts = { places: { status: "unavailable", reason: "no_location" }, stops: [stopFacts("s1")] };
+      await generatePlan(TRIP, "de");
+      expect(insertArg()[2].input).not.toHaveProperty("pendingPlaces");
+    });
+  });
+
+  describe("iterate", () => {
+    const day = (n: number, text: string) => ({ n, date: null, title: `T${n}`, stops: [{ place: "Wien", fixed: true, acts: [{ kind: "do", text }] }] });
+    const basePlan = { ...Plan, days: [day(1, "a"), day(2, "b"), day(3, "c")], places: {} };
+    const unchanged = () => vi.mocked(applyPatch).mockReturnValue({ ok: true, plan: basePlan, changedDays: [], issues: {} } as never);
+    const extended = {
+      llm: { v: 1, trip: { dest: "Donau", stops: [{ day: 2, place: "Wien", at: "s1" }, { day: 3, place: "Dürnstein", at: "s2" }] }, stopPlaces: [{ id: "s1", name: "Wien", restaurants: { s: "ok", list: [] } }, { id: "s2", name: "Dürnstein", s: "error" }] },
+      index: {},
+      stopPoints: { s1: point, s2: point },
+    };
+    beforeEach(() => {
+      h.latest = { ...stored("hash-old", 1), plan: basePlan };
+      h.patch.mockResolvedValue({ ok: true, data: { reply: "Tag 3 hat jetzt Restaurants", days: [] }, usage: {} });
+      unchanged();
+    });
+
+    it("prepares the stops before the first call (scope and a budget of at most 30 s) and patches the upgraded input", async () => {
+      h.prep.mockResolvedValue({ stored: extended, upgraded: true, retried: 0, tripHasStops: true });
+      await iteratePlan(TRIP, 1, { chips: [], days: [2], text: "Restaurants" }, "de");
+      expect(h.prep).toHaveBeenCalledWith(expect.objectContaining({ scopeDays: [2], userId: "u1", budgetMs: expect.any(Number) }));
+      const budget = (h.prep.mock.calls[0][0] as { budgetMs: number }).budgetMs;
+      expect(budget).toBeLessThanOrEqual(30_000);
+      expect(budget).toBeGreaterThan(0);
+      expect(h.patch.mock.calls[0][0]).toMatchObject({ llm: extended.llm, index: extended.index });
+      expect(h.patch).toHaveBeenCalledTimes(1); // one model call, no needPlaces
+    });
+
+    it("a patch that changed days stores the upgraded input with the base hash", async () => {
+      h.prep.mockResolvedValue({ stored: extended, upgraded: true, retried: 0, tripHasStops: true });
+      vi.mocked(applyPatch).mockReturnValue({ ok: true, plan: { ...basePlan, days: [day(1, "a"), day(2, "Beisl"), day(3, "c")] }, changedDays: [2], issues: {} } as never);
+      const r = await iteratePlan(TRIP, 1, { chips: [], days: [2], text: "Restaurants" }, "de");
+      expect(r).toMatchObject({ ok: true, data: { reply: "Tag 3 hat jetzt Restaurants" } });
+      expect(insertArg()[2]).toMatchObject({ inputHash: "hash-old", input: extended });
+      expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "plan.patched", props: expect.objectContaining({ stopsUpgraded: true }) }));
+    });
+
+    it("[P9] nothing changed and a stop in scope is unchecked: a notice with its name, no reply, no version", async () => {
+      h.prep.mockResolvedValue({ stored: extended, upgraded: false, retried: 1, tripHasStops: true });
+      const r = await iteratePlan(TRIP, 1, { chips: [], days: [3], text: "Restaurants" }, "de");
+      expect(r).toMatchObject({ ok: true, data: { unchanged: true, notice: { code: "stops_unchecked", places: ["Dürnstein"] } } });
+      expect(r.ok && r.data.reply).toBeUndefined();
+      expect(h.insert).not.toHaveBeenCalled();
+      // The event carries the code, never a stop name.
+      const evt = h.logEvent.mock.calls.map((c) => c[0] as { event: string; props?: Record<string, unknown> }).find((e) => e.event === "plan.patched")!;
+      expect(evt.props).toMatchObject({ notice: "stops_unchecked", stopsRetried: 1 });
+      expect(JSON.stringify(evt)).not.toContain("Dürnstein");
+    });
+
+    it("[P9] nothing changed, nothing wrong with the stops: no notice, the model's reply reaches the client", async () => {
+      h.prep.mockResolvedValue({ stored: extended, upgraded: false, retried: 0, tripHasStops: true });
+      const r = await iteratePlan(TRIP, 1, { chips: [], days: [2], text: "Restaurants" }, "de");
+      expect(r).toMatchObject({ ok: true, data: { unchanged: true, reply: "Tag 3 hat jetzt Restaurants" } });
+      expect(r.ok && r.data.notice).toBeUndefined();
+    });
+
+    it("[P9] stops_unknown: a typed schedule the app does not know (fixed windows in the base plan, no stops)", async () => {
+      const r = await iteratePlan(TRIP, 1, { chips: [], days: [], text: "Restaurants in den anderen Städten" }, "de");
+      expect(r).toMatchObject({ ok: true, data: { unchanged: true, notice: { code: "stops_unknown", places: [] } } });
+    });
+
+    it("the shrink guard's rejection still wins over a notice", async () => {
+      h.prep.mockResolvedValue({ stored: extended, upgraded: false, retried: 0, tripHasStops: true });
+      const acts = (k: number) => Array.from({ length: k }, (_, i) => ({ kind: "do", text: `a${i}` }));
+      const big = (n: number, k: number) => ({ n, date: null, title: `T${n}`, stops: [{ place: "X", acts: acts(k) }], note: "Tipp" });
+      const bp = { ...Plan, days: [big(1, 6), big(2, 3), big(3, 3)], places: {} };
+      h.latest = { ...stored("hash-old", 1), plan: bp };
+      vi.mocked(applyPatch).mockReturnValue({ ok: true, plan: { ...bp, days: [{ ...big(1, 2), note: undefined }, bp.days[1], bp.days[2]] }, changedDays: [1], issues: {} } as never);
+      const r = await iteratePlan(TRIP, 1, { chips: [], days: [], text: "x" }, "de");
+      expect(r).toMatchObject({ ok: true, data: { unchanged: true, rejectedDays: [1] } });
+      expect(r.ok && r.data.notice).toBeUndefined();
+    });
+
+    it("[P8] a near that is neither a place nor a stop is unusable: places_not_loadable, no lookups, no second call", async () => {
+      h.prep.mockResolvedValue({ stored: extended, upgraded: false, retried: 0, tripHasStops: true });
+      h.patch.mockResolvedValueOnce({ ok: true, data: { reply: "Ich lade sie", days: [], needPlaces: { restaurants: { near: "s9" } } }, usage: {} });
+      const r = await iteratePlan(TRIP, 1, { chips: [], days: [3], text: "Restaurants" }, "de");
+      expect(r).toMatchObject({ ok: true, data: { unchanged: true, notice: { code: "places_not_loadable", places: [] } } });
+      expect(r.ok && r.data.reply).toBeUndefined();
+      expect(h.lookups).not.toHaveBeenCalled();
+      expect(h.patch).toHaveBeenCalledTimes(1);
+    });
+
+    it("[P8] near = a stop id: restaurants are loaded around the stop point at the stop radius, the second call sees them", async () => {
+      h.prep.mockResolvedValue({ stored: extended, upgraded: false, retried: 0, tripHasStops: true });
+      h.patch
+        .mockResolvedValueOnce({ ok: true, data: { reply: "lade", days: [], needPlaces: { restaurants: { near: "s1" } } }, usage: {} })
+        .mockResolvedValueOnce({ ok: true, data: { reply: "fertig", days: [{ n: 2 }] }, usage: {} });
+      h.lookups.mockResolvedValue({ activities: [], restaurants: { status: "ok", restaurants: [], fetchedAt: "f" } });
+      vi.mocked(applyPatch).mockReturnValue({ ok: true, plan: { ...basePlan, days: [day(1, "a"), day(2, "x"), day(3, "c")] }, changedDays: [2], issues: {} } as never);
+      await iteratePlan(TRIP, 1, { chips: [], days: [2], text: "Restaurants" }, "de");
+      const req = h.lookups.mock.calls[0][1] as { restaurants: { at?: { kind: string; lat: number; lon: number; name: string }; near?: unknown } };
+      expect(req.restaurants.near).toBeUndefined();
+      expect(req.restaurants.at).toMatchObject({ kind: "city", lat: 48.2, lon: 16.37, name: "Wien" });
+      expect(h.patch).toHaveBeenCalledTimes(2);
+      expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "plan.patch_need_places", props: expect.objectContaining({ stop: true }) }));
+    });
+
+    it("[P8] near = a stop that does not load: places_pending, and the retry job is at the stop point (no new kind)", async () => {
+      h.prep.mockResolvedValue({ stored: extended, upgraded: false, retried: 0, tripHasStops: true });
+      h.patch.mockResolvedValueOnce({ ok: true, data: { reply: "lade", days: [], needPlaces: { restaurants: { near: "s1" } } }, usage: {} });
+      h.lookups.mockResolvedValue({ activities: [], restaurants: { status: "error", restaurants: [] } });
+      const r = await iteratePlan(TRIP, 1, { chips: [], days: [2], text: "Restaurants" }, "de");
+      expect(r).toMatchObject({ ok: false, error: "places_pending" });
+      const jobs = h.enqueue.mock.calls.flatMap((c) => c[0] as { kind: string; params: Record<string, unknown> }[]);
+      expect(jobs).toEqual([expect.objectContaining({ kind: "restaurants", params: { kind: "restaurants", dest: { lat: 48.2, lon: 16.37, kind: "city" } } })]);
+    });
   });
 });

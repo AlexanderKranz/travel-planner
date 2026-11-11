@@ -9,7 +9,7 @@ vi.mock("../api-cache", () => ({
 }));
 vi.mock("./geoapify-quota", () => ({ assertGeoapifyQuota: async () => {} }));
 
-import { getPlacesFacts } from "./places";
+import { getInterestGroups, getPlacesFacts } from "./places";
 
 const ctx = { userId: null, locale: "de" as const, today: "2026-10-30" };
 const trip = {
@@ -64,5 +64,29 @@ describe("places: Geoapify first, Overpass as fallback", () => {
     vi.stubEnv("GEOAPIFY_API_KEY", "");
     await run(["wellness"]);
     expect(state.calls.map((c) => c.provider)).toEqual(["overpass"]);
+  });
+});
+
+describe("getInterestGroups: overpass cache_only (port places [P7])", () => {
+  beforeEach(() => {
+    state.calls = [];
+    vi.stubEnv("GEOAPIFY_API_KEY", "test-key");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("Geoapify is used, an Overpass network query never starts", async () => {
+    state.impl = (o) => Promise.resolve(o.provider === "overpass" ? { ok: false, error: "timeout" } : o.provider === "geoapify" && o.key.includes("golf") ? { ok: false, error: "provider_error" } : ok("miss"));
+    const dest = trip.destination as never;
+    const groups = await getInterestGroups(dest, ["wellness", "golf"], ctx, 110_000, { overpass: "cache_only" });
+    // wellness: Geoapify answered; golf: Geoapify failed and Overpass is denied -> error (retried in the background)
+    expect(groups.map((g) => [g.interest, g.status])).toEqual([["wellness", "empty"], ["golf", "error"]]);
+    expect(trace().filter((t) => t === "overpass:net")).toEqual([]);
+    expect(trace()).toContain("geoapify:net");
+  });
+
+  it("without the option the same failure goes to Overpass over the network", async () => {
+    state.impl = (o) => Promise.resolve(o.provider === "geoapify" ? { ok: false, error: "provider_error" } : o.fetchAllowed?.() === false ? { ok: false, error: "timeout" } : ok("miss"));
+    await getInterestGroups(trip.destination as never, ["wellness"], ctx, 110_000);
+    expect(trace()).toContain("overpass:net");
   });
 });
