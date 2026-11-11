@@ -52,7 +52,8 @@ clunky, so the purpose plays no part:
 - The checkbox is UI state only, no column: it shows ticked when the trip has confirmed stops or stops derived from
   the notes, so an existing trip opens with the section visible. Unticking it with saved stops asks before clearing
   `trips.stops`.
-- The destination stays the start point (embarkation port, first town of the round trip).
+- The destination is independent of the stops: it may be the start port, a region ("Norwegen") or any place. The
+  start is simply the first stop. Days without a stop use the destination as today.
 - Nothing becomes required (ground rule 3). A trip with the box unticked behaves exactly as today.
 - The purpose form gets no hint and no upload control.
 

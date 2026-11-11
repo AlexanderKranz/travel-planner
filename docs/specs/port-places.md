@@ -52,7 +52,7 @@ for the port-window guard (§3). Where a stop came from does not matter.
   no `cc`, and a cruise from a German port visits other countries.
 - Everything goes through `cached()` (30 d search, 365 d by id) and so is logged in `api_calls`.
 - Each name gets a role:
-  - **destination**: within 5 km of the trip anchor (the start port; "Passau" in the fixture). No own lookups, the
+  - **destination**: within 5 km of the trip anchor (the trip destination, "Passau" in the fixture; it is often the start, but need not be). No own lookups, the
     destination's places apply.
   - **stop**: own lookups (§2), id `s1..` in day order.
   - **not_found**: no matching populated place. No lookups; the model and the notices (§5) say so.
@@ -195,7 +195,7 @@ When the guarded patch has `changedDays.length === 0`, the server picks the firs
 | 1 | `needPlacesUnusable` with no days | `places_not_loadable` | existing `placesNotLoadable` |
 | 2 | a stop in scope has `s: not_found` | `stops_not_found` | `stopsNotFound`: "Es hat sich nichts geändert: {places} wurde in den Ortsdaten nicht gefunden. Bitte den Ortsnamen bei „Stopps & Zeiten“ prüfen." |
 | 3 | a stop in scope has `s: error \| skipped` after step 2 of §4 | `stops_unchecked` | `stopsUnchecked`: "Es hat sich nichts geändert: Die Orte in {places} konnten noch nicht geladen werden. Sie werden im Hintergrund geladen; bitte in ein paar Minuten erneut versuchen." |
-| 4 | a stop in scope has `s: cap` | `stops_capped` | `stopsCapped`: "Es hat sich nichts geändert: Für {places} lädt die App keine Orte mehr (höchstens 8 Stopps pro Reise)." |
+| 4 | a stop in scope has `s: cap` | `stops_capped` | `stopsCapped`: "Es hat sich nichts geändert: Für {places} lädt die App keine Orte mehr (höchstens 10 Stopps pro Reise)." |
 | 5 | `tripStops(trip)` is empty, but the base plan has a stop place that is not the destination name | `stops_unknown` | `stopsUnknown`: "Es hat sich nichts geändert: Die App kennt keine Stopps dieser Reise. Trage sie unter „Stopps & Zeiten“ ein, dann gibt es auch dort konkrete Orte." |
 | 6 | otherwise | none | `noChange`, followed by the model's `reply` when present |
 
@@ -215,19 +215,19 @@ When the guarded patch has `changedDays.length === 0`, the server picks the firs
   - Stop lookups share the existing 110 s places budget beside the destination lookups.
   - The whole run stays within tags 3 + stops 5 + places 110 + ORS 10 + Sonnet 140 ≈ 268 s, under the route's 300 s
     `maxDuration`. `PLACES_BUDGET_MS` is unchanged.
-- **Cap [P6].** `MAX_STOPS = 8` looked-up stops per trip, in day order; later ones get `s: "cap"`. `TripStops`
+- **Cap [P6].** `MAX_STOPS = 10` looked-up stops per trip, in day order; later ones get `s: "cap"`. `TripStops`
   allows 40 rows, so a 21-day trip with a port every day would otherwise mean 20+ lookups.
 - **Overpass.** Without Geoapify, a stop costs 1 restaurant + 2 interest queries (25–60 s each). Inline runs never
   query Overpass for stops [P7]. The warm-up (280 s, after the destination) and the retry worker (5 jobs per run
   every 5 min, 30 min window per job) do. A cold Overpass-only trip with 4 stops (12 jobs) is complete after about 3
   worker runs.
-- **Geoapify.** Per stop: restaurants 10 credits (limit 200), 2 interests at up to 15, so at most 40. 8 stops are at
-  most 320 of the 2,000/day cap, and only on a cold cache (30-day TTL, shared by every trip to that town).
+- **Geoapify.** Per stop: restaurants 10 credits (limit 200), 2 interests at up to 15, so at most 40. 10 stops are at
+  most 400 of the 2,000/day cap, and only on a cold cache (30-day TTL, shared by every trip to that town).
   `GEOAPIFY_HEADROOM` must cover one more in-flight stop lookup: raise it from 120 to 160 and update its comment
   (today 90 in flight per plan + 40).
 - **ORS.** No change, since stops get no matrix calls [P5]. The cap is `ORS_DAILY_REQUESTS_DEFAULT = 200` (the 400
   in `concrete-places.md` D6 is outdated).
-- **Open-Meteo geocoding.** At most 4 × 8 = 32 calls per cold trip, against 10k/day.
+- **Open-Meteo geocoding.** At most 4 × 10 = 40 calls per cold trip, against 10k/day.
 - **`places_pending` [P7].** Stops never make Generate answer `places_pending`. A stop in `error`/`skipped` goes into
   `pendingPlaces` as `stop:s2`, so the existing `placesIncomplete` hint shows. A retry job is enqueued, and the
   model writes the "could not be checked" note (rule 17). In a patch, an explicit `near: sN` that does not load
@@ -314,9 +314,9 @@ itinerary-upload ([D2], [D4], [D10]); they are not repeated here.
   small. Alternative: the full destination set per stop (≈ 3× tokens and queries).
 - **[P5] No drive times for stop places;** `km` is the straight line from the stop point. *Recommended:* shore time
   is on foot, by shuttle or taxi. Drive times are hidden by default (timed-items D13), and one ORS matrix per stop
-  would spend up to 8 of the 200 shared daily requests. Alternative: one matrix per stop for interest places only.
-- **[P6] At most 8 looked-up stops per trip, in day order;** the rest are `cap` and reported as not checked.
-  *Recommended.* Alternatives: 6, or prioritise the longest port windows.
+  would spend up to 10 of the 200 shared daily requests. Alternative: one matrix per stop for interest places only.
+- **[P6] Decided (Alex, 2026-11-11): at most 10 looked-up stops per trip, in day order;** the rest are `cap` and
+  reported as not checked.
 - **[P7] Stops never block Generate.** Inline runs use cache + Geoapify only, Overpass for stops runs only in the
   warm-up and the retry worker, and missing stops show the existing "places incomplete" hint. *Recommended:* 3
   Overpass queries per stop do not fit 110 s, and blocking the plan on one port is worse than one honest note.
