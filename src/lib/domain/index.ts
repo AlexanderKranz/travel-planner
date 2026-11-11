@@ -19,3 +19,4 @@ export * from "./items";
 export * from "./share";
 export * from "./sharing";
 export * from "./destination-search";
+export * from "./itinerary";
