@@ -10,6 +10,8 @@ import { addDays, ageReferenceDate, selectedMonths } from "@/lib/facts/trip-timi
 import type { AgeRefs } from "@/lib/group";
 import { resolveGroup, type GroupSource } from "@/lib/group-text";
 import { gatewayAirports, nearestGatewayKm } from "./airports";
+import type { TripStop } from "@/lib/domain/trip-stops";
+import { stopPointsOf, stopRows, stopsInput, type StopPlacesEntry, type StopPoints, type StopRow } from "./stops-input";
 import { fixedItemsOf, fixedSlots, type FixedSlot } from "./fixed-items";
 import type { SharedItem } from "@/lib/domain/items";
 import {
@@ -39,6 +41,8 @@ export type PlanInput = {
     months?: number[];
     flights: boolean;
     notes?: string;
+    /** The schedule (plan-8, port-places section 3): one row per trip stop; absent when the trip has none. */
+    stops?: StopRow[];
   };
   dayList: { n: number; date?: string; dow?: Dow; sunrise?: string; dusk?: string }[];
   /** Months mode only. */
@@ -87,6 +91,8 @@ export type PlanInput = {
   restaurantsNear?: RestaurantsInput;
   /** Cafés (addendum A2), only when the purpose or a change request asks for them. Ids `c1..`. */
   cafes?: CafesInput;
+  /** Verified places per stop of `trip.stops` (plan-8); ids continue the p, r and c ranges. */
+  stopPlaces?: StopPlacesEntry[];
 };
 export type PlanInputPlace = { id: string /* p1.. */; name: string; cat: string; km: number; min?: number; ap?: number; i: string | string[] };
 
@@ -106,13 +112,21 @@ export type PlanInputStored = {
   /** Set by the pipeline when the plan was written although these interests had no places (not hashed, not sent to the model). */
   pendingPlaces?: string[];
   llm: PlanInput; index: Record<string /* p1 */, PlanIndexEntry>;
+  /** Points of the looked-up stops by stop id (not hashed, not sent): patches search around them (plan-8). */
+  stopPoints?: StopPoints;
 };
 
 /**
  * One index entry. `g`: indoor/outdoor of an interest place that is a bath (issue #142), for the open-air guard
  * in assembly; not sent to the model (activity places carry their `g` in `llm.activities.places`).
  */
-export type PlanIndexEntry = { key: OsmKey; place: PlanPlace; g?: ActivityGroup };
+export type PlanIndexEntry = {
+  key: OsmKey;
+  place: PlanPlace;
+  g?: ActivityGroup;
+  /** Id of the stop whose lookup listed the place (port places); not sent to the model. Absent = destination. */
+  stop?: string;
+};
 
 /**
  * Indoor/outdoor of an interest place, like `placeGroup` does for swimming: only baths are classified. An open-air
@@ -148,6 +162,10 @@ export type BuildPlanInputArgs = {
   drive?: DriveInput | null;
   /** Trip items; only booked/planned ones with day + start time reach the model as `fixed`. */
   items?: Pick<SharedItem, "id" | "day" | "startTime" | "endTime" | "category" | "title" | "status">[];
+  /** `tripStops(trip)`; empty or absent = the input is exactly what it was before plan-8. */
+  stops?: readonly TripStop[];
+  /** Drive times from each looked-up stop point, by stop id (OpenRouteService). */
+  stopDrive?: Readonly<Record<string, DriveInput | null | undefined>>;
 };
 
 export type DriveInput = { byKey: Record<string, { min: number; km: number }>; fetchedAt: string };
@@ -324,7 +342,7 @@ export function selectPlaces(facts: TripFacts, fallbackKeys: InterestOrGeneral[]
 export function interestPlace(
   pick: Pick<PlacePick, "interest" | "c" | "key" | "fetchedAt" | "also">,
   id: string,
-  a: { lang: Locale; ap?: number; drive?: DriveInput | null },
+  a: { lang: Locale; ap?: number; drive?: DriveInput | null; driveFrom?: string },
 ): { row: PlanInput["places"][number]; entry: PlanIndexEntry } {
   const { interest, c, key, fetchedAt, also } = pick;
   const name = c.names[a.lang] ?? c.name;
@@ -341,7 +359,10 @@ export function interestPlace(
     website: safeUrl(c.website),
     source: "osm",
     fetchedAt,
-    drive: d && a.drive ? { min: d.min, km: d.km, source: "openrouteservice", fetchedAt: a.drive.fetchedAt } : undefined,
+    drive:
+      d && a.drive
+        ? { min: d.min, km: d.km, source: "openrouteservice", fetchedAt: a.drive.fetchedAt, ...(a.driveFrom ? { from: a.driveFrom } : {}) }
+        : undefined,
   };
   for (const k of Object.keys(place) as (keyof PlanPlace)[]) if (place[k] === undefined) delete place[k];
   const g = interestPlaceGroup(c);
@@ -445,6 +466,22 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   });
   for (const [id, e] of Object.entries(rest.index)) known.set(e.key, id);
   const cafes = cafesInput(facts.cafes, { kids: purpose?.tags?.cuisine?.kids, known, startN: 0 });
+  for (const [id, e] of Object.entries(cafes.index)) known.set(e.key, id);
+  // Stops (plan-8): the schedule rows and the verified places around each stop. Nothing is added without stops.
+  const stopList = a.stops ?? [];
+  const resolved = (facts.stops ?? []).map((f) => f.stop);
+  const stopIn = stopList.length && facts.stops?.length
+    ? stopsInput({
+        facts: facts.stops,
+        lang: locale,
+        cuisine: purpose?.tags?.cuisine,
+        countryCode: geo?.countryCode ?? country?.code,
+        known,
+        index: { ...pl.index, ...acts.index, ...rest.index, ...cafes.index },
+        drive: a.stopDrive,
+      })
+    : null;
+  const stopPoints = stopPointsOf(resolved);
 
   const llm: PlanInput = {
     v: 1,
@@ -461,6 +498,7 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
       months: timing.kind === "months" ? [...timing.months] : undefined,
       flights: trip.wantsFlights,
       notes: trip.notes || undefined,
+      stops: stopList.length ? stopRows(stopList, resolved) : undefined,
     },
     dayList,
     daylightByMonth: daylightByMonth?.length ? daylightByMonth : undefined,
@@ -485,6 +523,7 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
     activities: acts.block,
     restaurants: rest.block,
     cafes: cafes.block,
+    stopPlaces: stopIn?.stopPlaces.length ? stopIn.stopPlaces : undefined,
   };
 
   const header: Omit<PlanHeader, "generatedAt" | "model"> = {
@@ -534,7 +573,11 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   if (facts.places.status === "ok") digest.placesFetchedAt = facts.places.fetchedAt;
 
   return {
-    stored: { llm: stripUndefined(llm), index: { ...pl.index, ...acts.index, ...rest.index, ...cafes.index } },
+    stored: {
+      llm: stripUndefined(llm),
+      index: { ...pl.index, ...acts.index, ...rest.index, ...cafes.index, ...stopIn?.index },
+      ...(Object.keys(stopPoints).length ? { stopPoints } : {}),
+    },
     header,
     digest,
     flights: fl.snapshot ? stripUndefined(fl.snapshot) : undefined,

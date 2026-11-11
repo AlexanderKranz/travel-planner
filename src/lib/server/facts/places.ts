@@ -212,6 +212,8 @@ export async function getInterestGroups(
   keys: readonly InterestOrGeneral[],
   ctx: FactsCtx,
   budgetMs: number,
+  /** `overpass: "cache_only"` (port places [P7]): cache and Geoapify, never an Overpass query over the network. */
+  opts: { overpass?: "cache_only" } = {},
 ): Promise<PlaceGroup[]> {
   const started = Date.now();
   const baseRadius = tripRadiusKm(dest);
@@ -228,7 +230,7 @@ export async function getInterestGroups(
     // Budget gate only for real network queries: cached interests are always served (they cost no time).
     const fetchAllowed = () => {
       const left = budgetMs - (Date.now() - started);
-      if (budgetMs === PLACES_CACHE_ONLY) return false;
+      if (budgetMs === PLACES_CACHE_ONLY || opts.overpass === "cache_only") return false;
       if (queried > 0 && left < Math.min(MIN_QUERY_WINDOW_MS, OVERPASS_CLIENT_TIMEOUT_MS)) return false;
       queried += 1;
       return true;

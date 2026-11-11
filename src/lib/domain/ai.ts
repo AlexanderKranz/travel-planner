@@ -8,7 +8,7 @@ export type AiModel = typeof MODEL_PLAN | typeof MODEL_TAGS;
 export const MODEL_IDEAS: AiModel = MODEL_TAGS;
 
 /** Bump when the system rules or the input/output shape change (part of the input hashes). */
-export const PLAN_PROMPT_VERSION = "plan-7";
+export const PLAN_PROMPT_VERSION = "plan-8";
 export const TAGS_PROMPT_VERSION = "tags-3";
 export const GROUP_PROMPT_VERSION = "group-1";
 export const IDEAS_PROMPT_VERSION = "ideas-3";

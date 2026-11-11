@@ -81,6 +81,8 @@ export const PlanPlace = z.object({
       km: z.number().min(0),
       source: z.literal("openrouteservice"),
       fetchedAt: z.string(),
+      /** Name of the stop the time is measured from (port places); absent = the destination point. */
+      from: z.string().max(120).optional(),
     })
     .optional(),
 });

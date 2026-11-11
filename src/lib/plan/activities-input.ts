@@ -190,7 +190,7 @@ export function activitiesInput(
  */
 export function restaurantsInput(
   look: RestaurantLookup | undefined,
-  a: { cuisine?: CuisineWish | null; countryCode?: string | null; known: Map<string, string>; startN: number; near?: string },
+  a: { cuisine?: CuisineWish | null; countryCode?: string | null; known: Map<string, string>; startN: number; near?: string; limit?: number },
 ): { block?: RestaurantsInput; index: Record<string, IndexEntry> } {
   if (!look) return { index: {} };
   const index: Record<string, IndexEntry> = {};
@@ -211,7 +211,7 @@ export function restaurantsInput(
   // Restaurants exist but fewer than 3 match the wish: `ok` + tooFew, never `empty` (that means none nearby at all).
   if (sel.tooFew) block.tooFew = true;
   let n = a.startN;
-  for (const r of sel.restaurants) {
+  for (const r of a.limit ? sel.restaurants.slice(0, a.limit) : sel.restaurants) {
     const key = keyOf(r);
     const id = a.known.get(key) ?? `r${++n}`;
     block.list.push(entry(id, r, kids));
@@ -229,7 +229,7 @@ const entry = (id: string, r: Restaurant, kids: boolean): RestaurantsInputEntry 
  */
 export function cafesInput(
   look: CafeLookup | undefined,
-  a: { kids?: boolean; known: Map<string, string>; startN: number; near?: string },
+  a: { kids?: boolean; known: Map<string, string>; startN: number; near?: string; limit?: number },
 ): { block?: CafesInput; index: Record<string, IndexEntry> } {
   if (!look) return { index: {} };
   const kids = a.kids === true;
@@ -237,7 +237,7 @@ export function cafesInput(
   const index: Record<string, IndexEntry> = {};
   if (look.status !== "ok") return { block, index };
   let n = a.startN;
-  for (const r of selectCafes(look.cafes, { kids }).cafes) {
+  for (const r of selectCafes(look.cafes, { kids }).cafes.slice(0, a.limit ?? Infinity)) {
     const key = keyOf(r);
     const id = a.known.get(key) ?? `c${++n}`;
     block.list.push(entry(id, r, kids));

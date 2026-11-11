@@ -39,3 +39,14 @@ type Point = Pick<GeoPlace, "geoId" | "lat" | "lon">;
 export function isDuplicate(p: Point, others: Point[]): boolean {
   return others.some((o) => o.geoId === p.geoId || haversineKm(o, p) < DUPLICATE_KM);
 }
+
+/**
+ * Fallback for a typed place name whose country is unknown or wrong (port-places [P1]): an exact match on the folded
+ * name among the populated places (PPL*) of any country; on a tie the largest population. null = not found.
+ */
+export function pickNamedPlace(results: GeoPlace[], name: string): GeoPlace | null {
+  const wanted = foldName(name);
+  if (!wanted) return null;
+  const exact = results.filter((p) => p.featureCode.startsWith("PPL") && foldName(p.name) === wanted);
+  return exact.length > 0 ? exact.reduce((best, p) => ((p.population ?? 0) > (best.population ?? 0) ? p : best)) : null;
+}
