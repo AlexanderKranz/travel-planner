@@ -15,3 +15,12 @@ export async function extractItinerary(
 ): Promise<ItineraryExtractResult> {
   return { ok: false, error: "failed" };
 }
+
+/**
+ * Stops derived from the saved trip notes ([D10]) for the form's "Übernehmen" row: parser first, Haiku only on a
+ * miss (cached). Empty when the trip has confirmed stops, no notes, or the caller cannot read the trip.
+ * STUB: the extraction work replaces this body. Signature is the contract.
+ */
+export async function derivedTripStops(_tripId: string): Promise<import("@/lib/domain/trip-stops").TripStop[]> {
+  return [];
+}
