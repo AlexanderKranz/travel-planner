@@ -55,7 +55,7 @@ describe.runIf(!!rec)("cruise stops: geocoding (recorded Open-Meteo)", () => {
     expect(dest.days).toEqual([1, 5]);
     const a = FIXTURES.cruise.trip.anchor;
     expect(haversineKm(a, dest.point!)).toBeLessThan(DESTINATION_KM);
-    for (const name of STOP_NAMES) {
+    for (const name of STOP_NAMES.filter((n) => n !== "Passau")) {
       const hit = rec!.lookups[name];
       expect(hit?.point, `${name} recorded`).toBeDefined();
     }
@@ -174,7 +174,7 @@ describe.runIf(!!rec)("stop checks on a synthetic model answer (hand-made, not a
       days: [
         day(1, "Passau", [{ kind: "see", text: "Bummel" }]),
         day(2, "Wien", [{ kind: "see", text: "Altstadt" }, meal("s1")]),
-        day(3, "Dürnstein", [{ kind: "see", text: "Spaziergang" }]),
+        { n: 3, title: "Tag 3", stops: [{ place: "Dürnstein", acts: [{ kind: "see" as const, text: "Spaziergang" }] }, { place: "Melk", acts: [{ kind: "see" as const, text: "Stift", at: "16:00" }, meal("s3")] }] },
         day(4, "Linz", [{ kind: "food", text: "Mittagessen", ref: rest("s4")[0]?.id }]),
         day(5, "Passau", [{ kind: "see", text: "Ausschiffung" }]),
       ],

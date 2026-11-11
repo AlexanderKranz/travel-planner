@@ -14,7 +14,7 @@ import { buildQuery, runQuery, type RawOsmElement } from "@/lib/integrations/ove
 import { OVERPASS_LIMIT, RESTAURANT_RADIUS_KM } from "@/lib/server/facts/activities";
 import { haversineKm } from "@/lib/facts/places";
 import { resolvePlaceName, type GeocodeDeps } from "@/lib/server/discover/resolve-place";
-import { STOP_RECORDING_PATH, STOP_NAMES, type StopRecording } from "./port-places";
+import { STOP_RECORDING_PATH, STOP_NAMES, readStopRecording, type StopRecording } from "./port-places";
 
 vi.mock("server-only", () => ({}));
 
@@ -36,8 +36,13 @@ describe.runIf(LIVE)("port places: record geocoding and lookups of the cruise st
       geocode: async (name, lang) => ({ ok: true, data: (geocode[name]?.[lang as "en" | "de"] ?? []) as GeoPlace[], fetchedAt: "recorded", stale: false, cache: "hit" }),
       placeById: async () => null,
     };
-    const lookups: StopRecording["lookups"] = {};
-    for (const name of STOP_NAMES) {
+    // Resumable: a stop recorded by an earlier run is kept; the file is written after every stop.
+    const lookups: StopRecording["lookups"] = readStopRecording()?.lookups ?? {};
+    const save = () => writeFileSync(STOP_RECORDING_PATH, JSON.stringify({ recordedAt: new Date().toISOString(), source: "open-meteo geocoding + overpass-api.de", geocode, lookups } satisfies StopRecording) + "\n");
+    save();
+    // Passau is the destination: its places are the destination's, no stop lookups.
+    for (const name of STOP_NAMES.filter((n) => n !== "Passau")) {
+      if (lookups[name]?.restaurants && lookups[name]?.general) continue;
       const r = await resolvePlaceName(name, "AT", "de", "eval", replay);
       expect(r.status, `${name} resolves`).toBe("ok");
       if (r.status !== "ok") continue;
@@ -59,9 +64,9 @@ describe.runIf(LIVE)("port places: record geocoding and lookups of the cruise st
         rec[key] = await run([...src.filters], radiusForInterest(key, 15), 150, 150);
       }
       lookups[name] = rec;
+      save();
       console.log(`[${name}] recorded: ${Object.entries(rec).filter(([, v]) => v && typeof v === "object" && "elements" in v).map(([k, v]) => `${k}=${(v as { elements: unknown[] }).elements.length}`).join(", ")}`);
     }
-    const out: StopRecording = { recordedAt: new Date().toISOString(), source: "open-meteo geocoding + overpass-api.de", geocode, lookups };
-    writeFileSync(STOP_RECORDING_PATH, JSON.stringify(out) + "\n");
-  });
+    save();
+  }, 3_000_000);
 });
