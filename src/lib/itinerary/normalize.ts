@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ITINERARY_FLAGS, type ItineraryFlag } from "@/lib/domain/itinerary";
 import { MAX_TRIP_STOPS } from "@/lib/domain/trip-stops";
 import { isValidIso, isValidYearless, type RawStop } from "./map";
-import { findTimes, foldText, matchKey } from "./text";
+import { DAYPART_WORDS, findTimes, foldText, matchKey } from "./text";
 
 /**
  * Wire schema of the Haiku `itinerary_extract` call (docs/specs/itinerary-upload.md section 3.4). Every field is
@@ -102,6 +102,26 @@ export function placeInSource(place: string, src: SourceIndex): boolean {
   return src.folded.includes(` ${f} `) || f.split(" ").every((w) => src.words.has(w));
 }
 
+const GERMAN_DAYPARTS = new Set(["morgens", "fruh", "vormittags", "mittags", "nachmittags", "abends", "nachts"]);
+
+/** "morgens", "in the morning", "Abends": a time of day without a clock time. */
+function daypartOf(raw: string): { word: string; german: boolean } | null {
+  const text = oneLine(raw);
+  if (/\d/.test(text) || text.split(" ").length > 4) return null;
+  const words = matchKey(text).split(/[^a-z]+/).filter(Boolean);
+  const hit = words.find((x) => DAYPART_WORDS.has(x));
+  if (!hit) return null;
+  return { word: text.replace(/^(in the|am|an|ab)\s+/i, ""), german: GERMAN_DAYPARTS.has(hit) };
+}
+
+/**
+ * A note is a short remark ("Ankunft morgens", "Tenderhafen"), never the whole row or a sentence: at most 5 words and
+ * no clock time (the times have their own fields).
+ */
+function isRemark(note: string): boolean {
+  return note.split(" ").length <= 5 && findTimes(matchKey(note)).length === 0;
+}
+
 /** A note is kept on the text path when most of its words are printed in the source (it is shown to the user). */
 function noteInSource(note: string, src: SourceIndex): boolean {
   const words = foldText(note).split(" ").filter((w) => w.length >= 3);
@@ -145,9 +165,14 @@ export function normalizeExtract(wire: WireItinerary, source: string | null): No
     if (w.day !== null && day === undefined) drops.invalid += 1;
 
     const times: { arr?: string; dep?: string } = {};
+    let daypartNote = "";
     for (const k of sea ? [] : (["arr", "dep"] as const)) {
       const t = cleanTime(w[k]);
-      if (t === null) flags.add("time_unclear");
+      const part = t === null ? daypartOf(w[k]!) : null;
+      if (part && (!src || src.words.has(foldText(part.word)))) {
+        // "morgens" in a time column: a remark, not an unreadable time ("Ankunft morgens").
+        daypartNote ||= `${k === "arr" ? (part.german ? "Ankunft" : "Arrival") : part.german ? "Abfahrt" : "Departure"} ${part.word}`;
+      } else if (t === null) flags.add("time_unclear");
       else if (t !== undefined) {
         if (src && !src.times.has(t)) flags.add("not_in_source");
         else times[k] = t;
@@ -156,7 +181,8 @@ export function normalizeExtract(wire: WireItinerary, source: string | null): No
 
     const cc = w.cc && /^[A-Za-z]{2}$/.test(w.cc.trim()) ? w.cc.trim().toUpperCase() : undefined;
     let note = w.note ? oneLine(w.note).slice(0, MAX_NOTE).trim() : "";
-    if (note && src && !noteInSource(note, src)) note = "";
+    if (note && ((src && !noteInSource(note, src)) || !isRemark(note))) note = "";
+    note ||= daypartNote;
 
     const stop: RawStop = {
       ...(date ? { date } : {}),

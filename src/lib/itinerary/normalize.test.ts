@@ -85,6 +85,24 @@ describe("normalizeExtract (text path)", () => {
   });
 });
 
+describe("normalizeExtract: day-parts and notes", () => {
+  it("turns a day-part in a time field into the note (recorded: arr 'morgens' from the photo)", () => {
+    const got = normalizeExtract({ stops: [w({ date: "2037-12-23", place: "Passau", cc: "DE", arr: "morgens" })] }, null);
+    expect(got.stops).toEqual([{ date: "2037-12-23", place: "Passau", cc: "DE", note: "Ankunft morgens", flags: ["from_image"] }]);
+    const en = normalizeExtract({ stops: [w({ place: "Passau", arr: "in the morning" })] }, "Dec 23 - back in Passau in the morning");
+    expect(en.stops).toEqual([{ place: "Passau", note: "Arrival morning" }]);
+  });
+
+  it("keeps a printed remark but not a whole row or sentence (recorded: notes that repeated the line)", () => {
+    const src = "Dec 19 - board in Passau, the ship leaves at 4 pm\nDec 23 - back in Passau in the morning";
+    const got = normalizeExtract(
+      { stops: [w({ place: "Passau", note: "board in Passau, the ship leaves at 4 pm" }), w({ place: "Passau", note: "in the morning" })] },
+      src,
+    );
+    expect(got.stops.map((s) => s.note)).toEqual([undefined, "in the morning"]);
+  });
+});
+
 describe("normalizeExtract (image path)", () => {
   it("cannot check the source: keeps what is valid and flags every stop from_image", () => {
     const got = normalizeExtract({ stops: [w({ date: "2037-12-20", place: "Wien", cc: "AT", arr: "14:00" }), w({ sea: true, day: 4 })] }, null);

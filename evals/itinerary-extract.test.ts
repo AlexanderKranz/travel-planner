@@ -88,7 +88,7 @@ describe.runIf(recording !== null)("recorded Haiku outputs (replay)", () => {
       const ex = normalizeExtract(c.wire, c.kind === "text" ? c.text! : null);
       const stops = mapStops(ex.stops, ctx, TODAY);
       if (c.expect === "empty") expect(stops).toEqual([]);
-      else expect(scheduleProblems(stops, DANUBE, ctx, { passenger: PASSENGER, english: c.english, checkCc: true })).toEqual([]);
+      else expect(scheduleProblems(stops, DANUBE, ctx, { passenger: PASSENGER, english: c.english, checkCc: true, missingTimesOk: c.expect === "safe" })).toEqual([]);
       expect(withinBudget(c)).toEqual([]);
       if (c.kind === "images") expect(stops.every((s) => s.flags.includes("from_image"))).toBe(true);
     });

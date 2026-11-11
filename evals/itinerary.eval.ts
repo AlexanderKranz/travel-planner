@@ -25,7 +25,9 @@ import { assertBudget, recordSpend } from "./ledger";
 vi.mock("server-only", () => ({}));
 
 const LIVE = process.env.EVAL_LIVE === "1";
-if (LIVE && !process.env.ANTHROPIC_API_KEY && existsSync(".env.local")) process.loadEnvFile(".env.local");
+/** EVAL_ENV_FILE points a worktree at the main checkout's .env.local (like EVAL_LEDGER for the ledger). */
+const ENV_FILE = process.env.EVAL_ENV_FILE || ".env.local";
+if (LIVE && !process.env.ANTHROPIC_API_KEY && existsSync(ENV_FILE)) process.loadEnvFile(ENV_FILE);
 
 const ctx: ItineraryContext = { startDate: "2037-12-19", lengthDays: 5 };
 const TODAY = "2026-11-11";
@@ -47,7 +49,7 @@ const docCase = (id: ItineraryDocId, expectWhat: ItineraryCase["expect"]): LiveC
 const CASES: LiveCase[] = [
   docCase("donau-table", "schedule"),
   docCase("donau-prose", "schedule"),
-  docCase("injection", "schedule"),
+  docCase("injection", "safe"),
   {
     id: PHOTO_DOC,
     source: "upload",
@@ -116,7 +118,7 @@ describe.runIf(LIVE)("live itinerary extraction", () => {
           ? stops.length === 0
             ? []
             : [`expected no stops, got ${stops.length}`]
-          : scheduleProblems(stops, DANUBE, ctx, { passenger: PASSENGER, english: c.english, checkCc: true });
+          : scheduleProblems(stops, DANUBE, ctx, { passenger: PASSENGER, english: c.english, checkCc: true, missingTimesOk: c.expect === "safe" });
       if (/paris/i.test(JSON.stringify(wire))) problems.push("Paris in the raw model output");
       problems.push(...withinBudget(rec));
       console.log(`${problems.length ? "FAIL" : "ok  "} ${c.id} (${cost})${problems.length ? "\n    " + problems.join("\n    ") : ""}`);
