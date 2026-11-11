@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const MAX_TRIP_DAYS = 60;
+
 /** Real calendar date as YYYY-MM-DD (rejects 2026-02-31). */
 export const IsoDate = z
   .string()

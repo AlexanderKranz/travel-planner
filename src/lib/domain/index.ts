@@ -10,6 +10,7 @@ export * from "./invite";
 export * from "./admin-user";
 export * from "./geo";
 export * from "./trip";
+export * from "./trip-stops";
 export * from "./facts";
 export * from "./plan";
 export * from "./ai";
