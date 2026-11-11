@@ -1,6 +1,6 @@
 # Places per stop and plan-8 (multi-anchor trips)
 
-Status: draft (2026-11-11). Every decision below is open, for Alex. Supersedes `concrete-places.md` [D8] and the
+Status: decided (2026-11-11). Alex accepted [P1]–[P10] as recommended, with [P5] = drive times for every stop and [P6] = 10 stops. Supersedes `concrete-places.md` [D8] and the
 "per-day query is out of scope" note in `activities-and-restaurants.md` §3 once accepted.
 
 **Split with `docs/specs/itinerary-upload.md`** (both specs describe one stop model):
@@ -92,7 +92,11 @@ of 15 km. The existing functions are called unchanged, so cache keys are shared 
   only in the warm-up and the retry worker [P7]. `getInterestGroups` and the restaurant/café `lookup` need a small
   option `overpass: "cache_only"`.
 - Stops run one at a time (`STOP_CONCURRENCY = 1`), in parallel with the destination lookups.
-- No ORS for stop places [P5]. `km` = straight line from the stop point, and `PlanPlace.drive` stays absent.
+- Drive times for stop places [P5]: one ORS matrix per looked-up stop, from the stop point to that stop's places
+  (`getDriveTimes` in `src/lib/server/facts/drive-times.ts`, unchanged; same cache key rule, so a stop shared with
+  another trip is a hit). `km` stays the straight line from the stop point, `PlanPlace.drive` is set as for the
+  destination. The matrices run in parallel inside the existing 10 s ORS budget; a stop without a result simply
+  has no drive times. This serves round trips by car; on cruises the times are hidden by default anyway.
 - `TripFacts` gets `stops?: StopFacts[]` (`{ stop: ResolvedStop; places: PlaceGroup[]; restaurants?: RestaurantLookup; cafes?: CafeLookup }`).
   It is not persisted.
 
@@ -225,7 +229,8 @@ When the guarded patch has `changedDays.length === 0`, the server picks the firs
   most 400 of the 2,000/day cap, and only on a cold cache (30-day TTL, shared by every trip to that town).
   `GEOAPIFY_HEADROOM` must cover one more in-flight stop lookup: raise it from 120 to 160 and update its comment
   (today 90 in flight per plan + 40).
-- **ORS.** No change, since stops get no matrix calls [P5]. The cap is `ORS_DAILY_REQUESTS_DEFAULT = 200` (the 400
+- **ORS.** Up to 1 + 10 matrix requests per generation on a cold cache [P5] (90-day cache, shared by every trip to
+  the same stop). The daily cap fails closed: when it is reached, stops just get no drive times. The cap is `ORS_DAILY_REQUESTS_DEFAULT = 200` (the 400
   in `concrete-places.md` D6 is outdated).
 - **Open-Meteo geocoding.** At most 4 × 10 = 40 calls per cold trip, against 10k/day.
 - **`places_pending` [P7].** Stops never make Generate answer `places_pending`. A stop in `error`/`skipped` goes into
@@ -239,10 +244,14 @@ When the guarded patch has `changedDays.length === 0`, the server picks the firs
 
 - **Day card** (`src/components/plan/day-card.tsx`): stop places render like destination places: name link,
   "oder:" alternatives, "(x km Luftlinie)" when there is no drive time. The distance has no "from where" wording,
-  so it stays true. `driveTitle` ("ab Zielort-Zentrum") never shows for stop places, since they have no `drive`.
+  so it stays true. The drive tooltip must say where the time is measured from: `driveTitle` stays for destination places; stop
+  places get a new key `driveTitleStop` (de "Mit dem Auto ab {stop}, {km} km (OpenRouteService, geprüft am {date})",
+  en "By car from {stop}, {km} km (OpenRouteService, checked {date})"). On a day whose drive times are from a stop,
+  the footer uses a new `driveCreditStop` (de "Fahrzeiten: © openrouteservice.org, ab {stop}", en "Drive times:
+  © openrouteservice.org, from {stop}") instead of `driveCredit` ("ab Zielort-Zentrum").
 - **Day footer [P10]**: one line per day, as today. "© OpenStreetMap · geprüft am <oldest fetchedAt of the day's
   places>" is computed from the places used, so port places are credited without a change. The ORS credit appears
-  only when a place has `drive`.
+  when a place has `drive`, stop places included.
 - **Share view** uses the same DayCard. **PDF** has one global sources line (`plan-pdf.tsx`) that already names
   OpenStreetMap. Neither needs a change.
 - **Facts panel** keeps showing destination places only.
@@ -292,7 +301,7 @@ Cruise fixture (`evals/fixtures/donau-kreuzfahrt.json`). Two variants: stops der
 - Golf and Würzburg inputs stay byte-identical (no stops). Record tokens and cost before and after, as in
   `concrete-places.md`.
 
-## Decisions (all open, for Alex)
+## Decisions (Alex, 2026-11-11: all accepted as recommended; [P5] with drive times per stop, [P6] at 10 stops)
 
 Shared decisions are marked with their owner. The stop model, sources and the Haiku task are decided in
 itinerary-upload ([D2], [D4], [D10]); they are not repeated here.
@@ -312,9 +321,9 @@ itinerary-upload ([D2], [D4], [D10]); they are not repeated here.
 - **[P4] Per stop: restaurants (6), the first 2 purpose interests with a source (4 places each), cafés (3) only when
   asked; no activity groups.** *Recommended:* port windows are a few hours, and this keeps tokens and Overpass load
   small. Alternative: the full destination set per stop (≈ 3× tokens and queries).
-- **[P5] No drive times for stop places;** `km` is the straight line from the stop point. *Recommended:* shore time
-  is on foot, by shuttle or taxi. Drive times are hidden by default (timed-items D13), and one ORS matrix per stop
-  would spend up to 10 of the 200 shared daily requests. Alternative: one matrix per stop for interest places only.
+- **[P5] Drive times for every looked-up stop:** one ORS matrix per stop, as for the destination (§2). Covers
+  round trips by car; on cruises they stay hidden by default (timed-items D13). Costs up to 10 more of the 200 daily
+  ORS requests on a cold cache.
 - **[P6] Decided (Alex, 2026-11-11): at most 10 looked-up stops per trip, in day order;** the rest are `cap` and
   reported as not checked.
 - **[P7] Stops never block Generate.** Inline runs use cache + Geoapify only, Overpass for stops runs only in the
