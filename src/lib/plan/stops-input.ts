@@ -123,10 +123,8 @@ export function stopsInput(a: StopsInputArgs): { stopPlaces: StopPlacesEntry[]; 
           added[id] = { ...built.entry, stop: stop.id };
           a.known.set(key, id);
         }
-        const { min: _min, ap: _ap, ...row } = built.row;
-        void _min;
-        void _ap;
-        rows.set(key, row);
+        // Stop rows have no `min` (the drive time sits on the place) and no `ap`.
+        rows.set(key, { id: built.row.id, name: built.row.name, cat: built.row.cat, km: built.row.km, i: built.row.i });
       }
     }
     if (rows.size) entry.places = [...rows.values()];

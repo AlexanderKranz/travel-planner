@@ -58,6 +58,7 @@ export async function prepareStopsForPatch(a: {
     let tripHasStops = !!stored.llm.trip?.stops?.length;
 
     if (!tripHasStops) {
+      // TODO(integration): pass notesDeriver(session) (itinerary-notes).
       const stops = await resolveTripStops(a.trip);
       tripHasStops = stops.length > 0;
       if (stops.length && a.budgetMs > 0) {

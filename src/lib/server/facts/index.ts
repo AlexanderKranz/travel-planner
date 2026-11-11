@@ -97,6 +97,7 @@ export async function warmTripFacts(
 ): Promise<void> {
   try {
     // Confirmed stops, else stops derived from the notes (itinerary-upload [D10]); none for most trips.
+    // TODO(integration): pass notesDeriver(session) where the warm-up has a session (itinerary-notes); no request session in after().
     const stops = await resolveTripStops(trip);
     const [facts] = await Promise.all([
       collect(trip, purpose, ctx, options.budgetMs ?? WARM_BUDGET_MS, undefined, stops.length ? { list: stops, overpass: "allowed", afterDestination: true } : undefined),

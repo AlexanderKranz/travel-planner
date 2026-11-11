@@ -417,6 +417,7 @@ export async function generatePlan(
     }
 
     // Trip stops (confirmed, else derived from the notes): their places are looked up beside the destination's.
+    // TODO(integration): pass notesDeriver(session) (itinerary-notes) so a parser miss may use the Haiku text path.
     const stops = await resolveTripStops(c.trip);
     // 4. facts + input
     const facts = await getTripFacts(
