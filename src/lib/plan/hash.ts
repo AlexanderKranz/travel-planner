@@ -24,9 +24,12 @@ export function canonicalJson(v: unknown): string {
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 
-/** sha256 hex of `{ p: PLAN_PROMPT_VERSION, m: MODEL_PLAN, input }`. */
-export function planInputHash(llm: PlanInput): string {
-  return sha256(canonicalJson({ p: PLAN_PROMPT_VERSION, m: MODEL_PLAN, input: llm }));
+/**
+ * sha256 hex of `{ p: PLAN_PROMPT_VERSION, m: MODEL_PLAN, input }`. `promptVersion` is for evals that check a recording
+ * against the prompt version it was made with (a bump that leaves an input byte-identical keeps the recording valid).
+ */
+export function planInputHash(llm: PlanInput, promptVersion: string = PLAN_PROMPT_VERSION): string {
+  return sha256(canonicalJson({ p: promptVersion, m: MODEL_PLAN, input: llm }));
 }
 
 /** Guided interests that are not interest keys (free text). */

@@ -21,8 +21,12 @@ const MAX_LOOKUP_CREDITS = 6 * geoapifyCredits(GEOAPIFY_LIMIT);
  * plan are in flight: 4 interest lookups (3 category groups each, 15 credits) + 1 activity group (6 per-type
  * requests, 30 credits) = 90 credits, inside 4 * 30 = 120. Several users generating at the same moment are not
  * covered; the 1,000-credit gap to Geoapify's own limit absorbs that.
+ * Stops (port places): their lookups run one stop at a time beside the destination's, so one more lookup of a stop is in
+ * flight: restaurants (10 credits at limit 200) or an interest (up to 15), at most STOP_LOOKUP_CREDITS = 40 for the
+ * stop's restaurants, two interests and cafés. 120 + 40 = 160.
  */
-export const GEOAPIFY_HEADROOM = MAX_INTEREST_QUERIES * MAX_LOOKUP_CREDITS;
+export const STOP_LOOKUP_CREDITS = 40;
+export const GEOAPIFY_HEADROOM = MAX_INTEREST_QUERIES * MAX_LOOKUP_CREDITS + STOP_LOOKUP_CREDITS;
 /** PostgREST returns at most 1,000 rows per request; page through the day. */
 const PAGE = 1000;
 

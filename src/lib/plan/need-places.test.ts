@@ -33,8 +33,9 @@ describe("resolveNeedPlaces", () => {
     });
   });
 
-  it("ignores an unknown near id and returns null when nothing is loadable", () => {
-    expect(resolveNeedPlaces({ restaurants: { near: "a77" } }, stored)).toEqual({ types: [], groups: [], restaurants: {} });
+  it("an unknown near id makes the request unusable (port-places [P8]); null when nothing is loadable", () => {
+    expect(resolveNeedPlaces({ restaurants: { near: "a77" } }, stored)).toBeNull();
+    expect(resolveNeedPlaces({ types: ["escape_game"], restaurants: { near: "s9" } }, stored)).toBeNull();
     expect(resolveNeedPlaces({}, stored)).toBeNull();
     expect(resolveNeedPlaces(undefined, stored)).toBeNull();
   });
@@ -91,7 +92,8 @@ describe("QA: model-supplied ids and cuisine merge", () => {
   const base = storedFor(2);
   it("near never resolves inherited keys such as constructor or __proto__", () => {
     for (const near of ["constructor", "__proto__", "toString", "hasOwnProperty"]) {
-      expect(resolveNeedPlaces({ restaurants: { near } }, base)).toEqual({ types: [], groups: [], restaurants: {} });
+      expect(resolveNeedPlaces({ restaurants: { near } }, base)).toBeNull();
+      expect(resolveNeedPlaces({ restaurants: { near } }, { ...base, stopPoints: { s1: { lat: 1, lon: 2, geoId: 3 } } })).toBeNull();
     }
   });
 

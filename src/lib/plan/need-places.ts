@@ -11,13 +11,16 @@ import { MIN_PLACES_PER_INTEREST, interestPlace, placeInterests, withInterest, t
 /** Label of the wish a change request adds to the input (the model links it to FEEDBACK). */
 export const FEEDBACK_WISH = "FEEDBACK";
 
+/** `near` of a request: a place of the input, or (`stop`) a stop of `trip.stops`, searched at the stop's radius. */
+export type NeedNear = { id: string; lat: number; lon: number; stop?: true };
+
 /** A validated `needPlaces`: what code loads before the second patch call (activities spec section 4). */
 export type NeedPlacesRequest = {
   types: ActivityType[];
   groups: ActivityGroup[];
-  restaurants?: { cuisine?: CuisineWish; near?: { id: string; lat: number; lon: number } };
+  restaurants?: { cuisine?: CuisineWish; near?: NeedNear };
   /** Cafés (addendum A2); `kids` only when the request explicitly asked for child-friendly places. */
-  cafes?: { kids?: boolean; near?: { id: string; lat: number; lon: number } };
+  cafes?: { kids?: boolean; near?: NeedNear };
   /** Purpose interests with a place source (issue #151): loaded like the plan's interest candidates. */
   interests?: InterestKey[];
 };
@@ -30,16 +33,21 @@ const cuisines = (xs: readonly string[] | undefined) =>
 
 /**
  * Model `needPlaces` -> what to load, or null when nothing loadable is left. Unknown types and cuisines are dropped;
- * `near` must be an id of the stored input (a place with coordinates), else it is ignored and restaurants are
- * loaded around the destination point. Pure.
+ * `near` must be an id of the stored input (a place with coordinates) or of a looked-up stop (`s1..`, searched around
+ * the stop point). An unknown id makes the whole request unusable (null): it no longer falls back to the destination,
+ * which would load the destination's restaurants again and change nothing (port-places [P8]). Pure.
  */
 export function resolveNeedPlaces(need: NeedPlaces | undefined, stored: PlanInputStored): NeedPlacesRequest | null {
   if (!need) return null;
+  if (hasUnknownNear(need, stored)) return null;
   // Own keys only: a model-supplied "constructor" or "__proto__" must never resolve.
-  const nearOf = (raw: string | undefined) => {
+  const nearOf = (raw: string | undefined): { near?: NeedNear } => {
     const id = raw?.trim();
-    const hit = id && Object.hasOwn(stored.index, id) ? stored.index[id] : undefined;
-    return hit && id ? { near: { id, lat: hit.place.lat, lon: hit.place.lon } } : {};
+    if (!id) return {};
+    const hit = Object.hasOwn(stored.index, id) ? stored.index[id] : undefined;
+    if (hit) return { near: { id, lat: hit.place.lat, lon: hit.place.lon } };
+    const stop = stored.stopPoints && Object.hasOwn(stored.stopPoints, id) ? stored.stopPoints[id] : undefined;
+    return stop ? { near: { id, lat: stop.lat, lon: stop.lon, stop: true } } : {};
   };
   const types = [...new Set((need.types ?? []).map((t) => String(t).trim()).filter(isActivityType))];
   const groups = groupsForWishes([{ types, open: false }]);
@@ -60,6 +68,15 @@ export function resolveNeedPlaces(need: NeedPlaces | undefined, stored: PlanInpu
   const interests = [...new Set((need.interests ?? []).map((k) => String(k).trim()).filter(isPlaceInterest))].slice(0, MAX_INTEREST_QUERIES);
   if (!types.length && !restaurants && !cafes && !interests.length) return null;
   return { types, groups, ...(restaurants ? { restaurants } : {}), ...(cafes ? { cafes } : {}), ...(interests.length ? { interests } : {}) };
+}
+
+/** A `near` that is neither an input place nor a looked-up stop. Such a request cannot be loaded (port-places [P8]). */
+export function hasUnknownNear(need: NeedPlaces | undefined, stored: Pick<PlanInputStored, "index" | "stopPoints">): boolean {
+  const known = (raw: string | undefined) => {
+    const id = raw?.trim();
+    return !id || Object.hasOwn(stored.index, id) || (!!stored.stopPoints && Object.hasOwn(stored.stopPoints, id));
+  };
+  return !known(need?.restaurants?.near) || !known(need?.cafes?.near);
 }
 
 /**
@@ -114,29 +131,52 @@ export function extendInput(
   }
   if (req.restaurants && loaded.restaurants) {
     const cuisine = mergeCuisine(stored.llm.restaurants?.ask, req.restaurants.cuisine);
+    const stop = req.restaurants.near?.stop ? req.restaurants.near.id : undefined;
     const rest = restaurantsInput(loaded.restaurants, {
       cuisine,
       countryCode: a.countryCode,
       known,
-      startN: maxId(stored.index, "r"),
-      near: req.restaurants.near?.id,
+      startN: maxId({ ...stored.index, ...added }, "r"),
+      near: stop ? undefined : req.restaurants.near?.id,
     });
     if (rest.block) {
-      if (req.restaurants.near) llm.restaurantsNear = rest.block;
+      if (stop) {
+        // Around a stop: the stop's own list is replaced, a new cuisine is a re-filter of the same lookup.
+        const { ask: _ask, near: _near, ...block } = rest.block;
+        void _ask;
+        void _near;
+        llm.stopPlaces = replaceStopEntry(llm.stopPlaces, stop, (e) => ({ ...e, restaurants: block }));
+      } else if (req.restaurants.near) llm.restaurantsNear = rest.block;
       else llm.restaurants = rest.block;
-      added = { ...added, ...rest.index };
+      added = { ...added, ...tagStop(rest.index, stop) };
       for (const [id, e] of Object.entries(rest.index)) known.set(e.key, id);
     }
   }
   if (req.cafes && loaded.cafes) {
     const kids = req.cafes.kids === true || stored.llm.cafes?.kids === true || llm.restaurants?.ask?.kids === true;
-    const cafes = cafesInput(loaded.cafes, { kids, known, startN: maxId(stored.index, "c"), near: req.cafes.near?.id });
+    const stop = req.cafes.near?.stop ? req.cafes.near.id : undefined;
+    const cafes = cafesInput(loaded.cafes, { kids, known, startN: maxId({ ...stored.index, ...added }, "c"), near: stop ? undefined : req.cafes.near?.id });
     if (cafes.block) {
-      llm.cafes = cafes.block;
-      added = { ...added, ...cafes.index };
+      if (stop) {
+        const { near: _near, kids: _kids, ...block } = cafes.block;
+        void _near;
+        void _kids;
+        llm.stopPlaces = replaceStopEntry(llm.stopPlaces, stop, (e) => ({ ...e, cafes: block }));
+      } else llm.cafes = cafes.block;
+      added = { ...added, ...tagStop(cafes.index, stop) };
     }
   }
   return { ...stored, llm: JSON.parse(JSON.stringify(llm)) as PlanInputStored["llm"], index: { ...stored.index, ...added } };
+}
+
+/** Index entries of places listed under a stop carry the stop id (the stop-ref guard reads it). */
+function tagStop(index: PlanInputStored["index"], stop: string | undefined): PlanInputStored["index"] {
+  return stop ? Object.fromEntries(Object.entries(index).map(([id, e]) => [id, { ...e, stop }])) : index;
+}
+
+type StopEntries = PlanInputStored["llm"]["stopPlaces"];
+function replaceStopEntry(list: StopEntries, id: string, change: (e: NonNullable<StopEntries>[number]) => NonNullable<StopEntries>[number]): StopEntries {
+  return (list ?? []).map((e) => (e.id === id ? change(e) : e));
 }
 
 /**

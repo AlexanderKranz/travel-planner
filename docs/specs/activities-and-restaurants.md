@@ -115,7 +115,8 @@ is used.
   generation code does not know which day uses which place, so a meal next to a far activity gets no restaurant
   ref and is written generically ("Einkehr vor Ort"), as for far stops today (`concrete-places.md` D8). A change
   request can load restaurants near a specific place (`needPlaces.near`, §4). A per-day query would multiply
-  Overpass calls; it is out of scope.
+  Overpass calls; it is out of scope. **Superseded 2026-11-11 by `port-places.md`:** the stops of a trip (ports) get
+  their own restaurant and interest lookups, and `near` may be a stop id.
 - Each meal activity sets `ref` to one restaurant and `alts` to up to 2 others. The UI already renders
   "name · oder: X · Y" with links. Opening hours stay unverified, and the existing reservation and opening-hours
   hint stays.

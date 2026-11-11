@@ -20,9 +20,10 @@ function build() {
   const rec = readRecording<LlmPlan>("golf", "generate")!;
   // The recorded tags select the golf places; without them the place index is empty and assembly drops every ref.
   const tags = readRecording<PurposeTags>("golf", "tags")?.output ?? null;
-  const g = evaluateGenerate("golf", tags, rec.output, { recordedHash: rec.inputHash });
+  const g = evaluateGenerate("golf", tags, rec.output, { recordedHash: rec.inputHash, recordedVersion: rec.promptVersion });
   if (!g.plan) throw new Error("assemble failed");
-  if (planInputHash(g.built.stored.llm) !== rec.inputHash) throw new Error("golf generate recording does not match the rebuilt input; re-record it first");
+  // The recording is checked against the prompt version it was made with: plan-8 left the golf input byte-identical.
+  if (planInputHash(g.built.stored.llm, rec.promptVersion) !== rec.inputHash) throw new Error("golf generate recording does not match the rebuilt input; re-record it first");
   return {
     $comment: "Generated from evals/recorded/golf.generate.json by evals/demo-seed.test.ts. Do not edit by hand.",
     fixture: "golf",

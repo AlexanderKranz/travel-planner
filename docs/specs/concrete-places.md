@@ -58,13 +58,15 @@ instead of naming the zoo or course.
 - **[D6] Drive times.** *Accepted by Alex 2026-10-28; Alex will check drive times live.* Driving-car from the destination point, not from the hotel or between places. Values
   that are null and "drives" over 180 min are omitted. ORS routes via ferries (Marbella → Palma came back as
   15 h). Cache key = rounded origin (3 decimals) + hash of the sorted place keys and coordinates, kept 90 days.
-  The daily cap `ORS_DAILY_REQUESTS` (default 400) counts non-hit `api_calls` rows and fails closed. Without a
+  The daily cap `ORS_DAILY_REQUESTS` (default 200, `ORS_DAILY_REQUESTS_DEFAULT`; this said 400 before) counts non-hit `api_calls` rows and fails closed. Without a
   key or on any error the plan generates without times.
 - **[D7] The text no longer repeats the place name** (the UI leads with it). This saves output tokens. Plans
   generated before plan-3 still read fine, because the name is shown as a link either way. *Accepted by Alex 2026-10-28.*
 - **[D8] Generic text stays allowed for stops far from the destination** (places lie within their km of the
   anchor). A Danube cruise anchored in Passau gets places near Passau only, so Wien/Linz/Melk activities stay
   generic. Multi-anchor trips (one place query per port) would be the next step if wanted. *Accepted by Alex 2026-10-28.*
+  **Superseded 2026-11-11 by `port-places.md`:** each trip stop gets its own lookups (restaurants, interests, drive
+  times) and rule 3 now says "stops without their own lists in stopPlaces".
 - **[D9] Prompt rule 5 tightened:** *Accepted by Alex 2026-10-28 (option 2: strict prompt rule, no code relaxation).* "a fixed stop never gets a time that is not in trip.notes". plan-3 twice
   merged an invented 10:00 start into the departure-only Passau window. That made the stop lose its "from your
   notes" badge, because code only trusts times that appear in the notes. The code rule stays strict on purpose.

@@ -44,8 +44,8 @@ describe.each(FIXTURE_IDS)("eval %s", (id) => {
   });
 
   it.runIf(!!genRec)("recorded generation passes the checks", () => {
-    const g = evaluateGenerate(id, tags, genRec!.output, { recordedHash: genRec!.inputHash });
-    if (genRec!.inputHash !== planInputHash(g.built.stored.llm)) console.warn(`[${id}] generate recording is from another prompt/input version`);
+    const g = evaluateGenerate(id, tags, genRec!.output, { recordedHash: genRec!.inputHash, recordedVersion: genRec!.promptVersion });
+    if (genRec!.inputHash !== planInputHash(g.built.stored.llm, genRec!.promptVersion)) console.warn(`[${id}] generate recording is from another prompt/input version`);
     expect(failed(g.results), formatResults(`${id} generate`, g.results)).toEqual([]);
   });
 
@@ -93,11 +93,11 @@ describe.each(FIXTURE_IDS)("eval %s", (id) => {
   });
 
   it.runIf(id !== "wuerzburg" && !!genRec && !!patchRec)("recorded patch changes only the scoped days", () => {
-    const g = evaluateGenerate(id, tags, genRec!.output, { recordedHash: genRec!.inputHash });
+    const g = evaluateGenerate(id, tags, genRec!.output, { recordedHash: genRec!.inputHash, recordedVersion: genRec!.promptVersion });
     const feedback = PATCH_FEEDBACK[id];
-    const hash = createHash("sha256").update(canonicalJson({ base: planInputHash(g.built.stored.llm), feedback })).digest("hex");
+    const hash = createHash("sha256").update(canonicalJson({ base: planInputHash(g.built.stored.llm, genRec!.promptVersion), feedback })).digest("hex");
     if (patchRec!.inputHash !== hash) console.warn(`[${id}] patch recording is from another prompt/input version`);
-    const p = evaluatePatch(id, tags, g.plan!, patchRec!.output, { recordedHash: genRec!.inputHash });
+    const p = evaluatePatch(id, tags, g.plan!, patchRec!.output, { recordedHash: genRec!.inputHash, recordedVersion: genRec!.promptVersion });
     expect(failed(p.results), formatResults(`${id} patch`, p.results)).toEqual([]);
   });
 });

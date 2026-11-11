@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [tsconfigPaths()],
   test: {
-    include: ["evals/live.eval.ts", "evals/group-text.eval.ts", "evals/patch-shrink.eval.ts", "evals/tags-cases.eval.ts", "evals/itinerary.eval.ts", "evals/itinerary-docs.gen.ts"],
+    include: ["evals/live.eval.ts", "evals/group-text.eval.ts", "evals/patch-shrink.eval.ts", "evals/tags-cases.eval.ts", "evals/itinerary.eval.ts", "evals/itinerary-docs.gen.ts", "evals/port-places.eval.ts"],
     testTimeout: 600_000,
     fileParallelism: false,
     silent: false,

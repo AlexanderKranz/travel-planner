@@ -704,3 +704,44 @@ describe("QA #139: wished types, concurrency, budget", () => {
     expect(f).toMatchObject({ status: "empty", data: { partial: false } });
   });
 });
+
+describe("overpass: cache_only (port places [P7])", () => {
+  it("restaurants: Geoapify still answers, Overpass is never queried", async () => {
+    vi.stubEnv("GEOAPIFY_API_KEY", "k");
+    h.fetchPlaces.mockResolvedValue({
+      elements: [{ type: "node", id: 1, lat: 49.7915, lon: 9.9536, tags: { name: "Ratskeller", amenity: "restaurant" } }],
+      status: 200, latencyMs: 5, credits: 1, truncated: false,
+    });
+    const f = await getRestaurantFacts(dest("city"), ctx, { overpass: "cache_only" });
+    expect(f.status).toBe("ok");
+    expect(h.runQuery).not.toHaveBeenCalled();
+  });
+
+  it("restaurants: Geoapify fails and nothing is cached: the Overpass fetcher never runs", async () => {
+    vi.stubEnv("GEOAPIFY_API_KEY", "k");
+    h.fetchPlaces.mockRejectedValue(new Error("quota"));
+    const f = await getRestaurantFacts(dest("city"), ctx, { overpass: "cache_only" });
+    expect(h.runQuery).not.toHaveBeenCalled();
+    // Geoapify was attempted, so this is a failure, not "not looked up".
+    expect(f).toEqual({ status: "error", source: "osm" });
+  });
+
+  it("restaurants without a Geoapify key and nothing cached: skipped, never a network query", async () => {
+    const f = await getRestaurantFacts(dest("city"), ctx, { overpass: "cache_only" });
+    expect(f).toEqual({ status: "skipped", reason: "cache_only" });
+    expect(h.runQuery).not.toHaveBeenCalled();
+  });
+
+  it("a cached Overpass result is still served", async () => {
+    freshOverpass([], false);
+    const f = await getCafeFacts(dest("city"), ctx, { overpass: "cache_only" });
+    expect(f.status).toBe("empty");
+    expect(h.runQuery).not.toHaveBeenCalled();
+  });
+
+  it("without the option the Overpass query still runs (the warm-up and the retry worker)", async () => {
+    h.runQuery.mockResolvedValue(overpassAnswer("restaurants-wuerzburg-2.5km.json"));
+    expect((await getRestaurantFacts(dest("city"), ctx)).status).toBe("ok");
+    expect(h.runQuery).toHaveBeenCalledTimes(1);
+  });
+});

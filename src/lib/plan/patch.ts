@@ -7,7 +7,7 @@ import {
   emptyIssues,
   guardCtx,
   guardFixed,
-  noteTimes,
+  inputTimes,
   proseText,
   referencedPlaces,
   type AssembleIssues,
@@ -77,7 +77,7 @@ export function applyPatch(a: {
 
   const issues = emptyIssues();
   const fallbackPlace = stored.llm.trip.dest.slice(0, LIMITS.place);
-  const times = noteTimes(stored.llm.trip.notes);
+  const times = inputTimes(stored);
   const guards = guardCtx(stored);
   const replaced = new Map<number, PlanDay>();
   for (const d of inScope) {

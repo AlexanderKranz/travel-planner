@@ -2,7 +2,7 @@
  "$comment": "Generated from evals/recorded/golf.generate.json by evals/demo-seed.test.ts. Do not edit by hand.",
  "fixture": "golf",
  "model": "claude-sonnet-5-5",
- "inputHash": "0bbd7f150e3bcfb0341cc36b717a39aa967863e6f255db293fb08fe207a23afe",
+ "inputHash": "72893f781e03f23c8fe525764b718a4d4b0ec8adf36527074946b50d1c2c0a9b",
  "plan": {
   "v": 1,
   "locale": "de",

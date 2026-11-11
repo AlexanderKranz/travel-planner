@@ -15,7 +15,7 @@ import type { Locale } from "@/lib/domain/profile";
 import type { TripPurpose } from "@/lib/domain/purpose";
 import type { ActionError } from "@/lib/domain/result";
 import { canEdit, type Access } from "@/lib/domain/sharing";
-import type { PlaceGroup } from "@/lib/domain/facts";
+import type { PlaceGroup, StopFacts } from "@/lib/domain/facts";
 import type { Trip } from "@/lib/domain/trip";
 import { applyEdit } from "@/lib/plan/edit";
 import { canonicalJson, planInputHash } from "@/lib/plan/hash";
@@ -25,11 +25,14 @@ import { tripPurpose } from "@/lib/purpose-source";
 import { buildPlanInput, type GroupContext } from "@/lib/plan/input";
 import { allPlacesPending, activityPlacesPending, blockingScope, interestGroupsPending } from "@/lib/plan/places-pending";
 import { drivePicks } from "@/lib/plan/drive-picks";
-import { extendInput, resolveNeedPlaces, type NeedPlacesRequest } from "@/lib/plan/need-places";
+import { extendInput, hasUnknownNear, resolveNeedPlaces, type NeedPlacesRequest } from "@/lib/plan/need-places";
+import type { PlanInputStored } from "@/lib/plan/input";
+import { patchNotice, type PatchNotice } from "@/lib/plan/stops-notice";
+import { stopPending } from "@/lib/plan/stops-input";
 import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
 import { geoDestination } from "./facts/common";
 import { scheduleActivityWarm } from "./warm";
-import { jobsForActivityLookups, jobsForInterests, jobsForTripFacts } from "@/lib/places-retry";
+import { jobsForActivityLookups, jobsForInterests, jobsForStops, jobsForTripFacts } from "@/lib/places-retry";
 import { enqueuePlaceRetries } from "./place-retries";
 import { PLACES_CACHE_ONLY, getInterestGroups } from "./facts/places";
 import { applyPatch } from "@/lib/plan/patch";
@@ -43,6 +46,9 @@ import { berlinMidnight, budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage,
 import { logEvent } from "./events";
 import { getTripFacts } from "./facts";
 import { getDriveTimes } from "./facts/drive-times";
+import { stopDestination, stopDriveTimes } from "./facts/stops";
+import { prepareStopsForPatch, stopPrepBudget } from "./plan-stops";
+import { resolveTripStops } from "./trip-stops";
 import { getGroup } from "./groups";
 import {
   acquireLock,
@@ -87,8 +93,12 @@ const RESERVE_PATCH = 50_000;
 const Id = z.string().uuid();
 
 /** `rejectedDays`: patched days the shrink guard reverted (patch-safety [D3]); the client explains them. */
-/** `notice`: a fixed client message instead of the model reply (`places_not_loadable`: plan.iterate.placesNotLoadable). */
-export type PipelineData = { state: PlanState; unchanged?: true; reply?: string; rejectedDays?: number[]; notice?: "places_not_loadable" };
+/**
+ * `notice`: why a patch changed nothing (port-places section 5): the client shows its own message for `code` (a key
+ * under plan.iterate) instead of the model reply; `places` = up to 3 stop names for the message. Absent = the client
+ * shows "nothing changed" and the model's `reply`.
+ */
+export type PipelineData = { state: PlanState; unchanged?: true; reply?: string; rejectedDays?: number[]; notice?: PatchNotice };
 export type PipelineError = {
   ok: false;
   error: ActionError;
@@ -406,6 +416,9 @@ export async function generatePlan(
       purpose = await tagAndSave(c.session.userId, purpose, ai.ctx);
     }
 
+    // Trip stops (confirmed, else derived from the notes): their places are looked up beside the destination's.
+    // TODO(integration): pass notesDeriver(session) (itinerary-notes) so a parser miss may use the Haiku text path.
+    const stops = await resolveTripStops(c.trip);
     // 4. facts + input
     const facts = await getTripFacts(
       c.trip,
@@ -415,6 +428,7 @@ export async function generatePlan(
         // `force` is "generate anyway": the user chose not to wait, so only cached places are read.
         placesBudgetMs: opts.force ? PLACES_CACHE_ONLY : PLACES_BUDGET_MS,
         withFlights: c.trip.wantsFlights ? { homeAirports: c.homeAirports } : undefined,
+        stops,
       },
     );
     // Only named activity types (and group-only wishes) can block (QA #139); an open wish's extra types are best effort.
@@ -422,6 +436,9 @@ export async function generatePlan(
     const pending = allPlacesPending(facts, scope);
     // Keep trying in the background (at most 30 min per search), also for "generate anyway" and regenerate.
     await enqueuePlaceRetries(jobsForTripFacts(c.trip, purpose, facts, scope));
+    // Stops never block Generate [P7]: what is missing around them is retried in the background and the plan says so.
+    await enqueuePlaceRetries(jobsForStops(facts.stops ?? []));
+    const pendingStops = (facts.stops ?? []).filter((f) => f.stop.role === "stop" && (f.stop.status === "error" || stopPending(f))).map((f) => `stop:${f.stop.id}`);
     // `fresh` (regenerate) never blocks on places: an earlier version exists and the user wants a new one.
     if (pending && !opts.force && !opts.fresh) {
       const gone = opts.clientGone?.() === true;
@@ -436,10 +453,12 @@ export async function generatePlan(
     // Drive times from the destination point to every place that goes into the input (one ORS matrix call).
     const dest = c.trip.destination;
     const drivePlaces = drivePicks(facts, purpose);
-    const drive =
-      drivePlaces.length && dest.kind !== "freetext"
-        ? await getDriveTimes({ lat: dest.lat, lon: dest.lon }, drivePlaces, { userId: c.session.userId, locale, today: berlinToday() })
-        : null;
+    const driveCtx = { userId: c.session.userId, locale, today: berlinToday() };
+    // Destination and stop matrices in parallel (stops inside their own 10 s window).
+    const [drive, stopDrive] = await Promise.all([
+      drivePlaces.length && dest.kind !== "freetext" ? getDriveTimes({ lat: dest.lat, lon: dest.lon }, drivePlaces, driveCtx) : null,
+      facts.stops?.length ? stopDriveTimes(facts.stops, driveCtx) : undefined,
+    ]);
     const built = buildPlanInput({
       trip: c.trip,
       group: c.group,
@@ -450,6 +469,8 @@ export async function generatePlan(
       today: berlinToday(),
       drive,
       items: await loadTripItems(c.sb, c.trip.id),
+      stops,
+      stopDrive,
     });
     const inputHash = planInputHash(built.stored.llm);
 
@@ -507,7 +528,7 @@ export async function generatePlan(
       kind: "generate",
       plan: parsed.data,
       // `pendingPlaces` sits beside llm/index: the hash is computed from `llm` only.
-      input: pending ? { ...built.stored, pendingPlaces: pending } : built.stored,
+      input: pending || pendingStops.length ? { ...built.stored, pendingPlaces: [...(pending ?? []), ...pendingStops] } : built.stored,
       inputHash,
       model: MODEL_PLAN,
       costMicroUsd: ai.cost(),
@@ -549,6 +570,8 @@ async function patchWithPlaces(
   c: PlanContext,
   a: {
     base: StoredVersion;
+    /** The base input, upgraded with stops and retried stops (`prepareStopsForPatch`). */
+    input: PlanInputStored;
     feedback: PlanFeedback;
     fixed: ReturnType<typeof fixedSlots>;
     need: NeedPlacesRequest;
@@ -560,14 +583,17 @@ async function patchWithPlaces(
   const left = () => a.started + ITERATE_DEADLINE_MS - Date.now();
   const placesBudget = Math.min(NEED_PLACES_MAX_MS, left() - NEED_PLACES_RESERVE_MS);
   const dest = geoDestination(c.trip);
+  // `near` = a stop: look around the stop point at the stop radius (the cache key of the stop's own lookup).
+  const around = (n: NonNullable<NeedPlacesRequest["restaurants"]>["near"]) => {
+    if (!n) return {};
+    if (!n.stop) return { near: { lat: n.lat, lon: n.lon } };
+    const name = a.input.llm.stopPlaces?.find((p) => p.id === n.id)?.name ?? n.id;
+    return { at: stopDestination({ name, point: { lat: n.lat, lon: n.lon, geoId: 0 } }) };
+  };
   const req: ActivityLookupRequest = {
     groups: need.groups,
-    restaurants: need.restaurants
-      ? need.restaurants.near
-        ? { near: { lat: need.restaurants.near.lat, lon: need.restaurants.near.lon } }
-        : {}
-      : false,
-    cafes: need.cafes ? (need.cafes.near ? { near: { lat: need.cafes.near.lat, lon: need.cafes.near.lon } } : {}) : false,
+    restaurants: need.restaurants ? around(need.restaurants.near) : false,
+    cafes: need.cafes ? around(need.cafes.near) : false,
     wanted: need.types,
   };
   const factsCtx = { userId: c.session.userId, locale: base.plan.locale as Locale, today: berlinToday() };
@@ -581,6 +607,7 @@ async function patchWithPlaces(
       restaurants: !!need.restaurants,
       near: !!need.restaurants?.near,
       cafes: !!need.cafes,
+      stop: !!(need.restaurants?.near?.stop || need.cafes?.near?.stop),
       budgetMs: Math.max(0, placesBudget),
     },
   });
@@ -607,10 +634,15 @@ async function patchWithPlaces(
         ...jobsForInterests(dest, interestGroups),
         ...jobsForActivityLookups(
           dest && { lat: dest.lat, lon: dest.lon, kind: dest.kind },
-          loaded,
-          { restaurants: need.restaurants?.near, cafes: need.cafes?.near },
+          { ...loaded, ...(need.restaurants?.near?.stop ? { restaurants: undefined } : {}), ...(need.cafes?.near?.stop ? { cafes: undefined } : {}) },
+          {
+            restaurants: need.restaurants?.near?.stop ? undefined : need.restaurants?.near,
+            cafes: need.cafes?.near?.stop ? undefined : need.cafes?.near,
+          },
           { types: new Set(need.types) },
         ),
+        // Lookups around a stop: the stop point is the job's point, at the stop radius (no new job kind).
+        ...stopNearJobs(a.input, need, loaded),
       ]);
     }
     if (missing.length) scheduleActivityWarm(dest, req, factsCtx, AFTER_LIMIT_MS - (Date.now() - a.started), interests);
@@ -625,13 +657,30 @@ async function patchWithPlaces(
   const blocked = await checkBudget(c, RESERVE_PATCH);
   if (blocked) return blocked;
   const country = c.trip.destination.kind === "freetext" ? null : c.trip.destination.countryCode;
-  const stored = extendInput(base.input, need, { ...loaded, interests: interestGroups }, { lang: base.plan.locale as Locale, countryCode: country });
+  const stored = extendInput(a.input, need, { ...loaded, interests: interestGroups }, { lang: base.plan.locale as Locale, countryCode: country });
   const res = await patchPlan(
     { llm: stored.llm, plan: base.plan, index: stored.index, feedback: a.feedback, fixed: a.fixed, loaded: true, timeoutMs: left() - SECOND_PATCH_MARGIN_MS },
     a.ai.ctx,
   );
   if (!res.ok) return failed(c, res.error, res.error);
   return { ok: true, res, stored };
+}
+
+/** Retry jobs for a restaurant or café request around a stop that did not load. */
+function stopNearJobs(input: PlanInputStored, need: NeedPlacesRequest, loaded: { restaurants?: { status: string; reason?: string }; cafes?: { status: string; reason?: string } }) {
+  const failed = (l: { status: string; reason?: string } | undefined) => !!l && (l.status === "error" || (l.status === "skipped" && l.reason === "cache_only"));
+  const out: StopFacts[] = [];
+  for (const [near, look, key] of [
+    [need.restaurants?.near, loaded.restaurants, "restaurants"],
+    [need.cafes?.near, loaded.cafes, "cafes"],
+  ] as const) {
+    if (!near?.stop || !failed(look)) continue;
+    const point = input.stopPoints?.[near.id];
+    if (!point) continue;
+    const stop = { id: near.id, name: near.id, days: [], role: "stop" as const, point, status: "ok" as const };
+    out.push({ stop, places: [], [key]: { status: "error", [key]: [] } } as StopFacts);
+  }
+  return jobsForStops(out);
 }
 
 export async function iteratePlan(
@@ -678,27 +727,41 @@ export async function iteratePlan(
     // The stored input of the base version keeps the cache prefix identical and avoids refetching facts.
     // Current timed items (may have changed since the base version); sent only when they differ from INPUT.fixed.
     const fixed = fixedSlots(fixedItemsOf(await loadTripItems(c.sb, c.trip.id), base.plan.days.length));
-    let res = await patchPlan({ llm: base.input.llm, plan: base.plan, index: base.input.index, feedback: fb.data, fixed }, ai.ctx);
+    // Port places [P8]: a base input from before plan-8 gets the trip's stops, and failed stops in scope are retried
+    // (one shared budget, cache and Geoapify only), before the model sees the input.
+    const prep = await prepareStopsForPatch({
+      trip: c.trip,
+      purpose: c.purpose,
+      input: base.input,
+      scopeDays: fb.data.days,
+      locale: base.plan.locale as Locale,
+      userId: c.session.userId,
+      budgetMs: stopPrepBudget(started + ITERATE_DEADLINE_MS - Date.now()),
+    });
+    const input = prep.stored;
+    let res = await patchPlan({ llm: input.llm, plan: base.plan, index: input.index, feedback: fb.data, fixed }, ai.ctx);
     if (!res.ok) return failed(c, res.error, res.error);
     // Option A (activities spec section 4): the model asked for places the input lacks. Load them, extend the
     // stored input and patch once more; the first answer is discarded.
-    let stored = base.input;
-    const need = resolveNeedPlaces(res.data.needPlaces, base.input);
+    let stored = input;
+    const need = resolveNeedPlaces(res.data.needPlaces, input);
+    // A `near` that is no place and no stop of the input cannot be loaded: never a silent fallback to the destination.
+    const unknownNear = !need && hasUnknownNear(res.data.needPlaces, input);
     if (need) {
-      const second = await patchWithPlaces(c, { base, feedback: fb.data, fixed, need, started, ai });
+      const second = await patchWithPlaces(c, { base, input, feedback: fb.data, fixed, need, started, ai });
       if (!second.ok) return second;
       res = second.res;
       stored = second.stored;
     }
-    // The model asked for places that cannot be loaded (unknown kinds, or again after loading) and changed nothing:
-    // its reply ("I will load them") would be false, so the client shows a fixed message instead.
-    if (res.data.needPlacesUnusable && res.data.days.length === 0) {
+    // The model asked for places that cannot be loaded (unknown kinds, unknown near, or again after loading) and changed
+    // nothing: its reply ("I will load them") would be false, so the client shows a fixed message instead.
+    if ((res.data.needPlacesUnusable || unknownNear) && res.data.days.length === 0) {
       await logEvent({
         event: "plan.patched",
         userId: c.session.userId,
-        props: { tripId: c.trip.id, changedDays: 0, needPlacesUnusable: true, costMicroUsd: ai.cost() },
+        props: { tripId: c.trip.id, changedDays: 0, needPlacesUnusable: true, notice: "places_not_loadable", stopsUpgraded: prep.upgraded, stopsRetried: prep.retried, costMicroUsd: ai.cost() },
       });
-      return await done(c, { unchanged: true, notice: "places_not_loadable" });
+      return await done(c, { unchanged: true, notice: { code: "places_not_loadable", places: [] } });
     }
     const patched = applyPatch({ base: base.plan, patch: res.data, stored, scope: fb.data.days, fixed });
     if (!patched.ok) return failed(c, patched.reason, "invalid_output");
@@ -724,9 +787,25 @@ export async function iteratePlan(
     const extra = rejectedDays.length ? { rejectedDays } : {};
 
     if (guarded.changedDays.length === 0) {
-      await logEvent({ event: "plan.patched", userId: c.session.userId, props: { tripId: c.trip.id, changedDays: 0, costMicroUsd: ai.cost() } });
-      // The model's reply describes the rejected change; only the rejection notice is true then.
-      return await done(c, rejectedDays.length ? { unchanged: true, ...extra } : { unchanged: true, reply: res.data.reply });
+      // Why nothing changed (port-places section 5): decided by code from the stored input, never from the reply.
+      const dn = c.trip.destination;
+      const notice = rejectedDays.length
+        ? null
+        : patchNotice({
+            stored,
+            scopeDays: fb.data.days,
+            tripHasStops: prep.tripHasStops,
+            base: base.plan,
+            destinationNames: [dn.name, dn.kind === "freetext" ? "" : dn.placeName],
+          });
+      await logEvent({
+        event: "plan.patched",
+        userId: c.session.userId,
+        props: { tripId: c.trip.id, changedDays: 0, ...(notice ? { notice: notice.code } : {}), stopsUpgraded: prep.upgraded, stopsRetried: prep.retried, costMicroUsd: ai.cost() },
+      });
+      // The model's reply describes the rejected change; only the rejection notice is true then. With a notice its own
+      // message replaces the reply; otherwise the client shows "nothing changed" and the reply.
+      return await done(c, rejectedDays.length ? { unchanged: true, ...extra } : notice ? { unchanged: true, notice } : { unchanged: true, reply: res.data.reply });
     }
     const no = await insertVersion(c.sb, plan.id, {
       kind: "patch",
@@ -751,6 +830,8 @@ export async function iteratePlan(
         costMicroUsd: ai.cost(),
         keptNotes: guarded.keptNotes.length,
         needPlaces: need !== null,
+        stopsUpgraded: prep.upgraded,
+        stopsRetried: prep.retried,
         ...patched.issues,
       },
     });
