@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { IsoDate, optionalText } from "./common";
+import { HHMM, IsoDate, optionalText } from "./common";
 import { IataCode } from "./flights";
 import { Locale } from "./profile";
 import { INTEREST_KEYS } from "./interests";
@@ -10,7 +10,7 @@ import type { Access } from "./sharing";
 export const PLAN_SCHEMA_VERSION = 1;
 export const MAX_PLAN_DAYS = 21; // [D5]
 export const MAX_VERSIONS_KEPT = 30; // [D3]
-export const HHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+export { HHMM }; // defined in common.ts (trip-stops.ts needs it without importing this file)
 export const OsmKey = z.string().regex(/^(node|way|relation)\/\d{1,15}$/);
 export type OsmKey = z.infer<typeof OsmKey>;
 

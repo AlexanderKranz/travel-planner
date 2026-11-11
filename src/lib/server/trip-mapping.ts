@@ -2,6 +2,7 @@ import { z } from "zod";
 import { IsoDate } from "@/lib/domain/common";
 import { StatedAge } from "@/lib/domain/group";
 import { PurposeTags } from "@/lib/domain/plan";
+import { parseStoredStops, sameStops, type TripStop } from "@/lib/domain/trip-stops";
 import { oneOffLabel, oneOffTagsHash } from "@/lib/discover/one-off";
 import { cachedParse } from "./group-mapping";
 import {
@@ -48,6 +49,8 @@ export type TripRow = {
   wants_flights: boolean;
   origin_airports: string[];
   notes: string | null;
+  /** Confirmed stops (spec itinerary-upload D4): a jsonb array of TripStop, null = none. Parse with parseStoredStops. */
+  stops: unknown;
   destination_search_id: string | null;
   created_at: string;
   updated_at: string;
@@ -56,15 +59,17 @@ export type TripRow = {
 };
 
 export const TRIP_COLUMNS =
-  "id, owner_id, title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_country_code, dest_admin1, dest_lat, dest_lon, dest_timezone, dest_radius_km, length_days, start_date, months, group_id, group_text, group_structure, group_parsed, group_parsed_hash, purpose_id, purpose_text, purpose_tags, purpose_tags_hash, wants_flights, origin_airports, notes, destination_search_id, created_at, updated_at";
+  "id, owner_id, title, dest_kind, dest_name, dest_place_name, dest_geo_id, dest_country_code, dest_admin1, dest_lat, dest_lon, dest_timezone, dest_radius_km, length_days, start_date, months, group_id, group_text, group_structure, group_parsed, group_parsed_hash, purpose_id, purpose_text, purpose_tags, purpose_tags_hash, wants_flights, origin_airports, notes, stops, destination_search_id, created_at, updated_at";
 
 /** TRIP_COLUMNS plus the share rows the viewer may see (their own, or all grants of their own trip). */
 export const TRIP_COLUMNS_WITH_SHARES = `${TRIP_COLUMNS}, trip_shares(grantee_id, access)`;
 
 /** The writable columns (everything except id, owner_id, the timestamps and the server-written parse cache). */
-export type TripWrite = Omit<TripRow, "id" | "owner_id" | "created_at" | "updated_at" | "group_parsed" | "group_parsed_hash" | "purpose_tags" | "purpose_tags_hash" | "destination_search_id" | "trip_shares"> & {
+export type TripWrite = Omit<TripRow, "stops" | "id" | "owner_id" | "created_at" | "updated_at" | "group_parsed" | "group_parsed_hash" | "purpose_tags" | "purpose_tags_hash" | "destination_search_id" | "trip_shares"> & {
   /** Omitted = not written (an update keeps the stored link; an insert gets null). */
   destination_search_id?: string | null;
+  /** Omitted = not written (an update keeps the stored stops). `null` clears them; a list replaces them. */
+  stops?: TripStop[] | null;
 };
 
 const StoredStructure = z.array(
@@ -143,6 +148,7 @@ export function rowToTrip(row: TripRow, viewerId: string): Trip {
     wantsFlights: row.wants_flights,
     originAirports: row.origin_airports,
     notes: row.notes ?? undefined,
+    stops: row.stops == null ? undefined : parseStoredStops(row.stops),
     destinationSearchId: row.destination_search_id ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -261,11 +267,16 @@ export function buildTripWrite(
     wants_flights: input.wantsFlights,
     origin_airports: input.originAirports,
     notes: input.notes ?? null,
+    // Absent = keep what is stored; an empty list clears the column (no stops = null, never an empty array).
+    ...(input.stops !== undefined ? { stops: input.stops.length > 0 ? input.stops : null } : {}),
     ...(input.destinationSearchId !== undefined ? { destination_search_id: input.destinationSearchId } : {}),
   };
 }
 
-/** Did a change affect what the facts depend on (destination, timing, purpose)? */
+/**
+ * Did a change affect what the facts depend on (destination, timing, purpose, and the stops the places are looked up
+ * for: the notes, which stops are derived from (itinerary-upload D10), and the confirmed stops)?
+ */
 export function factsInputsChanged(before: TripRow, after: TripWrite): boolean {
   return (
     before.dest_kind !== after.dest_kind ||
@@ -276,6 +287,8 @@ export function factsInputsChanged(before: TripRow, after: TripWrite): boolean {
     before.length_days !== after.length_days ||
     before.months.join(",") !== after.months.join(",") ||
     before.purpose_id !== after.purpose_id ||
-    before.purpose_text !== after.purpose_text
+    before.purpose_text !== after.purpose_text ||
+    before.notes !== after.notes ||
+    (after.stops !== undefined && !sameStops(parseStoredStops(before.stops), after.stops))
   );
 }

@@ -108,9 +108,30 @@ const row: TripRow = {
   wants_flights: true,
   origin_airports: [],
   notes: null,
+  stops: null,
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-01T00:00:00Z",
 };
+
+describe("trip stops mapping", () => {
+  const free = { destination: { kind: "freetext" as const, name: "Irgendwo" }, lengthDays: 5 };
+
+  it("buildTripWrite: absent keeps, empty clears, a list is written sorted", () => {
+    expect("stops" in buildTripWrite(TripInput.parse(free), null)).toBe(false);
+    expect(buildTripWrite(TripInput.parse({ ...free, stops: [] }), null).stops).toBeNull();
+    const w = buildTripWrite(
+      TripInput.parse({ ...free, stops: [{ day: 2, place: "B" }, { day: 1, place: "A" }] }),
+      null,
+    );
+    expect(w.stops?.map((s) => s.place)).toEqual(["A", "B"]);
+  });
+
+  it("rowToTrip: null column = no stops, a stored list is parsed, a corrupt value is ignored", () => {
+    expect(rowToTrip(row, "u1").stops).toBeUndefined();
+    expect(rowToTrip({ ...row, stops: [{ day: 1, place: "Hafen" }] }, "u1").stops).toEqual([{ day: 1, place: "Hafen" }]);
+    expect(rowToTrip({ ...row, stops: [{ day: 1 }] }, "u1").stops).toEqual([]);
+  });
+});
 
 describe("rowToTrip", () => {
   it("applies the default radius by kind and derives timing", () => {
@@ -133,11 +154,25 @@ describe("factsInputsChanged", () => {
     }),
     place,
   );
-  it("is false for title/notes/group edits and true for destination, timing, purpose", () => {
-    expect(factsInputsChanged(row, { ...write, title: "x", notes: "y", group_id: "g" })).toBe(false);
+  it("is false for title/group edits and true for destination, timing, purpose", () => {
+    expect(factsInputsChanged(row, { ...write, title: "x", group_id: "g" })).toBe(false);
     expect(factsInputsChanged(row, { ...write, dest_geo_id: 1 })).toBe(true);
     expect(factsInputsChanged(row, { ...write, months: [4] })).toBe(true);
     expect(factsInputsChanged(row, { ...write, purpose_id: "p" })).toBe(true);
+  });
+
+  it("is true when the notes change (stops are derived from them)", () => {
+    expect(factsInputsChanged(row, { ...write, notes: "Tag 1 Hafen" })).toBe(true);
+    expect(factsInputsChanged({ ...row, notes: "a" }, { ...write, notes: "a" })).toBe(false);
+  });
+
+  it("is true when the confirmed stops change, false when they do not or are not written", () => {
+    const stops = [{ day: 1, place: "Hafen", dep: "16:00" }];
+    expect(factsInputsChanged(row, { ...write, stops })).toBe(true);
+    expect(factsInputsChanged({ ...row, stops }, { ...write, stops: [...stops] })).toBe(false);
+    expect(factsInputsChanged({ ...row, stops }, { ...write, stops: null })).toBe(true);
+    expect(factsInputsChanged({ ...row, stops }, { ...write })).toBe(false); // omitted = keep
+    expect(factsInputsChanged(row, { ...write, stops: null })).toBe(false);
   });
 });
 

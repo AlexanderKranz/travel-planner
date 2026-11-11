@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { MAX_TRIP_DAYS } from "./common";
-import { HHMM } from "./plan";
+import { HHMM, MAX_TRIP_DAYS } from "./common";
 import type { Trip } from "./trip";
 
 /**
