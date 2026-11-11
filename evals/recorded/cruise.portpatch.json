@@ -1,0 +1,242 @@
+{
+  "promptVersion": "plan-8",
+  "model": "claude-sonnet-5-5",
+  "inputHash": "18dbb34c4b11d639481f3fda8bf9212668e79b2bf3e2dd3ec3270d74c8a4ac27",
+  "output": {
+    "reply": "Für Wien, Dürnstein, Melk und Linz stehen jetzt konkrete Restaurants aus den geprüften Listen bei den Mahlzeiten, jeweils mit Alternativen.",
+    "days": [
+      {
+        "n": 2,
+        "title": "Wien: Christkindlmarkt",
+        "stops": [
+          {
+            "place": "An Bord",
+            "acts": [
+              {
+                "at": "09:00",
+                "kind": "free",
+                "text": "Ruhiger Vormittag, Blick auf die Donau"
+              },
+              {
+                "at": "12:30",
+                "kind": "rest",
+                "text": "Mittagsschlaf an Bord"
+              }
+            ]
+          },
+          {
+            "place": "Wien",
+            "from": "14:00",
+            "to": "23:59",
+            "fixed": true,
+            "acts": [
+              {
+                "at": "15:00",
+                "kind": "see",
+                "text": "Weihnachtsmarkt in der Innenstadt, Lichter",
+                "ref": "p39",
+                "alts": [
+                  "p38"
+                ]
+              },
+              {
+                "at": "17:45",
+                "kind": "food",
+                "text": "Abendessen, österreichische Küche",
+                "ref": "r3",
+                "alts": [
+                  "r5",
+                  "r2"
+                ]
+              },
+              {
+                "at": "19:30",
+                "kind": "travel",
+                "text": "Rückkehr zum Schiff, Kleinkind ins Bett"
+              }
+            ]
+          }
+        ],
+        "warn": "Dunkel ab ca. 16:50, Märkte sind abends voll."
+      },
+      {
+        "n": 3,
+        "title": "Dürnstein & Melk",
+        "stops": [
+          {
+            "place": "Dürnstein",
+            "from": "07:00",
+            "to": "12:00",
+            "fixed": true,
+            "acts": [
+              {
+                "at": "09:00",
+                "kind": "see",
+                "text": "Spaziergang durch das Städtchen (Trage statt Buggy)",
+                "ref": "p46",
+                "alts": [
+                  "p48"
+                ]
+              },
+              {
+                "at": "10:30",
+                "kind": "food",
+                "text": "Kleine Stärkung, Tee und Gebäck",
+                "ref": "r12",
+                "alts": [
+                  "r7",
+                  "r8"
+                ]
+              }
+            ]
+          },
+          {
+            "place": "An Bord",
+            "acts": [
+              {
+                "at": "12:30",
+                "kind": "rest",
+                "text": "Mittagsschlaf an Bord"
+              }
+            ]
+          },
+          {
+            "place": "Melk",
+            "from": "15:00",
+            "to": "21:00",
+            "fixed": true,
+            "acts": [
+              {
+                "at": "15:15",
+                "kind": "see",
+                "text": "Stiftsberg und Altstadt, kurzer Rundgang",
+                "ref": "p54",
+                "alts": [
+                  "p56"
+                ]
+              },
+              {
+                "at": "17:00",
+                "kind": "see",
+                "text": "Kleiner Adventmarkt, Lichter"
+              },
+              {
+                "at": "18:30",
+                "kind": "food",
+                "text": "Abendessen, regionale Küche",
+                "ref": "r16",
+                "alts": [
+                  "r14",
+                  "r13"
+                ]
+              }
+            ]
+          }
+        ],
+        "warn": "Steile Wege und Kopfsteinpflaster, Buggy ungeeignet."
+      },
+      {
+        "n": 4,
+        "title": "Linz: Advent in der Stadt",
+        "stops": [
+          {
+            "place": "Linz",
+            "from": "07:00",
+            "to": "19:30",
+            "fixed": true,
+            "acts": [
+              {
+                "at": "09:30",
+                "kind": "see",
+                "text": "Bummel Hauptplatz und Donaulände",
+                "ref": "p65",
+                "alts": [
+                  "p63"
+                ]
+              },
+              {
+                "at": "11:30",
+                "kind": "food",
+                "text": "Leichtes Mittagessen, regionale Küche",
+                "ref": "r23",
+                "alts": [
+                  "r21",
+                  "r22"
+                ]
+              },
+              {
+                "at": "12:30",
+                "kind": "rest",
+                "text": "Mittagsschlaf an Bord (Schiff liegt in Linz)"
+              },
+              {
+                "at": "14:30",
+                "kind": "see",
+                "text": "Weihnachtsmarkt in der Innenstadt"
+              },
+              {
+                "at": "17:00",
+                "kind": "food",
+                "text": "Frühes Abendessen, regionale Küche",
+                "ref": "r19",
+                "alts": [
+                  "r24",
+                  "r20"
+                ]
+              }
+            ]
+          }
+        ],
+        "note": "Rückkehr an Bord vor der Abfahrt einplanen."
+      }
+    ],
+    "notes": [
+      {
+        "kind": "tip",
+        "text": "Mittagsschlaf jeden Tag an Bord einplanen, Vormittage und frühe Abende für Ausflüge nutzen."
+      },
+      {
+        "kind": "tip",
+        "text": "Trage statt Buggy in den Altstädten mitnehmen."
+      },
+      {
+        "kind": "warning",
+        "text": "Dunkelheit ab ca. 16:50, Außenprogramm früh planen."
+      },
+      {
+        "kind": "tip",
+        "text": "Restaurants in Wien, Dürnstein, Melk und Linz stammen aus geprüften Listen; Kinderfreundlichkeit ist nicht angegeben."
+      }
+    ],
+    "open": [
+      {
+        "text": "Genaue Ankunftszeit in Passau am Morgen beim Veranstalter erfragen",
+        "day": 5
+      },
+      {
+        "text": "Öffnungszeiten der Spielangebote in Passau prüfen",
+        "day": 1
+      },
+      {
+        "text": "Landgänge und Märkte der Route beim Veranstalter erfragen",
+        "day": 2
+      },
+      {
+        "text": "Tischreservierung in den gewählten Restaurants prüfen",
+        "day": 2
+      }
+    ]
+  },
+  "usage": {
+    "task": "plan_patch",
+    "model": "claude-sonnet-5-5",
+    "status": "ok",
+    "inputTokens": 1999,
+    "outputTokens": 2233,
+    "cacheCreationInputTokens": 11497,
+    "cacheReadInputTokens": 0,
+    "costMicroUsd": 55071,
+    "latencyMs": 14658
+  },
+  "recordedAt": "2026-11-11T22:13:59.598Z"
+}
