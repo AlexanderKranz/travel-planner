@@ -1,6 +1,6 @@
 # Itinerary upload: stops and times from a document (itinerary-upload)
 
-Status: draft, 2026-11-11. All decisions **[D#]** are open, for Alex. This would be a **new LLM use** (CLAUDE.md
+Status: decided, 2026-11-11. Alex accepted [D2]–[D10] as recommended and decided [D1] (checkbox on the trip, cruises and round trips). This would be a **new LLM use** (CLAUDE.md
 ground rule 2); [D2] proposes the line to add to "Allowed LLM uses" once accepted.
 
 **Split with `docs/specs/port-places.md`** (both specs describe one stop model):
@@ -44,14 +44,17 @@ a port list would make every trip using that purpose plan the same ports on the 
 | **B. Trip** (upload in the trip form, next to notes) | Stops map to trip days and dates; same place where users type the itinerary today; write grantees can edit it like notes; port places read it per trip | The user has to know the itinerary is a trip thing, not a purpose thing |
 | **C. Both, split** (purpose says "cruise", trip holds the stops) | Purpose stays reusable; the trip form knows when to show the stops section prominently | Two places to explain; only works if the purpose signals "cruise" |
 
-**Recommendation: C, with all data on the trip.** No new purpose field; the existing signals are enough
-(`purpose.guided.accommodation` contains `cruise_cabin`, or the purpose tags' `interests` contain `cruise`):
-- With such a signal, the trip form opens the section "Stopps & Zeiten" by itself.
-- Otherwise it is a collapsed section under the notes, available for any trip (round trip by train, tour with fixed
-  stops).
-- Nothing becomes required (ground rule 3).
-- The purpose form gets one hint line under the text when `cruise_cabin` is chosen: "Fahrplan mit Häfen und Zeiten
-  lädst du bei der Reise hoch." There is no upload control on the purpose.
+**Decided (Alex, 2026-11-11): B, with a switch on the trip form.** Not limited to cruises: a round trip
+("Rundreise") with several stops works the same way. Typing "cruise" into the purpose to unlock the section would be
+clunky, so the purpose plays no part:
+- The trip form gets a checkbox "Mehrere Stationen (Kreuzfahrt oder Rundreise)" under the destination. Ticking it
+  opens the section "Stopps & Zeiten" (upload, camera, editable list, "Aus Notizen übernehmen").
+- The checkbox is UI state only, no column: it shows ticked when the trip has confirmed stops or stops derived from
+  the notes, so an existing trip opens with the section visible. Unticking it with saved stops asks before clearing
+  `trips.stops`.
+- The destination stays the start point (embarkation port, first town of the round trip).
+- Nothing becomes required (ground rule 3). A trip with the box unticked behaves exactly as today.
+- The purpose form gets no hint and no upload control.
 
 ## 2. Data model **[D4]** **[D10]**
 
@@ -281,7 +284,9 @@ New keys under `trips.stops` in `messages/de.json` and `messages/en.json` (same 
 | Key | de | en |
 |---|---|---|
 | `title` | Stopps & Zeiten | Stops & times |
-| `hint` | Zum Beispiel der Fahrplan einer Kreuzfahrt. Optional. | For example a cruise itinerary. Optional. |
+| `multiStop` | Mehrere Stationen (Kreuzfahrt oder Rundreise) | Several stops (cruise or round trip) |
+| `hint` | Zum Beispiel der Fahrplan einer Kreuzfahrt oder die Etappen einer Rundreise. Optional. | For example a cruise itinerary or the legs of a round trip. Optional. |
+| `clearConfirm` | Gespeicherte Stopps entfernen? | Remove the saved stops? |
 | `upload` | Dokument wählen | Choose document |
 | `camera` | Foto aufnehmen | Take photo |
 | `uploadHint` | PDF oder Foto, bis 15 MB. Die Datei wird nicht gespeichert. | PDF or photo, up to 15 MB. The file is not stored. |
@@ -363,14 +368,13 @@ around it. Uploaded, typed, confirmed-from-notes and derived-from-notes stops al
 shape, so it never cares where a stop came from. Sea days have no place and get no lookup. The plan input, the
 prompt bump `plan-8` and both code guards are specified there, once.
 
-## 11. Decisions (open, for Alex)
+## 11. Decisions (Alex, 2026-11-11: [D1] decided as below, [D2]–[D10] accepted as recommended)
 
 Shared decisions are marked with their owner. port-places' own decisions are numbered [P1]–[P10].
 
-- **[D1] The itinerary lives on the trip; the purpose only signals "cruise".** The stops section opens by itself
-  when the purpose has `cruise_cabin` or the `cruise` interest, and the purpose form points to the trip.
-  Alternatives: upload on the purpose (A: not reusable, no dates, leaks through purpose shares) or on the trip
-  without any purpose link (B: works, less discoverable).
+- **[D1] Decided (Alex, 2026-11-11): the itinerary lives on the trip, behind a checkbox "Mehrere Stationen
+  (Kreuzfahrt oder Rundreise)" in the trip form.** Works for cruises and round trips alike; the purpose is not
+  involved. See section 1.
 - **[D2] (shared, owned here) One new allowed LLM use: Haiku `itinerary_extract` reads stops from an uploaded
   itinerary (text or images) or from the trip notes, only when the parser cannot.** One prompt, one wire schema
   (with `cc`), one cache table, one daily limit. Proposed CLAUDE.md line: "Haiku reads an itinerary (uploaded
