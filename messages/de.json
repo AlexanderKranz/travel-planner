@@ -1329,6 +1329,7 @@
         "purpose_tags": "Reiseanlass-Tags (Haiku)",
         "group_parse": "Gruppentext (Haiku)",
         "destination_ideas": "Reiseziel-Ideen (Haiku)",
+        "itinerary_extract": "Fahrplan lesen (Haiku)",
         "plan_generate": "Plan (Sonnet)",
         "plan_patch": "Änderung (Sonnet)"
       }

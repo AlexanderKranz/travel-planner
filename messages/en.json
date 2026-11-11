@@ -1329,6 +1329,7 @@
         "purpose_tags": "Purpose tags (Haiku)",
         "group_parse": "Group text (Haiku)",
         "destination_ideas": "Destination ideas (Haiku)",
+        "itinerary_extract": "Itinerary reading (Haiku)",
         "plan_generate": "Plan (Sonnet)",
         "plan_patch": "Patch (Sonnet)"
       }

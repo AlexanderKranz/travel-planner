@@ -36,7 +36,7 @@ type Raw = {
   shares?: z.infer<typeof ShareStatsRaw>;
 };
 
-const AI_TASKS = ["purpose_tags", "group_parse", "destination_ideas", "plan_generate", "plan_patch"] as const;
+const AI_TASKS = ["purpose_tags", "group_parse", "destination_ideas", "itinerary_extract", "plan_generate", "plan_patch"] as const;
 
 export function shapeDashboard(raw: Raw, cfg: BudgetConfig) {
   const maxDay = Math.max(1, ...raw.usage.perDay.map((d) => d.generated + d.patched));
