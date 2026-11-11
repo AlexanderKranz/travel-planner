@@ -42,7 +42,8 @@ export function stopRefCtx(stored: Pick<PlanInputStored, "llm" | "index" | "stop
   for (const [day, dayRows] of rowsByDay) {
     if (dayRows.every((r) => r.sea)) seaOnly.add(day);
     for (const r of dayRows) {
-      if (r.at === "dest") destDays.add(day);
+      // A row the code could not resolve (no `at`, not a sea row) says nothing about where the day is: destination day.
+      if (r.at === "dest" || (!r.at && !r.sea)) destDays.add(day);
       else if (r.at) {
         days[r.at] = [...new Set([...(days[r.at] ?? []), day])];
         const p = stored.stopPoints?.[r.at];

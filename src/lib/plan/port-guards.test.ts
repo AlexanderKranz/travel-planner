@@ -176,3 +176,15 @@ describe("assemblePlan with stops (both guards run in assembleDay)", () => {
     expect(r.ok && r.plan.days[3].stops[0].acts[0].ref).toBe("node/1");
   });
 });
+
+describe("stop-ref guard without resolved stops", () => {
+  it("rows the code could not resolve (no `at`) leave the day a destination day, sea rows still block", () => {
+    const s = emptyStored();
+    s.llm.trip.stops = [{ day: 1, place: "Wien" }, { day: 2, sea: true }];
+    const ctx = stopRefCtx(s)!;
+    expect(ctx.destDays.has(1)).toBe(true);
+    expect(ctx.seaOnly.has(2)).toBe(true);
+    expect(refAllowed(s.index.p1.key, 1, ctx)).toBe(true);
+    expect(refAllowed(s.index.p1.key, 2, ctx)).toBe(false);
+  });
+});

@@ -23,7 +23,8 @@ import malagaArchive from "@/lib/integrations/__fixtures__/open-meteo/archive-ma
 import type { FlightsFacts } from "@/lib/domain/flights";
 import { ownAgeRefs } from "@/lib/group";
 import type { ItemCategory, ItemStatus, SharedItem } from "@/lib/domain/items";
-import type { ActivityGroupLookup, CountryFacts, Fact, InterestOrGeneral, PlaceGroup, RestaurantLookup, TripFacts, WeatherFacts } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, CountryFacts, Fact, InterestOrGeneral, PlaceGroup, ResolvedStop, RestaurantLookup, StopFacts, TripFacts, WeatherFacts } from "@/lib/domain/facts";
+import type { TripStop } from "@/lib/domain/trip-stops";
 import type { StoredEntry, TravelGroup } from "@/lib/domain/group";
 import type { PlanFeedback, PurposeTags } from "@/lib/domain/plan";
 import type { TripPurpose } from "@/lib/domain/purpose";
@@ -414,11 +415,12 @@ export function evalItems(id: FixtureId): SharedItem[] {
  * Everything the pipeline would build for this fixture, given (recorded or live) purpose tags. `purposeOverride`
  * replaces the fixture's purpose (the golf-request eval runs on a Costa del Sol trip whose purpose lacks golf).
  */
-export function buildEvalInput(id: FixtureId, tags: PurposeTags | null, purposeOverride?: TripPurpose) {
-  const trip = evalTrip(id);
+export function buildEvalInput(id: FixtureId, tags: PurposeTags | null, purposeOverride?: TripPurpose, stopCtx?: EvalStopContext) {
+  const trip = stopCtx?.trip ?? evalTrip(id);
   const group = evalGroup(id);
   const purpose = purposeOverride ?? evalPurpose(id, tags);
-  const facts = evalFacts(id, trip, purpose);
+  const base = evalFacts(id, trip, purpose);
+  const facts: TripFacts = stopCtx ? { ...base, stops: stopCtx.facts } : base;
   const built = buildPlanInput({
     drive: evalDrive(id),
     items: evalItems(id),
@@ -429,6 +431,10 @@ export function buildEvalInput(id: FixtureId, tags: PurposeTags | null, purposeO
     facts,
     locale: FIXTURES[id].locale,
     today: EVAL_TODAY,
+    ...(stopCtx ? { stops: stopCtx.stops } : {}),
   });
   return { trip, group, purpose, facts, ...built };
 }
+
+/** Stops of a fixture trip and what was looked up around them (`evalStopContext` in ./port-places). */
+export type EvalStopContext = { trip: Trip; stops: TripStop[]; resolved: ResolvedStop[]; facts: StopFacts[] };

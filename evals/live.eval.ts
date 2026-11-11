@@ -40,6 +40,7 @@ import {
   type NeedPatchRecording,
 } from "./evaluate";
 import { assertBudget, readLedger, recordSpend } from "./ledger";
+import { PORT_PATCH_FEEDBACK, evalStopContext, evaluatePortPatch, evaluateStopGenerate, upgradedInput, type StopVariant } from "./port-places";
 import { readRecording, writeRecording, type RecordedTask } from "./recorded";
 import { createHash } from "node:crypto";
 
@@ -53,7 +54,7 @@ const pick = <T extends string>(env: string | undefined, all: readonly T[]): T[]
   env ? (env.split(",").map((s) => s.trim()).filter((s) => (all as readonly string[]).includes(s)) as T[]) : [...all];
 const fixtures = pick<FixtureId>(process.env.EVAL_FIXTURE, FIXTURE_IDS);
 const tasks = process.env.EVAL_TASK
-  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "needbase", "patch", "familypatch", "uncoveredpatch", "nogolfbase", "golfpatch", "golfeveryday"])
+  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "needbase", "patch", "familypatch", "uncoveredpatch", "nogolfbase", "golfpatch", "golfeveryday", "stops", "stopsnotes", "stopsfail", "portpatch"])
   : (["tags", "generate", "needbase", "patch"] as RecordedTask[]);
 
 const usd = (micro: number) => `$${(micro / 1e6).toFixed(4)}`;
@@ -257,6 +258,39 @@ describe.runIf(LIVE)("live evals", () => {
               console.log(`[${id}] applyPatch changed ${ev.patched.changedDays.join(",")}; guard rejected ${canonicalJson(ev.guarded.rejected)}, kept notes ${ev.guarded.keptNotes.join(",")}, changed ${ev.guarded.changedDays.join(",")}`);
             }
             console.log(formatResults(`[${id}] golf every day`, ev.results));
+          }
+        }
+      }
+
+      // 4. Port places (cruise only; needs `npm run evals:port-places` first): generate with the stops from the confirmed
+      // stops (`stops`) and from the notes (`stopsnotes`), with Dürnstein's lookups failed (`stopsfail`), and the patch
+      // "concrete restaurants for the days on land in other cities" on the plan-7 generation (`portpatch`).
+      if (id === "cruise") {
+        const runStops = async (task: "stops" | "stopsnotes" | "stopsfail", variant: StopVariant, failing: string[] = []) => {
+          const ctx = await evalStopContext(variant, { failing });
+          if (!ctx) throw new Error("record the stop lookups first: npm run evals:port-places");
+          const built = buildEvalInput(id, tags, undefined, ctx);
+          console.log(`[${id}] ${task} input: ${canonicalJson(built.stored.llm).length} chars, ${built.stored.llm.stopPlaces?.length ?? 0} stop entries`);
+          const r = await composePlan(built.stored.llm, ctxFor(id, "plan_generate", usage));
+          if (!r.ok) return void console.log(`[${id}] ${task} failed: ${r.error}`);
+          writeRecording(id, task, { promptVersion: PLAN_PROMPT_VERSION, model: MODEL_PLAN, inputHash: planInputHash(built.stored.llm), output: r.data, usage: r.usage, recordedAt });
+          console.log(formatResults(`[${id}] ${task}`, (await evaluateStopGenerate(variant, r.data, { failing })).results));
+        };
+        if (tasks.includes("stops")) await runStops("stops", "confirmed");
+        if (tasks.includes("stopsnotes")) await runStops("stopsnotes", "notes");
+        if (tasks.includes("stopsfail")) await runStops("stopsfail", "confirmed", ["Dürnstein"]);
+        if (tasks.includes("portpatch") && llmPlan) {
+          const g = evaluateGenerate(id, tags, llmPlan);
+          const ctx = await evalStopContext("confirmed");
+          if (!g.plan || !ctx) throw new Error("base plan or stop lookups missing");
+          const upgraded = upgradedInput(g.built.stored, ctx);
+          const first = await patchPlan({ llm: upgraded.llm, plan: g.plan, index: upgraded.index, feedback: PORT_PATCH_FEEDBACK }, ctxFor(id, "plan_patch", usage));
+          if (!first.ok) console.log(`[${id}] port patch failed: ${first.error}`);
+          else {
+            const inputHash = createHash("sha256").update(canonicalJson({ base: planInputHash(g.built.stored.llm), feedback: PORT_PATCH_FEEDBACK })).digest("hex");
+            writeRecording(id, "portpatch", { promptVersion: PLAN_PROMPT_VERSION, model: MODEL_PLAN, inputHash, output: first.data, usage: first.usage, recordedAt });
+            console.log(`[${id}] port patch needPlaces ${canonicalJson(first.data.needPlaces ?? null)}; days ${first.data.days.map((d) => d.n).join(",") || "-"}; reply: ${first.data.reply}`);
+            console.log(formatResults(`[${id}] port patch`, (await evaluatePortPatch(llmPlan, first.data)).results));
           }
         }
       }
