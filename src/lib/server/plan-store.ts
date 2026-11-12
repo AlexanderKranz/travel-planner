@@ -238,7 +238,8 @@ export async function insertVersion(sb: SupabaseClient, planId: string, v: NewVe
       changed_days: v.changedDays ?? [],
       model: v.model ?? null,
       cost_micro_usd: Math.max(0, Math.round(v.costMicroUsd ?? 0)),
-      ...(v.reply ? { reply: v.reply.slice(0, 2000) } : {}),
+      // By code point (the DB counts characters): a cut inside a surrogate pair would make the insert fail.
+      ...(v.reply ? { reply: Array.from(v.reply).slice(0, 2000).join("") } : {}),
     })
     .select("version_no")
     .single<{ version_no: number }>();

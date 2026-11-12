@@ -6,7 +6,7 @@ vi.mock("./supabase/admin", () => ({ createSupabaseAdminClient: () => ({}) }));
 import golf from "./__fixtures__/plan-document-golf.json";
 import { readFileSync } from "node:fs";
 import { MAX_VERSIONS_KEPT } from "@/lib/domain/plan";
-import { acquireLock, getVersionLight, hasBusyPlan, isBusy, LOCK_MS, pruneVersions, releaseLock, StoredInput } from "./plan-store";
+import { acquireLock, getVersionLight, hasBusyPlan, insertVersion, isBusy, LOCK_MS, pruneVersions, releaseLock, StoredInput } from "./plan-store";
 import { planInputHash } from "@/lib/plan/hash";
 import type { PlanInputStored } from "@/lib/plan/input";
 import { storedFor } from "@/lib/plan/test-helpers";
@@ -183,5 +183,23 @@ describe("StoredInput keeps the stop fields (port-places plan-8)", () => {
   it("rows from before plan-8 parse without them", () => {
     const parsed = StoredInput.parse(JSON.parse(JSON.stringify(storedFor(2))));
     expect(parsed.stopPoints).toBeUndefined();
+  });
+});
+
+describe("insertVersion reply", () => {
+  it("stores the reply cut at 2000 characters by code point, never inside a surrogate pair", async () => {
+    const rows: Record<string, unknown>[] = [];
+    const q: Record<string, unknown> = {};
+    q.insert = (row: Record<string, unknown>) => (rows.push(row), q);
+    q.select = () => q;
+    q.single = async () => ({ data: { version_no: 2 }, error: null });
+    const sb = { from: () => q } as never;
+    const reply = "a".repeat(1999) + "😀" + "tail";
+    await insertVersion(sb, "p1", { kind: "patch", plan: {} as never, input: {} as never, inputHash: "0".repeat(64), reply });
+    const stored = rows[0].reply as string;
+    expect(Array.from(stored)).toHaveLength(2000);
+    expect(stored.endsWith("😀")).toBe(true);
+    await insertVersion(sb, "p1", { kind: "generate", plan: {} as never, input: {} as never, inputHash: "0".repeat(64) });
+    expect(rows[1]).not.toHaveProperty("reply");
   });
 });
