@@ -185,7 +185,7 @@ Drive cards have `flight: null`, `nearAirport: false`.
 
 `assertOrsQuota` counts every ORS call in `api_calls`, so the Directions requests share `ORS_DAILY_REQUESTS` (default 200, the Directions limit measured in the spike) with plans. It moves to a shared place and gains `orsRequestsLeft()`. The cap is deliberately kept as the one guard. With the gate below, searches can use 142 of the 200 requests and plans keep at least 50.
 
-**New gate before the LLM call, rounds 1 and 2:** the key is set and `orsRequestsLeft() >= 8 + ORS_PLAN_RESERVE` (50). Otherwise `drive_unavailable`, so no Haiku call is spent on a search that cannot be verified. Plans keep a reserve, and an unreadable count fails closed.
+**New gate before the LLM call, rounds 1 and 2:** the key is set and `orsRequestsLeft() >= 8 + ORS_PLAN_RESERVE` (50). Otherwise `drive_unavailable`, so no Haiku call is spent on a search that cannot be verified. Plans keep a reserve, and an unreadable count fails closed. *Changed 2026-11-12 (city tours, issue #172):* the ORS cap is split by endpoint over the last 24 h (`ors-quota.ts`, runbook "OpenRouteService quota"); the gate is now `orsRequestsLeft("directions") >= 8`, and the plan reserve lives in the matrix bucket, which drive searches do not use.
 
 | Failure | Behaviour |
 |---|---|

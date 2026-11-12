@@ -14,7 +14,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubEnv("AI_USER_DAILY_USD", "");
   vi.stubEnv("AI_ENABLED", "");
-  vi.stubEnv("ORS_DAILY_REQUESTS", "");
+  vi.stubEnv("ORS_DIRECTIONS_DAILY", "");
 });
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -28,7 +28,7 @@ describe("getSetting precedence", () => {
     invalidateSettingsCache();
     select.mockResolvedValue({ data: [{ key: "ai_user_daily_usd", value: 1.5 }], error: null });
     expect(await getSetting("ai_user_daily_usd")).toMatchObject({ value: 1.5, source: "admin" });
-    expect(await getSetting("ors_daily_requests")).toMatchObject({ value: 200, source: "default" });
+    expect(await getSetting("ors_directions_daily")).toMatchObject({ value: 1800, source: "default" });
   });
 
   it("env AI_ENABLED=false is a hard off, the DB cannot turn it on", async () => {
@@ -40,11 +40,11 @@ describe("getSetting precedence", () => {
 
   it("ignores unknown keys, invalid values and null values from the table", async () => {
     select.mockResolvedValue({
-      data: [{ key: "anthropic_api_key", value: 1 }, { key: "ors_daily_requests", value: "x" }, { key: "alert_errors_24h", value: null }],
+      data: [{ key: "anthropic_api_key", value: 1 }, { key: "ors_directions_daily", value: "x" }, { key: "alert_errors_24h", value: null }],
       error: null,
     });
     const all = await getAllSettings();
-    expect(all.ors_daily_requests.source).toBe("default");
+    expect(all.ors_directions_daily.source).toBe("default");
     expect(all.alert_errors_24h.source).toBe("default");
   });
 });
@@ -60,11 +60,11 @@ describe("cache", () => {
 
   it("invalidation makes the next read see the new value at once", async () => {
     select.mockResolvedValue({ data: [], error: null });
-    expect((await getSetting("ors_daily_requests", 1000)).source).toBe("default");
-    select.mockResolvedValue({ data: [{ key: "ors_daily_requests", value: 10 }], error: null });
-    expect((await getSetting("ors_daily_requests", 2000)).source).toBe("default"); // still cached
+    expect((await getSetting("ors_directions_daily", 1000)).source).toBe("default");
+    select.mockResolvedValue({ data: [{ key: "ors_directions_daily", value: 10 }], error: null });
+    expect((await getSetting("ors_directions_daily", 2000)).source).toBe("default"); // still cached
     invalidateSettingsCache();
-    expect(await getSetting("ors_daily_requests", 2000)).toMatchObject({ value: 10, source: "admin" });
+    expect(await getSetting("ors_directions_daily", 2000)).toMatchObject({ value: 10, source: "admin" });
   });
 });
 
@@ -81,9 +81,9 @@ describe("failure", () => {
     factory.mockImplementationOnce(() => {
       throw new Error("Missing SUPABASE_SECRET_KEY");
     });
-    expect((await getSetting("ors_daily_requests", 1000)).source).toBe("default");
-    select.mockResolvedValue({ data: [{ key: "ors_daily_requests", value: 7 }], error: null });
-    expect((await getSetting("ors_daily_requests", 1500)).source).toBe("default"); // short negative cache
-    expect(await getSetting("ors_daily_requests", 7000)).toMatchObject({ value: 7, source: "admin" });
+    expect((await getSetting("ors_directions_daily", 1000)).source).toBe("default");
+    select.mockResolvedValue({ data: [{ key: "ors_directions_daily", value: 7 }], error: null });
+    expect((await getSetting("ors_directions_daily", 1500)).source).toBe("default"); // short negative cache
+    expect(await getSetting("ors_directions_daily", 7000)).toMatchObject({ value: 7, source: "admin" });
   });
 });

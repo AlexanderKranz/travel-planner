@@ -7,8 +7,8 @@ vi.mock("../supabase/admin", () => ({ createSupabaseAdminClient: () => ({}) }));
 import type { BudgetConfig } from "./config";
 import { runBudgetCheck, type BudgetDeps } from "./budget-run";
 
-const config: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsDailyCap: 400, geoapifyDailyCap: 400, errors24hThreshold: 20 };
-const metrics = { aiTodayMicroUsd: 4_500_000, aiMonthMicroUsd: 1, adbRemaining: 50, orsRequestsToday: 0, errors24h: 30, feedbackAuthFailuresToday: 0, feedbackStalePending: 0 };
+const config: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsMatrixCap: 400, orsDirectionsCap: 1000, geoapifyDailyCap: 400, errors24hThreshold: 20 };
+const metrics = { aiTodayMicroUsd: 4_500_000, aiMonthMicroUsd: 1, adbRemaining: 50, orsMatrix24h: 0, orsDirections24h: 0, errors24h: 30, feedbackAuthFailuresToday: 0, feedbackStalePending: 0 };
 
 function deps(over: Partial<BudgetDeps> = {}): BudgetDeps & { deliver: ReturnType<typeof vi.fn>; logRun: ReturnType<typeof vi.fn> } {
   return {
@@ -48,7 +48,7 @@ describe("runBudgetCheck", () => {
   });
 
   it("sends nothing when within budget but still logs the run (keep-alive trail)", async () => {
-    const d = deps({ readMetrics: vi.fn().mockResolvedValue({ aiTodayMicroUsd: 0, aiMonthMicroUsd: 0, adbRemaining: null, orsRequestsToday: 0, errors24h: 0, feedbackAuthFailuresToday: 0, feedbackStalePending: 0 }) });
+    const d = deps({ readMetrics: vi.fn().mockResolvedValue({ aiTodayMicroUsd: 0, aiMonthMicroUsd: 0, adbRemaining: null, orsMatrix24h: 0, orsDirections24h: 0, errors24h: 0, feedbackAuthFailuresToday: 0, feedbackStalePending: 0 }) });
     const r = await runBudgetCheck(now, d);
     expect(r.alerts).toEqual([]);
     expect(d.deliver).not.toHaveBeenCalled();

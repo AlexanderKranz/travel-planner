@@ -1,6 +1,6 @@
 import type { BudgetConfig } from "./config";
 
-export type AlertKind = "ai_daily" | "ai_monthly" | "aerodatabox_monthly" | "ors_daily" | "errors_24h" | "feedback_delivery";
+export type AlertKind = "ai_daily" | "ai_monthly" | "aerodatabox_monthly" | "ors_matrix" | "ors_directions" | "errors_24h" | "feedback_delivery";
 export type Alert = { kind: AlertKind; level: "warn" | "error"; props: Record<string, number> };
 
 /** Measured values (null = not measurable, e.g. no AeroDataBox call logged yet). */
@@ -8,7 +8,9 @@ export type BudgetMetrics = {
   aiTodayMicroUsd: number;
   aiMonthMicroUsd: number;
   adbRemaining: number | null;
-  orsRequestsToday: number;
+  /** ORS network requests per bucket over the last 24 h (the window the guard counts). */
+  orsMatrix24h: number;
+  orsDirections24h: number;
   errors24h: number;
   /** `feedback.github_auth_failed` events since Berlin midnight. */
   feedbackAuthFailuresToday: number;
@@ -30,7 +32,8 @@ export function evaluateBudget(m: BudgetMetrics, cfg: BudgetConfig): Alert[] {
   const out: (Alert | null)[] = [
     usage("ai_daily", m.aiTodayMicroUsd, cfg.aiDailyCapMicroUsd),
     usage("ai_monthly", m.aiMonthMicroUsd, cfg.aiMonthlyAlertMicroUsd),
-    usage("ors_daily", m.orsRequestsToday, cfg.orsDailyCap),
+    usage("ors_matrix", m.orsMatrix24h, cfg.orsMatrixCap),
+    usage("ors_directions", m.orsDirections24h, cfg.orsDirectionsCap),
   ];
   if (m.adbRemaining !== null && cfg.adbMinRemaining > 0 && m.adbRemaining < 2 * cfg.adbMinRemaining) {
     out.push({

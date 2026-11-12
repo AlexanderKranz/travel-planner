@@ -348,8 +348,9 @@ sources line adds "Routen: © openrouteservice.org". A standalone tour has no PD
 2. Hash the normalized input (points rounded to 5 decimals, options, overrides, date, times). Equal to
    `result_hash` → return the stored result.
 3. Rate limit: 10/min in memory, 20 computations per user per Berlin day (count of `tour.computed` events).
-4. ORS gate: `orsRequestsLeft() >= 1 + runs + ORS_PLAN_RESERVE` (50, as the drive search). Else `ors_unavailable`;
-   a stored result stays shown with "nicht neu berechnet".
+4. ORS gate: `orsTourGate(runs, { needsMatrix })` from `ors-quota.ts`: matrix bucket `>= 1 + ORS_PLAN_RESERVE` (50;
+   skipped with "keep") and Directions bucket `>= runs`. Else `ors_unavailable`; a stored result stays shown with
+   "nicht neu berechnet".
 5. Matrix (skipped for "keep"), order, routes per run, sights (cache + Geoapify fast path only), timing.
 6. Write `result`, `result_hash`, `computed_at` with the secret key; event `tour.computed`.
 
@@ -362,11 +363,13 @@ sources line adds "Routen: © openrouteservice.org". A standalone tour has no PD
 
 - A typical tour costs 2 ORS requests cold and 0 when recomputed unchanged. Adding a place costs 2 again (new
   point set). Routes are cached across users: keys hold public points only, no owner.
-- **The ORS cap is shared.** `ORS_DAILY_REQUESTS` (default 200) counts matrix and Directions together for plans,
-  drive searches and now tours. ORS counts per endpoint (matrix 500, Directions 2000 per 24 h), shared by all
-  profiles (spike 2026-11-12). Proposal: split the counter by endpoint over `api_calls.endpoint` (matrix 450,
-  Directions 1800, counted over the last 24 h) so tours and plans do not use each other's budget; details in
-  section 14, spike results.
+- **The ORS cap is split by endpoint** (built in the clients PR): ORS counts per endpoint (matrix 500, Directions
+  2000 per 24 h), shared by all profiles (spike 2026-11-12). `ors-quota.ts` keeps a matrix bucket (`matrix` +
+  `tour_matrix`, `ORS_MATRIX_DAILY` 450) and a Directions bucket (`route` + `tour_route`, `ORS_DIRECTIONS_DAILY`
+  1800), both counted over the last 24 h; `ORS_DAILY_REQUESTS` is retired. Details in section 14, spike results.
+- Place search: `autocompletePlaces` and `placeDetails` (`src/lib/server/facts/place-search.ts`, cached 30 / 90 d).
+  Search results carry `key: "gfy:" + 32 hex of sha256(place_id)` plus the `placeId`: a raw `place_id` is 100–200
+  characters, above the 40 of `TourPoint.key`.
 - Failures: ORS down with a cached value → served `stale: true` with the stale pill; with no value, the legs are
   `failed` and the tour shows no total. Never a guessed time.
 - Logging: every call → `api_calls` (through `cached()`); `tour.created`, `tour.computed { points, mode, route,
@@ -521,16 +524,17 @@ Consequences for the build:
 - Geoapify sends no quota headers; autocomplete and place details cost 1 credit each (docs) of the 3,000/day.
 
 **Recommendation for the ORS cap split.** Two counters in `ors-quota.ts`, by ORS endpoint over `api_calls.endpoint`:
-- **matrix bucket** = endpoints `matrix` (plans) and `tour_matrix`: cap `ORS_DAILY_MATRIX`, default **450**; the
+- **matrix bucket** = endpoints `matrix` (plans) and `tour_matrix`: cap `ORS_MATRIX_DAILY`, default **450**; the
   plan reserve `ORS_PLAN_RESERVE` (50) applies here, because plans only use the matrix.
-- **directions bucket** = endpoints `route` (drive search) and `tour_route`: cap `ORS_DAILY_DIRECTIONS`, default
+- **directions bucket** = endpoints `route` (drive search) and `tour_route`: cap `ORS_DIRECTIONS_DAILY`, default
   **1800**.
 - **Count the last 24 h, not since Berlin midnight.** ORS's window starts at an arbitrary time, so a Berlin-day count
   can let two app days fall into one ORS window (up to twice the cap). A rolling 24 h count at or under the cap keeps
   every ORS window under it too.
 - Tour gate: `matrixLeft >= 1 + ORS_PLAN_RESERVE` (skip with "keep") and `directionsLeft >= runs`. Drive-search gate:
-  `directionsLeft >= 8`. `ORS_DAILY_REQUESTS` is retired (or kept as a fallback for both until the admin settings
-  move).
+  `directionsLeft >= 8`. `ORS_DAILY_REQUESTS` is retired; the admin settings `ors_matrix_daily` and
+  `ors_directions_daily` replace `ors_daily_requests`. Rows the guard itself refused (`error_code = quota_guard`) are
+  not counted, or a rolling window would stay closed while refused attempts keep coming.
 
 ## 15. Decisions (accepted by Alex, 2026-11-12)
 

@@ -1,5 +1,5 @@
 import { globalCapMicroUsd, usdToMicro } from "../ai-usage";
-import { orsDailyCap } from "../facts/drive-times";
+import { orsCaps } from "../facts/ors-quota";
 import { geoapifyDailyCap } from "../facts/geoapify-quota";
 
 type Env = Record<string, string | undefined>;
@@ -10,7 +10,9 @@ export type BudgetConfig = {
   aiMonthlyAlertMicroUsd: number;
   adbDailyUnits: number;
   adbMinRemaining: number;
-  orsDailyCap: number;
+  /** ORS bucket caps per rolling 24 h (ORS_MATRIX_DAILY, ORS_DIRECTIONS_DAILY). */
+  orsMatrixCap: number;
+  orsDirectionsCap: number;
   geoapifyDailyCap: number;
   errors24hThreshold: number;
 };
@@ -29,7 +31,8 @@ export function readBudgetConfig(env: Env = process.env): BudgetConfig {
     aiMonthlyAlertMicroUsd: usdToMicro(env.AI_MONTHLY_ALERT_USD, DEFAULT_AI_MONTHLY_ALERT_USD),
     adbDailyUnits: intEnvFrom(env.AERODATABOX_DAILY_UNITS, 40),
     adbMinRemaining: intEnvFrom(env.AERODATABOX_MIN_REMAINING, 40),
-    orsDailyCap: orsDailyCap(env),
+    orsMatrixCap: orsCaps(env).matrix,
+    orsDirectionsCap: orsCaps(env).directions,
     geoapifyDailyCap: geoapifyDailyCap(env),
     errors24hThreshold: intEnvFrom(env.ALERT_ERRORS_24H, DEFAULT_ERRORS_24H_THRESHOLD),
   };

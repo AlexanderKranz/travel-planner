@@ -1,6 +1,7 @@
 import "server-only";
 import * as Sentry from "@sentry/nextjs";
 import { logEvent } from "../events";
+import { orsUsage24h } from "../facts/ors-quota";
 import { getQuotaState } from "../flights-quota";
 import { createSupabaseAdminClient } from "../supabase/admin";
 import { evaluateBudget, type Alert, type AlertKind, type BudgetMetrics } from "./budget";
@@ -33,12 +34,8 @@ async function readMetrics(p: AdminPeriods): Promise<BudgetMetrics> {
     spend(p.dayStart),
     spend(p.monthStart),
     getQuotaState(p.now),
-    admin
-      .from("api_calls")
-      .select("id", { count: "exact", head: true })
-      .eq("provider", "openrouteservice")
-      .neq("cache", "hit")
-      .gte("created_at", p.dayStart.toISOString()),
+    // Same buckets and rolling 24 h window as the guard (throws when unreadable, like the other reads here).
+    orsUsage24h(p.now),
     admin
       .from("app_events")
       .select("id", { count: "exact", head: true })
@@ -56,12 +53,13 @@ async function readMetrics(p: AdminPeriods): Promise<BudgetMetrics> {
       .eq("status", "pending")
       .lt("created_at", new Date(p.now.getTime() - 48 * 3_600_000).toISOString()),
   ]);
-  if (ors.error || errs.error || authFails.error || stale.error) throw new Error("budget read failed");
+  if (errs.error || authFails.error || stale.error) throw new Error("budget read failed");
   return {
     aiTodayMicroUsd,
     aiMonthMicroUsd,
     adbRemaining: quota.remaining,
-    orsRequestsToday: ors.count ?? 0,
+    orsMatrix24h: ors.matrix,
+    orsDirections24h: ors.directions,
     errors24h: errs.count ?? 0,
     feedbackAuthFailuresToday: authFails.count ?? 0,
     feedbackStalePending: stale.count ?? 0,

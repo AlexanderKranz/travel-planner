@@ -17,6 +17,8 @@ vi.mock("../supabase/admin", () => ({
       select: () => q,
       eq: () => q,
       neq: () => q,
+      in: () => q,
+      or: () => q,
       gte: async () => ({ count: h.count, error: h.countError }),
     };
     return { from: () => q };
@@ -27,7 +29,8 @@ vi.mock("@/lib/integrations/openrouteservice", async (orig) => {
   return { ...m, fetchDriveMatrix: h.matrix };
 });
 
-import { driveCacheKey, getDriveTimes, orsDailyCap } from "./drive-times";
+import { driveCacheKey, getDriveTimes } from "./drive-times";
+import { orsCaps } from "./ors-quota";
 
 const origin = { lat: 36.51543, lon: -4.88583 };
 const places = [
@@ -73,11 +76,11 @@ describe("getDriveTimes", () => {
     expect(r).toEqual({ byKey: { "way/2": { min: 30, km: 25 } }, fetchedAt: "2026-10-28T10:00:00.000Z" });
   });
 
-  it("quota guard: no request at the daily cap (ORS_DAILY_REQUESTS, default 200) or when the count fails", async () => {
+  it("quota guard: no request at the matrix cap (ORS_MATRIX_DAILY, default 450, last 24 h) or when the count fails", async () => {
     missThrough();
-    expect(orsDailyCap({})).toBe(200);
-    expect(orsDailyCap({ ORS_DAILY_REQUESTS: "25" })).toBe(25);
-    h.count = 200;
+    expect(orsCaps({}).matrix).toBe(450);
+    expect(orsCaps({ ORS_MATRIX_DAILY: "25" }).matrix).toBe(25);
+    h.count = 450;
     expect(await getDriveTimes(origin, places, ctx)).toBeNull();
     h.count = null;
     h.countError = { code: "x" };

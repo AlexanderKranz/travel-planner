@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { BudgetConfig } from "./config";
 import { cacheHitShare, meter, microToUsd, ratePct, shapeDashboard } from "./shape";
 
-const cfg: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsDailyCap: 400, geoapifyDailyCap: 400, errors24hThreshold: 20 };
+const cfg: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsMatrixCap: 400, orsDirectionsCap: 1000, geoapifyDailyCap: 400, errors24hThreshold: 20 };
 
 describe("meter", () => {
   it("levels: ok below 80 %, warn from 80 %, over at the cap", () => {
@@ -79,8 +79,11 @@ describe("shapeDashboard", () => {
     expect(shapeDashboard({ ...raw, api: { ...raw.api, aerodataboxQuotaRemaining: 30 } }, cfg).adb.level).toBe("over");
     expect(shapeDashboard({ ...raw, api: { ...raw.api, aerodataboxQuotaRemaining: null } }, cfg).adb.level).toBe("ok");
   });
-  it("ORS: network requests today vs the cap", () => {
-    expect(d.ors.requestsToday).toMatchObject({ used: 4, cap: 400, level: "ok" });
+  it("ORS: each bucket's last-24-h requests vs its cap; no count, no bars", () => {
+    expect(d.ors).toBeNull(); // raw without orsUsage (the count failed)
+    const o = shapeDashboard({ ...raw, orsUsage: { matrix: 4, directions: 900 } }, cfg).ors;
+    expect(o?.matrix).toMatchObject({ used: 4, cap: 400, level: "ok" });
+    expect(o?.directions).toMatchObject({ used: 900, cap: 1000, level: "warn" });
   });
   it("carries no user identifiers", () => {
     expect(JSON.stringify(d)).not.toMatch(/user_id|userId|email/i);
