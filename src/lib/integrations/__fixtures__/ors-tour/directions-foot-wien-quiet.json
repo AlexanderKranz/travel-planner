@@ -1,0 +1,156 @@
+{
+ "bbox": [
+  16.363226,
+  48.191142,
+  16.396261,
+  48.216792
+ ],
+ "metadata": {
+  "query": {
+   "coordinates": [
+    [
+     16.3731,
+     48.2085
+    ],
+    [
+     16.3655,
+     48.2065
+    ],
+    [
+     16.363,
+     48.199
+    ],
+    [
+     16.3716,
+     48.1981
+    ],
+    [
+     16.381,
+     48.1915
+    ],
+    [
+     16.3958,
+     48.2166
+    ]
+   ],
+   "extra_info": [
+    "green",
+    "noise"
+   ],
+   "format": "json",
+   "geometry": true,
+   "instructions": true,
+   "options": {
+    "avoid_features": [
+     "ferries"
+    ],
+    "profile_params": {
+     "allow_unsuitable": false,
+     "surface_quality_known": false,
+     "weightings": {
+      "quiet": 1
+     }
+    }
+   },
+   "preference": "recommended",
+   "profile": "foot-walking",
+   "profileName": "foot-walking",
+   "units": "km"
+  },
+  "attribution": "openrouteservice.org | OpenStreetMap contributors",
+  "engine": {
+   "build_date": "2026-10-14T07:31:58Z",
+   "graph_date": "2026-11-09T17:59:09Z",
+   "osm_date": "2026-11-08T00:00:00Z",
+   "version": "10.1.0"
+  },
+  "service": "routing",
+  "system_message": "Please note that the URL api.openrouteservice.org has been deprecated. All information available at ask.openrouteservice.org",
+  "timestamp": 1794464691660
+ },
+ "routes": [
+  {
+   "bbox": [
+    16.363226,
+    48.191142,
+    16.396261,
+    48.216792
+   ],
+   "extras": {
+    "green": {
+     "summary": [
+      {
+       "value": 10,
+       "distance": 0.008,
+       "amount": 100
+      }
+     ],
+     "values": [
+      [
+       0,
+       398,
+       10
+      ]
+     ]
+    },
+    "noise": {
+     "summary": [
+      {
+       "value": 7,
+       "distance": 0.008,
+       "amount": 100
+      }
+     ],
+     "values": [
+      [
+       0,
+       398,
+       7
+      ]
+     ]
+    }
+   },
+   "geometry": "qtfeHyz|bBHa@FBVF_ApEd@ZIRKv@HTB^^@?FIn@QxAKj@JRt@jANVbAfAh@b@z@h@AFDBo@rBFBV`@DFPt@TrA@L@FBJv@nBEz@STEDGD[f@Vb@INBFCGHOWc@Zg@FEDERUD{@~@eAg@qALGTAXY@ETKJCbAYp@_@\\Y~@g@NSj@WFMHCFCh@PNHNLHFHFFCJD@DjDtACJF@@@F@LDJDNDHDBD@F@@@@@?FBBQHBjAf@JDHBnBr@@HFBHDDEl@j@`@b@PNF`@@LDBFBHNLTHBJBR`@T`@NXJRDJDJBFxAdDHHFLh@jAhApCDJDJBFCGLQHMCEACJMNSNSCGAEFIFI]s@BCsAcD?C`AoAEKFGDO^iBBUBQ@I`@yEDUBQ@K@IRyBLoAN_BDi@VsC@Q@UKGFw@C_AIeAA@CMCO]P\\QHEUqA[oAFEDGI[v@q@CMEOyAwF?G?WBIDMV{@L?^QBBHGFELIb@Ut@_@v@c@NGtKyFp@_@PKHEFCBGhCwBdDiCHGHGCQCOt@e@pBmA\\QFEz@a@p@[LGE_@GYFUTa@g@iBCa@?MAYTiB[[EMGKMGKCE@G?UsBK{@AOK?D{AKLa@Go@KiBY_AKECCC_@?_@IKAG?YEiAOGD_AQsCi@CJGHA?CCEEEEEEAA[lA_IYIAC?C?E?wDMG@A?G?C??CsCKAAAAI?I?A?ABiG`@AFc@PAG}EfBi@h@aBuDACCGAGCGAEOg@?AAGM?K?CKaBZI@E?C@iBA}@k@GG@KEGMQI?gFiD?ECAOIQKC?mAy@SMmAw@KGIGKGeAu@CAO?S?AH{@B}A@E@IEASI[Qe@OUqCgEEGGIaA_BIOEEoAqBIOMQq@_AUa@OYA?CGEGMQINGKICCGCCEDCAwE}AIIIGkAa@EIICGAGCiCy@AA?EEGIIIGAFICk@FUiAEcACSAIG@Ee@?EIGAOQ}BQ?MiBo@iGGOu@mAIKOQ]x@QMKKUWa@YsASi@CmAEIA?`@",
+   "segments": [
+    {
+     "distance": 0.766,
+     "duration": 551.5
+    },
+    {
+     "distance": 1.216,
+     "duration": 875.8
+    },
+    {
+     "distance": 0.726,
+     "duration": 523
+    },
+    {
+     "distance": 1.291,
+     "duration": 929.8
+    },
+    {
+     "distance": 3.556,
+     "duration": 2560.1
+    }
+   ],
+   "summary": {
+    "distance": 7.555,
+    "duration": 5440.2
+   },
+   "warnings": [
+    {
+     "code": 4,
+     "message": "Extra info requested but not available: roadaccessrestrictions"
+    }
+   ],
+   "way_points": [
+    0,
+    40,
+    124,
+    168,
+    220,
+    398
+   ]
+  }
+ ]
+}

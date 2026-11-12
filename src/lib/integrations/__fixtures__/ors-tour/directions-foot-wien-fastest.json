@@ -1,0 +1,1386 @@
+{
+ "bbox": [
+  16.363226,
+  48.191142,
+  16.396261,
+  48.216792
+ ],
+ "metadata": {
+  "query": {
+   "coordinates": [
+    [
+     16.3731,
+     48.2085
+    ],
+    [
+     16.3655,
+     48.2065
+    ],
+    [
+     16.363,
+     48.199
+    ],
+    [
+     16.3716,
+     48.1981
+    ],
+    [
+     16.381,
+     48.1915
+    ],
+    [
+     16.3958,
+     48.2166
+    ]
+   ],
+   "format": "json",
+   "geometry": true,
+   "instructions": true,
+   "options": {
+    "avoid_features": [
+     "ferries"
+    ]
+   },
+   "preference": "fastest",
+   "profile": "foot-walking",
+   "profileName": "foot-walking",
+   "units": "km"
+  },
+  "attribution": "openrouteservice.org | OpenStreetMap contributors",
+  "engine": {
+   "build_date": "2026-10-14T07:31:58Z",
+   "graph_date": "2026-11-09T17:59:09Z",
+   "osm_date": "2026-11-08T00:00:00Z",
+   "version": "10.1.0"
+  },
+  "service": "routing",
+  "system_message": "Please note that the URL api.openrouteservice.org has been deprecated. All information available at ask.openrouteservice.org",
+  "timestamp": 1794464609096
+ },
+ "routes": [
+  {
+   "bbox": [
+    16.363226,
+    48.191142,
+    16.396261,
+    48.216792
+   ],
+   "geometry": "qtfeHyz|bBHa@FBVF_ApEd@ZIRKv@HTB^^@?FIn@QxAKj@JRt@jANVbAfAh@b@z@h@AFDBo@rBFBV`@DFPt@TrA@L@FBJv@nBEz@STEDGD[f@Vb@INBFCGHOWc@Zg@FEDERUD{@~@eAg@qALGTAXY@ETKJCbAYp@_@\\Y~@g@NSj@WFMHCFCh@PNHNLHFHFFCJD@DjDtACJF@@@F@LDJDNDHDBD@F@@@@@?FBBQHBjAf@JDHBnBr@@HFBHDDEl@j@`@b@PNF`@@LDBFBHNLTHBJBR`@T`@NXJRDJDJBFxAdDHHFLh@jAhApCDJDJBFCGLQHMCEACJMNSNSCGAEFIFI]s@BCsAcD?C`AoAEKFGDO^iBBUBQ@I`@yEDUBQ@K@IRyBLoAN_BDi@VsC@Q@UKGFw@C_AIeAA@CMCO]P\\QHEUqA[oAFEDGI[v@q@CMEOyAwF?G?WBIDMV{@L?^QBBHGFELIb@Ut@_@v@c@NGtKyFp@_@PKHEFCBGhCwBdDiCHGHGCQCOt@e@pBmA\\QFEz@a@p@[LGE_@GYFUTa@g@iBCa@?MAYTiB[[EMGKMGKCE@G?UsBK{@AOK?D{AKLa@Go@KiBY_AKECCC_@?_@IKAG?YEiAOGD_AQsCi@CJGHA?CCEEEEEEAA[lA_IYIAC?C?E?wDMG@A?G?C??CsCKAAAAI?I?A?ABiG`@AFc@PAG}EfBi@h@aBuDACCGAGCGAEOg@?AAGM?K?CKaBZI@E?C@iBA}@k@GG@KEGMQI?gFiD?ECAOIQKC?mAy@SMmAw@KGIGKGeAu@CAO?S?AH{@B}A@E@IEASI[Qe@OUqCgEEGGIaA_BIOEEoAqBIOMQq@_AUa@OYA?CGEGMQINGKICCGCCEDCAwE}AIIIGkAa@EIICGAGCiCy@AA?EEGIIIGAFICk@FUiAEcACSAIG@Ee@?EIGAOQ}BQ?MiBo@iGGOu@mAIKOQ]x@QMKKUWa@YsASi@CmAEIA?`@",
+   "segments": [
+    {
+     "distance": 0.766,
+     "duration": 551.5,
+     "steps": [
+      {
+       "distance": 0.032,
+       "duration": 23.3,
+       "instruction": "Head southeast",
+       "name": "-",
+       "type": 11,
+       "way_points": [
+        0,
+        3
+       ]
+      },
+      {
+       "distance": 0.085,
+       "duration": 61.4,
+       "instruction": "Turn right onto Stephansplatz",
+       "name": "Stephansplatz",
+       "type": 1,
+       "way_points": [
+        3,
+        4
+       ]
+      },
+      {
+       "distance": 0.023,
+       "duration": 16.5,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        4,
+        5
+       ]
+      },
+      {
+       "distance": 0.072,
+       "duration": 51.7,
+       "instruction": "Turn right onto Stock-im-Eisen-Platz",
+       "name": "Stock-im-Eisen-Platz",
+       "type": 1,
+       "way_points": [
+        5,
+        10
+       ]
+      },
+      {
+       "distance": 0.075,
+       "duration": 53.8,
+       "instruction": "Turn right onto Graben",
+       "name": "Graben",
+       "type": 1,
+       "way_points": [
+        10,
+        14
+       ]
+      },
+      {
+       "distance": 0.01,
+       "duration": 7.4,
+       "instruction": "Turn left onto Dorotheergasse",
+       "name": "Dorotheergasse",
+       "type": 0,
+       "way_points": [
+        14,
+        15
+       ]
+      },
+      {
+       "distance": 0.164,
+       "duration": 117.8,
+       "instruction": "Keep right onto Dorotheergasse",
+       "name": "Dorotheergasse",
+       "type": 13,
+       "way_points": [
+        15,
+        20
+       ]
+      },
+      {
+       "distance": 0.003,
+       "duration": 2.1,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        20,
+        21
+       ]
+      },
+      {
+       "distance": 0.004,
+       "duration": 3,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        21,
+        22
+       ]
+      },
+      {
+       "distance": 0.05,
+       "duration": 36.2,
+       "instruction": "Turn right onto Stallburggasse",
+       "name": "Stallburggasse",
+       "type": 1,
+       "way_points": [
+        22,
+        23
+       ]
+      },
+      {
+       "distance": 0.097,
+       "duration": 69.5,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        23,
+        31
+       ]
+      },
+      {
+       "distance": 0.052,
+       "duration": 37.4,
+       "instruction": "Turn slight left",
+       "name": "-",
+       "type": 4,
+       "way_points": [
+        31,
+        32
+       ]
+      },
+      {
+       "distance": 0.067,
+       "duration": 48.3,
+       "instruction": "Turn slight right",
+       "name": "-",
+       "type": 5,
+       "way_points": [
+        32,
+        37
+       ]
+      },
+      {
+       "distance": 0.032,
+       "duration": 23,
+       "instruction": "Turn left onto Schweizerhof",
+       "name": "Schweizerhof",
+       "type": 0,
+       "way_points": [
+        37,
+        40
+       ]
+      },
+      {
+       "distance": 0,
+       "duration": 0,
+       "instruction": "Arrive at Schweizerhof, on the left",
+       "name": "-",
+       "type": 10,
+       "way_points": [
+        40,
+        40
+       ]
+      }
+     ]
+    },
+    {
+     "distance": 1.216,
+     "duration": 875.8,
+     "steps": [
+      {
+       "distance": 0.032,
+       "duration": 23,
+       "instruction": "Head northeast on Schweizerhof",
+       "name": "Schweizerhof",
+       "type": 11,
+       "way_points": [
+        40,
+        43
+       ]
+      },
+      {
+       "distance": 0.067,
+       "duration": 48.3,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        43,
+        48
+       ]
+      },
+      {
+       "distance": 0.044,
+       "duration": 31.4,
+       "instruction": "Keep right",
+       "name": "-",
+       "type": 13,
+       "way_points": [
+        48,
+        49
+       ]
+      },
+      {
+       "distance": 0.038,
+       "duration": 27.3,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        49,
+        50
+       ]
+      },
+      {
+       "distance": 0.299,
+       "duration": 215.4,
+       "instruction": "Turn sharp right",
+       "name": "-",
+       "type": 3,
+       "way_points": [
+        50,
+        70
+       ]
+      },
+      {
+       "distance": 0.005,
+       "duration": 3.5,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        70,
+        71
+       ]
+      },
+      {
+       "distance": 0.11,
+       "duration": 79.3,
+       "instruction": "Turn slight right",
+       "name": "-",
+       "type": 5,
+       "way_points": [
+        71,
+        74
+       ]
+      },
+      {
+       "distance": 0.004,
+       "duration": 3,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        74,
+        75
+       ]
+      },
+      {
+       "distance": 0.047,
+       "duration": 33.6,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        75,
+        84
+       ]
+      },
+      {
+       "distance": 0.008,
+       "duration": 5.8,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        84,
+        88
+       ]
+      },
+      {
+       "distance": 0.136,
+       "duration": 97.9,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        88,
+        94
+       ]
+      },
+      {
+       "distance": 0.003,
+       "duration": 2.3,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        94,
+        95
+       ]
+      },
+      {
+       "distance": 0.015,
+       "duration": 10.7,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        95,
+        98
+       ]
+      },
+      {
+       "distance": 0.078,
+       "duration": 56.2,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        98,
+        102
+       ]
+      },
+      {
+       "distance": 0.045,
+       "duration": 32.6,
+       "instruction": "Keep right",
+       "name": "-",
+       "type": 13,
+       "way_points": [
+        102,
+        109
+       ]
+      },
+      {
+       "distance": 0.285,
+       "duration": 205.3,
+       "instruction": "Turn slight right",
+       "name": "-",
+       "type": 5,
+       "way_points": [
+        109,
+        124
+       ]
+      },
+      {
+       "distance": 0,
+       "duration": 0,
+       "instruction": "Arrive at your destination, on the right",
+       "name": "-",
+       "type": 10,
+       "way_points": [
+        124,
+        124
+       ]
+      }
+     ]
+    },
+    {
+     "distance": 0.726,
+     "duration": 523,
+     "steps": [
+      {
+       "distance": 0.004,
+       "duration": 3.1,
+       "instruction": "Head northeast",
+       "name": "-",
+       "type": 11,
+       "way_points": [
+        124,
+        125
+       ]
+      },
+      {
+       "distance": 0.018,
+       "duration": 12.6,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        125,
+        127
+       ]
+      },
+      {
+       "distance": 0.005,
+       "duration": 3.3,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        127,
+        129
+       ]
+      },
+      {
+       "distance": 0.032,
+       "duration": 23.1,
+       "instruction": "Turn right onto Schleifmühlbrücke",
+       "name": "Schleifmühlbrücke",
+       "type": 1,
+       "way_points": [
+        129,
+        132
+       ]
+      },
+      {
+       "distance": 0.006,
+       "duration": 4.6,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        132,
+        134
+       ]
+      },
+      {
+       "distance": 0.011,
+       "duration": 7.9,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        134,
+        136
+       ]
+      },
+      {
+       "distance": 0.028,
+       "duration": 20.1,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        136,
+        138
+       ]
+      },
+      {
+       "distance": 0.076,
+       "duration": 54.8,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        138,
+        139
+       ]
+      },
+      {
+       "distance": 0.002,
+       "duration": 1.2,
+       "instruction": "Turn slight right",
+       "name": "-",
+       "type": 5,
+       "way_points": [
+        139,
+        140
+       ]
+      },
+      {
+       "distance": 0.048,
+       "duration": 34.3,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        140,
+        141
+       ]
+      },
+      {
+       "distance": 0.006,
+       "duration": 4,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        141,
+        142
+       ]
+      },
+      {
+       "distance": 0.383,
+       "duration": 275.6,
+       "instruction": "Turn right onto Faulmanngasse",
+       "name": "Faulmanngasse",
+       "type": 1,
+       "way_points": [
+        142,
+        160
+       ]
+      },
+      {
+       "distance": 0.007,
+       "duration": 4.9,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        160,
+        161
+       ]
+      },
+      {
+       "distance": 0.071,
+       "duration": 51.3,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        161,
+        164
+       ]
+      },
+      {
+       "distance": 0.002,
+       "duration": 1.1,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        164,
+        165
+       ]
+      },
+      {
+       "distance": 0.012,
+       "duration": 8.6,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        165,
+        167
+       ]
+      },
+      {
+       "distance": 0.018,
+       "duration": 12.6,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        167,
+        168
+       ]
+      },
+      {
+       "distance": 0,
+       "duration": 0,
+       "instruction": "Arrive at your destination, on the right",
+       "name": "-",
+       "type": 10,
+       "way_points": [
+        168,
+        168
+       ]
+      }
+     ]
+    },
+    {
+     "distance": 1.291,
+     "duration": 929.8,
+     "steps": [
+      {
+       "distance": 0.024,
+       "duration": 17.1,
+       "instruction": "Head south",
+       "name": "-",
+       "type": 11,
+       "way_points": [
+        168,
+        170
+       ]
+      },
+      {
+       "distance": 0.066,
+       "duration": 47.5,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        170,
+        172
+       ]
+      },
+      {
+       "distance": 0.009,
+       "duration": 6.4,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        172,
+        174
+       ]
+      },
+      {
+       "distance": 0.012,
+       "duration": 8.6,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        174,
+        175
+       ]
+      },
+      {
+       "distance": 0.036,
+       "duration": 26.2,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        175,
+        176
+       ]
+      },
+      {
+       "distance": 0.12,
+       "duration": 86.2,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        176,
+        180
+       ]
+      },
+      {
+       "distance": 0.045,
+       "duration": 32.3,
+       "instruction": "Keep right",
+       "name": "-",
+       "type": 13,
+       "way_points": [
+        180,
+        184
+       ]
+      },
+      {
+       "distance": 0.03,
+       "duration": 21.5,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        184,
+        187
+       ]
+      },
+      {
+       "distance": 0.624,
+       "duration": 449.1,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        187,
+        204
+       ]
+      },
+      {
+       "distance": 0.014,
+       "duration": 9.9,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        204,
+        206
+       ]
+      },
+      {
+       "distance": 0.2,
+       "duration": 143.8,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        206,
+        213
+       ]
+      },
+      {
+       "distance": 0.023,
+       "duration": 16.3,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        213,
+        215
+       ]
+      },
+      {
+       "distance": 0.027,
+       "duration": 19.5,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        215,
+        217
+       ]
+      },
+      {
+       "distance": 0.063,
+       "duration": 45.6,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        217,
+        220
+       ]
+      },
+      {
+       "distance": 0,
+       "duration": 0,
+       "instruction": "Arrive at your destination, on the left",
+       "name": "-",
+       "type": 10,
+       "way_points": [
+        220,
+        220
+       ]
+      }
+     ]
+    },
+    {
+     "distance": 3.556,
+     "duration": 2560.1,
+     "steps": [
+      {
+       "distance": 0.051,
+       "duration": 36.7,
+       "instruction": "Head east",
+       "name": "-",
+       "type": 11,
+       "way_points": [
+        220,
+        222
+       ]
+      },
+      {
+       "distance": 0.054,
+       "duration": 38.6,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        222,
+        229
+       ]
+      },
+      {
+       "distance": 0.074,
+       "duration": 53.4,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        229,
+        232
+       ]
+      },
+      {
+       "distance": 0.006,
+       "duration": 4.6,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        232,
+        233
+       ]
+      },
+      {
+       "distance": 0.034,
+       "duration": 24.5,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        233,
+        234
+       ]
+      },
+      {
+       "distance": 0.26,
+       "duration": 187.3,
+       "instruction": "Turn sharp left",
+       "name": "-",
+       "type": 2,
+       "way_points": [
+        234,
+        247
+       ]
+      },
+      {
+       "distance": 0.124,
+       "duration": 89.5,
+       "instruction": "Turn slight left onto Praetoriusgasse",
+       "name": "Praetoriusgasse",
+       "type": 4,
+       "way_points": [
+        247,
+        250
+       ]
+      },
+      {
+       "distance": 0.011,
+       "duration": 8,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        250,
+        252
+       ]
+      },
+      {
+       "distance": 0.017,
+       "duration": 12,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        252,
+        258
+       ]
+      },
+      {
+       "distance": 0.033,
+       "duration": 23.7,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        258,
+        259
+       ]
+      },
+      {
+       "distance": 0.306,
+       "duration": 220.2,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        259,
+        269
+       ]
+      },
+      {
+       "distance": 0.002,
+       "duration": 1.2,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        269,
+        270
+       ]
+      },
+      {
+       "distance": 0.083,
+       "duration": 59.6,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        270,
+        271
+       ]
+      },
+      {
+       "distance": 0.002,
+       "duration": 1.4,
+       "instruction": "Turn slight right",
+       "name": "-",
+       "type": 5,
+       "way_points": [
+        271,
+        272
+       ]
+      },
+      {
+       "distance": 0.013,
+       "duration": 9,
+       "instruction": "Keep left",
+       "name": "-",
+       "type": 12,
+       "way_points": [
+        272,
+        276
+       ]
+      },
+      {
+       "distance": 0.002,
+       "duration": 1.5,
+       "instruction": "Turn slight left",
+       "name": "-",
+       "type": 4,
+       "way_points": [
+        276,
+        277
+       ]
+      },
+      {
+       "distance": 0.333,
+       "duration": 239.6,
+       "instruction": "Turn slight right",
+       "name": "-",
+       "type": 5,
+       "way_points": [
+        277,
+        283
+       ]
+      },
+      {
+       "distance": 0.123,
+       "duration": 88.5,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        283,
+        292
+       ]
+      },
+      {
+       "distance": 0.014,
+       "duration": 10.1,
+       "instruction": "Turn left onto Anton-von-Webern-Platz",
+       "name": "Anton-von-Webern-Platz",
+       "type": 0,
+       "way_points": [
+        292,
+        294
+       ]
+      },
+      {
+       "distance": 0.005,
+       "duration": 3.5,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        294,
+        295
+       ]
+      },
+      {
+       "distance": 0.173,
+       "duration": 124.4,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        295,
+        303
+       ]
+      },
+      {
+       "distance": 0.015,
+       "duration": 10.7,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        303,
+        305
+       ]
+      },
+      {
+       "distance": 0.15,
+       "duration": 107.7,
+       "instruction": "Turn slight left",
+       "name": "-",
+       "type": 4,
+       "way_points": [
+        305,
+        307
+       ]
+      },
+      {
+       "distance": 0.223,
+       "duration": 160.6,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        307,
+        322
+       ]
+      },
+      {
+       "distance": 0.004,
+       "duration": 3,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        322,
+        323
+       ]
+      },
+      {
+       "distance": 0.095,
+       "duration": 68.3,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        323,
+        327
+       ]
+      },
+      {
+       "distance": 0.302,
+       "duration": 217.3,
+       "instruction": "Turn right onto Obere Viaduktgasse",
+       "name": "Obere Viaduktgasse",
+       "type": 1,
+       "way_points": [
+        327,
+        339
+       ]
+      },
+      {
+       "distance": 0.046,
+       "duration": 33.3,
+       "instruction": "Continue straight onto Obere Viaduktgasse",
+       "name": "Obere Viaduktgasse",
+       "type": 6,
+       "way_points": [
+        339,
+        341
+       ]
+      },
+      {
+       "distance": 0.031,
+       "duration": 22.6,
+       "instruction": "Continue straight",
+       "name": "-",
+       "type": 6,
+       "way_points": [
+        341,
+        344
+       ]
+      },
+      {
+       "distance": 0.019,
+       "duration": 13.3,
+       "instruction": "Continue straight onto Radetzkyplatz",
+       "name": "Radetzkyplatz",
+       "type": 6,
+       "way_points": [
+        344,
+        347
+       ]
+      },
+      {
+       "distance": 0.008,
+       "duration": 5.6,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        347,
+        348
+       ]
+      },
+      {
+       "distance": 0.018,
+       "duration": 13.2,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        348,
+        352
+       ]
+      },
+      {
+       "distance": 0.189,
+       "duration": 135.8,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        352,
+        358
+       ]
+      },
+      {
+       "distance": 0.005,
+       "duration": 3.5,
+       "instruction": "Turn slight right",
+       "name": "-",
+       "type": 5,
+       "way_points": [
+        358,
+        359
+       ]
+      },
+      {
+       "distance": 0.097,
+       "duration": 69.5,
+       "instruction": "Turn slight left",
+       "name": "-",
+       "type": 4,
+       "way_points": [
+        359,
+        364
+       ]
+      },
+      {
+       "distance": 0.002,
+       "duration": 1.6,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        364,
+        365
+       ]
+      },
+      {
+       "distance": 0.018,
+       "duration": 12.6,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        365,
+        368
+       ]
+      },
+      {
+       "distance": 0.003,
+       "duration": 2.4,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        368,
+        369
+       ]
+      },
+      {
+       "distance": 0.031,
+       "duration": 22,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        369,
+        371
+       ]
+      },
+      {
+       "distance": 0.067,
+       "duration": 48.4,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        371,
+        375
+       ]
+      },
+      {
+       "distance": 0.005,
+       "duration": 3.4,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        375,
+        376
+       ]
+      },
+      {
+       "distance": 0.022,
+       "duration": 16,
+       "instruction": "Turn right onto Vivariumstraße",
+       "name": "Vivariumstraße",
+       "type": 1,
+       "way_points": [
+        376,
+        379
+       ]
+      },
+      {
+       "distance": 0.054,
+       "duration": 38.8,
+       "instruction": "Keep right onto Vivariumstraße",
+       "name": "Vivariumstraße",
+       "type": 13,
+       "way_points": [
+        379,
+        381
+       ]
+      },
+      {
+       "distance": 0.01,
+       "duration": 7.4,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        381,
+        382
+       ]
+      },
+      {
+       "distance": 0.209,
+       "duration": 150.8,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        382,
+        388
+       ]
+      },
+      {
+       "distance": 0.028,
+       "duration": 20.1,
+       "instruction": "Turn left onto Hauptallee",
+       "name": "Hauptallee",
+       "type": 0,
+       "way_points": [
+        388,
+        389
+       ]
+      },
+      {
+       "distance": 0.169,
+       "duration": 121.9,
+       "instruction": "Turn right",
+       "name": "-",
+       "type": 1,
+       "way_points": [
+        389,
+        396
+       ]
+      },
+      {
+       "distance": 0.005,
+       "duration": 4,
+       "instruction": "Keep left",
+       "name": "-",
+       "type": 12,
+       "way_points": [
+        396,
+        397
+       ]
+      },
+      {
+       "distance": 0.012,
+       "duration": 9,
+       "instruction": "Turn left",
+       "name": "-",
+       "type": 0,
+       "way_points": [
+        397,
+        398
+       ]
+      },
+      {
+       "distance": 0,
+       "duration": 0,
+       "instruction": "Arrive at your destination, on the left",
+       "name": "-",
+       "type": 10,
+       "way_points": [
+        398,
+        398
+       ]
+      }
+     ]
+    }
+   ],
+   "summary": {
+    "distance": 7.555,
+    "duration": 5440.2
+   },
+   "warnings": [
+    {
+     "code": 4,
+     "message": "Extra info requested but not available: roadaccessrestrictions"
+    }
+   ],
+   "way_points": [
+    0,
+    40,
+    124,
+    168,
+    220,
+    398
+   ]
+  }
+ ]
+}

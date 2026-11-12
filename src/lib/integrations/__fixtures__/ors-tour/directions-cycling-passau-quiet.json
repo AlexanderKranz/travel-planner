@@ -1,0 +1,90 @@
+{
+ "bbox": [
+  13.462453,
+  48.574066,
+  13.466364,
+  48.576202
+ ],
+ "metadata": {
+  "query": {
+   "coordinates": [
+    [
+     13.4648,
+     48.5741
+    ],
+    [
+     13.4625,
+     48.5762
+    ]
+   ],
+   "extra_info": [
+    "green",
+    "noise"
+   ],
+   "format": "json",
+   "geometry": true,
+   "instructions": true,
+   "options": {
+    "avoid_features": [
+     "ferries"
+    ],
+    "profile_params": {
+     "allow_unsuitable": false,
+     "surface_quality_known": false,
+     "weightings": {
+      "quiet": 1
+     }
+    }
+   },
+   "preference": "recommended",
+   "profile": "cycling-regular",
+   "profileName": "cycling-regular",
+   "radiuses": [
+    350,
+    10
+   ],
+   "units": "km"
+  },
+  "attribution": "openrouteservice.org | OpenStreetMap contributors",
+  "engine": {
+   "build_date": "2026-10-14T07:31:58Z",
+   "graph_date": "2026-11-10T07:37:52Z",
+   "osm_date": "2026-11-08T00:00:00Z",
+   "version": "10.1.0"
+  },
+  "service": "routing",
+  "system_message": "Please note that the URL api.openrouteservice.org has been deprecated. All information available at ask.openrouteservice.org",
+  "timestamp": 1794464715548
+ },
+ "routes": [
+  {
+   "bbox": [
+    13.462453,
+    48.574066,
+    13.466364,
+    48.576202
+   ],
+   "geometry": "}bngH_zdqA?HUJI?y@GC?GKU[O]g@g@d@wA{@u@i@Yc@QcA]OlCIdBGlBB^HZ?PGlA]nGKAGA",
+   "segments": [
+    {
+     "distance": 0.59,
+     "duration": 166.7
+    }
+   ],
+   "summary": {
+    "distance": 0.59,
+    "duration": 166.7
+   },
+   "warnings": [
+    {
+     "code": 4,
+     "message": "Extra info requested but not available: green, noise, roadaccessrestrictions"
+    }
+   ],
+   "way_points": [
+    0,
+    24
+   ]
+  }
+ ]
+}

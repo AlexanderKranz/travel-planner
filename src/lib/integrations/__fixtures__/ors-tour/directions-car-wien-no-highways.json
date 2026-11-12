@@ -1,0 +1,116 @@
+{
+ "bbox": [
+  16.359069,
+  48.191195,
+  16.395264,
+  48.217952
+ ],
+ "metadata": {
+  "query": {
+   "coordinates": [
+    [
+     16.3731,
+     48.2085
+    ],
+    [
+     16.3655,
+     48.2065
+    ],
+    [
+     16.363,
+     48.199
+    ],
+    [
+     16.3716,
+     48.1981
+    ],
+    [
+     16.381,
+     48.1915
+    ],
+    [
+     16.3958,
+     48.2166
+    ]
+   ],
+   "extra_info": [
+    "green",
+    "noise"
+   ],
+   "format": "json",
+   "geometry": true,
+   "instructions": true,
+   "options": {
+    "avoid_features": [
+     "ferries",
+     "highways"
+    ]
+   },
+   "preference": "recommended",
+   "profile": "driving-car",
+   "profileName": "driving-car",
+   "units": "km"
+  },
+  "attribution": "openrouteservice.org | OpenStreetMap contributors",
+  "engine": {
+   "build_date": "2026-10-14T07:31:58Z",
+   "graph_date": "2026-11-10T22:42:26Z",
+   "osm_date": "2026-11-08T00:00:00Z",
+   "version": "10.1.0"
+  },
+  "service": "routing",
+  "system_message": "Please note that the URL api.openrouteservice.org has been deprecated. All information available at ask.openrouteservice.org",
+  "timestamp": 1794464715314
+ },
+ "routes": [
+  {
+   "bbox": [
+    16.359069,
+    48.191195,
+    16.395264,
+    48.217952
+   ],
+   "geometry": "ezfeHqy|bBcBwBp@aBL[\\y@Pa@Xs@\\_ABGBIf@kB`@{AbA_FDOBKh@qCHa@RcANy@Jc@l@sCBSF]Hs@nCpCpDvDzE~EnBrBpBrBfBhBrBtB|@~@NTHVXbBJj@TzA@NCf@WjB}@pGAH_AzGOhASbAAFM|@In@M|@EXKz@I~@yCdTGPU\\o@~@aGtIUa@s@uAUc@qBaEgAyBrAgBDGEFsAfBfAxBpB`ETb@r@tAT`@Xf@bCqDRQzA{BJUR`@Td@f@bAFJFNx@~ALT~@lBHLNTxCgHn@{AxBmFXk@pCcEPXbBtD`CpF@BBDFP\\z@Vz@DJDJ\\z@l@~Ar@pBVdALx@RhBNrATpBZKPGz@[DAHKYiBq@gECMWoAo@oBgBcEEICEeA{BWe@f@q@vAmBNQHMRU~BuCHD`BbBJIBGp@wBTuAXoC@]@Q@KRsDHmBGWQQQ@_@LSASIKQc@_B_@_BiCyJKFuAp@k@Xe@VGJCNCj@FZ`BxAYdDEh@O~AMnAUbCAJ{@Ig@K{Ak@iAc@cCgAmBs@@cAHeA|BoNdAuH@U?o@C_@m@wDvBeARA^Fn@XvAX^Fr@BXGp@e@@A`CmAvK{Fz@e@NMBAzAmAt@o@vBcBt@m@@A|A_AdBcAp@]`Bu@Ii@Hh@aBt@q@\\eBbA}A~@A@u@l@wBbBu@n@{AlAC@OL{@d@wKzFaClAA@GEI?u@Hg@Cu@IcAS]QMOIQGWEi@K_@OUKMM[Ue@M[O_@k@sAaAuBu@sAe@w@sAuBgBuC[[QSc@[SGmAsAgBkCKQGI}@oAyBcDOYIg@]o@Qs@J{A?YGi@ASSI}AgAkAy@qA}@qEoC{AaAWDaA?I?iBBi@AsD_@E?uBMqAKQUKAoAKa@FWCuAG]AS@c@RECc@R]AKYS{@W{A[kDEaAHqED}@Dq@RcBMSiC}@QMKGMAk@BUHODgG|@eC\\g@Ac@M_@[IIMWOk@MuABe@Co@Mw@Uk@[c@WQi@Qs@OM{@EqA?MP?HIDg@Bw@Hm@?GJIJYRLNN",
+   "segments": [
+    {
+     "distance": 2.77,
+     "duration": 452.1
+    },
+    {
+     "distance": 1.381,
+     "duration": 206
+    },
+    {
+     "distance": 1.797,
+     "duration": 303.3
+    },
+    {
+     "distance": 2.179,
+     "duration": 336.5
+    },
+    {
+     "distance": 4.02,
+     "duration": 648.2
+    }
+   ],
+   "summary": {
+    "distance": 12.147,
+    "duration": 1946.1000000000001
+   },
+   "warnings": [
+    {
+     "code": 4,
+     "message": "Extra info requested but not available: green, noise"
+    }
+   ],
+   "way_points": [
+    0,
+    63,
+    96,
+    154,
+    205,
+    337
+   ]
+  }
+ ]
+}

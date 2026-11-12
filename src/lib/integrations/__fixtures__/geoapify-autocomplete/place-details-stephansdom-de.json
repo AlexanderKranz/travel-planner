@@ -1,0 +1,209 @@
+{
+ "type": "FeatureCollection",
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_type": "details",
+    "website": "https://www.stephanskirche.at/",
+    "opening_hours": "Mo-Sa 06:00-22:00; Su 07:00-22:00",
+    "name": "Stephansdom",
+    "name_other": {
+     "alt_name": "Dom- und Metropolitankirche St. Stephan",
+     "loc_name": "Steffl"
+    },
+    "name_international": {
+     "az": "Müqəddəs Ştefan kafedralı",
+     "bg": "Катедрала Свети Стефан",
+     "cs": "Katedrála svatého Štěpána",
+     "de": "Stephansdom",
+     "en": "Saint Stephen's Cathedral",
+     "eo": "Katedralo de Sankta Stefano",
+     "es": "Catedral de San Esteban",
+     "et": "Püha Stefanuse katedraal",
+     "fr": "Cathédrale Saint-Étienne",
+     "hr": "Katedrala svetog Stjepana",
+     "hu": "Szent István-székesegyház",
+     "id": "Katedral Santo Stefanus",
+     "is": "Stefánskirkjan",
+     "it": "Cattedrale di Santo Stefano",
+     "ja": "シュテファン寺院",
+     "ko": "슈테판 대성당",
+     "ml": "സെന്റ് സ്റ്റീഫൻ ദൈവാലയം",
+     "pl": "Katedra świętego Szczepana",
+     "ru": "Собор Святого Стефана",
+     "sk": "Dóm svätého Štefana",
+     "sr": "Катедрала Светог Стефана",
+     "tr": "Aziz Stefan Katedrali",
+     "uk": "Собор Святого Стефана",
+     "zh": "聖史蒂芬大教堂"
+    },
+    "ele": 174,
+    "contact": {
+     "phone": "+43 1 5155235-30"
+    },
+    "facilities": {
+     "wheelchair": true,
+     "wheelchair_details": {
+      "description": "Induktionsanlage im vorderen linken Teil des Mittelschiffes und im linken Seitenschiff, dem Wiener Neustädter-Schiff."
+     }
+    },
+    "wiki_and_media": {
+     "wikidata": "Q5943",
+     "wikipedia": "de:Stephansdom",
+     "wikimedia_commons": "Category:St._Stephen's_Cathedral,_Vienna"
+    },
+    "heritage": {
+     "level": 2,
+     "operator": "bda",
+     "ref": 50321
+    },
+    "building": {
+     "type": "cathedral",
+     "material": "stone",
+     "color": "#B3A480",
+     "start_date": 1365,
+     "architecture": "gothic",
+     "height": 15,
+     "roof": {
+      "color": "#77796E"
+     }
+    },
+    "place_of_worship": {
+     "religion": "christian",
+     "denomination": "roman_catholic"
+    },
+    "categories": [
+     "building",
+     "building.historic",
+     "building.place_of_worship",
+     "building.tourism",
+     "fee",
+     "heritage",
+     "religion",
+     "religion.place_of_worship",
+     "religion.place_of_worship.christianity",
+     "tourism",
+     "tourism.attraction",
+     "tourism.sights.place_of_worship",
+     "tourism.sights.place_of_worship.cathedral",
+     "wheelchair",
+     "wheelchair.yes"
+    ],
+    "datasource": {
+     "sourcename": "openstreetmap",
+     "attribution": "© OpenStreetMap contributors",
+     "license": "Open Database License",
+     "url": "https://www.openstreetmap.org/copyright",
+     "raw": {
+      "ele": 174,
+      "fee": "yes",
+      "name": "Stephansdom",
+      "phone": "+43 1 5155235-30",
+      "height": 15,
+      "osm_id": 212496461,
+      "amenity": "place_of_worship",
+      "name:az": "Müqəddəs Ştefan kafedralı",
+      "name:bg": "Катедрала Свети Стефан",
+      "name:cs": "Katedrála svatého Štěpána",
+      "name:de": "Stephansdom",
+      "name:en": "Saint Stephen's Cathedral",
+      "name:eo": "Katedralo de Sankta Stefano",
+      "name:es": "Catedral de San Esteban",
+      "name:et": "Püha Stefanuse katedraal",
+      "name:fr": "Cathédrale Saint-Étienne",
+      "name:hr": "Katedrala svetog Stjepana",
+      "name:hu": "Szent István-székesegyház",
+      "name:id": "Katedral Santo Stefanus",
+      "name:is": "Stefánskirkjan",
+      "name:it": "Cattedrale di Santo Stefano",
+      "name:ja": "シュテファン寺院",
+      "name:ko": "슈테판 대성당",
+      "name:ml": "സെന്റ് സ്റ്റീഫൻ ദൈവാലയം",
+      "name:pl": "Katedra świętego Szczepana",
+      "name:ru": "Собор Святого Стефана",
+      "name:sk": "Dóm svätého Štefana",
+      "name:sr": "Катедрала Светог Стефана",
+      "name:tr": "Aziz Stefan Katedrali",
+      "name:uk": "Собор Святого Стефана",
+      "name:zh": "聖史蒂芬大教堂",
+      "tourism": "attraction",
+      "website": "https://www.stephanskirche.at/",
+      "alt_name": "Dom- und Metropolitankirche St. Stephan",
+      "building": "cathedral",
+      "heritage": 2,
+      "loc_name": "Steffl",
+      "osm_type": "w",
+      "religion": "christian",
+      "wikidata": "Q5943",
+      "addr:city": "Wien",
+      "wikipedia": "de:Stephansdom",
+      "check_date": "2026-06-03",
+      "ref:at:bda": 50321,
+      "start_date": 1365,
+      "wheelchair": "yes",
+      "addr:street": "Stephansplatz",
+      "roof:colour": "#77796E",
+      "addr:country": "AT",
+      "denomination": "roman_catholic",
+      "patron_saint": "St. Stephen",
+      "addr:postcode": 1010,
+      "opening_hours": "Mo-Sa 06:00-22:00; Su 07:00-22:00",
+      "roof:material": "roof_tiles",
+      "name:etymology": "Stephanus",
+      "building:colour": "#B3A480",
+      "fee:conditional": "no @ (\"during prayers, only for prayers\")",
+      "patron_saint:de": "St. Stephanus",
+      "addr:housenumber": 3,
+      "building:material": "stone",
+      "heritage:operator": "bda",
+      "wikimedia_commons": "Category:St._Stephen's_Cathedral,_Vienna",
+      "building:architecture": "gothic",
+      "patron_saint:wikidata": "Q161775",
+      "wheelchair:description": "Induktionsanlage im vorderen linken Teil des Mittelschiffes und im linken Seitenschiff, dem Wiener Neustädter-Schiff.",
+      "name:etymology:wikidata": "Q161775"
+     }
+    },
+    "housenumber": "3",
+    "street": "Stephansplatz",
+    "city": "Wien",
+    "state": "Wien",
+    "postcode": "1010",
+    "country": "Österreich",
+    "country_code": "at",
+    "district": "Stubenviertel",
+    "suburb": "Innere Stadt",
+    "formatted": "Stephansdom, Stephansplatz 3, 1010 Wien, Österreich",
+    "address_line1": "Stephansdom",
+    "address_line2": "Stephansplatz 3, 1010 Wien, Österreich",
+    "lat": 48.2084923,
+    "lon": 16.3731269,
+    "iso3166_2": "AT-9",
+    "timezone": {
+     "name": "Europe/Vienna",
+     "offset_STD": "+01:00",
+     "offset_DST": "+02:00",
+     "offset_STD_seconds": 3600,
+     "offset_DST_seconds": 7200,
+     "abbreviation_STD": "CET",
+     "abbreviation_DST": "CEST"
+    },
+    "place_id": "51d0dcd33d855f3040590abe2ce0af1a4840f00102f9014d70aa0c0000000092030b5374657068616e73646f6d"
+   },
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     16.3731269,
+     48.2084923
+    ],
+    "trimmed": "Polygon"
+   },
+   "bbox": [
+    16.3724294,
+    48.208083,
+    16.3739084,
+    48.2089026
+   ]
+  }
+ ]
+}
