@@ -32,7 +32,7 @@ export function TripHeader({
   const [confirm, setConfirm] = useState(false);
   const [error, setError] = useState<ActionError | null>(null);
   const [pending, start] = useTransition();
-  const title = tripTitle(trip, t, locale);
+  const title = tripTitle(trip);
   const d = trip.destination;
   const place = d.kind === "freetext" ? null : [d.placeName, d.admin1].filter(Boolean).join(", ");
 
@@ -68,10 +68,13 @@ export function TripHeader({
         </div>
         <p className={eyebrowCls}>{eyebrow}</p>
         <h1 className="break-words font-serif text-4xl font-bold leading-[1.05] sm:text-5xl lg:text-6xl">{title}</h1>
-        <p className="max-w-3xl font-serif text-lg leading-relaxed text-muted sm:text-xl">
-          {d.name}
-          {place && place !== d.name ? ` (${place})` : ""}
-        </p>
+        {/* Without an own title the h1 already is the destination name: then only the place detail is added. */}
+        {(trip.title || (place && place !== d.name)) && (
+          <p className="max-w-3xl font-serif text-lg leading-relaxed text-muted sm:text-xl">
+            {trip.title ? d.name : place}
+            {trip.title && place && place !== d.name ? ` (${place})` : ""}
+          </p>
+        )}
         {pills}
         {shared}
         <ErrorBanner error={error} />
