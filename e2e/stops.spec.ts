@@ -151,13 +151,12 @@ test.describe("trip stops", () => {
     // Nothing is saved yet, and no AI ran: the parser path needs no token.
     await noHorizontalScroll(page);
 
-    // The trip has no dates yet and the document prints some: offer them.
-    const take = page.getByRole("button", { name: /Reisedaten übernehmen/ });
-    await expect(take).toBeVisible();
-    await take.click();
+    // The trip has no dates yet and the document prints some: the trip takes them (no offer left to click).
     await expect(page.getByLabel("Startdatum")).toHaveValue("2037-12-19");
     await expect(page.getByLabel("Dauer der Reise")).toHaveValue("5");
-    await expect(take).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Reisedaten übernehmen/ })).toHaveCount(0);
+    // A destination the user picked stays.
+    await expect(page.getByRole("button", { name: "Ändern" })).toBeVisible();
 
     // With stops in the list a second upload is a proposal below them.
     await page.getByRole("button", { name: "Stopp 6 entfernen" }).click();
@@ -177,6 +176,17 @@ test.describe("trip stops", () => {
     await expect(rowsOf(page)).toHaveCount(6);
     await expect(rowsOf(page).nth(2).getByLabel("Ort", { exact: true })).toHaveValue("Dürnstein");
     await expect(rowsOf(page).nth(2).getByLabel("Tag", { exact: true })).toHaveValue("3");
+  });
+
+  test("an upload fills an empty destination with the first port and sets the trip length", async ({ page }) => {
+    await page.goto("/de/app/trips/new");
+    await page.getByRole("checkbox", { name: MULTI }).check();
+    await page.locator('#field-stops input[type="file"]').first().setInputFiles(path.join(DOCS, "donau-table.pdf"));
+    await expect(page.getByText(/Erkannt: 6 Stopps\. Bitte prüfen\./)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByLabel("Anzeigename")).toHaveValue(await rowsOf(page).nth(0).getByLabel("Ort", { exact: true }).inputValue());
+    await expect(page.getByLabel("Dauer der Reise")).toHaveValue("5");
+    await expect(page.getByLabel("Startdatum")).toHaveValue("2037-12-19");
+    await noHorizontalScroll(page);
   });
 
   test("a document without a schedule says so, and an injected instruction never becomes a stop", async ({ page }) => {

@@ -142,6 +142,31 @@ export function datesOffer(
   return { startDate, endDate, days };
 }
 
+/**
+ * What an upload sets on the trip besides the stops (Alex, 2026-11-12): the trip follows the document.
+ * - Printed dates and no start date in the form: start date and length from the dates (the rows are remapped).
+ * - Printed dates that do not fit a start date the user set: nothing; the dates offer stays for the user to take.
+ * - Otherwise: the length becomes the last stop day.
+ */
+export function tripFitFromRows(
+  rows: readonly StopRow[],
+  ctx: { startDate: string | null; lengthDays: number },
+): { startDate?: string; lengthDays?: number; stops: StopRow[] } {
+  const offer = datesOffer(rows, ctx);
+  if (offer && !ctx.startDate) {
+    return { startDate: offer.startDate, lengthDays: offer.days, stops: remapRowsToStart(rows, offer.startDate) };
+  }
+  if (offer || rows.length === 0) return { stops: [...rows] };
+  const last = Math.max(...rows.map((r) => r.day));
+  return { lengthDays: Math.min(MAX_TRIP_DAYS, Math.max(1, last)), stops: [...rows] };
+}
+
+/** The first port of call (embarkation), offered as the trip destination when the user has not entered one. */
+export function firstPlace(rows: readonly StopRow[]): { name: string; cc?: string } | null {
+  const r = [...rows].sort((a, b) => a.day - b.day).find((x) => !x.sea && x.place.trim());
+  return r ? { name: r.place.trim(), ...(r.cc ? { cc: r.cc } : {}) } : null;
+}
+
 /** Applies the offer to the rows that carry a printed date: their day follows the new start date. */
 export function remapRowsToStart(rows: readonly StopRow[], startDate: string): StopRow[] {
   return rows.map((r) => (r.date ? { ...r, day: dayOfDate(startDate, r.date) } : r));

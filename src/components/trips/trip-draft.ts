@@ -23,6 +23,11 @@ export type DestinationDraft =
     }
   | { mode: "freetext"; name: string; countryCode: string };
 
+/** No destination entered yet (nothing chosen, or an empty free-text name). */
+export function destinationIsEmpty(d: DestinationDraft): boolean {
+  return d.mode === "none" || !d.name.trim();
+}
+
 export type TimingDraft = {
   mode: "none" | "date" | "months";
   startDate: string;

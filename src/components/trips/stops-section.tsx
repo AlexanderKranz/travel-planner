@@ -19,11 +19,20 @@ import {
   patchRow,
   overfullDays,
   rowsHaveProblems,
+  firstPlace,
+  tripFitFromRows,
   type StopRow,
 } from "./stops-draft";
 import { StopsUpload, type UploadResult } from "./stops-upload";
 
-type Patch = { multiStop?: boolean; stops?: StopRow[]; lengthDays?: number; startDate?: string };
+type Patch = {
+  multiStop?: boolean;
+  stops?: StopRow[];
+  lengthDays?: number;
+  startDate?: string;
+  /** Offered destination from the first port; the form applies it only while no destination is entered. */
+  destinationFromStops?: { name: string; cc?: string };
+};
 
 /** A new extraction waiting for the user's choice (shown below saved or typed stops). */
 type Proposal = { rows: StopRow[]; truncatedTo?: number };
@@ -96,14 +105,21 @@ export function StopsSection({
   function onResult(r: UploadResult) {
     const incoming = rowsFromExtracted(r.stops);
     if (rowsRef.current.length === 0) {
-      // Nothing typed yet: the proposal is the editable list, to be checked and saved.
-      onChange({ stops: incoming });
+      // Nothing typed yet: the proposal is the editable list, to be checked and saved. The trip follows it.
+      applyRows(incoming);
       setProposal(null);
       setInfo({ count: incoming.length, truncatedTo: r.truncatedTo });
     } else {
       setProposal({ rows: incoming, truncatedTo: r.truncatedTo });
       setInfo(null);
     }
+  }
+
+  /** Takes rows as the stop list and fits the trip to them: length (or dates) and an empty destination. */
+  function applyRows(next: StopRow[]) {
+    const fit = tripFitFromRows(next, ctx);
+    const dest = firstPlace(next);
+    onChange({ ...fit, ...(dest ? { destinationFromStops: dest } : {}) });
   }
 
   const offerRows = proposal ? [...rows, ...proposal.rows] : rows;
@@ -221,7 +237,7 @@ export function StopsSection({
                   type="button"
                   className={btnPrimary}
                   onClick={() => {
-                    onChange({ stops: proposal.rows });
+                    applyRows(proposal.rows);
                     setInfo({ count: proposal.rows.length, truncatedTo: proposal.truncatedTo });
                     setProposal(null);
                   }}
