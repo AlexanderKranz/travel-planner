@@ -32,7 +32,8 @@ export type StopPlacesEntry = {
 };
 
 /** Where a stop is, stored beside the input (not hashed, not sent to the model): patches search around it. */
-export type StopPoints = Record<string, { lat: number; lon: number; geoId: number }>;
+/** `cc`: the geocoded country of the stop (#187), so a lookup after a retry keeps the stop's local-cuisine filter. */
+export type StopPoints = Record<string, { lat: number; lon: number; geoId: number; cc?: string }>;
 
 const failedStatus = (s: LookupStatus | undefined) => s === "error" || s === "skipped";
 const defined = <T extends object>(o: T): T => {
@@ -180,7 +181,7 @@ export function stopDrivePicks(f: Pick<StopFacts, "places">): { key: string; lat
 /** Stop points to store beside the input: every looked-up stop. */
 export function stopPointsOf(resolved: readonly ResolvedStop[]): StopPoints {
   const out: StopPoints = {};
-  for (const r of resolved) if (r.role === "stop" && r.status === "ok" && r.point) out[r.id] = { ...r.point };
+  for (const r of resolved) if (r.role === "stop" && r.status === "ok" && r.point) out[r.id] = { ...r.point, ...(r.countryCode ? { cc: r.countryCode } : {}) };
   return out;
 }
 
@@ -188,9 +189,10 @@ export function stopPointsOf(resolved: readonly ResolvedStop[]): StopPoints {
 export function resolvedFromInput(stored: Pick<PlanInputStored, "llm" | "stopPoints">): ResolvedStop[] {
   const rows = stored.llm.trip?.stops ?? [];
   return (stored.llm.stopPlaces ?? []).map((p) => {
-    const point = stored.stopPoints?.[p.id];
+    const stored_ = stored.stopPoints?.[p.id];
+    const point = stored_ ? { lat: stored_.lat, lon: stored_.lon, geoId: stored_.geoId } : undefined;
     const days = [...new Set(rows.filter((r) => r.at === p.id).map((r) => r.day))].sort((x, y) => x - y);
-    return defined({ id: p.id, name: p.name, days, role: "stop" as const, point, status: point ? ("ok" as const) : p.s === "not_found" ? ("not_found" as const) : p.s === "cap" ? ("cap" as const) : ("error" as const) });
+    return defined({ id: p.id, name: p.name, days, role: "stop" as const, point, countryCode: stored_?.cc, status: point ? ("ok" as const) : p.s === "not_found" ? ("not_found" as const) : p.s === "cap" ? ("cap" as const) : ("error" as const) });
   });
 }
 

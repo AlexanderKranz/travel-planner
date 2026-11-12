@@ -122,6 +122,17 @@ describe("prepareStopsForPatch", () => {
     expect(r.stored.stopPoints!.s2).toMatchObject({ geoId: 2780900 });
   });
 
+  it("the geocoding retry passes the typed stop's country hint and stores the found country (#187)", async () => {
+    const failedGeo = { ...CRUISE_RESOLVED[2], status: "error" as const, point: undefined };
+    const input = extendInputWithStops(emptyStored(), { rows: stopRows(CRUISE_STOPS, CRUISE_RESOLVED), points: stopPointsOf([CRUISE_RESOLVED[1]]), facts: [CRUISE_FACTS[1], { stop: failedGeo, places: [] }], lang: "de" });
+    h.resolveStopPlaces.mockResolvedValue([{ ...CRUISE_RESOLVED[2], id: "s1", countryCode: "AT" }]);
+    h.lookupStops.mockResolvedValue([CRUISE_FACTS[2]]);
+    const withCc = { ...trip, stops: [{ day: 3, place: "Dürnstein", cc: "AT" }] };
+    const r = await run(input, { scopeDays: [3], trip: withCc });
+    expect(h.resolveStopPlaces.mock.calls[0][1]).toEqual([{ day: 3, place: "Dürnstein", cc: "AT" }]);
+    expect(r.stored.stopPoints!.s2).toMatchObject({ cc: "AT" });
+  });
+
   it("a geocoding retry that fails again leaves the stop as it was", async () => {
     const failedGeo = { ...CRUISE_RESOLVED[2], status: "error" as const, point: undefined };
     const input = extendInputWithStops(emptyStored(), { rows: stopRows(CRUISE_STOPS, CRUISE_RESOLVED), points: stopPointsOf([CRUISE_RESOLVED[1]]), facts: [CRUISE_FACTS[1], { stop: failedGeo, places: [] }], lang: "de" });

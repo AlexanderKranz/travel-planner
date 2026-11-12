@@ -170,6 +170,16 @@ describe("extendInputWithStops (upgrade of an old input, retry of failed stops)"
     ]);
   });
 
+  it("keeps the stop's country through the stored points, so a retry keeps the local-cuisine filter (#187)", () => {
+    const withCc = CRUISE_RESOLVED.map((r) => (r.id === "s1" ? { ...r, countryCode: "AT" } : r));
+    const points = stopPointsOf(withCc);
+    expect(points.s1).toMatchObject({ cc: "AT" });
+    const stored = extendInputWithStops(emptyStored(), { rows: stopRows(CRUISE_STOPS, withCc), points, facts: CRUISE_FACTS, lang: "de" });
+    const rebuilt = resolvedFromInput(stored);
+    expect(rebuilt.find((r) => r.id === "s1")).toMatchObject({ countryCode: "AT", point: { lat: WIEN.lat, lon: WIEN.lon, geoId: WIEN.geoId } });
+    expect(rebuilt.find((r) => r.id === "s1")?.point).not.toHaveProperty("cc");
+  });
+
   it("stops without a point are never retried by lookup", () => {
     const stored = storedWithStops();
     stored.llm.stopPlaces = [{ id: "s9", name: "Nirgendwo", s: "error" }];
