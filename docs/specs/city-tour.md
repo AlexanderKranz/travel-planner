@@ -639,7 +639,7 @@ returned street addresses, shops inside the station, a bus stop, a car park and 
 suggestions used the `general` interest (attraction/viewpoint, castle/monument/city gate/fort, `building=cathedral`,
 all with wikidata) through the Geoapify fast path, whose categories missed most of it (Frankfurt: 6 places in 15 km,
 no church, theatre or station), ranked by distance (Wien: 15 Palais within 300 m); the search was address
-autocomplete. Measured live with 21 calls (Overpass 5, one a 502; Wikidata 4; Geoapify 12).
+autocomplete. Measured live with 21 calls (Overpass 5, one a 502; Wikidata 4; Geoapify 12), plus 6 for the trip extension (Barcelona: Geoapify 3, Overpass 1, Wikidata 2).
 
 **Landmark set** (`src/lib/facts/landmarks.ts`, pure; `src/lib/server/tour/landmarks.ts`, caches and warm-up).
 - One Overpass query per city point, 8 km, `out center tags 3000`: places of worship, theatres, arts centres, concert
@@ -727,6 +727,61 @@ recorded `type=amenity` answers merged with the landmark set, `src/lib/server/to
 | Alte Oper | Alte Oper (theatre) · bus stop · car park (plus an office, a ticket office) | Alte Oper |
 | Hauptbahnhof | Deutsche Post · Burgertime · … (businesses inside the station) | Frankfurt (Main) Hauptbahnhof · Offenbach (Main) Hauptbahnhof (nothing else: the S-Bahn level and the uncategorized exits and stops are the station) |
 | Römer | not measured | Römer · Römerberg · Haus zum Römer |
+
+**Trips: the same prominence for interest places** (scope extension by Alex, 2026-11-12). "Orte zum Vormerken"
+said "sortiert nach Bekanntheit und Entfernung", but `rankCandidates` only scored has-wikidata/has-wikipedia and the
+city filters require wikidata, so the 25 kept were the 25 nearest: in Barcelona the Sagrada Família (2.1 km) was cut
+by 44 items within 1.5 km.
+- `rankCandidates(…, { sitelinks })` (`src/lib/facts/places.ts`): prominence bucket floor(log2(sitelinks + 1)) first,
+  then the old wikidata/wikipedia flags, then the distance (distance stays the key within a bucket: 64-127 sitelinks
+  is one bucket, 32-63 the next, …); with sitelinks, one place per Wikidata item (La Rambla is several tagged
+  segments). Without `sitelinks` the order is byte-identical to before.
+- Applied to the interests whose places usually have a Wikidata item (`prominence` in `interest-sources.ts`):
+  city_sightseeing/general, architecture, history, museums, nature_wildlife, family_activities, hiking. Golf, beach,
+  wellness, food and the rest are unchanged (same keys, same order). The counts come in the Overpass and Geoapify
+  fetchers (cache miss only): the Wikidata items within the radius, at most 500 (10 requests), cached 90 days as
+  `sitelinks:v1:ids=<hash>;n=<count>`, at most 15 s; when Wikidata does not answer, the list is ranked as before. The
+  Wikidata client sends one request at a time per instance. The discover variant (find destinations) is not ranked.
+- Flagged interests use cache key v3 (`interpreter:v3`, `places:v3`), so every trip fetches its list once more
+  (Geoapify credits; Overpass via the retry job).
+- **Overpass first for `general`** (`overpassFirst`): Geoapify's 100 nearest per category group do not contain the
+  Sagrada Família, Park Güell, Casa Batlló or La Pedrera (Barcelona, 298 elements, 72 matching, measured) and gave
+  Frankfurt 6 places, so a Geoapify answer only stands in and the Overpass lookup is queued for the place retry job
+  (`interest` job with `overpass: true`, key suffix `:overpass`, never inline). Once Overpass is cached the fast path
+  prefers it.
+- Evals: `evals/build-input.ts` and `evals/port-places.ts` rank recorded Overpass fixtures without sitelinks, so the
+  recorded inputs and the golf / cruise / Würzburg hashes are unchanged; no eval needs re-recording. The evals do
+  therefore not exercise the prominence order.
+- UI text (`places.intro`, de + en) now says what the code does: the best known first (sitelinks for sights, museums
+  and the like, otherwise whether there is a Wikipedia article), the nearer first among equally known.
+
+Barcelona, `general`, 15 km (Overpass, recorded; Casa Batlló and La Pedrera have no element with a Wikidata id in the
+matching categories, so they cannot appear):
+
+| # | Before (distance order) | After (prominence) |
+|---|---|---|
+| 1 | Carrer del Consell de Cent | Spotify Camp Nou |
+| 2 | Carrer del Consell de Cent | Basílica de la Sagrada Família |
+| 3 | Mercat del Ninot | Plaça de Catalunya |
+| 4 | Museu del Modernisme Català | La Rambla |
+| 5 | Rambla de Catalunya | Palau de la Música Catalana |
+| 6 | Carrer del Consell de Cent | Catedral de la Santa Creu i Santa Eulàlia |
+| 7 | Editorial Montaner i Simón | Palau Güell |
+| 8 | La Villarroel | Casa Vicens |
+| 9 | Museu Tàpies | Parc Güell |
+| 10 | Rambla de Catalunya | Sant Pau Recinte Modernista |
+| 11 | Rambla de Catalunya | Carrer de la Selva de Mar |
+| 12 | Casa Lleó Morera | Ajuntament de Santa Coloma de Cervelló |
+| 13 | Casa Mulleras | Museu Nacional d'Art de Catalunya |
+| 14 | Casa Pia Batlló | Severo Ochoa |
+| 15 | Museu del Perfum | Casa Lleó Morera |
+
+Known noise: OSM elements whose `wikidata` names their subject, not themselves (a town hall 12 km out tagged with its
+municipality, 46 sitelinks; a monument tagged with the person, 61; a street with a district item). Distance only
+orders within a bucket, so such items can rank high anywhere in the radius. Frankfurt with the `general` filters
+(12 km recording): Wertpapierbörse, Paulskirche, Commerzbank Tower, Städel, Hauptbahnhof, Messeturm, Zeil,
+Katharinenkirche, Kaiserdom, Römer, Goethe-Haus, Römerberg, Alte Oper, Main Tower in the top 15 (before: Frankfurter
+Engel, Klaus-Mann-Platz, Kochkunst-Museum, MyZeil, … by distance).
 
 **Quotas.** Overpass: one query per city per 30 days, in the warm-up or the retry job only (40-55 s on
 overpass-api.de, 278 s for Wien on the private.coffee mirror; the job's 120 s cap can cut a slow mirror, the next run

@@ -1,5 +1,4 @@
 import "server-only";
-import { createHash } from "node:crypto";
 import { after } from "next/server";
 import { z } from "zod";
 import {
@@ -10,9 +9,9 @@ import {
   type Landmark,
 } from "@/lib/facts/landmarks";
 import { buildQuery, runQuery } from "@/lib/integrations/overpass";
-import { fetchSitelinkCounts } from "@/lib/integrations/wikidata-sitelinks";
 import { landmarksJob } from "@/lib/places-retry";
 import { cacheKey, cached, type CacheCtx, type CachedResult } from "../api-cache";
+import { cachedSitelinks, idsHash } from "../facts/sitelinks";
 import { enqueuePlaceRetries } from "../place-retries";
 
 /**
@@ -30,7 +29,7 @@ import { enqueuePlaceRetries } from "../place-retries";
  * kept in memory for READ_MEMO_MS per instance: Wien's set is ~340 KB and the search reads it on every keystroke.
  */
 export const LANDMARKS_TTL_SECONDS = 30 * 86400;
-export const SITELINKS_TTL_SECONDS = 90 * 86400;
+export { SITELINKS_TTL_SECONDS } from "../facts/sitelinks";
 /** Overpass element cap: Wien within 8 km had 1,739 matching elements (2026-11-12). */
 export const LANDMARK_QUERY_LIMIT = 3000;
 /** Budget of the warm-up after a response (the retry worker passes its own). */
@@ -51,8 +50,7 @@ export const landmarksKey = (p: Anchor) => {
 /** Sitelinks key: the anchor plus a hash of the set's Wikidata ids (sorted), 16 hex characters. */
 export const sitelinksKey = (p: Anchor, ids: readonly string[]) => {
   const a = anchorOf(p);
-  const h = createHash("sha256").update([...new Set(ids)].sort().join(",")).digest("hex").slice(0, 16);
-  return cacheKey("sitelinks", 1, { ids: h, lat: a.lat, lon: a.lon, r: LANDMARK_RADIUS_KM });
+  return cacheKey("sitelinks", 1, { ids: idsHash(ids), lat: a.lat, lon: a.lon, r: LANDMARK_RADIUS_KM });
 };
 
 const LandmarkSchema: z.ZodType<Landmark> = z.object({
@@ -71,7 +69,6 @@ const LandmarkSchema: z.ZodType<Landmark> = z.object({
   nameCount: z.number().int().min(0),
 });
 const LandmarksSchema = z.array(LandmarkSchema);
-const SitelinksSchema = z.record(z.string().regex(/^Q\d{1,12}$/), z.number().int().min(0));
 
 function landmarksLookup(anchor: Anchor, ctx: CacheCtx, deadline: number | null): Promise<CachedResult<Landmark[]>> {
   return cached({
@@ -97,20 +94,9 @@ function sitelinksLookup(
   ctx: CacheCtx,
   deadline: number | null,
 ): Promise<CachedResult<Record<string, number>>> {
-  return cached({
-    provider: "wikidata",
-    endpoint: "sitelinks",
-    key: sitelinksKey(anchor, landmarks.map((l) => l.wikidata)),
-    ttlSeconds: SITELINKS_TTL_SECONDS,
-    schema: SitelinksSchema,
-    ctx,
-    fetchAllowed: () => deadline !== null,
-    fetcher: async () => {
-      // `collectLandmarks` already keeps at most MAX_LANDMARK_CANDIDATES (≤ 20 requests of 50).
-      const r = await fetchSitelinkCounts(landmarks.map((l) => l.wikidata), { deadline: deadline ?? Date.now() });
-      return { data: r.counts, status: r.status, latencyMs: r.latencyMs, units: r.requests };
-    },
-  });
+  // `collectLandmarks` already keeps at most MAX_LANDMARK_CANDIDATES (≤ 40 requests of 50).
+  const ids = landmarks.map((l) => l.wikidata);
+  return cachedSitelinks({ key: sitelinksKey(anchor, ids), ids, ctx, deadline });
 }
 
 export type CityLandmarks = {

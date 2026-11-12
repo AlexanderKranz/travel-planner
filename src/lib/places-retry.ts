@@ -18,7 +18,15 @@ const Point = z.object({ lat: coord, lon: coord });
 
 /** Normalized parameters to rerun one lookup. No user, trip or text: coordinates, kinds and keys only. */
 export const RetrySpec = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("interest"), interest: z.string().min(1).max(40), lat: coord, lon: coord, radiusKm: z.number().min(1).max(200) }),
+  // `overpass`: run the Overpass lookup even when Geoapify answered (interests with `overpassFirst`).
+  z.object({
+    kind: z.literal("interest"),
+    interest: z.string().min(1).max(40),
+    lat: coord,
+    lon: coord,
+    radiusKm: z.number().min(1).max(200),
+    overpass: z.literal(true).optional(),
+  }),
   // `wanted`: the wished types of this group (empty = a group-only wish: every part is fetched). A retry fetches only
   // what was asked for, and the job is done when those are complete.
   z.object({ kind: z.literal("activity_group"), group: z.enum(ACTIVITY_GROUPS), dest: Dest, wanted: z.array(z.enum(ACTIVITY_TYPES)).max(30).default([]) }),
@@ -36,7 +44,7 @@ const roundDest = (d: DestLike) => ({ ...round(d), kind: d.kind });
 export function retryKey(s: RetrySpec): string {
   switch (s.kind) {
     case "interest":
-      return `interest:${s.interest}:${r3(s.lat)}:${r3(s.lon)}:${s.radiusKm}`;
+      return `interest:${s.interest}:${r3(s.lat)}:${r3(s.lon)}:${s.radiusKm}${s.overpass ? ":overpass" : ""}`;
     case "activity_group":
       return `activities:${s.group}:${r3(s.dest.lat)}:${r3(s.dest.lon)}:${[...s.wanted].sort().join(",")}`;
     default:
@@ -89,6 +97,11 @@ export const LANDMARKS_JOB_INTEREST = "landmarks";
 /** The job that fetches a city point's landmarks (Overpass, then Wikidata sitelinks). */
 export function landmarksJob(p: { lat: number; lon: number }): RetryJob {
   return job({ kind: "interest", interest: LANDMARKS_JOB_INTEREST, ...round(p), radiusKm: LANDMARK_RADIUS_KM });
+}
+
+/** The Overpass lookup of an `overpassFirst` interest that Geoapify answered for now (issue #172). */
+export function overpassJob(p: { lat: number; lon: number }, interest: string, radiusKm: number): RetryJob {
+  return job({ kind: "interest", interest, ...round(p), radiusKm, overpass: true });
 }
 
 /** Jobs for interest lookups of a change request (issue #151) that failed: same radius rule as the plan's. */

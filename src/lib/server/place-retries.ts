@@ -69,7 +69,11 @@ export async function runLookup(spec: RetrySpec, budgetMs: number, ctx: FactsCtx
         const { warmLandmarks } = await import("./tour/landmarks");
         return (await warmLandmarks(spec, ctx, budgetMs)) === "ok" ? "done" : "failed";
       }
-      return (await retryInterestLookup(spec.interest as Parameters<typeof retryInterestLookup>[0], spec, spec.radiusKm, ctx, budgetMs)) === "ok" ? "done" : "failed";
+      return (await retryInterestLookup(spec.interest as Parameters<typeof retryInterestLookup>[0], spec, spec.radiusKm, ctx, budgetMs, {
+        overpass: spec.overpass === true,
+      })) === "ok"
+        ? "done"
+        : "failed";
     case "activity_group": {
       const f = await getActivityGroupFacts(spec.group, asDest(spec.dest), ctx, { budgetMs, ...(spec.wanted.length ? { wanted: spec.wanted } : {}) });
       return groupDone(f, spec.wanted) ? "done" : "failed";

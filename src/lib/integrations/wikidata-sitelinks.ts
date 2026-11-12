@@ -68,6 +68,14 @@ export function parseSitelinks(body: unknown): Record<string, number> {
   return out;
 }
 
+/** Requests of this instance run one after the other, also across concurrent lookups (API etiquette: serial). */
+let queue: Promise<unknown> = Promise.resolve();
+function serial<T>(run: () => Promise<T>): Promise<T> {
+  const next = queue.then(run, run);
+  queue = next.catch(() => undefined);
+  return next;
+}
+
 /**
  * Sitelink counts for up to `ids.length` items, 50 per request, one request after the other (never parallel).
  * `deadline` (epoch ms): no new request starts after it, and the call throws (an incomplete map is not cached).
@@ -90,7 +98,8 @@ export async function fetchSitelinkCounts(
       throw Object.assign(e, { units: requests });
     }
     try {
-      const r = await fetchJson(sitelinksUrl(unique.slice(i, i + SITELINKS_BATCH)), { timeoutMs: SITELINKS_TIMEOUT_MS });
+      const url = sitelinksUrl(unique.slice(i, i + SITELINKS_BATCH));
+      const r = await serial(() => fetchJson(url, { timeoutMs: SITELINKS_TIMEOUT_MS }));
       Object.assign(counts, parseSitelinks(r.body));
       requests += 1;
       latencyMs += r.latencyMs;

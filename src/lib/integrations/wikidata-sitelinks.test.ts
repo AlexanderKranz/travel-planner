@@ -77,4 +77,21 @@ describe("Wikidata sitelink counts", () => {
     h.fetchJson.mockResolvedValueOnce({ status: 200, latencyMs: 5, body: { error: { code: "maxlag" } } });
     await expect(fetchSitelinkCounts(["Q1"])).rejects.toMatchObject({ units: 1 });
   });
+
+  it("concurrent lookups on one instance send one request at a time", async () => {
+    let running = 0;
+    let max = 0;
+    h.fetchJson.mockImplementation(async (url: string) => {
+      running += 1;
+      max = Math.max(max, running);
+      await new Promise((r) => setTimeout(r, 5));
+      running -= 1;
+      const titles = new URL(url).searchParams.get("titles")!.split("|");
+      return answer(titles.map((q) => page(q, 1)));
+    });
+    const ids = (n: number, off: number) => Array.from({ length: n }, (_, i) => `Q${i + off}`);
+    await Promise.all([fetchSitelinkCounts(ids(60, 1)), fetchSitelinkCounts(ids(60, 1000)), fetchSitelinkCounts(ids(10, 5000))]);
+    expect(h.fetchJson).toHaveBeenCalledTimes(5);
+    expect(max).toBe(1);
+  });
 });

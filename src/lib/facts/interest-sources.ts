@@ -30,6 +30,17 @@ export type InterestSource =
       minRadiusKm?: number;
       exclude?: InterestExclude;
       /**
+       * Rank by Wikidata sitelink count first (issue #172; `rankCandidates` with `sitelinks`), for interests whose
+       * places usually have a Wikidata item. Own cache key version (v3), so earlier lists are not reused.
+       */
+      prominence?: true;
+      /**
+       * Overpass is the authoritative source: a Geoapify answer only stands in, and the Overpass lookup is queued for
+       * the retry job (Geoapify's 100 nearest per category missed Sagrada Família and Park Güell in Barcelona and gave
+       * 6 places in Frankfurt, measured 2026-11-12).
+       */
+      overpassFirst?: true;
+      /**
        * Only for "Find destinations" (getPlacesAt): replaces `filters`/`geoapify` there, with its own cache key.
        * Trip plans never read it, so their candidates and cache keys stay as they were.
        */
@@ -81,16 +92,19 @@ export const INTEREST_SOURCES: Record<InterestKey, InterestSource> = {
     // Separate requests: nearby viewpoints must not crowd peaks out of the 100-place page.
     geoapify: [["tourism.attraction.viewpoint"], ["natural.mountain.peak"]],
     minRadiusKm: 25,
+    prominence: true,
   },
-  city_sightseeing: { source: "osm", filters: city, geoapify: cityGeoapify },
+  city_sightseeing: { source: "osm", filters: city, geoapify: cityGeoapify, prominence: true, overpassFirst: true },
   museums: {
     source: "osm",
     filters: [`["tourism"~"^(museum|gallery)$"]`],
     geoapify: [["entertainment.museum", "entertainment.culture.gallery"]],
+    prominence: true,
   },
   architecture: {
     source: "osm",
     filters: [`["building"~"^(cathedral|church|palace)$"]["wikidata"]`, `["historic"="castle"]["wikidata"]`],
+    prominence: true,
   },
   history: {
     source: "osm",
@@ -104,6 +118,7 @@ export const INTEREST_SOURCES: Record<InterestKey, InterestSource> = {
         "tourism.sights.memorial.monument",
       ],
     ],
+    prominence: true,
   },
   food_wine: {
     source: "osm",
@@ -120,12 +135,14 @@ export const INTEREST_SOURCES: Record<InterestKey, InterestSource> = {
     filters: [`["tourism"~"^(zoo|aquarium|theme_park)$"]`, `["leisure"="water_park"]`],
     geoapify: [["entertainment.zoo", "entertainment.aquarium", "entertainment.theme_park", "entertainment.water_park"]],
     minRadiusKm: 25,
+    prominence: true,
   },
   nature_wildlife: {
     source: "osm",
     filters: [`["leisure"="nature_reserve"]["wikidata"]`, `["boundary"="national_park"]`],
     geoapify: [["leisure.park.nature_reserve", "national_park"]],
     minRadiusKm: 40,
+    prominence: true,
   },
   cycling: { source: "osm", filters: [`["amenity"="bicycle_rental"]`], geoapify: [["rental.bicycle"]] },
   skiing: {

@@ -619,7 +619,7 @@
     "places": {
       "title": "Places to consider",
       "general": "Sights",
-      "intro": "Candidates from OpenStreetMap within {radius} km, sorted by notability and distance. They are not a plan.",
+      "intro": "Candidates from OpenStreetMap within {radius} km. The best known first (for sights, museums and the like by the number of Wikipedia and Wikimedia articles according to Wikidata, otherwise whether there is a Wikipedia article), the nearer ones first among equally known. They are not a plan.",
       "distance": "{km} km away",
       "groupMeta": "{count, plural, one {# place} other {# places}} within {radius} km",
       "linkOsm": "OpenStreetMap",
