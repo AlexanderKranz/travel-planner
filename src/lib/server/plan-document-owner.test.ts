@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import golf from "./__fixtures__/plan-document-golf.json";
 import type { Plan } from "@/lib/domain/plan";
+import { tourRow, wienInput } from "@/lib/plan/tour-test-helpers";
 
 vi.mock("server-only", () => ({}));
 
@@ -111,6 +112,42 @@ describe("getOwnerPlanDocumentResult", () => {
     errors = { profiles: { code: "x" } };
     const res = await getOwnerPlanDocumentResult(TRIP);
     expect(res.ok && res.doc.timeDifference).toBeNull();
+  });
+
+  describe("city tours (city-tour 10)", () => {
+    const row = (o: Parameters<typeof tourRow>[0] = {}) => tourRow({ trip_id: TRIP, ...o });
+
+    it("reads linked tours with the session and renders those on a day of the trip", async () => {
+      tables.city_tours = [row(), row({ id: "00000000-0000-4000-8000-000000000002", trip_day: null })];
+      const res = await getOwnerPlanDocumentResult(TRIP);
+      expect(from("city_tours")).toEqual(["city_tours:id, trip_id, trip_day, title, input, result, updated_at"]);
+      expect(res.ok && res.doc.tours!.map((t) => t.day)).toEqual([2]);
+      expect(admin).not.toHaveBeenCalled();
+    });
+
+    it("a tour with a start time changed after the version shows the items-changed hint (outdated plan)", async () => {
+      tables.city_tours = [row({ updated_at: "2026-09-01T00:00:00Z" })];
+      const before = await getOwnerPlanDocumentResult(TRIP);
+      expect(before.ok && before.doc.itemsChanged).toBe(false);
+      tables.city_tours = [row({ updated_at: "2026-10-02T00:00:00Z" })];
+      const after = await getOwnerPlanDocumentResult(TRIP);
+      expect(after.ok && after.doc.itemsChanged).toBe(true);
+    });
+
+    it("a changed tour without a start time or without a day does not (it is not in the plan input)", async () => {
+      tables.city_tours = [
+        row({ updated_at: "2026-10-02T00:00:00Z", input: wienInput() }),
+        row({ id: "00000000-0000-4000-8000-000000000002", trip_day: null, updated_at: "2026-10-02T00:00:00Z" }),
+      ];
+      const res = await getOwnerPlanDocumentResult(TRIP);
+      expect(res.ok && res.doc.itemsChanged).toBe(false);
+    });
+
+    it("a failed tour read costs only the tour blocks", async () => {
+      errors = { city_tours: { code: "x" } };
+      const res = await getOwnerPlanDocumentResult(TRIP);
+      expect(res.ok && res.doc.tours).toEqual([]);
+    });
   });
 
   it("a malformed trip id is not_found without any read", async () => {

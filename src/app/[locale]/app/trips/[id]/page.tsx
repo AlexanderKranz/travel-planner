@@ -17,7 +17,9 @@ import { Locale, type FactsCtx } from "@/lib/domain";
 import { ageReferenceDate } from "@/lib/facts/trip-timing";
 import { groupPartySize, resolveGroup, tripGroupSource } from "@/lib/group-text";
 import { tripPurpose } from "@/lib/purpose-source";
-import { getGroupOnce, getPlanStateOnce, getProfileOnce, getPurposeOnce, getTripOnce } from "@/lib/server/request-reads";
+import { getGroupOnce, getPlanStateOnce, getProfileOnce, getPurposeOnce, getTripOnce, getTripToursOnce } from "@/lib/server/request-reads";
+import { TripToursNoDay } from "@/components/tour/trip-tours-no-day";
+import { tourBlocks } from "@/lib/plan/tour-blocks";
 import { loadAgeRefs } from "@/lib/server/age-refs";
 import { getUserSession } from "@/lib/server/session";
 import { getTripOwnerContext, listGrants, listSharedWithMe } from "@/lib/server/sharing";
@@ -57,11 +59,12 @@ export default async function TripDetailPage({
   const t = await getTranslations("facts");
   const trip = unwrap(await getTripOnce(id), locale);
 
-  const [groupRes, purposeRes, profileRes, session] = await Promise.all([
+  const [groupRes, purposeRes, profileRes, session, tours] = await Promise.all([
     trip.groupId ? getGroupOnce(trip.groupId) : null,
     trip.purposeId ? getPurposeOnce(trip.purposeId) : null,
     getProfileOnce(),
     getUserSession(),
+    getTripToursOnce(trip.id),
   ]);
   const profile = unwrap(profileRes, locale);
   const today = berlinToday();
@@ -210,10 +213,18 @@ export default async function TripDetailPage({
         <TripStopsList trip={trip} />
       </Suspense>
       <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} partySize={partySize} startDate={startDate} authors={authors} />
+      <TripToursNoDay tours={tours} lengthDays={trip.lengthDays} />
       {/* Same 2/3 + 1/3 split as the plan at lg; stacked on phones. */}
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:items-start lg:gap-x-8">
         <ItemsSection tripId={trip.id} lengthDays={trip.lengthDays} startDate={startDate} partySize={partySize} readOnly={trip.access === "read"} />
-        <SharePanel tripId={trip.id} hasPlan={hasPlan} isDemo={profile.isDemo} isAdmin={profile.role === "admin"} owner={isOwner} />
+        <SharePanel
+          tripId={trip.id}
+          hasPlan={hasPlan}
+          isDemo={profile.isDemo}
+          isAdmin={profile.role === "admin"}
+          owner={isOwner}
+          tourEndpointsVisible={tourBlocks(tours, trip.lengthDays).some((b) => b.addressEnds)}
+        />
       </div>
       <p className="text-sm text-muted">
         {t("intro")}{" "}

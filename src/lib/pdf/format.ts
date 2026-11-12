@@ -15,6 +15,8 @@ export function makeFormat(locale: string) {
     money: (m: Money, currency: string) =>
       m.minCents === m.maxCents ? cents(m.minCents, currency) : `${cents(m.minCents, currency)} – ${cents(m.maxCents, currency)}`,
     duration: (min: number) => `${Math.floor(min / 60)}:${String(min % 60).padStart(2, "0")} h`,
+    /** One decimal, "4,2" (city tour distances). */
+    km: (n: number) => new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 }).format(n),
   };
 }
 export type Fmt = ReturnType<typeof makeFormat>;

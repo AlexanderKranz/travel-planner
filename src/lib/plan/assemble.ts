@@ -22,6 +22,7 @@ import { guardOpenAir, placeClasses, type PlaceClass } from "./open-air";
 import { applyPortWindows, rowTimes, rowsOfPlace } from "./port-windows";
 import { guardScheduleTimes } from "./schedule-times";
 import { guardStopRefs, stopRefCtx, type StopCtx } from "./stop-refs";
+import { guardTourDuplicates, tourStopsByDay } from "./tour-guard";
 
 export type AssembleIssue =
   | "invalid_ref"
@@ -39,7 +40,9 @@ export type AssembleIssue =
   /** Port places: a ref or alt of a stop used on another day, or of the destination on a day at another stop (dropped). */
   | "stop_mismatch"
   /** Port places: a stop row with a time that no stop of its day matched (the window could not be applied). */
-  | "port_window_missing";
+  | "port_window_missing"
+  /** City tours: a ref or alt that is a stop of that day's linked tour (replaced by an alt or dropped, city-tour 10). */
+  | "tour_duplicate";
 export type AssembleIssues = Record<AssembleIssue, number>;
 
 export const LIMITS = {
@@ -72,6 +75,7 @@ export const emptyIssues = (): AssembleIssues => ({
   open_air: 0,
   stop_mismatch: 0,
   port_window_missing: 0,
+  tour_duplicate: 0,
 });
 
 /** Code guard [D6]: timed activities that overlap a fixed item of their day are dropped and counted. */
@@ -184,6 +188,8 @@ export type DayCtx = {
   months?: number[];
   /** Trip stops (plan-8): port windows and stop refs; absent without `trip.stops`. */
   stops?: StopCtx;
+  /** OSM stops of the linked city tours by day (duplicate guard, city-tour 10); absent without tours. */
+  tourStops?: Map<number, Set<string>>;
 };
 
 /**
@@ -201,11 +207,15 @@ export function ownTimes(base: Set<string>, rows: PlanInputStored["llm"]["trip"]
 }
 
 /** The per-plan part of DayCtx that the guards of issue #142 need. */
-export function guardCtx(stored: PlanInputStored): Pick<DayCtx, "notes" | "places" | "climate" | "months" | "stops"> {
+export function guardCtx(
+  stored: PlanInputStored,
+  /** Current tour stops (patches; null = none now); undefined = the ones stored with the input. */
+  tourStops?: PlanInputStored["tourStops"] | null,
+): Pick<DayCtx, "notes" | "places" | "climate" | "months" | "stops" | "tourStops"> {
   // The stops count as notes for the invented-times guard: a place named only in `trip.stops` has its times from there.
   const named = (stored.llm.trip.stops ?? []).flatMap((r) => (r.place ? [r.place] : []));
   const notes = named.length ? [stored.llm.trip.notes, ...named].filter(Boolean).join("\n") : stored.llm.trip.notes;
-  return { notes, places: placeClasses(stored), climate: stored.llm.climate, months: stored.llm.trip.months, stops: stopRefCtx(stored) };
+  return { notes, places: placeClasses(stored), climate: stored.llm.climate, months: stored.llm.trip.months, stops: stopRefCtx(stored), tourStops: tourStopsByDay(tourStops === undefined ? stored.tourStops : (tourStops ?? undefined)) };
 }
 
 /** One model day → stored day (spec 4.5). The best-day highlight is never model output (patch-safety [D8]). */
@@ -253,6 +263,11 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
         issues.stop_mismatch += g.dropped;
         act = g.act;
       }
+      // Next to the stop-ref guard: a place of the day's city tour is not planned a second time (city-tour 10).
+      const tour = guardTourDuplicates(act, ctx.tourStops?.get(d.n), ctx.places?.name);
+      issues.tour_duplicate += tour.dropped;
+      if (!tour.act) continue;
+      act = tour.act;
       acts.push(act);
     }
     // Times from the trip stops count only for the stop row of this day that names the place.

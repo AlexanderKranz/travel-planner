@@ -52,7 +52,7 @@ export function SharedPlanView({ doc, token, uiLocale, banner }: { doc: PlanDocu
         <PlanGlanceTiles doc={doc} locale={uiLocale} />
         <ol className="flex flex-col gap-3" aria-label={tp("daysLabel")}>
           {plan.days.map((d) => (
-            <DayCard dayCount={plan.days.length} key={d.n} day={d} places={plan.places} fixed={fixed} />
+            <DayCard dayCount={plan.days.length} key={d.n} day={d} places={plan.places} fixed={fixed} tours={doc.tours ?? []} />
           ))}
         </ol>
       </DriveTimesScope>

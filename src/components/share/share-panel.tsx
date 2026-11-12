@@ -15,6 +15,7 @@ export async function SharePanel({
   isDemo,
   isAdmin = false,
   owner = true,
+  tourEndpointsVisible = false,
 }: {
   tripId: string;
   hasPlan: boolean;
@@ -22,6 +23,8 @@ export async function SharePanel({
   isAdmin?: boolean;
   /** False for a grantee: PDF only, no people box, no links (spec sharing 4.3). */
   owner?: boolean;
+  /** A city tour on a day of the trip starts or ends at an address (Geoapify, no OSM place): links show it (city-tour 10). */
+  tourEndpointsVisible?: boolean;
 }) {
   const t = await getTranslations("share");
   if (!owner) {
@@ -56,6 +59,11 @@ export async function SharePanel({
       {hasPlan && <p className={`-mt-2 text-sm ${mutedCls}`}>{t("pdfHint")}</p>}
       <PeopleBox resource="trip" resourceId={tripId} isDemo={isDemo} isAdmin={isAdmin} />
       <h3 className="border-t border-line pt-4 text-base font-semibold">{t("linksTitle")}</h3>
+      {tourEndpointsVisible && (
+        <p role="note" className="rounded-md border border-line-strong px-3 py-2 text-sm" data-tour-endpoints-visible>
+          {t("tourEndpointsVisible")}
+        </p>
+      )}
       <ShareCreate tripId={tripId} disabledReason={reason} />
       {!res.ok && <ErrorBanner error={res.error} />}
       {links.length > 0 && (

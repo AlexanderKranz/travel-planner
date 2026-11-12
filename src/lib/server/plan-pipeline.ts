@@ -39,6 +39,8 @@ import { applyPatch } from "@/lib/plan/patch";
 import { guardPatch } from "@/lib/plan/patch-guard";
 import { assemblePlan } from "@/lib/plan/assemble";
 import { fixedItemsOf, fixedSlots } from "@/lib/plan/fixed-items";
+import { tourSlots, tourStopKeys, withTourSlots } from "@/lib/plan/tour-blocks";
+import { loadLinkedTours } from "./tour/trip-tours";
 import type { TripItem } from "@/lib/domain/items";
 import { ITEM_COLUMNS, rowToItem, type ItemRow } from "./item-mapping";
 import { composePlan, patchPlan } from "./ai/compose";
@@ -470,6 +472,7 @@ export async function generatePlan(
       today: berlinToday(),
       drive,
       items: await loadTripItems(c.sb, c.trip.id),
+      tours: await loadLinkedTours(c.sb, c.trip.id),
       stops,
       stopDrive,
     });
@@ -728,8 +731,15 @@ export async function iteratePlan(
     if (!fresh || fresh.latestVersion !== plan.latestVersion) return err("conflict");
 
     // The stored input of the base version keeps the cache prefix identical and avoids refetching facts.
-    // Current timed items (may have changed since the base version); sent only when they differ from INPUT.fixed.
-    const fixed = fixedSlots(fixedItemsOf(await loadTripItems(c.sb, c.trip.id), base.plan.days.length));
+    // Current timed items and city tours (may have changed since the base version); sent only when they differ from
+    // INPUT.fixed. The tours' stops feed the duplicate guard of the patched days (city-tour 10).
+    const days = base.plan.days.length;
+    const tours = await loadLinkedTours(c.sb, c.trip.id);
+    const fixed = withTourSlots(
+      fixedSlots(fixedItemsOf(await loadTripItems(c.sb, c.trip.id), days)),
+      tourSlots(tours, days, base.plan.locale as Locale),
+    );
+    const tourStops = tourStopKeys(tours, days);
     // Port places [P8]: a base input from before plan-8 gets the trip's stops, and failed stops in scope are retried
     // (one shared budget, cache and Geoapify only), before the model sees the input.
     const prep = await prepareStopsForPatch({
@@ -767,7 +777,7 @@ export async function iteratePlan(
       });
       return await done(c, { unchanged: true, notice: { code: "places_not_loadable", places: [] } });
     }
-    const patched = applyPatch({ base: base.plan, patch: res.data, stored, scope: fb.data.days, fixed });
+    const patched = applyPatch({ base: base.plan, patch: res.data, stored, scope: fb.data.days, fixed, tourStops });
     if (!patched.ok) return failed(c, patched.reason, "invalid_output");
     // Shrink guard: a day that lost most of its activities is kept as it was, never silently accepted.
     const guarded = guardPatch({ base: base.plan, next: patched.plan, feedback: fb.data, index: stored.index });

@@ -106,7 +106,7 @@ describe("mergeDayRows", () => {
     ],
   };
   const rows = (fixed: ReturnType<typeof fixedItemsOf>) =>
-    mergeDayRows(day, fixed).map((s) => s.rows.map((r) => (r.kind === "fixed" ? `F:${r.item.id}` : r.act.text)));
+    mergeDayRows(day, fixed).map((s) => s.rows.map((r) => (r.kind === "fixed" ? `F:${r.item.id}` : r.kind === "tour" ? `T:${r.tour.id}` : r.act.text)));
 
   it("puts a morning flight before the untimed arrival act that leads into the first timed act", () => {
     expect(rows(fixedItemsOf([flight], 3))).toEqual([["F:f", "Arrival and transfer", "Golf"], ["Dinner"]]);

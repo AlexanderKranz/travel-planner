@@ -1199,7 +1199,8 @@
     "pdfBusy": "Creating PDF…",
     "pdfFailed": "The PDF could not be created. Please try again later.",
     "pdfTitle": "Download",
-    "linksTitle": "Public links"
+    "linksTitle": "Public links",
+    "tourEndpointsVisible": "The start and end of your city tours are visible."
   },
   "picture": {
     "alt": "Photo of {place}",
@@ -1327,7 +1328,20 @@
     "dayShort": "DAY",
     "daysUnit": "days",
     "windowFrom": "from {time}",
-    "windowUntil": "until {time}"
+    "windowUntil": "until {time}",
+    "tour": {
+      "label": "City tour",
+      "places": "{count} places",
+      "placesOne": "1 place",
+      "km": "{km} km {mode}",
+      "modes": {
+        "foot": "on foot",
+        "wheelchair": "by wheelchair",
+        "cycling": "by bike",
+        "car": "by car"
+      },
+      "sources": "Routes: © openrouteservice.org, map data © OpenStreetMap contributors"
+    }
   },
   "admin": {
     "title": "Admin",
@@ -2033,6 +2047,15 @@
       "conflict": "The tour was changed in the meantime. Reload the page and try again.",
       "invalid": "Please check your entries.",
       "failed": "That did not work. Please try again."
-    }
+    },
+    "dayBlock": "City tour{time, select, none {} other { · {time}}} · {count, plural, one {# place} other {# places}}{km, select, none {} other { · {km} km {mode, select, foot {on foot} wheelchair {by wheelchair} cycling {by bike} other {by car}}}}",
+    "dayBlockNoTime": "Set a start time so the plan keeps this time free.",
+    "dayBlockStops": "Stops of the tour",
+    "openTour": "Open tour",
+    "dayAction": "City tour for this day",
+    "noDay": "No day",
+    "noDayTitle": "City tours without a day",
+    "noDayHint": "These tours belong to no day of the trip and are not part of the plan.",
+    "routeCredit": "Routes: © openrouteservice.org"
   }
 }

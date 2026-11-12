@@ -13,6 +13,7 @@ import { gatewayAirports, nearestGatewayKm } from "./airports";
 import type { TripStop } from "@/lib/domain/trip-stops";
 import { stopPointsOf, stopRows, stopsInput, type StopPlacesEntry, type StopPoints, type StopRow } from "./stops-input";
 import { fixedItemsOf, fixedSlots, type FixedSlot } from "./fixed-items";
+import { tourSlots, tourStopKeys, withTourSlots, type LinkedTour } from "./tour-blocks";
 import type { SharedItem } from "@/lib/domain/items";
 import {
   activitiesInput,
@@ -114,6 +115,8 @@ export type PlanInputStored = {
   llm: PlanInput; index: Record<string /* p1 */, PlanIndexEntry>;
   /** Points of the looked-up stops by stop id (not hashed, not sent): patches search around them (plan-8). */
   stopPoints?: StopPoints;
+  /** OSM keys of the linked city tours' stops by trip day (not hashed, not sent): the duplicate guard (city-tour 10). */
+  tourStops?: Record<string /* day */, OsmKey[]>;
 };
 
 /**
@@ -166,6 +169,8 @@ export type BuildPlanInputArgs = {
   stops?: readonly TripStop[];
   /** Drive times from each looked-up stop point, by stop id (OpenRouteService). */
   stopDrive?: Readonly<Record<string, DriveInput | null | undefined>>;
+  /** City tours linked to the trip (city-tour 10); empty or absent = the input is exactly what it was before tours. */
+  tours?: readonly LinkedTour[];
 };
 
 export type DriveInput = { byKey: Record<string, { min: number; km: number }>; fetchedAt: string };
@@ -439,7 +444,8 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   const weather = facts.weather.status === "ok" ? facts.weather : null;
   const climateMonths = weather && months.length ? weather.data.months.filter((m) => months.includes(m.month)) : [];
 
-  const fixed = fixedSlots(fixedItemsOf(a.items ?? [], days));
+  // Tours with a start time join the item slots (city-tour 10 [T16]); flights stay items only.
+  const fixed = withTourSlots(fixedSlots(fixedItemsOf(a.items ?? [], days)), tourSlots(a.tours ?? [], days, locale));
   const fl = flightsFrom(facts, trip.wantsFlights);
   // A booked/planned flight on day 1 (last day) replaces the verified-schedule heuristic for that direction [D5].
   if (fl.llm && fixed) {
@@ -571,12 +577,14 @@ export function buildPlanInput(a: BuildPlanInputArgs): {
   }
   if (llm.airports) digest.airports = llm.airports;
   if (facts.places.status === "ok") digest.placesFetchedAt = facts.places.fetchedAt;
+  const tourStops = tourStopKeys(a.tours ?? [], days);
 
   return {
     stored: {
       llm: stripUndefined(llm),
       index: { ...pl.index, ...acts.index, ...rest.index, ...cafes.index, ...stopIn?.index },
       ...(Object.keys(stopPoints).length ? { stopPoints } : {}),
+      ...(tourStops ? { tourStops } : {}),
     },
     header,
     digest,

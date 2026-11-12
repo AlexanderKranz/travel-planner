@@ -31,6 +31,7 @@ export type Seed = {
   tripId: string; // plan trip (items, plan edits, share, pdf)
   a11yTripId: string; // second plan trip with a seeded share link
   a11yToken: string;
+  tourId: string; // city tour linked to day 2 of the a11y trip (city-tour 10)
   groupId: string;
   groupName: string;
 };
