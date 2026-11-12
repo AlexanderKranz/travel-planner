@@ -4,7 +4,7 @@ import type { TripPurpose } from "@/lib/domain/purpose";
 import { DEFAULT_RADIUS_KM, type Trip } from "@/lib/domain/trip";
 import type { TripStop } from "@/lib/domain/trip-stops";
 import { interestsForTrip, sourceFor } from "@/lib/facts/interest-sources";
-import { assignStops, namesToGeocode, type GeocodeOutcome } from "@/lib/plan/stops-resolve";
+import { assignStops, namesToGeocode, type GeocodeOutcome, type StopName } from "@/lib/plan/stops-resolve";
 import { stopDrivePicks } from "@/lib/plan/stops-input";
 import type { DriveInput } from "@/lib/plan/input";
 import { defaultGeocodeDeps, resolvePlaceName, type GeocodeDeps } from "../discover/resolve-place";
@@ -41,7 +41,7 @@ export function stopDestination(stop: Pick<ResolvedStop, "name"> & { point: NonN
 
 /**
  * The stops of a trip -> resolved stops: each distinct place name geocoded by code (`resolvePlaceName`, cached), the
- * role and id decided by `assignStops`. Country: the stop's `cc`, else the destination's. Never throws; a name whose
+ * role and id decided by `assignStops`. Country: the stop's `cc`, else none: the namesake nearest the previous stop (the trip anchor for the first) wins. Never throws; a name whose
  * geocoding failed is a stop with status `error`.
  */
 export async function resolveStopPlaces(
@@ -53,29 +53,43 @@ export async function resolveStopPlaces(
   const names = namesToGeocode(stops);
   if (!names.length) return [];
   const dest = trip.destination.kind === "freetext" ? null : trip.destination;
+  const anchor = dest ? { lat: dest.lat, lon: dest.lon } : null;
   const lang = ctx.locale;
   const outcomes = new Map<string, GeocodeOutcome>();
-  let next = 0;
-  const worker = async () => {
-    while (next < names.length) {
-      const n = names[next++];
-      try {
-        const r = await resolvePlaceName(n.name, n.cc ?? dest?.countryCode, lang, ctx.userId ?? "", deps);
-        outcomes.set(
-          n.key,
-          r.status === "ok"
-            ? { status: "ok", name: r.place.name, point: { lat: r.place.lat, lon: r.place.lon, geoId: r.place.geoId }, ...(r.place.countryCode ? { countryCode: r.place.countryCode } : {}) }
-            : r.status === "not_found"
-              ? { status: "not_found" }
-              : { status: "error" },
-        );
-      } catch {
-        outcomes.set(n.key, { status: "error" });
-      }
+  const resolveOne = async (n: StopName, prev: { lat: number; lon: number } | null) => {
+    try {
+      // No `cc`: the destination's country is not assumed; the namesake nearest the route decides (port-places [P1]).
+      const r = await resolvePlaceName(n.name, n.cc, lang, ctx.userId ?? "", deps, { near: { prev, anchor } });
+      outcomes.set(
+        n.key,
+        r.status === "ok"
+          ? { status: "ok", name: r.place.name, point: { lat: r.place.lat, lon: r.place.lon, geoId: r.place.geoId }, ...(r.place.countryCode ? { countryCode: r.place.countryCode } : {}) }
+          : r.status === "not_found"
+            ? { status: "not_found" }
+            : { status: "error" },
+      );
+    } catch {
+      outcomes.set(n.key, { status: "error" });
     }
   };
-  await Promise.all(Array.from({ length: Math.min(GEOCODE_CONCURRENCY, names.length) }, worker));
-  return assignStops(stops, outcomes, dest ? { lat: dest.lat, lon: dest.lon } : null);
+  // Names with a country do not depend on the route: in parallel.
+  const withCc = names.filter((n) => n.cc);
+  let next = 0;
+  const worker = async () => {
+    while (next < withCc.length) await resolveOne(withCc[next++], null);
+  };
+  await Promise.all(Array.from({ length: Math.min(GEOCODE_CONCURRENCY, withCc.length) }, worker));
+  // Names without one are resolved in day order, each against the previous resolved stop of the route.
+  for (let i = 0; i < names.length; i++) {
+    if (names[i].cc) continue;
+    let prev: { lat: number; lon: number } | null = null;
+    for (let j = i - 1; j >= 0 && !prev; j--) {
+      const o = outcomes.get(names[j].key);
+      if (o?.status === "ok") prev = o.point;
+    }
+    await resolveOne(names[i], prev);
+  }
+  return assignStops(stops, outcomes, anchor);
 }
 
 /** The interests looked up around every stop: the purpose's first two with an OSM source, `general` when none. */

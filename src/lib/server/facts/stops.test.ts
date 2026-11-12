@@ -62,6 +62,46 @@ describe("resolveStopPlaces", () => {
     expect(typed[0]).toMatchObject({ status: "ok", point: { geoId: 2 } });
   });
 
+  describe("namesakes without a cc: the candidate nearest the route wins (port-places [P1])", () => {
+    const namesakes = (world: Record<string, GeoPlace[]>): GeocodeDeps => ({
+      geocode: async (name) => ({ ok: true, data: world[name.toLowerCase()] ?? [], fetchedAt: "f", stale: false, cache: "hit" }),
+      placeById: async () => null,
+    });
+    const WORLD2 = {
+      ...WORLD,
+      melk: [place(4, "Melk", 48.2278, 15.33, "AT", "PPL", 5000)],
+      // Linz in Saxony is listed first and has the larger population in this fixture; Linz in Austria is on the route.
+      linz: [place(5, "Linz", 51.29, 13.72, "DE", "PPL", 900_000), place(6, "Linz", 48.3069, 14.2858, "AT", "PPLA", 200_000)],
+      wien: [place(7, "Wien", 38.3, -92.0, "US", "PPL", 2_000_000), place(2, "Wien", 48.2085, 16.3721, "AT", "PPLC", 1_700_000)],
+    };
+
+    it("Linz (DE or AT) follows the previous stop Melk", async () => {
+      const r = await resolveStopPlaces(trip, [{ day: 3, place: "Melk" }, { day: 4, place: "Linz" }], ctx, namesakes(WORLD2));
+      expect(r.find((x) => x.name === "Linz")).toMatchObject({ status: "ok", point: { geoId: 6 }, countryCode: "AT" });
+    });
+
+    it("the first stop is measured against the trip anchor (Wien from Passau is Austria, not Missouri)", async () => {
+      const r = await resolveStopPlaces(trip, [{ day: 2, place: "Wien" }], ctx, namesakes(WORLD2));
+      expect(r[0]).toMatchObject({ status: "ok", point: { geoId: 2 }, countryCode: "AT" });
+    });
+
+    it("a cc on the stop is a hard filter, whatever is nearer", async () => {
+      const r = await resolveStopPlaces(trip, [{ day: 3, place: "Melk" }, { day: 4, place: "Linz", cc: "DE" }], ctx, namesakes(WORLD2));
+      expect(r.find((x) => x.name === "Linz")).toMatchObject({ point: { geoId: 5 }, countryCode: "DE" });
+    });
+
+    it("a namesake beyond 2,500 km is taken only when it is the only one", async () => {
+      const only = { ...WORLD2, wien: [place(7, "Wien", 38.3, -92.0, "US", "PPL", 2_000_000)] };
+      const r = await resolveStopPlaces(trip, [{ day: 2, place: "Wien" }], ctx, namesakes(only));
+      expect(r[0]).toMatchObject({ status: "ok", point: { geoId: 7 } });
+    });
+
+    it("stops are resolved in day order, so a stop's predecessor is the one before it on the route", async () => {
+      const r = await resolveStopPlaces(trip, [{ day: 2, place: "Wien" }, { day: 3, place: "Melk" }, { day: 4, place: "Linz" }], ctx, namesakes(WORLD2));
+      expect(r.map((x) => [x.name, x.point?.geoId])).toEqual([["Wien", 2], ["Melk", 4], ["Linz", 6]]);
+    });
+  });
+
   it("not found and a failing geocoder are statuses, never exceptions", async () => {
     const r = await resolveStopPlaces(trip, [{ day: 1, place: "Nirgendwo" }], ctx, deps());
     expect(r).toEqual([expect.objectContaining({ id: "s1", status: "not_found", name: "Nirgendwo" })]);

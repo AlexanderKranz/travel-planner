@@ -1,6 +1,6 @@
 import "server-only";
 import type { GeoPlace } from "@/lib/domain/geo";
-import { pickAnchorPlace, pickNamedPlace } from "@/lib/discover/names";
+import { pickAnchorPlace, pickNearestNamed, type RoutePoint } from "@/lib/discover/names";
 import { getPlaceById, searchPlacesCached, type SearchLang } from "@/lib/integrations/open-meteo-geocoding";
 import type { CachedResult } from "../api-cache";
 
@@ -25,8 +25,9 @@ const LOCAL_LANGUAGE: Record<string, SearchLang> = { PT: "pt", IT: "it", ES: "es
  * runs with lang=en first and, on a miss, once more in German and in the country's language when it has one. A hit in
  * another language than `lang` is read again by id for the localized name (cached). With a country, only places of
  * that country count; when nothing is found (or no country is known), one last pass takes an exact name match in any
- * country, the largest population first (a cruise from a German port visits other countries; typed stops have no
- * country). The last pass reads the searches already made, so it costs no extra call. At most 3 searches per name
+ * country: the one nearest to `opts.near.prev` (the previous stop of the route), else to `opts.near.anchor`; the
+ * largest population on a tie or without a reference (a cruise from a German port visits other countries; typed
+ * stops have no country, so the destination's country is not assumed). The last pass reads the searches already made, so it costs no extra call. At most 3 searches per name
  * plus one by-id read, all through `cached()`. A failed call is a failure, never "not found".
  */
 export async function resolvePlaceName(
@@ -36,7 +37,7 @@ export async function resolvePlaceName(
   userId: string,
   deps: GeocodeDeps,
   /** `anyCountry: false` = the country is a hard requirement (destination ideas); default true (stops). */
-  opts: { anyCountry?: boolean } = {},
+  opts: { anyCountry?: boolean; near?: { prev?: RoutePoint | null; anchor?: RoutePoint | null } } = {},
 ): Promise<ResolvedPlace> {
   const anyCountry = opts.anyCountry !== false;
   const country = cc?.trim().toUpperCase() || null;
@@ -64,7 +65,7 @@ export async function resolvePlaceName(
     // All candidates of all searches compete (largest population wins), not the first language with an exact match.
     const langOf = new Map<number, (typeof seen)[number]>();
     for (const entry of seen) for (const p of entry.res.data) if (!langOf.has(p.geoId)) langOf.set(p.geoId, entry);
-    const hit = pickNamedPlace([...langOf.values()].flatMap((e) => e.res.data.filter((p) => langOf.get(p.geoId) === e)), name);
+    const hit = pickNearestNamed([...langOf.values()].flatMap((e) => e.res.data.filter((p) => langOf.get(p.geoId) === e)), name, opts.near ?? {});
     const from = hit && langOf.get(hit.geoId);
     if (hit && from) return finish(hit, from.lang, from.res);
   }
