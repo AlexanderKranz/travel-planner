@@ -26,6 +26,18 @@ export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 const rateKey = (userId: string) => `itinerary:${userId}`;
 
 /**
+ * Extractions of this instance that passed the gates but have not logged usage yet, per user. Gates read the
+ * `ai_usage` log, which only grows when a call finishes; counting the in-flight ones closes the read-then-charge
+ * race between overlapping requests on one instance. Across instances the race remains (same as the other AI tasks).
+ */
+const inflight = new Map<string, number>();
+const release = (userId: string) => {
+  const n = (inflight.get(userId) ?? 0) - 1;
+  if (n > 0) inflight.set(userId, n);
+  else inflight.delete(userId);
+};
+
+/**
  * Images as the server receives them: base64 that decodes, at most 2 MB, magic bytes matching the declared type
  * (pattern of `checkScreenshot`). The browser downscaled and re-encoded them; the server checks again.
  */
@@ -120,22 +132,26 @@ export async function runItineraryAi(
     return { ok: false, error };
   };
 
+  let held = false;
   try {
     if (!isAiEnabled(await getEffectiveEnv())) return await fail("ai_off");
     const { role, isDemo } = await profileOf(session);
     if (isDemo) return await fail("demo");
     if (!rateLimitAvailable(rateKey(session.userId), MINUTE_EXTRACTS).ok) return await fail("rate_limited");
+    const others = inflight.get(session.userId) ?? 0;
+    inflight.set(session.userId, others + 1); // taken synchronously, before any await below
+    held = true;
     let today: number;
     try {
       today = await countExtractionsToday(session.userId, deps.now);
     } catch {
       return await fail("failed", "usage_read"); // fail closed: an unreadable usage log must not open the gate
     }
-    if (today >= DAILY_EXTRACTS[role]) return await fail("rate_limited");
+    if (today + others >= DAILY_EXTRACTS[role]) return await fail("rate_limited");
     const info = await getBudgetStatus(session.userId, role, isDemo);
-    if (!budgetAllows(info, RESERVE_ITINERARY)) return await fail("budget");
+    if (!budgetAllows(info, RESERVE_ITINERARY * (others + 1))) return await fail("budget");
 
-    rateLimit(rateKey(session.userId), MINUTE_EXTRACTS, MINUTE_MS);
+    if (!rateLimit(rateKey(session.userId), MINUTE_EXTRACTS, MINUTE_MS).ok) return await fail("rate_limited");
     const ctx: AiCtx = { onUsage: (u) => logAiUsage(session.userId, isDemo, u) };
     const r = await (deps.extract ?? extractItineraryStops)(payload, ctx);
     if (!r.ok) return await fail("failed", r.error);
@@ -143,5 +159,7 @@ export async function runItineraryAi(
     return { ok: true, extract: r.data, cached: false };
   } catch {
     return await fail("failed");
+  } finally {
+    if (held) release(session.userId);
   }
 }
