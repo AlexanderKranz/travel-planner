@@ -55,7 +55,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
   );
 
   return (
-    <main className="flex flex-col gap-4">
+    // data-wide lifts the shell's 48rem cap; the page keeps it below lg and uses the full width for three columns.
+    <main data-wide className="mx-auto flex w-full max-w-3xl flex-col gap-4 lg:max-w-none">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-3xl font-bold sm:text-4xl">{t("title")}</h1>
         <div className="flex flex-wrap gap-2">
