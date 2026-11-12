@@ -61,10 +61,12 @@ export async function resolvePlaceName(
     if (!country && searchLang === "de") break;
   }
   if (anyCountry) {
-    for (const { lang: searchLang, res } of seen) {
-      const hit = pickNamedPlace(res.data, name);
-      if (hit) return finish(hit, searchLang, res);
-    }
+    // All candidates of all searches compete (largest population wins), not the first language with an exact match.
+    const langOf = new Map<number, (typeof seen)[number]>();
+    for (const entry of seen) for (const p of entry.res.data) if (!langOf.has(p.geoId)) langOf.set(p.geoId, entry);
+    const hit = pickNamedPlace([...langOf.values()].flatMap((e) => e.res.data.filter((p) => langOf.get(p.geoId) === e)), name);
+    const from = hit && langOf.get(hit.geoId);
+    if (hit && from) return finish(hit, from.lang, from.res);
   }
   return { status: "not_found" };
 }

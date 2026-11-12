@@ -60,6 +60,11 @@ describe("resolvePlaceName (port-places [P1])", () => {
     expect((await resolvePlaceName("Melk", "AT", "de", "u", deps({ en: [p(1, "Melk", "AT", "ADM2")] }))).status).toBe("not_found");
   });
 
+  it("without a country the largest exact match of ALL searches wins, not the first language's", async () => {
+    const r = await resolvePlaceName("Cartagena", null, "en", "u", deps({ en: [p(1, "Cartagena", "ES", "PPL", 200_000)], de: [p(2, "Cartagena", "CO", "PPL", 1_000_000)] }));
+    expect(r).toMatchObject({ status: "ok", place: { geoId: 2 } });
+  });
+
   it("anyCountry: false keeps the country a hard rule (destination ideas)", async () => {
     const strict = await resolvePlaceName("Wien", "DE", "de", "u", deps({ en: [p(1, "Wien", "AT", "PPLC")] }), { anyCountry: false });
     expect(strict.status).toBe("not_found");
