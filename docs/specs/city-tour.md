@@ -181,7 +181,9 @@ Public transport is not offered: ORS has none, and a transit time would be inven
 | `no_highways` | car | `options.avoid_features: ["highways"]`, `preference: "recommended"` | no motorways |
 
 Every request also sets `avoid_features` `"ferries"` (ferry times are not schedules), `geometry: true`,
-`instructions: false`, `elevation: false`, `units: "km"`.
+`instructions: true` (ORS returns `segments` only with instructions; the client drops `steps`, spike 2026-11-12),
+`elevation: false`, `units: "km"`. Weightings are plain numbers (`green: 1`); the `{ factor }` form from the ORS docs
+is rejected. Exact bodies: section 14, spike results.
 
 **"Most scenic" is not offered under that name.** ORS has no scenic weighting, and OSM has no "beautiful" tag. The
 closest honest options are `green` and `quiet` for walking and cycling, and `no_highways` for the car. They are
@@ -189,10 +191,10 @@ labelled by what they do ("Grüner", "Ruhiger", "Ohne Autobahn"), never "schöne
 - **Waterfront is not in the MVP.** ORS cannot weight it. The data-backed way would be phase 2: per leg, ORS
   `alternative_routes` (only for 2 waypoints, so one request per leg) and code scoring of each alternative by the
   share of its geometry within 50 m of `waterway=river|canal` or `natural=water` (one Overpass corridor query per
-  tour, cached). Cost: up to 1 Directions request per leg plus Overpass load, against the 200/day ORS cap.
-- **Coverage is unknown.** The ORS green and noise indices may exist only for some regions (originally Germany).
-  The spike (section 14) checks Wien and Passau. An option ORS rejects is hidden ([T5] note); one with a small
-  effect stays.
+  tour, cached). Cost: up to 1 Directions request per leg plus Overpass load, against the app's Directions cap.
+- **Coverage (spike 2026-11-12).** The ORS green and noise indices exist in Germany (Passau) but not in Austria
+  (Wien: fill values, same route as `fastest`). ORS accepts every option of this table for its modes, so all stay
+  ([T5] note); the help text says the effect depends on the area's OpenStreetMap data.
 
 ### 5.3 Requests
 
@@ -361,9 +363,10 @@ sources line adds "Routen: © openrouteservice.org". A standalone tour has no PD
 - A typical tour costs 2 ORS requests cold and 0 when recomputed unchanged. Adding a place costs 2 again (new
   point set). Routes are cached across users: keys hold public points only, no owner.
 - **The ORS cap is shared.** `ORS_DAILY_REQUESTS` (default 200) counts matrix and Directions together for plans,
-  drive searches and now tours. Directions measured 200/24 h in the response headers, matrix 500. Proposal: split
-  the counter by endpoint (`api_calls.endpoint`: matrix cap 450, directions cap 180) so tours and plans do not use
-  each other's budget. Whether ORS counts quotas per profile is a spike question.
+  drive searches and now tours. ORS counts per endpoint (matrix 500, Directions 2000 per 24 h), shared by all
+  profiles (spike 2026-11-12). Proposal: split the counter by endpoint over `api_calls.endpoint` (matrix 450,
+  Directions 1800, counted over the last 24 h) so tours and plans do not use each other's budget; details in
+  section 14, spike results.
 - Failures: ORS down with a cached value → served `stale: true` with the stale pill; with no value, the legs are
   `failed` and the tour shows no total. Never a guessed time.
 - Logging: every call → `api_calls` (through `cached()`); `tour.created`, `tour.computed { points, mode, route,
@@ -414,6 +417,120 @@ No LLM, so no evals. CI needs no network: ORS and Geoapify answers are recorded 
 | 0 spike | integrations-dev, about 12 live ORS calls (free): matrix foot-walking for 6 Wien points (limits, latency); Directions foot-walking with 6 waypoints (segments, way_points, polyline); `green` and `quiet` weightings in Wien and Passau (accepted? route differs? coverage); `extra_info: ["green", "noise"]` presence; `no_steps`; wheelchair; cycling-regular; driving-car `no_highways`; `x-ratelimit-*` headers per endpoint and profile; one Geoapify autocomplete call ("Stephansdom" around Wien). Result recorded in this spec, as in `find-destinations-drive.md` §5. |
 | 1 MVP | sections 2–13: standalone tours, 4 modes, route options that pass the spike, per-leg overrides, order optimize/keep, start/end, dwell, min/max/end-by, drop proposals, sunset warning, sights near the route, MapLibre map, trip-day link with `fixed` slot and duplicate guard, trip share page and PDF block. PRs: migration first (alone), then server, then UI. |
 | 2 | `tour_shares` and a public tour link, standalone tour PDF; per-stop time windows; opening hours parsed for checks; waterfront option via alternative routes; paste a list of places (code split + autocomplete each); weather forecast for the tour date (Open-Meteo, within 16 days); e-bike profile; "use my location" as start. |
+
+### Spike results (2026-11-12)
+
+18 live ORS calls (1 matrix, 17 Directions) and 2 Geoapify calls (1 autocomplete, 1 place details), free tiers, on
+`api.heigit.org/openrouteservice/v2`, engine **10.1.0** (graph date 2026-11-09; the drive spike saw 9.10.0). Recorded
+bodies: `src/lib/integrations/__fixtures__/ors-tour/` and `.../geoapify-autocomplete/` (bodies only; `steps` removed
+except in `directions-foot-wien-fastest.json`, the full 6-waypoint body; place-details polygon replaced by its
+point). Docs checked: ORS routing options and extra info
+(`giscience.github.io/openrouteservice/api-reference/endpoints/directions/…`), Geoapify autocomplete and place
+details (`apidocs.geoapify.com/docs/…`), 2026-11-12.
+
+Points. Wien (lon, lat): Stephansdom 16.3731,48.2085 · Hofburg 16.3655,48.2065 · Naschmarkt 16.3630,48.1990 ·
+Karlskirche 16.3716,48.1981 · Oberes Belvedere 16.3810,48.1915 · Riesenrad 16.3958,48.2166 (Directions in this
+order). Passau: Dom St. Stephan 13.4648,48.5741 · Rathaus 13.4672,48.5746 · Ortspitze 13.4774,48.5737 · Veste
+Oberhaus 13.4718,48.5775 (in this order).
+
+| # | Call | HTTP, time | Result |
+|---|---|---|---|
+| 1 | Matrix `foot-walking`, Wien 6 points, `metrics: ["duration","distance"]` | 200, 0.70 s | 6 × 6 `durations` (s) and `distances` (km), plus `sources`/`destinations` with snapped `location` and `snapped_distance` (10–35 m). Headers `x-ratelimit-limit: 500`, `remaining: 498`. |
+| 2 | Directions `foot-walking`, Wien 6 waypoints, fastest, `instructions: false` | 200, 0.21 s | 91 min, 7.56 km, 399 polyline points, `way_points [0,40,124,168,220,398]`. **No `segments` at all**: ORS returns them only with instructions. `x-ratelimit-limit: 2000`. |
+| 3 | Same with `instructions: true` | 200, 0.21 s, 15 KB | 5 `segments` with `distance`/`duration` (9, 15, 9, 15, 43 min); they **equal the matrix cells** of #1 to 0.1 s. Each segment carries `steps`; their `way_points` are global polyline indices. |
+| 4 | foot, `shortest` | 200, 0.16 s | Accepted. Differs slightly: 7.52 km, 90 min, other geometry (366 points). |
+| 5 | foot, `green` as `{ "factor": 1 }` (the docs' example format), Wien and Passau | 400, 2× | **Rejected, code 2002** "Parameter 'options' has incorrect value or format". Same for `quiet` in that format (2×). |
+| 6 | foot, `green: 1` (plain number, the 5.2 format), Wien | 200, 0.22 s | Accepted (ORS echoes `"weightings":{"green":1.0}`). **Same geometry as fastest.** |
+| 7 | foot, `quiet: 1`, Wien | 200, 0.22 s | Accepted. **Same geometry as fastest.** |
+| 8 | foot, `extra_info: ["green","noise"]`, Wien | (in #2, #6, #7) | Present but constant: green 10 and noise 7 over 100 % of the route, through the Innere Stadt. **No green/noise data for Wien** (Austria): the values are fill values, and the weightings have nothing to act on. |
+| 9 | foot fastest, Passau | 200, 0.14 s | 24 min, 2.02 km. `extra_info` varies (green 4–10, noise 7–10): data exists in Germany. |
+| 10 | foot `green: 1`, Passau | 200, 0.15 s | Accepted. **Same geometry as fastest** on this tour. |
+| 11 | foot `quiet: 1`, Passau | 200, 0.20 s | Accepted. **Very different**: 55 min, 4.56 km (fastest 24 min, 2.02 km); Ortspitze → Veste Oberhaus 37 min instead of 11. Share of noise 10 drops from 27 % to 5 %. |
+| 12 | foot `avoid_features: ["ferries","steps"]`, Wien | 200, 0.21 s | Accepted. Same geometry as fastest (no steps on these legs). |
+| 13 | `wheelchair`, fastest, Wien | 200, 0.35 s | Accepted. 102 min, 8.55 km (foot 91 min, 7.56 km). `extra_info` green/noise "not available" (warning code 4). |
+| 14 | `cycling-regular`, `recommended` + `quiet: 1`, Passau 2 points (one near the Danube, radius 10 m) | 200, 0.13 s | Accepted (meant as a 2010 probe, but the point snapped to the riverside path). The quiet weighting is **accepted for cycling** although the docs list it for foot only; its effect on cycling was not measured. green/noise extras "not available". |
+| 15 | `driving-car`, `recommended` + `avoid_features: ["ferries","highways"]`, Wien | 200, 0.13 s | Accepted. 32 min, 12.1 km. No car-fastest call to compare (call budget); no motorway lies between these points anyway. |
+| 16 | `wheelchair`, `shortest`, Passau + a mid-Inn point with `radiuses: [350, 1]` | 404, 0.12 s | **Code 2010** "Could not find routable point within a radius of 1.0 meters of specified coordinate 1: 13.4650000 48.5712000.; Connection between locations not found". Coordinate index is 0-based. Since 2010 comes after parameter validation, `wheelchair` + `shortest` is accepted. |
+| 17 | 2009 (no route) | not called | Already recorded on 2026-11-01 (`openrouteservice/directions-no-route.json`, HTTP 404, same `error.code` + `info` shape). A foot or bike 2009 needs a disconnected island in a fixture town, which does not exist. |
+| 18 | Geoapify autocomplete `text=Stephansdom&filter=circle:16.3731,48.2085,20000&bias=proximity:16.3731,48.2085&lang=de&limit=8&format=json` | 200, 0.57 s, 6 KB | `{ results: [...], query: { text } }`, 5 results: Stephansdom (OSM, `result_type: "amenity"`, `distance` 2 m), "Stephansdom Krypta" **twice** (two OSM index entries for the same node), the WhosOnFirst neighbourhood "Stephansdom", a GeoNames hotel. **No `datasource.raw`, no `osm_id`/`osm_type`**: `datasource` has only `sourcename`, attribution and licence. `place_id` encodes the OSM type and id in an undocumented binary hex (checked against the OSM API: way 212496461, node 4543089891). No credit or rate-limit headers. |
+| 19 | Geoapify place details `id=<place_id of #18>&lang=de` | 200, 0.68 s | `features[0].properties.datasource.raw` has `osm_type: "w"`, `osm_id: 212496461`, `wikidata: "Q5943"`, `opening_hours`, plus `categories`. 1 credit (docs). |
+
+**Polyline.** Encoded polyline, precision 5, `[lat, lon]` order (2D with `elevation: false`). Leg *i* is the decoded
+points `way_points[i] … way_points[i+1]` inclusive (neighbouring legs share the waypoint). Checked: every
+`way_points` index decodes to the snapped location of #1. The sum of `segments` equals `summary`.
+
+**Route options the MVP offers (T5: hide only what ORS rejects).**
+
+| Mode (profile) | Options | Note |
+|---|---|---|
+| `foot` (`foot-walking`) | `fastest`, `shortest`, `green`, `quiet`, `no_steps` | all accepted; in Wien green/quiet/no_steps gave the fastest route, in Passau quiet changed it strongly |
+| `wheelchair` (`wheelchair`) | `fastest`, `shortest` | both accepted |
+| `cycling` (`cycling-regular`) | `fastest`, `shortest`, `quiet` | `quiet` accepted (#14); fastest/shortest use the same `preference` parameter but were **not called live** for cycling |
+| `car` (`driving-car`) | `fastest`, `shortest`, `no_highways` | `no_highways` accepted (#15); fastest/shortest **not called live** for the car |
+
+The first client fixtures of phase 1 record cycling fastest/shortest and car fastest/shortest (4 calls). If one of
+them is rejected, it is removed from this list.
+
+**Exact request bodies** (POST `…/v2/directions/<profile>/json`). Common part, every option:
+
+```json
+{ "coordinates": [[lon, lat], ...], "geometry": true, "instructions": true, "elevation": false, "units": "km",
+  "options": { "avoid_features": ["ferries"] } }
+```
+
+| Option | Added to the common part |
+|---|---|
+| `fastest` | `"preference": "fastest"` |
+| `shortest` | `"preference": "shortest"` |
+| `green` | `"preference": "recommended"`, `"options": { "avoid_features": ["ferries"], "profile_params": { "weightings": { "green": 1 } } }` |
+| `quiet` | `"preference": "recommended"`, `"options": { "avoid_features": ["ferries"], "profile_params": { "weightings": { "quiet": 1 } } }` |
+| `no_steps` | `"preference": "fastest"`, `"options": { "avoid_features": ["ferries", "steps"] }` |
+| `no_highways` | `"preference": "recommended"`, `"options": { "avoid_features": ["ferries", "highways"] }` |
+
+Matrix (POST `…/v2/matrix/<profile>`): `{ "locations": [[lon, lat], ...], "metrics": ["duration"] }` (#1 also asked
+for distances; the order needs durations only).
+
+Consequences for the build:
+- **`instructions: true`, not `false`** (5.2 changed). Segments exist only with instructions; the client drops
+  `steps` before caching. A 6-waypoint walking tour is about 15 KB on the wire and about 2 KB polyline.
+- **Weightings as plain numbers** (`green: 1`). The `{ factor }` objects from the ORS docs are rejected (2002), so a
+  client test pins the body.
+- **No `extra_info`.** green/noise exist for foot only, are fill values outside Germany, and the scale is not usable
+  as a fact. Every foot response carries warning code 4 ("roadaccessrestrictions not available"), which the parser
+  ignores.
+- The `quiet` effect can be large (Passau +130 % time). It is the user's choice; the leg shows the real minutes. The
+  help text says the effect depends on the OpenStreetMap data of the area (T5), and it is mostly none in Austria.
+- 2010 is HTTP 404 with `error.code` 2010 and the 0-based coordinate index in the message; the client parses the
+  index to flag the place. 400/2002 is a failure (a bug), never an answer.
+- Latency: Directions 0.11–0.35 s, matrix 0.7 s, so the client keeps the existing timeouts.
+- **Autocomplete has no OSM identity.** Search results get a `gfy:<place_id>` key. When the user **adds** an OSM-sourced
+  result, the server resolves it once with place details (1 credit, cached 90 d by `place_id`) to the `osm:` key and
+  `cat`. Results from `whosonfirst`/`geonames` stay `gfy:`. Decoding `place_id` would save the credit but is
+  undocumented, so it is not used. Results are deduplicated by name + coordinates (5 dp), because the same OSM node
+  came back twice.
+
+**Quota (T17).**
+- Matrix: `x-ratelimit-limit: 500`. Directions: `x-ratelimit-limit: 2000`. Each endpoint has **its own counter**.
+  Within Directions, `remaining` fell by exactly 1 per call across `foot-walking`, `wheelchair`, `cycling-regular` and
+  `driving-car`: **one Directions quota shared by all profiles**, not one per profile.
+- Rejected requests count: the four 400s (2002) and the 404 (2010) each decremented `remaining`.
+- `x-ratelimit-reset` is a fixed 24 h window opened by the first request after the previous window ended: the first
+  Directions call of the day reported reset = its own time, all later calls the same value + 24 h. It is neither
+  Berlin midnight nor a rolling window. No per-minute header (the plan's 40/min is not exposed).
+- The drive spike (2026-11-01) read 200 for Directions; today's headers and `ors-quota.ts` (dashboard) say 2000.
+- Geoapify sends no quota headers; autocomplete and place details cost 1 credit each (docs) of the 3,000/day.
+
+**Recommendation for the ORS cap split.** Two counters in `ors-quota.ts`, by ORS endpoint over `api_calls.endpoint`:
+- **matrix bucket** = endpoints `matrix` (plans) and `tour_matrix`: cap `ORS_DAILY_MATRIX`, default **450**; the
+  plan reserve `ORS_PLAN_RESERVE` (50) applies here, because plans only use the matrix.
+- **directions bucket** = endpoints `route` (drive search) and `tour_route`: cap `ORS_DAILY_DIRECTIONS`, default
+  **1800**.
+- **Count the last 24 h, not since Berlin midnight.** ORS's window starts at an arbitrary time, so a Berlin-day count
+  can let two app days fall into one ORS window (up to twice the cap). A rolling 24 h count at or under the cap keeps
+  every ORS window under it too.
+- Tour gate: `matrixLeft >= 1 + ORS_PLAN_RESERVE` (skip with "keep") and `directionsLeft >= runs`. Drive-search gate:
+  `directionsLeft >= 8`. `ORS_DAILY_REQUESTS` is retired (or kept as a fallback for both until the admin settings
+  move).
 
 ## 15. Decisions (accepted by Alex, 2026-11-12)
 
@@ -475,9 +592,10 @@ No LLM, so no evals. CI needs no network: ORS and Geoapify answers are recorded 
 
 ## 16. Risks and unknowns
 
-- ORS green and noise data may not cover Wien (or be missing on the public API); then `green`/`quiet` are hidden and
-  walking tours offer only `fastest`, `shortest` and `no_steps`.
-- The Directions quota (measured 200/24 h) is shared with drive searches and plans; a busy day can block tours.
+- ORS green and noise data do not cover Wien (spike 2026-11-12): there `green` and `quiet` are accepted but give the
+  fastest route. They stay offered (T5); the help text says so.
+- The Directions quota (2000/24 h, spike 2026-11-12) is shared with drive searches; a busy day can block tours
+  until the endpoint split lands.
 - OpenFreeMap is a donation-run service without an SLA; the list and the SVG sketch must stay fully usable without
   it.
 - ORS walking times assume a constant speed and ignore crowds, crossings and lifts; the footer says so.

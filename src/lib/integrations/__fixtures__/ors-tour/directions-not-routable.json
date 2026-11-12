@@ -1,0 +1,16 @@
+{
+ "error": {
+  "code": 2010,
+  "message": "Could not find routable point within a radius of 1.0 meters of specified coordinate 1: 13.4650000 48.5712000.; Connection between locations not found"
+ },
+ "info": {
+  "engine": {
+   "build_date": "2026-10-14T07:31:58Z",
+   "graph_version": "7",
+   "graph_date": "2026-10-16T00:01:09Z",
+   "osm_date": "2026-10-11T00:00:00Z",
+   "version": "10.1.0"
+  },
+  "timestamp": 1794464734590
+ }
+}

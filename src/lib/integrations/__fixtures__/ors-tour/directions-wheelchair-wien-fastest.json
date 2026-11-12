@@ -1,0 +1,115 @@
+{
+ "bbox": [
+  16.362356,
+  48.191142,
+  16.396293,
+  48.217761
+ ],
+ "metadata": {
+  "query": {
+   "coordinates": [
+    [
+     16.3731,
+     48.2085
+    ],
+    [
+     16.3655,
+     48.2065
+    ],
+    [
+     16.363,
+     48.199
+    ],
+    [
+     16.3716,
+     48.1981
+    ],
+    [
+     16.381,
+     48.1915
+    ],
+    [
+     16.3958,
+     48.2166
+    ]
+   ],
+   "extra_info": [
+    "green",
+    "noise"
+   ],
+   "format": "json",
+   "geometry": true,
+   "instructions": true,
+   "options": {
+    "avoid_features": [
+     "ferries"
+    ]
+   },
+   "preference": "fastest",
+   "profile": "wheelchair",
+   "profileName": "wheelchair",
+   "units": "km"
+  },
+  "attribution": "openrouteservice.org | OpenStreetMap contributors",
+  "engine": {
+   "build_date": "2026-10-14T07:31:58Z",
+   "graph_date": "2026-10-16T00:01:09Z",
+   "osm_date": "2026-10-11T00:00:00Z",
+   "version": "10.1.0"
+  },
+  "service": "routing",
+  "system_message": "Please note that the URL api.openrouteservice.org has been deprecated. All information available at ask.openrouteservice.org",
+  "timestamp": 1794464715083
+ },
+ "routes": [
+  {
+   "bbox": [
+    16.362356,
+    48.191142,
+    16.396293,
+    48.217761
+   ],
+   "geometry": "qtfeHyz|bBHa@FBVF_ApECL^`@j@l@I`A?FIn@QxAKj@JR?Br@lA?Fh@t@B?p@l@tA~@HFHBq@rBT\\?FDFb@dCEDm@ZHb@@BNIHOZMv@nBEz@STEDGD[f@Vb@INBF_@n@GMSXKRV\\@@dA|BJZfAvBbBfDJRBDTb@h@dA|@qAlDcFFJH^NZHNDJJULSd@s@Zc@FUFBB?tAbAFDFD`BpA~ArADDJHFHB@l@}Ab@gAb@eAh@sADLlApBFKHNPVpAeBhA{AJOFLBGb@~@jAjCHD@DDJ@BBDILMPLQHMCEACJMNSGSoAwCLQ_@{@HIJM?C`AoAB@DMFO^mB@?DSBQ@GAAKEKCb@kE@KACBY@K@KBIh@yFD@Fq@RaCCIFs@@ACE@MBSFw@C_AIeAA@CMCO]P\\QHEUqA[oAFEDGI[v@q@CMEOyAwF?G?WBIDMV{@L?^QBBHGFELIb@Ut@_@v@c@NGtKyFp@_@PKHEFCBGhCwBdDiCHGHGbBaAdAm@FC?@HCHE@EACCQAE??AG?AFEz@a@p@[LGE_@GYFUTa@g@iBEs@?I?KTiB[[EMGKMGKCE@G?UsBK{@AOK?D{AKLa@Go@KiBY_AKECCC_@?_@IKAa@EiAOGD_AQsCi@CJGHA?CCKKEEAA[lA_IYIAC?C?E??J?F?JqAEc@A_ACG?C?E?C?uCMABA?I?IAA?ACkGb@{FtBc@d@IJED?@sDdFEEMNKL_@f@]b@KNKLk@x@MTw@fACBELISSSUKWAg@][IYOe@FOEaAgAWGQAOGw@ISEO?o@@GDIPGXCb@_@FGFCPAP?HQf@IXEJIIIIMMUWKK{CaDqBqBIEQIQI_Ce@QCGAAA]IEAA?cAOiAQE@SXKDOH]BAe@@Y?_@@GC?EAGAGAUEGAEAICmCe@O@E@E?E@G?AKKAiBVCSCWMuAG@WD]FOBWFe@ToAqCk@qAKSAEISa@}@wAaDeCwFWm@Wo@Uk@]w@}AaEEMyBaGEe@d@Gl@kAAM@MAS@K@IDIHWTWFEPKBAAK?E?GAEVkDFQSa@IWG[c@u@_CsAU?NWhAwDJw@EGIa@AU?Y?URGHKDSAS?Ed@e@R@PB?`@",
+   "segments": [
+    {
+     "distance": 0.823,
+     "duration": 591.6
+    },
+    {
+     "distance": 1.383,
+     "duration": 1002.3
+    },
+    {
+     "distance": 0.739,
+     "duration": 485.1
+    },
+    {
+     "distance": 1.296,
+     "duration": 910.5
+    },
+    {
+     "distance": 4.31,
+     "duration": 3100.8
+    }
+   ],
+   "summary": {
+    "distance": 8.551,
+    "duration": 6090.3
+   },
+   "warnings": [
+    {
+     "code": 4,
+     "message": "Extra info requested but not available: green, noise, roadaccessrestrictions"
+    }
+   ],
+   "way_points": [
+    0,
+    43,
+    103,
+    152,
+    211,
+    431
+   ]
+  }
+ ]
+}

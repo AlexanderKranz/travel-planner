@@ -1,0 +1,358 @@
+{
+ "bbox": [
+  13.464796,
+  48.573219,
+  13.476778,
+  48.577572
+ ],
+ "metadata": {
+  "query": {
+   "coordinates": [
+    [
+     13.4648,
+     48.5741
+    ],
+    [
+     13.4672,
+     48.5746
+    ],
+    [
+     13.4774,
+     48.5737
+    ],
+    [
+     13.4718,
+     48.5775
+    ]
+   ],
+   "extra_info": [
+    "green",
+    "noise"
+   ],
+   "format": "json",
+   "geometry": true,
+   "instructions": true,
+   "options": {
+    "avoid_features": [
+     "ferries"
+    ],
+    "profile_params": {
+     "allow_unsuitable": false,
+     "surface_quality_known": false,
+     "weightings": {
+      "green": 1
+     }
+    }
+   },
+   "preference": "recommended",
+   "profile": "foot-walking",
+   "profileName": "foot-walking",
+   "units": "km"
+  },
+  "attribution": "openrouteservice.org | OpenStreetMap contributors",
+  "engine": {
+   "build_date": "2026-10-14T07:31:58Z",
+   "graph_date": "2026-11-09T17:59:09Z",
+   "osm_date": "2026-11-08T00:00:00Z",
+   "version": "10.1.0"
+  },
+  "service": "routing",
+  "system_message": "Please note that the URL api.openrouteservice.org has been deprecated. All information available at ask.openrouteservice.org",
+  "timestamp": 1794464658912
+ },
+ "routes": [
+  {
+   "bbox": [
+    13.464796,
+    48.573219,
+    13.476778,
+    48.577572
+   ],
+   "extras": {
+    "green": {
+     "summary": [
+      {
+       "value": 10,
+       "distance": 0.002,
+       "amount": 86.56
+      },
+      {
+       "value": 8,
+       "distance": 0,
+       "amount": 4.87
+      },
+      {
+       "value": 6,
+       "distance": 0,
+       "amount": 4.25
+      },
+      {
+       "value": 5,
+       "distance": 0,
+       "amount": 3.42
+      },
+      {
+       "value": 7,
+       "distance": 0,
+       "amount": 0.39
+      },
+      {
+       "value": 4,
+       "distance": 0,
+       "amount": 0.35
+      },
+      {
+       "value": 9,
+       "distance": 0,
+       "amount": 0.16
+      }
+     ],
+     "values": [
+      [
+       0,
+       83,
+       10
+      ],
+      [
+       83,
+       84,
+       9
+      ],
+      [
+       84,
+       85,
+       8
+      ],
+      [
+       85,
+       86,
+       7
+      ],
+      [
+       86,
+       89,
+       6
+      ],
+      [
+       89,
+       91,
+       6
+      ],
+      [
+       91,
+       97,
+       5
+      ],
+      [
+       97,
+       98,
+       4
+      ],
+      [
+       98,
+       100,
+       5
+      ],
+      [
+       100,
+       104,
+       10
+      ],
+      [
+       104,
+       106,
+       6
+      ],
+      [
+       106,
+       107,
+       6
+      ],
+      [
+       107,
+       108,
+       8
+      ],
+      [
+       108,
+       115,
+       8
+      ]
+     ]
+    },
+    "noise": {
+     "summary": [
+      {
+       "value": 8,
+       "distance": 0.001,
+       "amount": 35.97
+      },
+      {
+       "value": 10,
+       "distance": 0.001,
+       "amount": 27.49
+      },
+      {
+       "value": 9,
+       "distance": 0,
+       "amount": 22.34
+      },
+      {
+       "value": 7,
+       "distance": 0,
+       "amount": 14.2
+      }
+     ],
+     "values": [
+      [
+       0,
+       1,
+       9
+      ],
+      [
+       1,
+       2,
+       7
+      ],
+      [
+       2,
+       10,
+       9
+      ],
+      [
+       10,
+       11,
+       8
+      ],
+      [
+       11,
+       15,
+       9
+      ],
+      [
+       15,
+       17,
+       8
+      ],
+      [
+       17,
+       18,
+       7
+      ],
+      [
+       18,
+       20,
+       9
+      ],
+      [
+       20,
+       28,
+       8
+      ],
+      [
+       28,
+       37,
+       10
+      ],
+      [
+       37,
+       55,
+       8
+      ],
+      [
+       55,
+       56,
+       7
+      ],
+      [
+       56,
+       62,
+       8
+      ],
+      [
+       62,
+       67,
+       7
+      ],
+      [
+       67,
+       75,
+       9
+      ],
+      [
+       75,
+       76,
+       7
+      ],
+      [
+       76,
+       78,
+       9
+      ],
+      [
+       78,
+       79,
+       10
+      ],
+      [
+       79,
+       83,
+       7
+      ],
+      [
+       83,
+       100,
+       10
+      ],
+      [
+       100,
+       104,
+       7
+      ],
+      [
+       104,
+       106,
+       10
+      ],
+      [
+       106,
+       115,
+       9
+      ]
+     ]
+    }
+   },
+   "geometry": "}bngH_zdqA??@c@J_EG?IeAAYCgAAA}@UCAJ}@c@OA?@?b@NHy@b@Fb@FB@@FJ?PA?CH[FwATCDQNA@o@@i@L}AHiALaAJ{A?}@@aDGqA?ECe@?QGcAImBEkC?K?_DCm@?}@QoF[_BIKKCGDI\\MxACf@SdCAn@Et@Eb@A\\It@]rALNV^]`AY~AW|@Mn@I~@GTIbAGPGIMAKLEFOKCAiE{AKBK?OCIE?FGEMGHc@B@FWFSAMW^CAH_@CAENE@BQAMLm@Li@?CACe@z@OTe@XGTABIKM?c@Ve@DMDYVEH",
+   "segments": [
+    {
+     "distance": 0.238,
+     "duration": 171.2
+    },
+    {
+     "distance": 0.835,
+     "duration": 601.5
+    },
+    {
+     "distance": 0.948,
+     "duration": 682.6
+    }
+   ],
+   "summary": {
+    "distance": 2.021,
+    "duration": 1455.3000000000002
+   },
+   "warnings": [
+    {
+     "code": 4,
+     "message": "Extra info requested but not available: roadaccessrestrictions"
+    }
+   ],
+   "way_points": [
+    0,
+    13,
+    51,
+    115
+   ]
+  }
+ ]
+}

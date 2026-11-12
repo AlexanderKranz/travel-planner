@@ -1,0 +1,260 @@
+{
+ "results": [
+  {
+   "datasource": {
+    "sourcename": "openstreetmap",
+    "attribution": "© OpenStreetMap contributors",
+    "license": "Open Database License",
+    "url": "https://www.openstreetmap.org/copyright"
+   },
+   "name": "Stephansdom",
+   "other_names": {
+    "name:az": "Müqəddəs Ştefan kafedralı",
+    "name:bg": "Катедрала Свети Стефан",
+    "name:cs": "Katedrála svatého Štěpána",
+    "name:en": "Saint Stephen's Cathedral",
+    "name:eo": "Katedralo de Sankta Stefano",
+    "name:es": "Catedral de San Esteban",
+    "name:et": "Püha Stefanuse katedraal",
+    "name:fr": "Cathédrale Saint-Étienne",
+    "name:hr": "Katedrala svetog Stjepana",
+    "name:hu": "Szent István-székesegyház",
+    "name:id": "Katedral Santo Stefanus",
+    "name:is": "Stefánskirkjan",
+    "name:it": "Cattedrale di Santo Stefano",
+    "name:ja": "シュテファン寺院",
+    "name:ko": "슈테판 대성당",
+    "name:ml": "സെന്റ് സ്റ്റീഫൻ ദൈവാലയം",
+    "name:pl": "Katedra świętego Szczepana",
+    "name:ru": "Собор Святого Стефана",
+    "name:sk": "Dóm svätého Štefana",
+    "name:sr": "Катедрала Светог Стефана",
+    "name:tr": "Aziz Stefan Katedrali",
+    "name:uk": "Собор Святого Стефана",
+    "name:zh": "聖史蒂芬大教堂",
+    "alt_name": "Dom- und Metropolitankirche St. Stephan",
+    "loc_name": "Steffl"
+   },
+   "country": "Österreich",
+   "country_code": "at",
+   "city": "Wien",
+   "postcode": "1010",
+   "district": "Stubenviertel",
+   "suburb": "Innere Stadt",
+   "street": "Stephansplatz",
+   "housenumber": "3",
+   "iso3166_2": "AT-9",
+   "lon": 16.3731269,
+   "lat": 48.2084923,
+   "state": "Wien",
+   "result_type": "amenity",
+   "distance": 2.169468028226963,
+   "formatted": "Stephansdom, Stephansplatz 3, 1010 Wien, Österreich",
+   "address_line1": "Stephansdom",
+   "address_line2": "Stephansplatz 3, 1010 Wien, Österreich",
+   "timezone": {
+    "name": "Europe/Vienna",
+    "offset_STD": "+01:00",
+    "offset_DST": "+02:00",
+    "offset_STD_seconds": 3600,
+    "offset_DST_seconds": 7200,
+    "abbreviation_STD": "CET",
+    "abbreviation_DST": "CEST"
+   },
+   "plus_code": "8FWR695F+97",
+   "rank": {
+    "importance": 0.5368070737817536,
+    "confidence": 1,
+    "match_type": "full_match"
+   },
+   "place_id": "5103c2983e855f304059e2fb2ce0af1a4840f00102f9014d70aa0c00000000c0020192030b5374657068616e73646f6d",
+   "bbox": {
+    "lon1": 16.3724294,
+    "lat1": 48.208083,
+    "lon2": 16.3739084,
+    "lat2": 48.2089026
+   }
+  },
+  {
+   "datasource": {
+    "sourcename": "openstreetmap",
+    "attribution": "© OpenStreetMap contributors",
+    "license": "Open Database License",
+    "url": "https://www.openstreetmap.org/copyright"
+   },
+   "name": "Stephansdom Krypta",
+   "other_names": {
+    "name:en": "Stephansdom Crypt"
+   },
+   "country": "Österreich",
+   "country_code": "at",
+   "city": "Wien",
+   "postcode": "1010",
+   "district": "Stubenviertel",
+   "suburb": "Innere Stadt",
+   "street": "Stephansplatz",
+   "housenumber": "3",
+   "iso3166_2": "AT-9",
+   "lon": 16.3729562,
+   "lat": 48.2082849,
+   "state": "Wien",
+   "result_type": "amenity",
+   "distance": 26.1844271093049,
+   "formatted": "Stephansdom Krypta, Stephansplatz 3, 1010 Wien, Österreich",
+   "address_line1": "Stephansdom Krypta",
+   "address_line2": "Stephansplatz 3, 1010 Wien, Österreich",
+   "category": "tourism.attraction",
+   "timezone": {
+    "name": "Europe/Vienna",
+    "offset_STD": "+01:00",
+    "offset_DST": "+02:00",
+    "offset_STD_seconds": 3600,
+    "offset_DST_seconds": 7200,
+    "abbreviation_STD": "CET",
+    "abbreviation_DST": "CEST"
+   },
+   "plus_code": "8FWR695F+85",
+   "rank": {
+    "importance": 0.00008694209201185653,
+    "confidence": 1,
+    "match_type": "full_match"
+   },
+   "place_id": "5127d7b90e7a5f30405915e06014a91a4840f00103f901e30cca0e01000000c002019203125374657068616e73646f6d204b7279707461",
+   "bbox": {
+    "lon1": 16.3729062,
+    "lat1": 48.2082349,
+    "lon2": 16.3730062,
+    "lat2": 48.2083349
+   }
+  },
+  {
+   "country_code": "at",
+   "name": "Stephansdom Krypta",
+   "country": "Österreich",
+   "datasource": {
+    "sourcename": "openstreetmap",
+    "attribution": "© OpenStreetMap contributors",
+    "license": "Open Database License",
+    "url": "https://www.openstreetmap.org/copyright"
+   },
+   "state": "Wien",
+   "state_code": "WI",
+   "district": "Wien",
+   "city": "Wien",
+   "suburb": "Innere Stadt",
+   "iso3166_2": "AT-9",
+   "lon": 16.372956,
+   "lat": 48.208285,
+   "result_type": "amenity",
+   "distance": 26.18030765403265,
+   "postcode": "1010",
+   "formatted": "Stephansdom Krypta, 1010 Wien, Österreich",
+   "address_line1": "Stephansdom Krypta",
+   "address_line2": "1010 Wien, Österreich",
+   "timezone": {
+    "name": "Europe/Vienna",
+    "offset_STD": "+01:00",
+    "offset_DST": "+02:00",
+    "offset_STD_seconds": 3600,
+    "offset_DST_seconds": 7200,
+    "abbreviation_STD": "CET",
+    "abbreviation_DST": "CEST"
+   },
+   "plus_code": "8FWR695F+85",
+   "rank": {
+    "confidence": 1,
+    "match_type": "full_match"
+   },
+   "place_id": "51d3d85e0b7a5f304059a99f3715a91a4840f00103f901e30cca0e01000000c002019203125374657068616e73646f6d204b7279707461e203236f70656e7374726565746d61703a76656e75653a6e6f64652f34353433303839383931"
+  },
+  {
+   "country_code": "at",
+   "name": "Stephansdom",
+   "country": "Österreich",
+   "datasource": {
+    "sourcename": "whosonfirst",
+    "attribution": "Who's On First",
+    "license": "CC0",
+    "url": "https://www.whosonfirst.org/docs/licenses/"
+   },
+   "state": "Wien",
+   "state_code": "WI",
+   "district": "Wien",
+   "city": "Wien",
+   "suburb": "Stephansdom",
+   "iso3166_2": "AT-9",
+   "lon": 16.370993,
+   "lat": 48.212154,
+   "result_type": "suburb",
+   "distance": 435.27178891939997,
+   "formatted": "Stephansdom, Wien, Österreich",
+   "address_line1": "Stephansdom",
+   "address_line2": "Wien, Österreich",
+   "timezone": {
+    "name": "Europe/Vienna",
+    "offset_STD": "+01:00",
+    "offset_DST": "+02:00",
+    "offset_STD_seconds": 3600,
+    "offset_DST_seconds": 7200,
+    "abbreviation_STD": "CET",
+    "abbreviation_DST": "CEST"
+   },
+   "plus_code": "8FWR696C+V9",
+   "rank": {
+    "confidence": 1,
+    "confidence_city_level": 1,
+    "match_type": "full_match"
+   },
+   "place_id": "51800bb265f95e30405998dbbddc271b4840c0020592030b5374657068616e73646f6de2032277686f736f6e66697273743a6e65696768626f7572686f6f643a3835383938373439",
+   "bbox": {
+    "lon1": 16.3635758668,
+    "lat1": 48.2087449617,
+    "lon2": 16.3778686523,
+    "lat2": 48.2164378659
+   }
+  },
+  {
+   "country_code": "at",
+   "name": "Hotel SOFITEL VIENNA STEPHANSDOM",
+   "country": "Österreich",
+   "datasource": {
+    "sourcename": "geonames",
+    "attribution": "GeoNames",
+    "license": "CC BY 4.0",
+    "url": "https://www.geonames.org/datasources/"
+   },
+   "state": "Wien",
+   "state_code": "WI",
+   "district": "Wien",
+   "city": "Wien",
+   "suburb": "Innere Stadt",
+   "iso3166_2": "AT-9",
+   "lon": 16.37987,
+   "lat": 48.21272,
+   "result_type": "amenity",
+   "distance": 686.9115432952503,
+   "formatted": "Hotel SOFITEL VIENNA STEPHANSDOM, Innere Stadt, Wien, Österreich",
+   "address_line1": "Hotel SOFITEL VIENNA STEPHANSDOM",
+   "address_line2": "Innere Stadt, Wien, Österreich",
+   "timezone": {
+    "name": "Europe/Vienna",
+    "offset_STD": "+01:00",
+    "offset_DST": "+02:00",
+    "offset_STD_seconds": 3600,
+    "offset_DST_seconds": 7200,
+    "abbreviation_STD": "CET",
+    "abbreviation_DST": "CEST"
+   },
+   "plus_code": "8FWR697H+3W",
+   "rank": {
+    "confidence": 1,
+    "match_type": "full_match"
+   },
+   "place_id": "5145bb0a293f61304059419ab1683a1b4840c00201920320486f74656c20534f464954454c205649454e4e41205354455048414e53444f4de2031667656f6e616d65733a76656e75653a38373732323638"
+  }
+ ],
+ "query": {
+  "text": "Stephansdom",
+  "categories": []
+ }
+}
