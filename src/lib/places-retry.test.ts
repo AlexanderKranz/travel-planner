@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "@/lib/domain/trip";
-import { jobsForActivityLookups, jobsForInterests, jobsForTripFacts, retryKey, RetrySpec, type RetryJob } from "./places-retry";
+import { jobsForActivityLookups, jobsForInterests, jobsForStops, jobsForTripFacts, retryKey, RetrySpec, type RetryJob } from "./places-retry";
 
 const dest = { lat: 49.0123456, lon: 12.1012345, kind: "city" as const };
 const trip = {
@@ -111,5 +111,45 @@ describe("jobsForInterests (issue #151)", () => {
     expect(jobs.map((j) => j.params)).toEqual([{ kind: "interest", interest: "golf", lat: 49.012, lon: 12.101, radiusKm: 40 }]);
     expect(jobs[0].cache_key).toBe(jobsForTripFacts(trip, null, { places: okPlaces([{ interest: "golf", status: "error" }]) })[0].cache_key);
     expect(jobsForInterests(null, [{ interest: "golf", status: "error" }])).toEqual([]);
+  });
+});
+
+describe("jobsForStops (port-places [P7], R2: the stop point is the job's point)", () => {
+  const stop = (id: string, over: Record<string, unknown> = {}) => ({
+    stop: { id, name: id, days: [2], role: "stop" as const, point: { lat: 48.20849, lon: 16.37208, geoId: 1 }, status: "ok" as const, ...over },
+    places: [] as never[],
+  });
+
+  it("queues failed interests, restaurants and cafés at the stop point, with the stop radius (city, 15 km base)", () => {
+    const jobs = jobsForStops([
+      {
+        ...stop("s1"),
+        places: [{ interest: "family_activities", status: "error" }, { interest: "general", status: "empty", fetchedAt: "f", stale: false }] as never[],
+        restaurants: { status: "error", restaurants: [] },
+        cafes: { status: "skipped", reason: "cache_only", cafes: [] },
+      },
+    ]);
+    expect(jobs.map((j) => j.kind)).toEqual(["interest", "restaurants", "cafes"]);
+    expect(jobs[0].params).toMatchObject({ kind: "interest", interest: "family_activities", lat: 48.208, lon: 16.372 });
+    expect(jobs[1].params).toEqual({ kind: "restaurants", dest: { lat: 48.208, lon: 16.372, kind: "city" } });
+    for (const j of jobs) expect(RetrySpec.safeParse(j.params).success).toBe(true);
+  });
+
+  it("the restaurant job of a stop shares its key with a city trip to that town (dedupe)", () => {
+    const [stopJob] = jobsForStops([{ ...stop("s1"), restaurants: { status: "error", restaurants: [] } }]);
+    const [cityJob] = jobsForActivityLookups({ lat: 48.20849, lon: 16.37208, kind: "city" }, { restaurants: { status: "error", restaurants: [] } });
+    expect(stopJob.cache_key).toBe(cityJob.cache_key);
+  });
+
+  it("nothing for lookups that worked, for destination, not found, failed or capped stops, or without a point", () => {
+    expect(jobsForStops([{ ...stop("s1"), restaurants: { status: "ok", restaurants: [] } }])).toEqual([]);
+    expect(jobsForStops([{ ...stop("s1"), restaurants: { status: "skipped", reason: "no_location", restaurants: [] } }])).toEqual([]);
+    for (const over of [{ role: "destination" }, { status: "not_found" }, { status: "error" }, { status: "cap" }, { point: undefined }]) {
+      expect(jobsForStops([{ ...stop("s1", over), restaurants: { status: "error", restaurants: [] } }])).toEqual([]);
+    }
+  });
+
+  it("an interest without an OSM source is never retried", () => {
+    expect(jobsForStops([{ ...stop("s1"), places: [{ interest: "christmas_markets", status: "error" }] as never[] }])).toEqual([]);
   });
 });

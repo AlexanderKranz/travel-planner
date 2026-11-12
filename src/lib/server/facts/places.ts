@@ -178,6 +178,13 @@ function overpassCandidates(l: Lookup, deadline: number, fetchAllowed: () => boo
   return shared(`overpass:${overpassKey(l)}`, () => fromOverpass(l, src.filters, src.exclude, deadline, fetchAllowed));
 }
 
+/** Overpass result from the cache only: never a network query, never joined to a network lookup in flight. */
+function overpassCacheOnly(l: Lookup): Promise<CachedResult<PlaceCandidate[]>> {
+  const src = sourceFor(l.interest);
+  if (src.source !== "osm") return Promise.resolve({ ok: false, error: "provider_error" });
+  return shared(`overpass-cache:${overpassKey(l)}`, () => fromOverpass(l, src.filters, src.exclude, 0, () => false));
+}
+
 /**
  * One interest lookup for the background retry worker: cache, then Geoapify, then one Overpass query over the
  * network within `budgetMs`. Same keys and rules as `getPlacesFacts`. Never throws.
@@ -212,6 +219,8 @@ export async function getInterestGroups(
   keys: readonly InterestOrGeneral[],
   ctx: FactsCtx,
   budgetMs: number,
+  /** `overpass: "cache_only"` (port places [P7]): cache and Geoapify, never an Overpass query over the network. */
+  opts: { overpass?: "cache_only" } = {},
 ): Promise<PlaceGroup[]> {
   const started = Date.now();
   const baseRadius = tripRadiusKm(dest);
@@ -228,13 +237,15 @@ export async function getInterestGroups(
     // Budget gate only for real network queries: cached interests are always served (they cost no time).
     const fetchAllowed = () => {
       const left = budgetMs - (Date.now() - started);
-      if (budgetMs === PLACES_CACHE_ONLY) return false;
+      if (budgetMs === PLACES_CACHE_ONLY || opts.overpass === "cache_only") return false;
       if (queried > 0 && left < Math.min(MIN_QUERY_WINDOW_MS, OVERPASS_CLIENT_TIMEOUT_MS)) return false;
       queried += 1;
       return true;
     };
     const quick = fast[i];
-    const res = quick?.ok ? quick : await overpassCandidates(lookups[i], started + budgetMs, fetchAllowed);
+    const cacheOnly = budgetMs === PLACES_CACHE_ONLY || opts.overpass === "cache_only";
+    // Cache-only never joins an in-flight network lookup (a warm-up's `overpass:` promise): it would wait for Overpass.
+    const res = quick?.ok ? quick : cacheOnly ? await overpassCacheOnly(lookups[i]) : await overpassCandidates(lookups[i], started + budgetMs, fetchAllowed);
     if (!res.ok) {
       groups.push({ interest, status: "error" }); // contract has no "pending": UI says "try again later"
       continue;

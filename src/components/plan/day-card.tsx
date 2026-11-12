@@ -5,7 +5,7 @@ import { isUserBest, type Plan, type PlanActivity, type PlanDay, type PlanStop }
 import { placeHref } from "@/lib/facts/sources";
 import { StatusBadge } from "@/components/items/status-badge";
 import { mergeDayRows, timeRange, type FixedItem } from "@/lib/plan/fixed-items";
-import { DRIVE_ONLY, windowKind } from "./helpers";
+import { DRIVE_ONLY, driveStopNames, windowKind } from "./helpers";
 import { AltEditButtons, BestDayButton, EditableActRow, type ActEditCtx } from "./act-edit";
 
 /** Owner-only slot: "+ item" next to a referenced place (bound to its day by DayCard). */
@@ -81,10 +81,12 @@ function DriveBadge({ place }: { place: Plan["places"][string] }) {
   const t = useTranslations("plan");
   const f = useFormatter();
   if (!place.drive) return null;
-  const title = t("driveTitle", {
+  const values = {
     km: f.number(place.drive.km, { maximumFractionDigits: 1 }),
     date: f.dateTime(new Date(place.drive.fetchedAt), { dateStyle: "medium" }),
-  });
+  };
+  // Port places are measured from the stop, destination places from the destination centre.
+  const title = place.drive.from ? t("driveTitleStop", { ...values, stop: place.drive.from }) : t("driveTitle", values);
   return (
     <span className={`${DRIVE_ONLY} whitespace-nowrap text-xs tabular-nums ${mutedCls}`} title={title}>
       {t("drive", { min: place.drive.min })}
@@ -234,6 +236,7 @@ export function DayCard({
     .flatMap((k) => (places[k] ? [places[k]] : []));
   const fetchedAt = used.map((p) => p.fetchedAt).sort()[0];
   const hasDrive = used.some((p) => p.drive);
+  const driveStops = driveStopNames(used);
   // Only a user-set best day is highlighted; an AI `best` in plans before plan-5 is ignored (patch-safety [D8]).
   const best = isUserBest(day);
   const border = best ? "border-feature" : changed ? "border-info-line" : "border-line";
@@ -327,7 +330,7 @@ export function DayCard({
                 <span className={DRIVE_ONLY}>
                   {" · "}
                   <a href="https://openrouteservice.org/" target="_blank" rel="noopener noreferrer" className={linkCls}>
-                    {t("driveCredit")}
+                    {driveStops.length > 0 ? t("driveCreditStop", { stop: driveStops.join(", ") }) : t("driveCredit")}
                   </a>
                 </span>
               )}

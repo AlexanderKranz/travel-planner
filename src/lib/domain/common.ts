@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+export const MAX_TRIP_DAYS = 60;
+
+/** Local time of day as text, `HH:MM`. */
+export const HHMM = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+
 /** Real calendar date as YYYY-MM-DD (rejects 2026-02-31). */
 export const IsoDate = z
   .string()

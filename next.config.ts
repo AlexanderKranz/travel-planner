@@ -30,6 +30,10 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  // Itinerary photos reach `extractItinerary` as base64 (itinerary-upload [D9]); the default 1 MB would refuse one
+  // downscaled phone photo. Vercel caps a request body at 4.5 MB, so the browser must keep all images of one call
+  // below about 3 MB of bytes together.
+  experimental: { serverActions: { bodySizeLimit: "4mb" } },
   // Make the Vercel build info visible to the browser bundle (Sentry environment/release).
   env: {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV ?? "development",

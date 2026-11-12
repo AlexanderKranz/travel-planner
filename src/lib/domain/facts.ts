@@ -106,6 +106,34 @@ export type RestaurantLookup = { status: LookupStatus; restaurants: Restaurant[]
 /** Cafés near the destination point (addendum A2); loaded only when a wish or change request asks for them. */
 export type CafeLookup = { status: LookupStatus; cafes: Cafe[]; radiusKm?: number } & LookupMeta;
 
+/**
+ * A named stop of the trip, geocoded by code (docs/specs/port-places.md section 1). `destination` = within 5 km of the
+ * trip destination (the destination's lookups apply, no own ones); `stop` = own lookups, id `s1..` in day order.
+ * `status`: ok = found (has a point), not_found = no matching populated place, error = geocoding failed, cap = beyond
+ * the 10 looked-up stops of a trip.
+ */
+export type ResolvedStop = {
+  id: string;
+  /** GeoNames name in the plan language (the typed name when nothing was found). */
+  name: string;
+  days: number[];
+  role: "stop" | "destination";
+  point?: { lat: number; lon: number; geoId: number };
+  status: "ok" | "not_found" | "error" | "cap";
+  /** Country of the geocoded place (ISO alpha-2); the stop's local-cuisine filter uses it, not the destination's. */
+  countryCode?: string;
+  /** Folded names as typed in the trip stops that resolved to this stop (they match `trip.stops` rows). */
+  keys?: string[];
+};
+
+/** Lookups around one stop (section 2). Not persisted; the plan input carries the result. */
+export type StopFacts = {
+  stop: ResolvedStop;
+  places: PlaceGroup[];
+  restaurants?: RestaurantLookup;
+  cafes?: CafeLookup;
+};
+
 export type TripFacts = {
   tripId: string;
   generatedAt: string;
@@ -122,6 +150,8 @@ export type TripFacts = {
   restaurants?: RestaurantLookup;
   /** Cafés (addendum A2); absent unless the purpose asks for cafés. */
   cafes?: CafeLookup;
+  /** Resolved stops of the trip and what was looked up around them (port-places); absent without stops. */
+  stops?: StopFacts[];
 };
 
 /** Context for facts functions. `userId` is for api_calls logging (null for cron/seed). */

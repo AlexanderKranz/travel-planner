@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TripInput } from "@/lib/domain";
+import { emptyRow } from "./stops-draft";
 import { draftFromTrip, draftProblems, draftToInput, emptyTripDraft, ONE_OFF_GROUP, ONE_OFF_PURPOSE } from "./trip-draft";
 
 describe("trip draft", () => {
@@ -123,6 +124,40 @@ describe("one-off group in the trip draft", () => {
       const input = TripInput.parse(draftToInput(d));
       expect(input.purposeText).toBeUndefined();
       expect(input.purposeId).toBe(d.purposeId);
+    });
+  });
+
+  describe("stops", () => {
+    const withDest = () => {
+      const d = emptyTripDraft();
+      d.destination = { mode: "freetext", name: "Donau", countryCode: "" };
+      d.lengthDays = 5;
+      return d;
+    };
+    it("sends an empty list while the box is unticked, so saved stops are cleared", () => {
+      const d = withDest();
+      d.stops = [{ ...emptyRow(2), place: "Wien" }];
+      expect(draftToInput(d).stops).toEqual([]);
+      expect(draftProblems(d)).toEqual([]);
+    });
+    it("sends the sorted rows while ticked and reports an incomplete or late row", () => {
+      const d = withDest();
+      d.multiStop = true;
+      d.stops = [{ ...emptyRow(3), place: "Melk", arr: "15:00" }, { ...emptyRow(1), place: "Passau", dep: "16:00" }];
+      expect(TripInput.parse(draftToInput(d)).stops?.map((s) => s.place)).toEqual(["Passau", "Melk"]);
+      expect(draftProblems(d)).toEqual([]);
+      d.stops = [...d.stops, emptyRow(2)];
+      expect(draftProblems(d)).toEqual(["stops"]);
+      d.stops = [{ ...emptyRow(6), place: "Linz" }];
+      expect(draftProblems(d)).toEqual(["stops"]);
+    });
+    it("opens ticked for a trip with saved stops", () => {
+      const d = withDest();
+      const trip = { stops: [{ day: 1, place: "Passau" }], destination: { kind: "freetext", name: "Donau" }, lengthDays: 5, timing: { kind: "none" }, wantsFlights: false, originAirports: [] } as unknown as Parameters<typeof draftFromTrip>[0];
+      const draft = draftFromTrip(trip);
+      expect(draft.multiStop).toBe(true);
+      expect(draft.stops[0]?.place).toBe("Passau");
+      expect(d.multiStop).toBe(false);
     });
   });
 });

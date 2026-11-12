@@ -39,3 +39,46 @@ type Point = Pick<GeoPlace, "geoId" | "lat" | "lon">;
 export function isDuplicate(p: Point, others: Point[]): boolean {
   return others.some((o) => o.geoId === p.geoId || haversineKm(o, p) < DUPLICATE_KM);
 }
+
+/**
+ * Fallback for a typed place name whose country is unknown or wrong (port-places [P1]): an exact match on the folded
+ * name among the populated places (PPL*) of any country; on a tie the largest population. null = not found.
+ */
+export function pickNamedPlace(results: GeoPlace[], name: string): GeoPlace | null {
+  const wanted = foldName(name);
+  if (!wanted) return null;
+  const exact = results.filter((p) => p.featureCode.startsWith("PPL") && foldName(p.name) === wanted);
+  return exact.length > 0 ? exact.reduce((best, p) => ((p.population ?? 0) > (best.population ?? 0) ? p : best)) : null;
+}
+
+/** A point to measure a typed stop against: the previous stop of the route, or the trip anchor. */
+export type RoutePoint = { lat: number; lon: number };
+/** Candidates farther than this from the previous stop and from the anchor are namesakes on another continent. */
+export const NEAR_ROUTE_MAX_KM = 2500;
+/** Distances this close count as equal, so population decides. */
+const NEAR_TIE_KM = 10;
+
+/**
+ * A typed stop without a country (port-places [P1]): among the exact-name populated places (PPL*) of all countries, the
+ * one nearest to `prev` (the previous resolved stop on the route), else to `anchor` (the trip destination, for the
+ * first stop). Candidates over NEAR_ROUTE_MAX_KM from both references are ignored, unless none is in range. Within
+ * NEAR_TIE_KM the larger population wins. With no reference point at all, the largest population wins (same as
+ * `pickNamedPlace`). null = not found.
+ */
+export function pickNearestNamed(results: GeoPlace[], name: string, refs: { prev?: RoutePoint | null; anchor?: RoutePoint | null }): GeoPlace | null {
+  const wanted = foldName(name);
+  if (!wanted) return null;
+  const exact = results.filter((p) => p.featureCode.startsWith("PPL") && foldName(p.name) === wanted);
+  if (exact.length === 0) return null;
+  const from = refs.prev ?? refs.anchor ?? null;
+  const pop = (p: GeoPlace) => p.population ?? 0;
+  if (!from) return exact.reduce((best, p) => (pop(p) > pop(best) ? p : best));
+  const near = (p: GeoPlace) => [refs.prev, refs.anchor].some((r) => r && haversineKm(r, p) <= NEAR_ROUTE_MAX_KM);
+  const inRange = exact.filter(near);
+  const pool = inRange.length > 0 ? inRange : exact;
+  const dist = (p: GeoPlace) => haversineKm(from, p);
+  return pool.reduce((best, p) => {
+    const d = dist(p) - dist(best);
+    return Math.abs(d) <= NEAR_TIE_KM ? (pop(p) > pop(best) ? p : best) : d < 0 ? p : best;
+  });
+}

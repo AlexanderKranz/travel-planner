@@ -22,7 +22,7 @@ export function evaluateTags(id: FixtureId, tags: PurposeTags): CheckResult[] {
 }
 
 /** `recordedHash`: input hash of the recording; a stale one skips checks that need the model to have seen the current input. */
-export type EvalOpts = { recordedHash?: string };
+export type EvalOpts = { recordedHash?: string; recordedVersion?: string };
 
 export function evaluateGenerate(id: FixtureId, tags: PurposeTags | null, llm: LlmPlan, opts: EvalOpts = {}) {
   const built = buildEvalInput(id, tags);
@@ -34,7 +34,7 @@ export function evaluateGenerate(id: FixtureId, tags: PurposeTags | null, llm: L
     locale: FIXTURES[id].locale,
     flights: built.flights,
   });
-  const fresh = opts.recordedHash === undefined || opts.recordedHash === planInputHash(built.stored.llm);
+  const fresh = opts.recordedHash === undefined || opts.recordedHash === planInputHash(built.stored.llm, opts.recordedVersion);
   // The model's own timing, before the code guard drops overlaps (fixed-item checks measure the model).
   const raw = assemblePlan({
     llm,
@@ -69,7 +69,7 @@ export function evaluatePatch(id: FixtureId, tags: PurposeTags | null, base: Pla
     ...genericChecks({ plan: res.plan, stored: built.stored, rawRefs: rawRefs(patch.days), issues: res.issues, startDate }),
   ];
   if (id === "golf") {
-    const fresh = opts.recordedHash === undefined || opts.recordedHash === planInputHash(built.stored.llm);
+    const fresh = opts.recordedHash === undefined || opts.recordedHash === planInputHash(built.stored.llm, opts.recordedVersion);
     results.push(...planChecks(id, FIXTURES[id], res.plan, fresh, built.stored, res.issues, raw.ok ? raw.plan : undefined));
   }
   return { plan: res.plan, changedDays: res.changedDays, results };

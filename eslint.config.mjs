@@ -6,7 +6,8 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  globalIgnores(["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts"]),
+  // .claude/ holds agent worktrees (full copies of the repo); linting them repeats every warning per copy.
+  globalIgnores(["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", ".claude/**"]),
   {
     files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     // eslint-plugin-react-hooks 7 (bundled with eslint-config-next 16) adds React Compiler rules. We do not use the

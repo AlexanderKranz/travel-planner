@@ -8,6 +8,7 @@ import { budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage, type Role } fro
 import type { AiCtx } from "@/lib/domain/ai";
 import type { FactsCtx } from "@/lib/domain/facts";
 import { warmTripFacts } from "./facts";
+import { notesDeriver } from "./itinerary-notes";
 import { loadActivityLookups, type ActivityLookupRequest } from "./facts/activity-lookups";
 import { getInterestGroups } from "./facts/places";
 import type { InterestKey } from "@/lib/domain/interests";
@@ -66,7 +67,7 @@ export async function scheduleTripWarm(session: Session, trip: Trip, locale: Loc
         }
         // The saved purpose, else the trip's one-off text (trip-purpose-text P5).
         const purpose = await withTags(session, tripPurpose(trip, saved), trip);
-        await warmTripFacts(trip, purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: WARM_BUDGET_MS });
+        await warmTripFacts(trip, purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: WARM_BUDGET_MS, derive: notesDeriver(session) });
       } catch {
         // warming is best effort
       }
@@ -106,7 +107,7 @@ export async function schedulePurposeWarm(session: Session, purposeId: string): 
         for (const row of rows) {
           const left = WARM_BUDGET_MS - (Date.now() - started);
           if (left < 30_000) break;
-          await warmTripFacts(rowToTrip(row, session.userId), purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: left });
+          await warmTripFacts(rowToTrip(row, session.userId), purpose, { userId: session.userId, locale, today: berlinToday() }, { budgetMs: left, derive: notesDeriver(session) });
         }
       } catch {
         // warming is best effort

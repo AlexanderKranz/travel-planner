@@ -12,6 +12,7 @@ import { noteTimes } from "@/lib/plan/assemble";
 import { DISTANCE_TEXT } from "@/lib/plan/distance-text";
 import { isOpenAirPlace, placeClasses } from "@/lib/plan/open-air";
 import { ARRIVAL_DEPARTURE } from "@/lib/plan/schedule-times";
+import { placeMatches } from "@/lib/plan/place-match";
 
 export type CheckResult = { name: string; ok: boolean; detail?: string };
 
@@ -20,8 +21,6 @@ const FLIGHT_NO = /\b[A-Z]{2}\s?\d{2,4}\b/;
 const MONEY = /[€$£]|\bEUR\b|\bUSD\b/;
 const HOURS_RANGE = /\d{1,2}[:.]\d{2}\s*[–-]\s*\d{1,2}[:.]\d{2}/;
 
-const fold = (s: string) =>
-  s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/ß/g, "ss").trim();
 const isHhmm = (s: string | undefined): s is string => !!s && /^\d\d:\d\d$/.test(s);
 const check = (name: string, ok: boolean, detail?: string): CheckResult => (ok ? { name, ok } : { name, ok, detail });
 
@@ -265,12 +264,6 @@ export function golfChecks(
     r.push(check(`day ${n} courses within ${c.airportMaxKm} km of the airport`, ok, `km ${kms.join(",")}`));
   }
   return r;
-}
-
-function placeMatches(stopPlace: string, wanted: string): boolean {
-  const a = fold(stopPlace);
-  const b = fold(wanted);
-  return a.includes(b) || b.includes(a);
 }
 
 export function cruiseChecks(plan: Plan, c: EvalFixture["checks"], schedule: ScheduleEntry[], notes?: string): CheckResult[] {

@@ -75,7 +75,8 @@ describe("needPlaces with cafés and kids", () => {
   const base = storedFor(2);
   it("resolves cafés (near an input id, kids only when true); a cafés-only request is loadable", () => {
     expect(resolveNeedPlaces({ cafes: { near: "p2", kids: true } }, base)).toEqual({ types: [], groups: [], cafes: { kids: true, near: { id: "p2", lat: 36.5, lon: -4.9 } } });
-    expect(resolveNeedPlaces({ cafes: { near: "__proto__", kids: false } }, base)).toEqual({ types: [], groups: [], cafes: {} });
+    expect(resolveNeedPlaces({ cafes: { near: "__proto__", kids: false } }, base)).toBeNull();
+    expect(resolveNeedPlaces({ cafes: { kids: false } }, base)).toEqual({ types: [], groups: [], cafes: {} });
     expect(resolveNeedPlaces({ restaurants: { cuisine: { kids: true } } }, base)!.restaurants).toEqual({ cuisine: { include: [], exclude: [], kids: true } });
   });
   it("mergeCuisine keeps an earlier kids wish and lets the request set it", () => {

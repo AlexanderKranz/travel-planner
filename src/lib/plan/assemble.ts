@@ -19,7 +19,9 @@ import { stripDistances } from "./distance-text";
 import { dropOverlaps } from "./fixed-items";
 import type { PlanInputStored } from "./input";
 import { guardOpenAir, placeClasses, type PlaceClass } from "./open-air";
+import { applyPortWindows, rowTimes, rowsOfPlace } from "./port-windows";
 import { guardScheduleTimes } from "./schedule-times";
+import { guardStopRefs, stopRefCtx, type StopCtx } from "./stop-refs";
 
 export type AssembleIssue =
   | "invalid_ref"
@@ -33,7 +35,11 @@ export type AssembleIssue =
   /** Issue #142: a prose field that stated a distance (number + unit removed). */
   | "distance_text"
   /** Issue #142: an open-air bath removed from ref/alts of an indoor activity or on a cold day. */
-  | "open_air";
+  | "open_air"
+  /** Port places: a ref or alt of a stop used on another day, or of the destination on a day at another stop (dropped). */
+  | "stop_mismatch"
+  /** Port places: a stop row with a time that no stop of its day matched (the window could not be applied). */
+  | "port_window_missing";
 export type AssembleIssues = Record<AssembleIssue, number>;
 
 export const LIMITS = {
@@ -64,6 +70,8 @@ export const emptyIssues = (): AssembleIssues => ({
   invented_time: 0,
   distance_text: 0,
   open_air: 0,
+  stop_mismatch: 0,
+  port_window_missing: 0,
 });
 
 /** Code guard [D6]: timed activities that overlap a fixed item of their day are dropped and counted. */
@@ -156,7 +164,7 @@ export type DayCtx = {
   index: PlanInputStored["index"];
   fallbackPlace: string;
   issues: AssembleIssues;
-  /** Times from the user's trip notes; a stop stays `fixed` only if all its window times are in here. */
+  /** Times from the user's trip notes; a stop stays `fixed` only if all its window times are in here or in its own stop row. */
   noteTimes: Set<string>;
   /** Patch only: text of the base day's activity at the same place, used when the model left text empty. */
   baseText?: Map<OsmKey, string>;
@@ -168,11 +176,30 @@ export type DayCtx = {
   climate?: PlanInputStored["llm"]["climate"];
   /** Selected months of a trip without dates: out of season when every one is. */
   months?: number[];
+  /** Trip stops (plan-8): port windows and stop refs; absent without `trip.stops`. */
+  stops?: StopCtx;
 };
 
+/**
+ * Times the user wrote in the trip notes. The arrival and departure times of the trip stops are not in here: they
+ * belong to their own day and stop row (`ownTimes`), so a time of day 1 does not vouch for a model time on day 2.
+ */
+export function inputTimes(stored: Pick<PlanInputStored, "llm">): Set<string> {
+  return noteTimes(stored.llm.trip.notes);
+}
+
+/** Times the user gave for one plan stop: the notes' times plus the times of the day's rows that name the stop. */
+export function ownTimes(base: Set<string>, rows: PlanInputStored["llm"]["trip"]["stops"], place: string): Set<string> {
+  const mine = rowTimes(rowsOfPlace(rows, place));
+  return mine.length ? new Set([...base, ...mine]) : base;
+}
+
 /** The per-plan part of DayCtx that the guards of issue #142 need. */
-export function guardCtx(stored: PlanInputStored): Pick<DayCtx, "notes" | "places" | "climate" | "months"> {
-  return { notes: stored.llm.trip.notes, places: placeClasses(stored), climate: stored.llm.climate, months: stored.llm.trip.months };
+export function guardCtx(stored: PlanInputStored): Pick<DayCtx, "notes" | "places" | "climate" | "months" | "stops"> {
+  // The stops count as notes for the invented-times guard: a place named only in `trip.stops` has its times from there.
+  const named = (stored.llm.trip.stops ?? []).flatMap((r) => (r.place ? [r.place] : []));
+  const notes = named.length ? [stored.llm.trip.notes, ...named].filter(Boolean).join("\n") : stored.llm.trip.notes;
+  return { notes, places: placeClasses(stored), climate: stored.llm.climate, months: stored.llm.trip.months, stops: stopRefCtx(stored) };
 }
 
 /** One model day → stored day (spec 4.5). The best-day highlight is never model output (patch-safety [D8]). */
@@ -184,6 +211,7 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
     const to = time(s.to, issues);
     if (s.acts.length > LIMITS.acts) issues.truncated += 1;
     const acts: PlanActivity[] = [];
+    const place = proseText(s.place, LIMITS.place, issues) ?? ctx.fallbackPlace;
     for (const a of s.acts.slice(0, LIMITS.acts)) {
       let ref: OsmKey | undefined;
       let refName: string | undefined;
@@ -214,10 +242,16 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
         if (!g.act) continue; // the text only named a removed open-air pool
         act = g.act;
       }
+      if (ctx.stops) {
+        const g = guardStopRefs(act, d.n, ctx.stops, place);
+        issues.stop_mismatch += g.dropped;
+        act = g.act;
+      }
       acts.push(act);
     }
-    const place = proseText(s.place, LIMITS.place, issues) ?? ctx.fallbackPlace;
-    const sched = guardScheduleTimes(acts, place, ctx.notes, ctx.noteTimes);
+    // Times from the trip stops count only for the stop row of this day that names the place.
+    const times = ownTimes(ctx.noteTimes, ctx.stops?.rows.get(d.n), place);
+    const sched = guardScheduleTimes(acts, place, ctx.notes, times);
     issues.invented_time += sched.dropped;
     return defined({
       place,
@@ -226,16 +260,20 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
       // "From your notes" is a claim about user input: only trust it when the user actually wrote both times.
       // A one-sided window ("departs 16:00") is fine; every time it does give must be in the notes.
       fixed:
-        s.fixed === true && (from || to) && [from, to].every((t) => !t || ctx.noteTimes.has(t)) ? true : undefined,
+        s.fixed === true && (from || to) && [from, to].every((t) => !t || times.has(t)) ? true : undefined,
       acts: sched.acts,
     });
   });
+  // Port windows come from the trip stops, never from the model (itinerary-upload section 5).
+  const windows = applyPortWindows(stops, ctx.stops?.rows.get(d.n));
+  issues.port_window_missing += windows.missing;
+  issues.window_violation += windows.clipped;
   const title = proseText(d.title, LIMITS.title, issues) ?? stops[0]?.place ?? ctx.fallbackPlace;
   return defined({
     n: d.n,
     date: ctx.date,
     title,
-    stops: stops.length ? stops : [{ place: title.slice(0, LIMITS.place), acts: [] }],
+    stops: windows.stops.length ? windows.stops : [{ place: title.slice(0, LIMITS.place), acts: [] }],
     note: proseText(d.note, LIMITS.dayNote, issues),
     warn: proseText(d.warn, LIMITS.dayNote, issues),
   });
@@ -324,7 +362,7 @@ export function assemblePlan(a: {
   const issues = emptyIssues();
   const fallbackPlace = stored.llm.trip.dest.slice(0, LIMITS.place);
   const sorted = [...llm.days].sort((x, y) => x.n - y.n);
-  const times = noteTimes(stored.llm.trip.notes);
+  const times = inputTimes(stored);
   const guards = guardCtx(stored);
   const days = sorted.map((d) =>
     guardFixed(

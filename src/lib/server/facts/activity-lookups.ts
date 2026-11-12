@@ -53,12 +53,17 @@ const failed = { status: "error", source: "osm" } as const;
 
 export type ActivityLookupRequest = {
   groups: readonly ActivityGroup[];
-  /** false = no restaurants; `near` = within 1.5 km of that point (change requests). */
-  restaurants?: { near?: { lat: number; lon: number } } | false;
-  /** Cafés only when asked for (addendum A2): absent or false = none; `near` as for restaurants. */
-  cafes?: { near?: { lat: number; lon: number } } | false;
+  /**
+   * false = no restaurants; `near` = within 1.5 km of that point (change requests); `at` = around that point as around
+   * a destination of kind city (2.5 km, the cache key of a stop's lookup; port places).
+   */
+  restaurants?: { near?: { lat: number; lon: number }; at?: GeoDestination } | false;
+  /** Cafés only when asked for (addendum A2): absent or false = none; `near` and `at` as for restaurants. */
+  cafes?: { near?: { lat: number; lon: number }; at?: GeoDestination } | false;
   /** The wished types (QA #139): a source part with none of them is not fetched. Absent = every type. */
   wanted?: readonly ActivityType[];
+  /** "cache_only": restaurant and café lookups never query Overpass over the network (stops, inline patches [P7]). */
+  overpass?: "cache_only";
 };
 
 /**
@@ -76,7 +81,7 @@ export async function loadActivityLookups(
   let restaurants: RestaurantLookup | undefined;
   if (req.restaurants !== false) {
     const near = req.restaurants?.near;
-    const f = await getRestaurantFacts(dest, ctx, { budgetMs: remaining(budgetMs, started), ...(near ? { near } : {}) }).catch(() => failed);
+    const f = await getRestaurantFacts(req.restaurants?.at ?? dest, ctx, { budgetMs: remaining(budgetMs, started), ...(near ? { near } : {}), ...(req.overpass ? { overpass: req.overpass } : {}) }).catch(() => failed);
     restaurants = restaurantLookup(f);
   }
   const activities: ActivityGroupLookup[] = [];
@@ -87,7 +92,7 @@ export async function loadActivityLookups(
   let cafes: CafeLookup | undefined;
   if (req.cafes) {
     const near = req.cafes.near;
-    const f = await getCafeFacts(dest, ctx, { budgetMs: remaining(budgetMs, started), ...(near ? { near } : {}) }).catch(() => failed);
+    const f = await getCafeFacts(req.cafes.at ?? dest, ctx, { budgetMs: remaining(budgetMs, started), ...(near ? { near } : {}), ...(req.overpass ? { overpass: req.overpass } : {}) }).catch(() => failed);
     cafes = cafeLookup(f);
   }
   return { activities, ...(restaurants ? { restaurants } : {}), ...(cafes ? { cafes } : {}) };

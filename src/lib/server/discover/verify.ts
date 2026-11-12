@@ -8,7 +8,7 @@ import { DEFAULT_RADIUS_KM } from "@/lib/domain/trip";
 import { climateMean, passesAllClimate } from "@/lib/discover/climate-rules";
 import { assessDrive } from "@/lib/discover/drive";
 import { assessFlight } from "@/lib/discover/flight";
-import { isDuplicate, kindOf, pickAnchorPlace } from "@/lib/discover/names";
+import { isDuplicate, kindOf } from "@/lib/discover/names";
 import { cleanReason } from "@/lib/discover/reason";
 import { selectSearchInterests, VERIFIABILITY } from "@/lib/discover/verifiability";
 import { driveMaxMin } from "@/lib/drive/estimate";
@@ -20,6 +20,7 @@ import type { Idea } from "../ai/destination-ideas";
 import { getDriveRoute } from "../facts/drive-route";
 import { getClimateAt } from "../facts/weather";
 import { getPlacesAt } from "../facts/places";
+import { resolvePlaceName, type ResolvedPlace } from "./resolve-place";
 
 /** Time for steps 3 and 4 of one search; ideas not reached are not shown (spec section 5). */
 export const VERIFY_BUDGET_MS = 45_000;
@@ -66,10 +67,7 @@ export const defaultVerifyDeps: VerifyDeps = {
   now: () => Date.now(),
 };
 
-type Anchor =
-  | { status: "ok"; place: GeoPlace; fetchedAt: string; stale: boolean }
-  | { status: "not_found" }
-  | { status: "failed" };
+type Anchor = ResolvedPlace;
 
 /**
  * Step 1 for one idea. The model writes `anchor` as the English GeoNames spelling, and the geocoder only matches names
@@ -77,25 +75,10 @@ type Anchor =
  * spellings such as "Köln"). A hit in another language than the user's is read again by id for the localized name
  * (cached). At most 3 calls per idea, all through `cached()`. A failed call is a failure, never "not found".
  */
-/** Open-Meteo search languages for countries whose local names are not found in English or German (checked live 2026-11-02). */
-const ANCHOR_LANGUAGE: Record<string, SearchLang> = { PT: "pt", IT: "it", ES: "es", FR: "fr", TR: "tr" };
-
 export async function resolveAnchor(idea: Idea, lang: "de" | "en", userId: string, deps: VerifyDeps): Promise<Anchor> {
+  // The shared place resolution (also used for trip stops, port-places [P1]); the idea's country stays a hard rule.
   // Local-only anchors (Lisboa, Firenze) are found in the country's language; the result must still match the anchor.
-  const local = ANCHOR_LANGUAGE[idea.cc.trim().toUpperCase()];
-  for (const searchLang of ["en", "de", ...(local ? [local] : [])] as SearchLang[]) {
-    const res = await deps.geocode(idea.anchor, searchLang, userId);
-    if (!res.ok) return { status: "failed" };
-    const hit = pickAnchorPlace(res.data, idea.anchor, idea.cc);
-    if (!hit) continue;
-    let place = hit;
-    if (searchLang !== lang) {
-      const local = await deps.placeById(hit.geoId, lang);
-      if (local) place = { ...hit, name: local.name, admin1: local.admin1 ?? hit.admin1 };
-    }
-    return { status: "ok", place, fetchedAt: res.fetchedAt, stale: res.stale };
-  }
-  return { status: "not_found" };
+  return resolvePlaceName(idea.anchor, idea.cc, lang, userId, deps, { anyCountry: false });
 }
 
 export type VerifyInput = {

@@ -120,6 +120,11 @@ export function highlightedDays(meta: Pick<PlanVersionMeta, "kind" | "changedDay
 /** Classes for anything that is only visible while drive times are shown (inside DriveTimesScope). */
 export const DRIVE_ONLY = "hidden group-data-[drive=on]/plan:inline";
 
+/** Unique names of the stops the day's drive times are measured from (empty = all from the destination point). */
+export function driveStopNames(places: readonly { drive?: { from?: string } }[]): string[] {
+  return [...new Set(places.flatMap((p) => (p.drive?.from ? [p.drive.from] : [])))];
+}
+
 /** Icon-only quick add in day rows: hidden until row hover/focus on hover-capable pointers, always shown on touch. */
 export const QUICK_ADD_HOVER =
   "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/act:opacity-100 [@media(hover:hover)]:group-focus-within/act:opacity-100 focus-visible:opacity-100";

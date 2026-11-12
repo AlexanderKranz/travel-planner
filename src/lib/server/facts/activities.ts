@@ -119,7 +119,11 @@ function toLookupFact<T, D>(
   return { status: empty ? "empty" : "ok", data: data(res.data), source: "osm", sourceUrl: OSM_URL, fetchedAt: res.fetchedAt, stale: res.stale };
 }
 
-type Opts = { budgetMs?: number };
+/**
+ * `overpass: "cache_only"` (port places [P7]): cache and Geoapify as usual, but never an Overpass query over the
+ * network (25-60 s). A miss is then `skipped` (`cache_only`), like a run with no budget left.
+ */
+type Opts = { budgetMs?: number; overpass?: "cache_only" };
 type GeoapifyAnswer = { elements: RawOsmElement[]; status: number; latencyMs: number; credits: number; truncated: boolean; cutTypes?: string[]; skippedTypes?: string[] };
 type Spec<T> = {
   /** Cache key parts (anchor already rounded). */
@@ -145,6 +149,8 @@ type Spec<T> = {
   schema: z.ZodType<Batch<T>>;
   ctx: FactsCtx;
   budgetMs: number;
+  /** No Overpass query over the network (Geoapify and the caches still work). */
+  overpassCacheOnly?: boolean;
 };
 
 /**
@@ -223,7 +229,13 @@ async function lookup<T>(s: Spec<T>): Promise<{ res: CachedResult<Batch<T>>; att
     if (res.ok) return { res, attempted, denied };
     if (incomplete) return { res: { ok: true, data: incomplete, fetchedAt: new Date().toISOString(), stale: false, cache: "miss" }, attempted, denied };
   }
-  const res = await overpass(started + s.budgetMs, gate);
+  const overpassGate = s.overpassCacheOnly
+    ? () => {
+        denied = true;
+        return false;
+      }
+    : gate;
+  const res = await overpass(started + s.budgetMs, overpassGate);
   if (!res.ok && hit.ok) return { res: hit, attempted, denied };
   return { res, attempted, denied };
 }
@@ -468,6 +480,7 @@ export async function getRestaurantFacts(
       schema: batchSchema(restaurantSchema),
       ctx,
       budgetMs: opts.budgetMs ?? VIEW_BUDGET_MS,
+      overpassCacheOnly: opts.overpass === "cache_only",
     });
     return toLookupFact(looked, (b) => ({ radiusKm, restaurants: b.items, truncated: b.truncated }));
   } catch {
@@ -503,6 +516,7 @@ export async function getCafeFacts(
       schema: batchSchema(cafeSchema),
       ctx,
       budgetMs: opts.budgetMs ?? VIEW_BUDGET_MS,
+      overpassCacheOnly: opts.overpass === "cache_only",
     });
     return toLookupFact(looked, (b) => ({ radiusKm, cafes: b.items, truncated: b.truncated }));
   } catch {

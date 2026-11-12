@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { ActivityGroupLookup, CafeLookup, PlaceGroup, RestaurantLookup, TripFacts } from "@/lib/domain/facts";
+import type { ActivityGroupLookup, CafeLookup, PlaceGroup, RestaurantLookup, StopFacts, TripFacts } from "@/lib/domain/facts";
 import type { TripPurpose } from "@/lib/domain/purpose";
-import type { Trip } from "@/lib/domain/trip";
+import { DEFAULT_RADIUS_KM, type Trip } from "@/lib/domain/trip";
 import { ACTIVITY_GROUPS, ACTIVITY_TYPES, typesInGroup, type ActivityType } from "@/lib/facts/activity-types";
 import { groupPending, type BlockingScope } from "@/lib/plan/places-pending";
 import { interestsForTrip, radiusForInterest, sourceFor, tripRadiusKm } from "@/lib/facts/interest-sources";
@@ -114,4 +114,27 @@ export function jobsForTripFacts(
     .filter((k) => sourceFor(k).source === "osm")
     .map((k) => job({ kind: "interest", interest: k, ...round(dest), radiusKm: radiusForInterest(k, base) }));
   return [...interests, ...jobsForActivityLookups(dest, facts, undefined, scope)].slice(0, MAX_ENQUEUE);
+}
+
+/**
+ * Jobs for the lookups around trip stops that failed or were skipped (port-places [P7], R2: the stop point is the
+ * job's point, no new job kind): interests with an OSM source, restaurants, cafés. The retry worker, unlike a
+ * plan run, may query Overpass over the network. Stops without a point (not found, failed, capped) have none.
+ */
+export function jobsForStops(stops: readonly Pick<StopFacts, "stop" | "places" | "restaurants" | "cafes">[]): RetryJob[] {
+  const out: RetryJob[] = [];
+  for (const f of stops) {
+    const p = f.stop.point;
+    if (f.stop.role !== "stop" || f.stop.status !== "ok" || !p) continue;
+    const dest = { lat: p.lat, lon: p.lon, kind: "city" as const };
+    const radius = tripRadiusKm({ ...dest, radiusKm: DEFAULT_RADIUS_KM.city } as Extract<Trip["destination"], { lat: number }>);
+    for (const g of f.places) {
+      if (g.status === "error" && sourceFor(g.interest).source === "osm") {
+        out.push(job({ kind: "interest", interest: g.interest, ...round(dest), radiusKm: radiusForInterest(g.interest, radius) }));
+      }
+    }
+    if (f.restaurants && notLoaded(f.restaurants)) out.push(job({ kind: "restaurants", dest: roundDest(dest) }));
+    if (f.cafes && notLoaded(f.cafes)) out.push(job({ kind: "cafes", dest: roundDest(dest) }));
+  }
+  return out;
 }

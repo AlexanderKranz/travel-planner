@@ -1,4 +1,5 @@
 import { DEFAULT_RADIUS_KM, type Trip, type TripInput } from "@/lib/domain";
+import { rowsFromStops, rowsHaveProblems, rowsToStops, type StopRow } from "./stops-draft";
 import { draftToCompositionInput, tripEntryToDraft, type EntryDraft } from "@/components/groups/draft";
 
 /** Select value of "describe the group for this trip only" (never a real group id). */
@@ -46,6 +47,10 @@ export type TripDraft = {
   useHomeAirports: boolean;
   originAirports: string[];
   notes: string;
+  /** UI state only ([D1]): shows the stops section. Ticked when the trip has confirmed or derived stops. */
+  multiStop: boolean;
+  /** Confirmed stops as editable rows; saved with the form. Sent as `[]` while `multiStop` is off. */
+  stops: StopRow[];
   /** Hidden: the saved suggestion list this trip is made from (find-destinations). */
   destinationSearchId?: string;
 };
@@ -64,6 +69,8 @@ export const emptyTripDraft = (): TripDraft => ({
   useHomeAirports: true,
   originAirports: [],
   notes: "",
+  multiStop: false,
+  stops: [],
 });
 
 export function draftFromTrip(trip: Trip): TripDraft {
@@ -98,6 +105,8 @@ export function draftFromTrip(trip: Trip): TripDraft {
     useHomeAirports: trip.originAirports.length === 0,
     originAirports: trip.originAirports,
     notes: trip.notes ?? "",
+    multiStop: (trip.stops?.length ?? 0) > 0,
+    stops: rowsFromStops(trip.stops ?? []),
     ...(trip.destinationSearchId ? { destinationSearchId: trip.destinationSearchId } : {}),
   };
 }
@@ -111,6 +120,7 @@ export function draftProblems(draft: TripDraft): string[] {
   if (!Number.isInteger(draft.lengthDays) || draft.lengthDays < 1) problems.push("lengthDays");
   if (draft.timing.mode === "date" && !draft.timing.startDate) problems.push("timing");
   if (draft.timing.mode === "months" && draft.timing.months.length === 0) problems.push("timing");
+  if (draft.multiStop && rowsHaveProblems(draft.stops, draft.lengthDays)) problems.push("stops");
   return problems;
 }
 
@@ -152,6 +162,7 @@ export function draftToInput(draft: TripDraft): TripInput {
     wantsFlights: draft.wantsFlights,
     originAirports: draft.wantsFlights && !draft.useHomeAirports ? draft.originAirports : [],
     notes: draft.notes.trim() || undefined,
+    stops: draft.multiStop ? rowsToStops(draft.stops) : [],
     ...(draft.destinationSearchId ? { destinationSearchId: draft.destinationSearchId } : {}),
   };
 }

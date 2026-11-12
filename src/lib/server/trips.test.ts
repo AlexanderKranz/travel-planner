@@ -46,7 +46,7 @@ vi.mock("next/server", () => ({ after: (fn: () => Promise<void>) => h.afterFns.p
 vi.mock("@/lib/integrations/open-meteo-geocoding", () => ({ getPlaceById: h.getPlaceById }));
 
 import { resetRateLimits } from "./rate-limit";
-import { createTrip, deleteTrip, getTrip, listTrips, updateTrip } from "./trips";
+import { createTrip, deleteTrip, getTrip, listTrips, setTripStops, updateTrip } from "./trips";
 
 const place = {
   geoId: 2513918, name: "Marbella", featureCode: "PPLA3", countryCode: "ES", admin1: "Andalusia",
@@ -350,5 +350,92 @@ describe("shared trips: access, conflicts and owner-only columns (sharing spec 3
     h.results["trips.update"] = { data: row };
     await updateTrip(row.id, input);
     expect(updateOp().eqs.map((e) => e[0])).not.toContain("updated_at");
+  });
+});
+
+describe("trip stops (itinerary-upload D4)", () => {
+  const stops = [{ day: 2, place: "Altstadt", arr: "14:00" }, { day: 1, place: "Hafen", dep: "16:00" }];
+
+  it("updateTrip: stops in the form are written sorted; empty clears; changed stops warm", async () => {
+    h.results["trips.select"] = { data: row };
+    h.results["trips.update"] = { data: row };
+    await updateTrip(row.id, { ...input, stops });
+    const sent = h.ops.find((o) => o.table === "trips" && o.op === "update")!.payload as { stops: { day: number }[] };
+    expect(sent.stops.map((s) => s.day)).toEqual([1, 2]);
+    expect(h.afterFns).toHaveLength(1);
+
+    h.ops = [];
+    await updateTrip(row.id, { ...input, stops: [] });
+    expect((h.ops.find((o) => o.op === "update")!.payload as { stops: unknown }).stops).toBeNull();
+  });
+
+  it("updateTrip: absent stops are not written; a notes change warms", async () => {
+    h.results["trips.select"] = { data: row };
+    h.results["trips.update"] = { data: row };
+    await updateTrip(row.id, { ...input, notes: "Tag 1 Hafen" });
+    expect(h.ops.find((o) => o.op === "update")!.payload).not.toHaveProperty("stops");
+    expect(h.afterFns).toHaveLength(1);
+  });
+
+  it("updateTrip: stops after the last day are invalid; stored stops must fit a shortened trip", async () => {
+    expect(await updateTrip(row.id, { ...input, lengthDays: 1, stops })).toMatchObject({ ok: false, error: "invalid" });
+    h.results["trips.select"] = { data: { ...row, stops } };
+    h.ops = [];
+    expect(await updateTrip(row.id, { ...input, lengthDays: 1 })).toMatchObject({
+      ok: false, error: "invalid", issues: [{ path: "stops" }],
+    });
+    expect(h.ops.some((o) => o.op === "update")).toBe(false);
+  });
+
+  it("setTripStops: validates, needs a session and an existing trip", async () => {
+    h.session = false;
+    expect(await setTripStops(row.id, stops)).toEqual({ ok: false, error: "unauthenticated" });
+    h.session = true;
+    expect(await setTripStops("nope", stops)).toMatchObject({ ok: false, error: "invalid" });
+    expect(await setTripStops(row.id, [{ day: 1 }])).toMatchObject({ ok: false, error: "invalid" });
+    expect(h.ops).toHaveLength(0);
+    expect(await setTripStops(row.id, stops)).toEqual({ ok: false, error: "not_found" });
+  });
+
+  it("setTripStops: a read grantee is forbidden, a write grantee may save", async () => {
+    const shared = { ...row, owner_id: "owner", trip_shares: [{ grantee_id: "u1", access: "read" }] };
+    h.results["trips.select"] = { data: shared };
+    expect(await setTripStops(row.id, stops)).toEqual({ ok: false, error: "forbidden" });
+    expect(h.ops.some((o) => o.op === "update")).toBe(false);
+
+    h.results["trips.select"] = { data: { ...shared, trip_shares: [{ grantee_id: "u1", access: "write" }] } };
+    h.results["trips.update"] = { data: { ...shared, stops } };
+    expect(await setTripStops(row.id, stops)).toMatchObject({ ok: true });
+  });
+
+  it("setTripStops: writes only the stops, sorted, logs counts, warms only on change", async () => {
+    h.results["trips.select"] = { data: row };
+    h.results["trips.update"] = { data: { ...row, stops } };
+    const res = await setTripStops(row.id, stops);
+    expect(res).toMatchObject({ ok: true, data: { stops: [{ day: 1 }, { day: 2 }] } }); // read back sorted
+    const upd = h.ops.find((o) => o.op === "update")!;
+    expect(Object.keys(upd.payload as object)).toEqual(["stops"]);
+    expect((upd.payload as { stops: { day: number }[] }).stops.map((s) => s.day)).toEqual([1, 2]);
+    const ev = h.logEvent.mock.calls[0][0];
+    expect(ev).toMatchObject({ event: "trip.stops_saved", props: { tripId: row.id, stops: 2 } });
+    expect(JSON.stringify(ev)).not.toMatch(/Hafen|Altstadt/);
+    expect(h.afterFns).toHaveLength(1);
+
+    h.afterFns = [];
+    h.results["trips.select"] = { data: { ...row, stops: [{ day: 1, place: "Hafen", dep: "16:00" }, { day: 2, place: "Altstadt", arr: "14:00" }] } };
+    await setTripStops(row.id, stops);
+    expect(h.afterFns).toHaveLength(0); // same stops: nothing to warm
+  });
+
+  it("setTripStops: clears with an empty list, refuses days after the trip end, reports conflicts", async () => {
+    h.results["trips.select"] = { data: { ...row, stops } };
+    h.results["trips.update"] = { data: row };
+    await setTripStops(row.id, []);
+    expect((h.ops.find((o) => o.op === "update")!.payload as { stops: unknown }).stops).toBeNull();
+
+    h.ops = [];
+    expect(await setTripStops(row.id, [{ day: 6, place: "Zu spät" }])).toMatchObject({ ok: false, error: "invalid", issues: [{ path: "stops" }] });
+    expect(await setTripStops(row.id, stops, "2020-01-01T00:00:00Z")).toEqual({ ok: false, error: "conflict" });
+    expect(h.ops.some((o) => o.op === "update")).toBe(false);
   });
 });

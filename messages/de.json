@@ -287,7 +287,8 @@
       "label": "Maximale Flugzeit (Direktflug)",
       "any": "Egal",
       "hours": "bis {h} h"
-    }
+    },
+    "purposeHint": "Fahrplan mit Häfen und Zeiten lädst du bei der Reise hoch."
   },
   "settings": {
     "title": "Einstellungen",
@@ -487,6 +488,60 @@
         "hint": "Frei formuliert, zum Beispiel „Ich und Ben, ähnliches Alter“. Wird nicht als Reisegruppe gespeichert."
       },
       "groupStructureHelp": "Optional: Personen und Alter genau angeben. Das hat Vorrang vor dem erkannten Text."
+    },
+    "stops": {
+      "title": "Stopps & Zeiten",
+      "multiStop": "Mehrere Stationen (Kreuzfahrt oder Rundreise)",
+      "hint": "Zum Beispiel der Fahrplan einer Kreuzfahrt oder die Etappen einer Rundreise. Optional.",
+      "clearConfirm": "Gespeicherte Stopps entfernen?",
+      "clearYes": "Ja, entfernen",
+      "clearNo": "Behalten",
+      "upload": "Dokument wählen",
+      "camera": "Foto aufnehmen",
+      "uploadHint": "PDF oder Foto, bis 15 MB. Die Datei wird nicht gespeichert.",
+      "reading": "Dokument wird gelesen …",
+      "fromNotes": "Aus Notizen übernehmen",
+      "derived": "Aus deinen Notizen erkannt: {count, plural, one {# Stopp} other {# Stopps}}",
+      "takeOver": "Übernehmen",
+      "add": "Stopp hinzufügen",
+      "remove": "Stopp {n} entfernen",
+      "stopN": "Stopp {n}",
+      "day": "Tag",
+      "dayOption": "Tag {n} ({date})",
+      "dayOptionNoDate": "Tag {n}",
+      "place": "Ort",
+      "arrive": "Ankunft",
+      "depart": "Abfahrt",
+      "sea": "Seetag",
+      "note": "Notiz",
+      "invalidRow": "Bitte Ort und Tag prüfen.",
+      "invalidList": "Bitte die markierten Stopps prüfen.",
+      "empty": "Noch keine Stopps.",
+      "proposal": "Erkannt: {count, plural, one {# Stopp} other {# Stopps}}. Bitte prüfen.",
+      "proposalBelow": "Neu erkannt: {count, plural, one {# Stopp} other {# Stopps}}. Bitte prüfen.",
+      "replace": "Ersetzen",
+      "fillMissing": "Fehlende Tage ergänzen",
+      "discard": "Verwerfen",
+      "takeDates": "Reisedaten übernehmen: {range} ({days} Tage)",
+      "readOnly": "Nur Lesezugriff: die Stopps können nicht geändert werden.",
+      "flag": {
+        "outsideTrip": "Liegt außerhalb der Reise",
+        "noTripDate": "Die Reise hat noch kein Datum",
+        "yearGuessed": "Jahr ergänzt, bitte prüfen",
+        "fromImage": "Aus dem Bild gelesen, bitte vergleichen",
+        "timeUnclear": "Zeit nicht lesbar"
+      },
+      "error": {
+        "unreadable": "Das Dokument konnte nicht gelesen werden.",
+        "noStops": "Keine Stopps gefunden. Du kannst sie unten eintippen.",
+        "tooLarge": "Die Datei ist zu groß (max. 15 MB).",
+        "unsupportedType": "Bitte PDF, JPG, PNG oder WebP verwenden.",
+        "tooManyPages": "Nur die ersten {pages} Seiten wurden gelesen.",
+        "aiOff": "Automatisches Lesen ist gerade nicht verfügbar. Bitte Stopps eintippen.",
+        "limit": "Tageslimit erreicht. Morgen wieder oder Stopps eintippen.",
+        "forbidden": "Du kannst die Stopps dieser Reise nicht bearbeiten."
+      },
+      "stopsPerDay": "Pro Tag sind höchstens {max} Orte möglich (Tag {days})."
     }
   },
   "facts": {
@@ -814,7 +869,7 @@
     "dayShort": "Tag",
     "bestDay": "Bester Tag",
     "changed": "Geändert",
-    "fromNotes": "aus deinen Notizen",
+    "fromNotes": "aus deinen Reiseangaben",
     "windowBoth": "{from}–{to}",
     "windowFrom": "ab {time}",
     "windowUntil": "bis {time}",
@@ -941,7 +996,11 @@
         "b": "mit Tag",
         "apply": "Tauschen"
       },
-      "shrinkRejected": "{count, plural, one {Tag {days} wurde} other {Die Tage {days} wurden}} nicht geändert, weil die Antwort unvollständig war. Bitte erneut versuchen."
+      "shrinkRejected": "{count, plural, one {Tag {days} wurde} other {Die Tage {days} wurden}} nicht geändert, weil die Antwort unvollständig war. Bitte erneut versuchen.",
+      "stopsNotFound": "Es hat sich nichts geändert: {places} wurde in den Ortsdaten nicht gefunden. Bitte den Ortsnamen bei „Stopps & Zeiten“ prüfen.",
+      "stopsUnchecked": "Es hat sich nichts geändert: Die Orte in {places} konnten noch nicht geladen werden. Sie werden im Hintergrund geladen; bitte in ein paar Minuten erneut versuchen.",
+      "stopsCapped": "Es hat sich nichts geändert: Für {places} lädt die App keine Orte mehr (höchstens 10 Stopps pro Reise).",
+      "stopsUnknown": "Es hat sich nichts geändert: Die App kennt keine Stopps dieser Reise. Trage sie unter „Stopps & Zeiten“ ein, dann gibt es auch dort konkrete Orte."
     },
     "versions": {
       "aria": "Versionsverlauf",
@@ -1005,7 +1064,9 @@
       "working": "Wird gespeichert…",
       "markBest": "Tag {n} als besten Tag markieren",
       "unmarkBest": "Markierung „Bester Tag“ von Tag {n} entfernen"
-    }
+    },
+    "driveTitleStop": "Mit dem Auto ab {stop}, {km} km (OpenRouteService, geprüft am {date})",
+    "driveCreditStop": "Fahrzeiten: © openrouteservice.org, ab {stop}"
   },
   "items": {
     "title": "Buchungen und Kosten",
@@ -1329,6 +1390,7 @@
         "purpose_tags": "Reiseanlass-Tags (Haiku)",
         "group_parse": "Gruppentext (Haiku)",
         "destination_ideas": "Reiseziel-Ideen (Haiku)",
+        "itinerary_extract": "Fahrplan lesen (Haiku)",
         "plan_generate": "Plan (Sonnet)",
         "plan_patch": "Änderung (Sonnet)"
       }

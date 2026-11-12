@@ -166,3 +166,22 @@ describe("stored input round trip (issue #142)", () => {
     expect(StoredInput.safeParse(JSON.parse(JSON.stringify(st))).success).toBe(true);
   });
 });
+
+describe("StoredInput keeps the stop fields (port-places plan-8)", () => {
+  it("stopPoints and the stop of an index entry survive a read (the schema must not strip them)", () => {
+    const st = storedFor(2) as PlanInputStored;
+    st.stopPoints = { s1: { lat: 48.2, lon: 16.37, geoId: 2761369 } };
+    st.index.p1 = { ...st.index.p1, stop: "s1" };
+    st.llm.trip.stops = [{ day: 1, place: "Wien", at: "s1" }];
+    st.llm.stopPlaces = [{ id: "s1", name: "Wien" }];
+    const parsed = StoredInput.parse(JSON.parse(JSON.stringify(st)));
+    expect(parsed.stopPoints).toEqual(st.stopPoints);
+    expect(parsed.index.p1.stop).toBe("s1");
+    expect((parsed.llm as { stopPlaces?: unknown }).stopPlaces).toEqual(st.llm.stopPlaces);
+    expect((parsed.llm.trip as { stops?: unknown }).stops).toEqual(st.llm.trip.stops);
+  });
+  it("rows from before plan-8 parse without them", () => {
+    const parsed = StoredInput.parse(JSON.parse(JSON.stringify(storedFor(2))));
+    expect(parsed.stopPoints).toBeUndefined();
+  });
+});

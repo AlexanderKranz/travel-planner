@@ -13,6 +13,9 @@ const h = vi.hoisted(() => ({
 }));
 vi.mock("next/server", () => ({ after: (fn: () => Promise<void>) => void h.afterFns.push(fn) }));
 vi.mock("./facts", () => ({ warmTripFacts: h.warmFacts }));
+const deriver = vi.hoisted(() => Object.assign(async () => null, { marker: "bound-to-session" }));
+vi.mock("./trip-mapping", async (orig) => ({ ...(await orig<object>()), rowToTrip: (row: { id: string }) => ({ id: row.id, ownerId: "u1", access: "owner" }) }));
+vi.mock("./itinerary-notes", () => ({ notesDeriver: vi.fn(() => deriver) }));
 vi.mock("./facts/activity-lookups", () => ({ loadActivityLookups: vi.fn() }));
 vi.mock("./purposes", () => ({ getPurpose: h.getPurpose }));
 vi.mock("./purpose-tagging", () => ({ wantsTags: (p: { tags: unknown } | null) => !!p && p.tags == null, tagAndSave: h.tagAndSave }));
@@ -26,7 +29,8 @@ vi.mock("./ai-usage", () => ({
 }));
 
 import type { Trip } from "@/lib/domain/trip";
-import { scheduleTripWarm } from "./warm";
+import { notesDeriver } from "./itinerary-notes";
+import { schedulePurposeWarm, scheduleTripWarm } from "./warm";
 
 const session = {
   userId: "u1",
@@ -88,5 +92,31 @@ describe("scheduleTripWarm: one-off trip purpose (spec trip-purpose-text P4)", (
     await run({ ...baseTrip, purposeId: "p1" } as Trip);
     expect(h.tagAndSave).toHaveBeenCalledOnce();
     expect(h.tagTrip).not.toHaveBeenCalled();
+  });
+});
+
+describe("warm-up derives stops from the notes on behalf of the saving user (itinerary-upload [D10])", () => {
+  it("scheduleTripWarm passes a deriver bound to the session to warmTripFacts", async () => {
+    await run(baseTrip);
+    expect(notesDeriver).toHaveBeenCalledWith(session);
+    expect(h.warmFacts).toHaveBeenCalledWith(baseTrip, null, expect.anything(), expect.objectContaining({ derive: deriver }));
+  });
+
+  it("schedulePurposeWarm does too, for every trip it warms", async () => {
+    const tripRow = { id: "11111111-1111-4111-8111-111111111111", owner_id: "u1" };
+    const chain = (data: unknown) => {
+      const b: Record<string, unknown> = {};
+      for (const m of ["select", "eq", "order", "limit", "returns"]) b[m] = () => b;
+      b.maybeSingle = async () => ({ data });
+      b.then = (res: (v: unknown) => unknown) => Promise.resolve({ data }).then(res);
+      return b;
+    };
+    const s = { userId: "u1", supabase: { from: (t: string) => chain(t === "profiles" ? { locale: "de" } : [tripRow]) } } as never;
+    h.getPurpose.mockResolvedValue({ ok: true, data: { id: "p1", tags: TAGS } });
+    await schedulePurposeWarm(s, "p1");
+    await h.afterFns[0]();
+    expect(notesDeriver).toHaveBeenCalledWith(s);
+    expect(h.warmFacts).toHaveBeenCalledOnce();
+    expect((h.warmFacts.mock.calls as unknown[][])[0][3]).toEqual(expect.objectContaining({ derive: deriver }));
   });
 });

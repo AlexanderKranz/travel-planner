@@ -48,7 +48,9 @@ export const StoredInput = z.object({
   pendingPlaces: z.array(z.string()).optional(),
   llm: z.looseObject({ v: z.literal(1) }),
   // `g`: indoor/outdoor of a bath (issue #142), read by the open-air guard on patches; optional for older rows.
-  index: z.record(z.string(), z.object({ key: OsmKey, place: PlanPlace, g: ActivityGroup.optional() })),
+  index: z.record(z.string(), z.object({ key: OsmKey, place: PlanPlace, g: ActivityGroup.optional(), stop: z.string().max(10).optional() })),
+  // Points of the looked-up stops by stop id (plan-8); optional: older rows have none.
+  stopPoints: z.record(z.string(), z.object({ lat: z.number(), lon: z.number(), geoId: z.number() })).optional(),
 });
 
 const META_COLUMNS = "version_no, kind, created_at, feedback, restored_from, changed_days, model, created_by";

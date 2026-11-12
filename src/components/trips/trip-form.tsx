@@ -15,8 +15,11 @@ import { btnPrimary, btnSecondary, inputCls, mutedCls } from "@/components/ui/st
 import { useRouter } from "@/i18n/navigation";
 import { MAX_ENTRIES_PER_GROUP, MAX_TRIP_DAYS, type ActionError, type GroupParse, type Trip } from "@/lib/domain";
 import { TRIP_PURPOSE_TEXT_MAX } from "@/lib/domain/purpose";
+import { canEdit as canEditAccess } from "@/lib/domain/sharing";
 import { createTrip, getTrip, updateTrip } from "@/lib/server/trips";
 import { DestinationPicker } from "./destination-picker";
+import { StopsSection } from "./stops-section";
+import { StopsToggle } from "./stops-toggle";
 import { TimingField } from "./timing-field";
 import {
   draftFromTrip,
@@ -146,6 +149,14 @@ export function TripForm({
               : undefined
           }
         />
+        {(!trip || canEditAccess(trip.access)) && (
+          <StopsToggle
+            checked={draft.multiStop}
+            hasStops={draft.stops.length > 0}
+            onChange={(multiStop) => set({ multiStop })}
+            onClear={() => set({ multiStop: false, stops: [] })}
+          />
+        )}
       </div>
 
       <div className="flex flex-col gap-1" id="field-lengthDays">
@@ -395,6 +406,24 @@ export function TripForm({
           error={bad("notes")}
         />
       </details>
+
+      <StopsSection
+        multiStop={draft.multiStop}
+        rows={draft.stops}
+        lengthDays={draft.lengthDays}
+        startDate={draft.timing.mode === "date" ? draft.timing.startDate : ""}
+        notes={draft.notes}
+        savedNotes={trip?.notes ?? ""}
+        tripId={trip?.id ?? null}
+        canEdit={!trip || canEditAccess(trip.access)}
+        showProblems={local.includes("stops") || hasIssue(issues, "stops")}
+        onChange={({ startDate, ...rest }) =>
+          set({
+            ...rest,
+            ...(startDate ? { timing: { mode: "date" as const, startDate, months: draft.timing.months } } : {}),
+          })
+        }
+      />
 
       <ErrorBanner error={error} />
       {conflict && (

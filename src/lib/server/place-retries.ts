@@ -22,6 +22,8 @@ export const CLAIM_BATCH = 5;
 /** Lease on claimed jobs: longer than a run, so a slow run is never doubled by the next cron tick. */
 export const LEASE_SECONDS = 360;
 
+const ENQUEUE_CHUNK = 20;
+
 /**
  * Records lookups that failed so the worker keeps trying for at most 30 minutes. A key that is already queued is
  * ignored by the database (no new window). Best effort: never throws, never blocks the request for long.
@@ -30,8 +32,12 @@ export const LEASE_SECONDS = 360;
 export async function enqueuePlaceRetries(jobs: RetryJob[]): Promise<void> {
   if (jobs.length === 0) return;
   try {
-    const { error } = await createSupabaseAdminClient().rpc("place_retry_enqueue", { p_jobs: jobs });
-    if (error) console.error("place_retry_enqueue failed", error.code);
+    const admin = createSupabaseAdminClient();
+    // The function takes at most 20 jobs per call; a trip with stops can have more.
+    for (let i = 0; i < jobs.length; i += ENQUEUE_CHUNK) {
+      const { error } = await admin.rpc("place_retry_enqueue", { p_jobs: jobs.slice(i, i + ENQUEUE_CHUNK) });
+      if (error) console.error("place_retry_enqueue failed", error.code);
+    }
   } catch (error) {
     console.error("place_retry_enqueue failed", error instanceof Error ? error.name : "unknown");
   }

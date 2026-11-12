@@ -23,6 +23,7 @@ Full plan: `docs/architecture.md`. Hosting walkthrough: `docs/hosting-setup.md`.
    - Haiku turns free-text purposes into structured tags (once per purpose, cached)
    - Haiku turns a free-text travel group ("5 Freunde, alle in meinem Alter") into structured travellers (once per text change, cached by text hash; saved entries the user typed always win). Spec: `docs/specs/group-text.md`
    - Haiku proposes destination ideas for a trip purpose (place name, anchor town, country and a one-line reason; one call per search, one more for "Show others", cached by input hash). Code verifies every idea and drops failures; the reason is labelled as a suggestion. It may receive a search radius as a hint (derived by code from the flight or drive limit), and it never states flights, routes, prices, opening hours or distances. Spec: `docs/specs/find-destinations.md`
+   - Haiku reads an itinerary (uploaded document or the trip notes) into stops, only when the code parser cannot; cached by payload hash; text-path stops must appear in the source, and uploaded stops are confirmed by the user. Spec: `docs/specs/itinerary-upload.md`
    - Sonnet composes the itinerary (one call, compact JSON in and out)
    - Iteration patches only the affected days
 

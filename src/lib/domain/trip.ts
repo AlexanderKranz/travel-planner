@@ -1,13 +1,14 @@
 import { z } from "zod";
-import { IsoDate, optionalText } from "./common";
+import { IsoDate, MAX_TRIP_DAYS, optionalText } from "./common";
 import { CompositionEntry, MAX_ENTRIES_PER_GROUP, type StatedAge } from "./group";
 import { GROUP_TEXT_MAX, type GroupParse } from "./group-text";
 import type { PurposeTags } from "./plan";
 import { HomeAirports } from "./profile";
 import { TRIP_PURPOSE_TEXT_MAX } from "./purpose";
 import type { Access, Person } from "./sharing";
+import { stopsOutsideTrip, TripStops, type TripStop } from "./trip-stops";
 
-export const MAX_TRIP_DAYS = 60;
+export { MAX_TRIP_DAYS }; // defined in common.ts so trip-stops.ts needs no runtime import of this file
 export const MAX_TRIPS_PER_USER = 30;
 export const DEFAULT_RADIUS_KM = { city: 15, region: 40 } as const;
 
@@ -60,10 +61,18 @@ export const TripInput = z
     wantsFlights: z.boolean().default(false),
     originAirports: HomeAirports.default([]), // isKnownIata checked server-side
     notes: optionalText(2000),
+    /**
+     * Confirmed stops and times (itinerary-upload [D4]). Absent on an update = keep the stored list; `[]` clears it.
+     * Days must lie inside `lengthDays`.
+     */
+    stops: TripStops.optional(),
     /** Set when the trip was made from a destination suggestion; absent on an update = keep the stored link. */
     destinationSearchId: z.string().uuid().nullable().optional(),
   })
   .superRefine((trip, ctx) => {
+    if (trip.stops && stopsOutsideTrip(trip.stops, trip.lengthDays).length > 0) {
+      ctx.addIssue({ code: "custom", path: ["stops"], message: "A stop lies after the last day of the trip" });
+    }
     if (trip.groupId && (trip.groupText || trip.groupStructure.length > 0)) {
       ctx.addIssue({ code: "custom", path: ["groupText"], message: "Either a saved group or a one-off group" });
     }
@@ -132,6 +141,8 @@ export type Trip = {
   wantsFlights: boolean;
   originAirports: string[]; // as stored; empty = use profile
   notes?: string;
+  /** Confirmed stops (trips.stops), sorted; empty = none. The plan uses `tripStops(trip)`, not this field directly. */
+  stops?: TripStop[];
   /** The saved suggestion list this trip was made from (find-destinations); the link "Back to suggestions". */
   destinationSearchId?: string;
   createdAt: string;
