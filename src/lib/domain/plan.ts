@@ -251,6 +251,8 @@ export type PlanVersionMeta = {
   model: string | null;
   /** Who wrote the version (user id); differs from the viewer on a shared trip. Null for old rows. */
   createdBy?: string | null;
+  /** The model's reply to a plan adjustment; null for other kinds and versions made before 2026-11-12. */
+  reply?: string | null;
 };
 export type BudgetStatus = { spentMicroUsd: number; capMicroUsd: number; resetsAt: string /* next Berlin midnight */ };
 export type PlanState = {

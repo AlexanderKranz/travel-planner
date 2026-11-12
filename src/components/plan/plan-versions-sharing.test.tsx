@@ -34,4 +34,10 @@ describe("PlanVersions on a shared trip", () => {
     expect(render({})).toContain("Restore-stub");
     expect(render({ readOnly: true })).not.toContain("Restore-stub");
   });
+
+  it("shows the model's reply of a patch version", () => {
+    const html = render({ versions: [{ ...meta(2, "me"), reply: "Replaced the walks on days 3-5" }, meta(1, "me")] });
+    expect(html).toContain("AI reply: “Replaced the walks on days 3-5”");
+    expect(html.match(/AI reply/g)).toHaveLength(1);
+  });
 });

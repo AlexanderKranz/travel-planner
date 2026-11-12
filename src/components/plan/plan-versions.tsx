@@ -85,6 +85,7 @@ export function PlanVersions({
                 {v.changedDays.length > 0 && (
                   <p className={`text-xs ${mutedCls}`}>{t("changedDays", { days: v.changedDays.join(", ") })}</p>
                 )}
+                {v.reply && <p className={`break-words text-xs italic ${mutedCls}`}>{t("reply", { text: v.reply })}</p>}
                 <div className="flex flex-wrap gap-x-4">
                   {!isShown && (
                     <Link

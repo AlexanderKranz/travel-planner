@@ -666,6 +666,8 @@ describe("iteratePlan: change requests that need places (activities spec section
     h.patch.mockResolvedValueOnce(ask).mockResolvedValueOnce(answer);
     const r = await iteratePlan(TRIP, 1, { chips: [], days: [1], text: "konkrete Escape Rooms" }, "de");
     expect(r).toMatchObject({ ok: true, data: { reply: "Escape Room an Tag 1" } });
+    // The reply is kept with the patch version for the version list.
+    expect(h.insert).toHaveBeenCalledWith(expect.anything(), "plan1", expect.objectContaining({ kind: "patch", reply: "Escape Room an Tag 1" }));
     expect(h.lookups).toHaveBeenCalledWith(h.trip.destination, { groups: ["indoor"], restaurants: false, cafes: false, wanted: ["escape_game"] }, expect.anything(), 60_000);
     expect(h.patch).toHaveBeenCalledTimes(2);
     const second = h.patch.mock.calls[1][0] as { loaded: boolean; timeoutMs: number; llm: { activities: { wishes: { w: string }[] } }; index: Record<string, unknown> };

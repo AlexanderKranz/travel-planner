@@ -837,6 +837,7 @@ export async function iteratePlan(
       changedDays: guarded.changedDays,
       model: MODEL_PLAN,
       costMicroUsd: ai.cost(),
+      reply: res.data.reply,
     });
     await pruneVersions(c.sb, plan.id, no);
     await logEvent({
