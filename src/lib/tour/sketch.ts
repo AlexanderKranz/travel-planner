@@ -1,79 +1,51 @@
-/**
- * Geometry of the route sketch (docs/specs/city-tour.md section 8): the decoded leg polylines and the stops projected
- * into a box, without a base map. Pure, so the web SVG (`src/components/tour/route-sketch.tsx`) and the PDF (react-pdf
- * `Svg`) draw the same picture. Equirectangular projection with the longitude scaled by cos(latitude): exact enough
- * at city scale, and north stays up.
- */
-import { decodePolyline } from "./polyline";
+import { decodePolyline, type LatLon } from "./polyline";
 
+/**
+ * Route sketch geometry (docs/specs/city-tour.md section 8): the stored leg polylines and the numbered stops projected
+ * into a `width` × `height` box, no base map. Pure; the web SVG and the react-pdf `Svg` draw the same output.
+ * Projection: equirectangular around the mean latitude, enough at city scale; one scale for both axes.
+ */
 export type SketchLeg = { poly: string | null; dashed?: boolean };
 export type SketchPoint = { lat: number; lon: number; n?: number };
-export type SketchInput = { legs: readonly SketchLeg[]; points: readonly SketchPoint[]; width?: number; height?: number };
-
 export type SketchGeometry = {
-  width: number;
-  height: number;
-  /** One SVG path (`M x y L x y …`) per leg with a usable polyline; legs without one are left out. */
-  paths: { d: string; dashed: boolean; leg: number }[];
-  points: { x: number; y: number; n?: number }[];
+  paths: { d: string; dashed: boolean }[];
+  dots: { x: number; y: number; n?: number }[];
 };
 
-export const SKETCH_WIDTH = 320;
-export const SKETCH_HEIGHT = 240;
-/** Room for the markers at the edge. */
-const PAD = 16;
-
-const round1 = (v: number) => Math.round(v * 10) / 10;
-
-function decodeSafe(poly: string | null): [number, number][] | null {
-  if (!poly) return null;
+const decode = (poly: string): LatLon[] => {
   try {
-    const pts = decodePolyline(poly);
-    return pts.length >= 2 ? pts : null;
+    return decodePolyline(poly);
   } catch {
-    return null;
+    return []; // a damaged polyline costs its line, not the sketch
   }
-}
+};
 
-export function sketchGeometry(input: SketchInput): SketchGeometry {
-  const width = input.width ?? SKETCH_WIDTH;
-  const height = input.height ?? SKETCH_HEIGHT;
-  const lines = input.legs.map((l) => decodeSafe(l.poly));
-  const all: [number, number][] = [...lines.flatMap((l) => l ?? []), ...input.points.map((p): [number, number] => [p.lat, p.lon])];
-  if (all.length === 0) return { width, height, paths: [], points: [] };
+const r1 = (n: number) => Math.round(n * 10) / 10;
 
-  let minLat = Infinity;
-  let maxLat = -Infinity;
-  let minLon = Infinity;
-  let maxLon = -Infinity;
-  for (const [lat, lon] of all) {
-    minLat = Math.min(minLat, lat);
-    maxLat = Math.max(maxLat, lat);
-    minLon = Math.min(minLon, lon);
-    maxLon = Math.max(maxLon, lon);
-  }
-  const kx = Math.cos((((minLat + maxLat) / 2) * Math.PI) / 180);
-  const spanX = Math.max((maxLon - minLon) * kx, 1e-9);
-  const spanY = Math.max(maxLat - minLat, 1e-9);
-  const scale = Math.min((width - 2 * PAD) / spanX, (height - 2 * PAD) / spanY);
+export function sketchGeometry(
+  legs: readonly SketchLeg[],
+  points: readonly SketchPoint[],
+  width: number,
+  height: number,
+  pad = 10,
+): SketchGeometry | null {
+  const lines = legs.map((l) => ({ pts: l.poly ? decode(l.poly) : [], dashed: !!l.dashed }));
+  const all: LatLon[] = [...lines.flatMap((l) => l.pts), ...points.map((p): LatLon => [p.lat, p.lon])];
+  if (!all.length) return null;
+  const k = Math.cos((all.reduce((s, [lat]) => s + lat, 0) / all.length) * (Math.PI / 180));
+  const xs = all.map(([, lon]) => lon * k);
+  const ys = all.map(([lat]) => lat);
+  const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const w = Math.max(1, width - 2 * pad);
+  const h = Math.max(1, height - 2 * pad);
+  const scale = Math.min(w / Math.max(maxX - minX, 1e-9), h / Math.max(maxY - minY, 1e-9));
   // Centre the drawing in the box.
-  const offX = (width - spanX * scale) / 2;
-  const offY = (height - spanY * scale) / 2;
-  const project = (lat: number, lon: number) => ({
-    x: round1(offX + (lon - minLon) * kx * scale),
-    y: round1(offY + (maxLat - lat) * scale),
-  });
-
-  const paths = lines.flatMap((line, leg) => {
-    if (!line) return [];
-    const d = line
-      .map(([lat, lon], i) => {
-        const p = project(lat, lon);
-        return `${i === 0 ? "M" : "L"}${p.x} ${p.y}`;
-      })
-      .join(" ");
-    return [{ d, dashed: !!input.legs[leg].dashed, leg }];
-  });
-  const points = input.points.map((p) => ({ ...project(p.lat, p.lon), ...(p.n !== undefined ? { n: p.n } : {}) }));
-  return { width, height, paths, points };
+  const ox = pad + (w - (maxX - minX) * scale) / 2;
+  const oy = pad + (h - (maxY - minY) * scale) / 2;
+  const at = ([lat, lon]: LatLon) => ({ x: r1(ox + (lon * k - minX) * scale), y: r1(oy + (maxY - lat) * scale) });
+  const paths = lines
+    .filter((l) => l.pts.length >= 2)
+    .map((l) => ({ d: l.pts.map((p, i) => `${i ? "L" : "M"}${at(p).x} ${at(p).y}`).join(" "), dashed: l.dashed }));
+  const dots = points.map((p) => ({ ...at([p.lat, p.lon]), ...(p.n !== undefined ? { n: p.n } : {}) }));
+  return { paths, dots };
 }

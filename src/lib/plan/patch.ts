@@ -72,8 +72,10 @@ export function applyPatch(a: {
   patch: LlmPatch;
   stored: PlanInputStored;
   scope: number[];
-  /** Current fixed slots (trip items now); defaults to the ones in the stored input. */
+  /** Current fixed slots (trip items and tours now); defaults to the ones in the stored input. */
   fixed?: PlanInputStored["llm"]["fixed"];
+  /** Current tour stops by day (duplicate guard, city-tour 10); defaults to the ones stored with the input. */
+  tourStops?: PlanInputStored["tourStops"];
 }):
   | { ok: true; plan: Plan; changedDays: number[]; issues: AssembleIssues }
   | { ok: false; reason: "day_count" | "schema" | "out_of_scope_only" } {
@@ -86,7 +88,7 @@ export function applyPatch(a: {
   const issues = emptyIssues();
   const fallbackPlace = stored.llm.trip.dest.slice(0, LIMITS.place);
   const times = inputTimes(stored);
-  const guards = guardCtx(stored);
+  const guards = guardCtx(stored, "tourStops" in a ? (a.tourStops ?? null) : undefined);
   const replaced = new Map<number, PlanDay>();
   for (const d of inScope) {
     if (replaced.has(d.n)) continue; // first wins

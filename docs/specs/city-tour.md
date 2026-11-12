@@ -591,9 +591,41 @@ the ORS gate is released.
 - **Search centre.** The place search needs a centre (`/api/places/search` filters a 20 km circle around it), so a new tour starts with the city; after the first place is added the city may be removed and the first place is the centre (3.1). A search without any centre would be a worldwide query with arbitrary results, so it is not offered.
 - **Outdated.** The result is outdated when the server says so (stored hash differs) or when the form's draft differs from the last saved one (stable JSON without refs, `src/lib/tour/ui.ts`). Proposals and the dropped-overrides notice are hidden while outdated. A stored result whose order names a point that is no longer in the input is not shown at all, and a stored outdated result gets no derived times or fit minutes. Edits are locked while a save or computation runs.
 - **Map.** MapLibre GL JS 6.16.0 with the OpenFreeMap `positron` style (calm, fits the Atlas palette), loaded with `next/dynamic` only on tour pages. MapLibre 6 starts its worker from a sibling file, which a bundled chunk does not have: `scripts/maplibre/copy-worker.mjs` copies it to `public/vendor/` before `dev` and `build` (gitignored), and the map calls `setWorkerUrl`. `TOUR_MAP_STYLE_URL` overrides the style (https only); `off` disables the map (E2E). On a style or tile error, a missing WebGL or no load within 15 s, the map collapses to "Karte nicht verfügbar" and the SVG route sketch. No CSP exists, so nothing to allow there; OpenFreeMap is listed on the sources page (privacy note).
-- **Route sketch.** `src/components/tour/route-sketch.tsx` (pure SVG, props `{ legs: { poly, dashed? }[]; points: { lat, lon, n? }[]; width?; height?; label?; className? }`) draws `sketchGeometry` from `src/lib/tour/sketch.ts`, which the PDF can reuse with react-pdf `Svg`.
+- **Route sketch.** One component, `src/components/tour/route-sketch.tsx` (props `{ legs, points, width?, height?, label?, className? }`; `label` makes it an accessible image), drawing `sketchGeometry` from `src/lib/tour/sketch.ts` like the PDF. The tour page uses it as the map fallback, the day block as its sketch.
 - **Google Maps.** Touch devices (`pointer: coarse`) get links with at most 3 waypoints each (Google's limit in a mobile browser without the app, where extra waypoints are dropped silently); desktop keeps 9. More links for a long tour, but none loses a stop.
-- **Not in this PR** (plan integration, section 10): the day card action "Stadttour für diesen Tag", the day block, the plan `fixed` slot, the duplicate guard, the share page and PDF. The `tours.dayBlock`, `dayBlockNoTime`, `openTour` and `dayAction` messages exist already.
+
+### Implementation notes (plan PR, 2026-11-12)
+
+- **Plan input.** `src/lib/plan/tour-blocks.ts` (pure). A tour on a day of the trip with a start time and a stored
+  result with a total enters `INPUT.fixed` as `{ day, from, to, cat: "activity", title }`; `to` wraps past midnight
+  ("ends the next day", timed-items [D2]). The title is model input, so it follows the plan language like the rest
+  of the input: `"Stadttour: <places in visiting order>"` / `"City tour: …"`, start and end left out, cut to 60
+  characters with "…". An outdated result (input changed since the computation) is still used: its total is the best
+  known duration, and a changed start time alone should not drop the slot. Item slots and tour slots are merged by
+  day and start (stable, items first); without tours `fixed` is the same object as before, so the golf, cruise and
+  Würzburg inputs are byte-identical (checked against the hashes on main). No prompt change.
+- **Duplicate guard.** The OSM stops of every tour on a day (with or without a start time, start and end included)
+  are stored beside the input as `PlanInputStored.tourStops` (day → plan keys, not hashed, not sent). In
+  `assembleDay`, after the stop-ref guard, a ref that is a tour stop becomes the first alternative that is none (the
+  text names the new place, as the open-air guard does); with no alternative left the activity is dropped, because the
+  tour block already shows that place on that day. Names of removed alternatives are cut out of the text. Removed keys
+  count as `tour_duplicate`. Patches use the current tours (like the current fixed slots). An untimed tour leaves the
+  input hash unchanged, so a version reused by the dedupe gets the same guard in code (a restore version that stores
+  the current `tourStops`; no AI call). Not covered: unlinking an untimed tour does not bring a dropped activity back
+  until the next real generation.
+- **Visiting order.** The stored result's order is used only when it covers exactly the current points; otherwise
+  the input order (a place added since the last computation is never left out of the block or the slot title).
+- **Hint.** The "items changed" note of timed-items [D8] also fires for a tour on a day of the trip with a start time
+  whose `updated_at` is later than the version (a computation moves `updated_at` too).
+- **Rendering.** `mergeDayRows` takes the tour blocks: timed ones by the [D7] rule (a fixed item before a tour with
+  the same start), untimed ones at the top of the day. The block is a `<details>` (no client JS); "Tour öffnen" for
+  owner and grantees, the start-time hint for the owner only, nothing of both on the public page. The day action is
+  shown to the trip owner on every day card. Tours without a day of the trip are listed on the trip page under
+  "Stadttouren ohne Tag".
+- **Share and PDF.** The public read (`getSharedPlanDocument`) reads `city_tours` with the secret key filtered by
+  `trip_id` and `owner_id` of the link, and drops any row of another trip in code as well. The share box shows
+  `share.tourEndpointsVisible` when a tour on a day starts or ends at a `gfy:` Geoapify result. The PDF draws the
+  block with a react-pdf `Svg` sketch and a sources line under the days.
 
 ## 15. Decisions (accepted by Alex, 2026-11-12)
 

@@ -1,5 +1,6 @@
 import type { ItemCategory, ItemStatus, SharedItem } from "@/lib/domain/items";
 import type { PlanActivity, PlanDay, PlanFlights, PlanStop } from "@/lib/domain/plan";
+import type { TourBlock } from "./tour-blocks";
 
 /**
  * Timed trip items in the plan (spec docs/specs/timed-items.md). Pure.
@@ -90,7 +91,7 @@ export function dropOverlaps(day: PlanDay, slots: { day: number; from: string; t
 
 // --- Rendering: merge fixed items into the rows of a day ---
 
-export type DayRow = { kind: "act"; act: PlanActivity } | { kind: "fixed"; item: FixedItem };
+export type DayRow = { kind: "act"; act: PlanActivity } | { kind: "fixed"; item: FixedItem } | { kind: "tour"; tour: TourBlock };
 export type StopRows = { stop: PlanStop; rows: DayRow[] };
 
 /** Sort time of each activity: its `at`, else the next timed act of the stop, else the previous, else the window. */
@@ -106,24 +107,30 @@ function effectiveTimes(stop: PlanStop): (string | null)[] {
 }
 
 /**
- * Activities and fixed items of one day in time order (render time, [D7]). Each fixed item goes before the first
- * activity (across stops, in plan order) whose sort time is at or after its start; otherwise to the end of the
- * last stop. Activities keep their stop and order.
+ * Activities, fixed items and city tours of one day in time order (render time, [D7]). Each fixed item and each tour
+ * with a start time goes before the first activity (across stops, in plan order) whose sort time is at or after its
+ * start; otherwise to the end of the last stop. A fixed item comes before a tour with the same start. Tours without a
+ * start time go to the top of the day (city-tour 10). Activities keep their stop and order.
  */
-export function mergeDayRows(day: PlanDay, fixed: FixedItem[]): StopRows[] {
-  const mine = fixed.filter((f) => f.day === day.n).sort((a, b) => a.from.localeCompare(b.from));
+export function mergeDayRows(day: PlanDay, fixed: FixedItem[], tours: readonly TourBlock[] = []): StopRows[] {
+  const timed: { from: string; row: DayRow }[] = [
+    ...fixed.filter((f) => f.day === day.n).map((item) => ({ from: item.from, row: { kind: "fixed", item } as DayRow })),
+    ...tours.filter((t) => t.day === day.n && t.from).map((tour) => ({ from: tour.from!, row: { kind: "tour", tour } as DayRow })),
+  ].sort((a, b) => a.from.localeCompare(b.from));
   const out: StopRows[] = day.stops.map((stop) => ({ stop, rows: [] }));
+  // Several untimed tours keep their order (`tourBlocks` sorts them by id).
+  if (out[0]) for (const tour of tours.filter((t) => t.day === day.n && !t.from)) out[0].rows.push({ kind: "tour", tour });
   let k = 0;
   day.stops.forEach((stop, si) => {
     const times = effectiveTimes(stop);
     stop.acts.forEach((act, ai) => {
       const t = times[ai];
-      while (k < mine.length && t !== null && t >= mine[k].from) out[si].rows.push({ kind: "fixed", item: mine[k++] });
+      while (k < timed.length && t !== null && t >= timed[k].from) out[si].rows.push(timed[k++].row);
       out[si].rows.push({ kind: "act", act });
     });
   });
   const last = out[out.length - 1];
-  while (k < mine.length && last) last.rows.push({ kind: "fixed", item: mine[k++] });
+  while (k < timed.length && last) last.rows.push(timed[k++].row);
   return out;
 }
 

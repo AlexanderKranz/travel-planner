@@ -78,6 +78,7 @@ export async function PlanSection({
           openDone={openDone}
           readOnly={readOnly}
           items={{ lengthDays, partySize, startDate, list: doc?.items ?? [], changed: doc?.itemsChanged === true }}
+          tours={doc?.tours ?? []}
         />
       </div>
       {/* Sticky side column; scrolls on its own when taller than the viewport. */}

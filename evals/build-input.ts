@@ -38,6 +38,7 @@ import { getCountry } from "@/lib/integrations/countries";
 import { parseArchive } from "@/lib/integrations/open-meteo-archive";
 import { parseElements } from "@/lib/integrations/overpass";
 import { buildPlanInput, type DriveInput } from "@/lib/plan/input";
+import type { LinkedTour } from "@/lib/plan/tour-blocks";
 import { drivePicks } from "@/lib/plan/drive-picks";
 import { existsSync, readFileSync } from "node:fs";
 import { recordingPath } from "./recorded";
@@ -415,7 +416,14 @@ export function evalItems(id: FixtureId): SharedItem[] {
  * Everything the pipeline would build for this fixture, given (recorded or live) purpose tags. `purposeOverride`
  * replaces the fixture's purpose (the golf-request eval runs on a Costa del Sol trip whose purpose lacks golf).
  */
-export function buildEvalInput(id: FixtureId, tags: PurposeTags | null, purposeOverride?: TripPurpose, stopCtx?: EvalStopContext) {
+export function buildEvalInput(
+  id: FixtureId,
+  tags: PurposeTags | null,
+  purposeOverride?: TripPurpose,
+  stopCtx?: EvalStopContext,
+  /** City tours linked to the trip (city-tour 10); absent in every recorded eval. */
+  tours?: readonly LinkedTour[],
+) {
   const trip = stopCtx?.trip ?? evalTrip(id);
   const group = evalGroup(id);
   const purpose = purposeOverride ?? evalPurpose(id, tags);
@@ -432,6 +440,7 @@ export function buildEvalInput(id: FixtureId, tags: PurposeTags | null, purposeO
     locale: FIXTURES[id].locale,
     today: EVAL_TODAY,
     ...(stopCtx ? { stops: stopCtx.stops } : {}),
+    ...(tours ? { tours } : {}),
   });
   return { trip, group, purpose, facts, ...built };
 }

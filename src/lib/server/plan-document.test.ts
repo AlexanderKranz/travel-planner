@@ -1,12 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import golf from "./__fixtures__/plan-document-golf.json";
 import itemsGolf from "@/lib/items/__fixtures__/items-golf.json";
+import { tourRow, wienInput } from "@/lib/plan/tour-test-helpers";
 
 vi.mock("server-only", () => ({}));
 
 type Call = { table: string; select: string };
 const calls: Call[] = [];
 const rpcs: { fn: string; args: unknown }[] = [];
+const eqs: { table: string; col: string; val: unknown }[] = [];
 const events: { event: string; props?: Record<string, unknown> }[] = [];
 let tables: Record<string, unknown> = {};
 let tableErrors: Record<string, { code: string }> = {};
@@ -14,7 +16,11 @@ let tableErrors: Record<string, { code: string }> = {};
 function builder(table: string) {
   const b: Record<string, unknown> = {};
   const result = () => ({ data: tables[table] ?? null, error: tableErrors[table] ?? null });
-  for (const m of ["eq", "order", "returns", "limit"]) b[m] = () => b;
+  for (const m of ["order", "returns", "limit"]) b[m] = () => b;
+  b.eq = (col: string, val: unknown) => {
+    eqs.push({ table, col, val });
+    return b;
+  };
   b.select = (cols: string) => {
     calls.push({ table, select: cols });
     return b;
@@ -51,6 +57,7 @@ const itemRows = (itemsGolf as unknown as Record<string, unknown>[]).map((i) => 
 beforeEach(() => {
   calls.length = 0;
   rpcs.length = 0;
+  eqs.length = 0;
   tableErrors = {};
   events.length = 0;
   tables = {
@@ -65,6 +72,7 @@ beforeEach(() => {
     },
     travel_groups: { description: null, parsed_structure: null, parsed_hash: null },
     group_entries: [{ kind: "composition", count: 2 }],
+    city_tours: [],
   };
 });
 
@@ -84,6 +92,7 @@ describe("getSharedPlanDocument", () => {
       { table: "trips", select: "group_id, group_text, group_structure, group_parsed, group_parsed_hash" },
       { table: "travel_groups", select: "description, parsed_structure, parsed_hash" },
       { table: "group_entries", select: "kind, count" },
+      { table: "city_tours", select: "id, trip_id, trip_day, title, input, result, updated_at" },
       { table: "trips", select: "dest_name, dest_country_code, dest_lat, dest_lon, dest_timezone" },
     ]);
     expect(calls.some((c) => c.select.includes("*"))).toBe(false);
@@ -127,7 +136,7 @@ describe("getSharedPlanDocument", () => {
     const doc = await getSharedPlanDocument(TOKEN, "page");
     expect(doc!.items).toBeNull();
     expect(doc!.costs).toBeNull();
-    expect(calls.map((c) => c.table)).toEqual(["share_links", "profiles", "plans", "plan_versions", "trips"]);
+    expect(calls.map((c) => c.table)).toEqual(["share_links", "profiles", "plans", "plan_versions", "city_tours", "trips"]);
     expect(calls.at(-1)!.select).toBe("dest_name, dest_country_code, dest_lat, dest_lon, dest_timezone");
   });
   it("touches the link and logs a view without token, hash or IP", async () => {
@@ -161,6 +170,42 @@ describe("getSharedPlanDocument", () => {
     expect(await getSharedPlanDocument(TOKEN, "page")).toBeNull();
     expect(rpcs).toHaveLength(0);
     expect(events).toHaveLength(0);
+  });
+  describe("city tours (city-tour 10)", () => {
+    it("reads the linked tours with the secret key filtered by the shared trip id and the link owner", async () => {
+      tables.city_tours = [tourRow()];
+      const doc = await getSharedPlanDocument(TOKEN, "page");
+      expect(eqs.filter((e) => e.table === "city_tours")).toEqual([
+        { table: "city_tours", col: "trip_id", val: "T1" },
+        { table: "city_tours", col: "owner_id", val: "U1" },
+      ]);
+      expect(doc!.tours).toHaveLength(1);
+      expect(doc!.tours![0]).toMatchObject({ day: 2, from: "10:00", to: "12:10", placeCount: 3, km: 1.6 });
+    });
+    it("never shows a tour of another trip, whatever the read returns", async () => {
+      tables.city_tours = [tourRow(), tourRow({ id: "00000000-0000-4000-8000-000000000009", trip_id: "OTHER", title: "Fremde Tour" })];
+      const doc = await getSharedPlanDocument(TOKEN, "page");
+      expect(doc!.tours!.map((t) => t.id)).toEqual(["00000000-0000-4000-8000-000000000001"]);
+      expect(JSON.stringify(doc)).not.toContain("Fremde Tour");
+    });
+    it("shows tours with and without items in the link; a tour read error costs only the blocks", async () => {
+      tables.city_tours = [tourRow()];
+      tables.share_links = link({ include_items: false });
+      expect((await getSharedPlanDocument(TOKEN, "page"))!.tours).toHaveLength(1);
+      tableErrors.city_tours = { code: "08006" };
+      const doc = await getSharedPlanDocument(TOKEN, "page");
+      expect(doc).not.toBeNull();
+      expect(doc!.tours).toEqual([]);
+    });
+    it("leaves out tours beyond the trip length and invalid stored inputs", async () => {
+      tables.city_tours = [tourRow({ trip_day: 30 }), tourRow({ id: "00000000-0000-4000-8000-000000000002", input: { places: [] } })];
+      expect((await getSharedPlanDocument(TOKEN, "page"))!.tours).toEqual([]);
+    });
+    it("flags a start at an address result for the share notice", async () => {
+      const home = { key: "gfy:0123456789abcdef0123456789abcdef", name: "Musterstraße 1", lat: 48.2, lon: 16.36, source: "geoapify" as const };
+      tables.city_tours = [tourRow({ input: wienInput({ start: home }) })];
+      expect((await getSharedPlanDocument(TOKEN, "page"))!.tours![0]!.addressEnds).toBe(true);
+    });
   });
   it("invalid stored plan gives null and an error event", async () => {
     tables.plan_versions = { plan: { v: 2 }, version_no: 3, created_at: "x" };
