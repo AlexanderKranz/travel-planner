@@ -172,7 +172,10 @@ function daypartNote(d: NonNullable<Build["daypart"]>, original: string, header:
 function resolveTimes(b: Build, header: Header | null): { arr?: string; dep?: string; unclear: boolean } {
   let arr = b.marked.arr;
   let dep = b.marked.dep;
-  const free = b.slots;
+  const free = [...b.slots];
+  // Under an arrive + depart header a day-part word fills its column ("Passau morgens 16:00": morgens = arrive).
+  const d = b.daypart;
+  if (d && d.marker === null && header?.arr && header.dep && d.slot <= 1 && d.slot <= free.length) free.splice(d.slot, 0, null);
   const times = free.filter((s): s is string => s !== null);
   let unclear = b.unclear || times.length > 2;
   if (arr === undefined && dep === undefined) {
@@ -299,7 +302,14 @@ export function readStops(text: string): { stops: RawStop[]; incomplete: number 
 
     // Rows without their own date or day: a sea day or a stop below a date-only line, or a second port in a table.
     const fresh = context?.fresh === true;
-    const strict = (b: Build) => (b.marked.arr ?? b.marked.dep) !== undefined || b.slots.filter(Boolean).length >= 2;
+    // An undated row continues the stop above only when its times are unambiguous: marked (an/ab), two times, or the
+    // column header says what they are ("Datum Hafen Abfahrt" / "Melk 18:00", "Datum Hafen an ab" / "Melk – 18:00").
+    const strict = (b: Build) => {
+      const n = b.slots.filter(Boolean).length;
+      if ((b.marked.arr ?? b.marked.dep) !== undefined || n >= 2) return true;
+      if (!header || n !== 1) return false;
+      return header.arr !== header.dep || (header.arr && b.slots.length >= 2);
+    };
     const at: LineDate | null = lineDate ?? (context ? { ...(context.date ? { date: context.date } : {}), ...(context.day ? { day: context.day } : {}) } : null);
 
     if (sea) {
