@@ -95,7 +95,7 @@ export function TourOptions({ form, centre, isTaken, onChange }: Props) {
                   className="sr-only"
                   disabled={k === "start" && !form.start}
                   checked={form.endKind === k}
-                  onChange={() => set("endKind", k)}
+                  onChange={() => onChange({ ...form, endKind: k, end: k === "other" ? form.end : null })}
                 />
                 {t(k === "none" ? "endNone" : k === "start" ? "endSame" : "endOther")}
               </label>

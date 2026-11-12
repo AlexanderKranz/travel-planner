@@ -23,6 +23,8 @@ export type TourMapProps = {
 
 /** No style and first tiles within this time: treat the map as unavailable. */
 const LOAD_TIMEOUT_MS = 15_000;
+/** Errors after the first load that collapse the map. */
+const LATE_ERRORS = 3;
 
 function cssVar(name: string, fallback: string): string {
   if (typeof window === "undefined") return fallback;
@@ -79,8 +81,11 @@ export default function TourMap({ styleUrl, workerUrl, legs, points, sights, att
     const timer = setTimeout(() => {
       if (!loaded) fail();
     }, LOAD_TIMEOUT_MS);
+    // Before the first load any error means no map. Afterwards one missing tile is tolerated (a pan into a slow area);
+    // repeated errors mean OpenFreeMap is gone, and the panel falls back to the sketch.
+    let lateErrors = 0;
     map.on("error", () => {
-      if (!loaded) fail();
+      if (!loaded || ++lateErrors >= LATE_ERRORS) fail();
     });
     map.touchZoomRotate.disableRotation();
     map.addControl(new maplibre.NavigationControl({ showCompass: false }), "top-right");

@@ -60,6 +60,7 @@ export function SearchCombobox<T>({
       setLoading(true);
       search(q, controller.signal)
         .then((r) => {
+          if (controller.signal.aborted) return; // superseded by a newer query
           setItems(r.items);
           setStatus(r.status);
           setSearched(true);
@@ -144,11 +145,10 @@ export function SearchCombobox<T>({
           value={query}
           disabled={disabled}
           onChange={(e) => {
+            // Results of the previous query must not stay pickable while the new one runs.
             setQuery(e.target.value);
-            if (e.target.value.trim().length < minChars) {
-              setItems([]);
-              setSearched(false);
-            }
+            setItems([]);
+            setSearched(false);
           }}
           onKeyDown={onKeyDown}
           className={inputCls}

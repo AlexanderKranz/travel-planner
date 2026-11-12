@@ -11,7 +11,10 @@ import {
   emptyForm,
   formatKm,
   formFromInput,
+  formProblem,
   formReady,
+  isTaken,
+  resultFitsInput,
   isOutdated,
   issueKeys,
   moveItem,
@@ -130,6 +133,23 @@ describe("form helpers", () => {
     expect(formReady(form({ places: [fp(STEPHANSDOM)] }))).toBe(false);
     expect(formReady(form())).toBe(true);
     expect(formReady(form({ endKind: "other" }))).toBe(false);
+  });
+
+  it("names what blocks the form", () => {
+    expect(formProblem(form({ places: [fp(STEPHANSDOM)] }))).toBe("places");
+    expect(formProblem(form({ endKind: "other" }))).toBe("end");
+    expect(formProblem(form({ minMin: "180", maxMin: "120" }))).toBe("durations");
+    expect(formProblem(form({ minMin: "60", maxMin: "120" }))).toBeNull();
+  });
+
+  it("ignores an end that is not selected", () => {
+    expect(isTaken(form({ endKind: "none", end: fp(NASCHMARKT) }), NASCHMARKT.key)).toBe(false);
+    expect(isTaken(form({ endKind: "other", end: fp(NASCHMARKT) }), NASCHMARKT.key)).toBe(true);
+  });
+
+  it("withholds a stored result that names points no longer in the input", () => {
+    expect(resultFitsInput(input, { order: [BELVEDERE.key, STEPHANSDOM.key, BELVEDERE.key] })).toBe(true);
+    expect(resultFitsInput(input, { order: [STEPHANSDOM.key, "osm:n404"] })).toBe(false);
   });
 
   it("moves items and keeps the edges", () => {

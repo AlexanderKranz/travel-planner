@@ -2053,6 +2053,8 @@
     "placesHint": "At least 3 characters. Searches within 20 km.",
     "placesNeedCity": "Choose a city first or add a suggested place, then you can search nearby.",
     "placesMin": "Add at least 2 places.",
+    "endMissing": "Choose a place as the end, or set the end to “Open”.",
+    "durationOrder": "At least must not be longer than At most.",
     "searching": "Searching …",
     "noResults": "Nothing found.",
     "resultCount": "{count, plural, one {# result} other {# results}}",

@@ -54,6 +54,7 @@ export function TourTripLink({
           <SelectField
             label={t("tripSelect")}
             value={trip}
+            disabled={busy}
             onChange={(e) => {
               setTrip(e.target.value);
               setDay("");
@@ -70,7 +71,7 @@ export function TourTripLink({
           <SelectField
             label={t("daySelect")}
             value={day}
-            disabled={!selected}
+            disabled={!selected || busy}
             onChange={(e) => {
               setDay(e.target.value);
               setSaved(false);

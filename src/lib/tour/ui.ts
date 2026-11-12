@@ -182,13 +182,22 @@ export function isOutdated(a: { hasResult: boolean; serverOutdated: boolean; sav
   return a.savedSignature !== a.signature;
 }
 
-/** Whether the form can be sent: at least 2 places, at most MAX_TOUR_PLACES, end "other" needs a place. */
-export function formReady(f: TourForm): boolean {
-  if (f.places.length < 2 || f.places.length > MAX_TOUR_PLACES) return false;
-  if (f.endKind === "other" && !f.end) return false;
-  if (f.endKind === "start" && !f.start) return false;
-  return true;
+export type FormProblem = "places" | "end" | "durations";
+
+/**
+ * What blocks sending the form, or null: at least 2 places (at most MAX_TOUR_PLACES), an end place when "other" is
+ * chosen, and a minimum not above the maximum (the server would reject it with a generic error).
+ */
+export function formProblem(f: TourForm): FormProblem | null {
+  if (f.places.length < 2 || f.places.length > MAX_TOUR_PLACES) return "places";
+  if ((f.endKind === "other" && !f.end) || (f.endKind === "start" && !f.start)) return "end";
+  const minMin = intOrUndefined(f.minMin);
+  const maxMin = intOrUndefined(f.maxMin);
+  if (minMin !== undefined && maxMin !== undefined && minMin > maxMin) return "durations";
+  return null;
 }
+
+export const formReady = (f: TourForm): boolean => formProblem(f) === null;
 
 /** Moves item `i` one step up (-1) or down (+1); unchanged at the edges. */
 export function moveItem<T>(list: readonly T[], i: number, dir: -1 | 1): T[] {
@@ -199,10 +208,15 @@ export function moveItem<T>(list: readonly T[], i: number, dir: -1 | 1): T[] {
   return out;
 }
 
+/** Whether a key is already a place, the start, or the chosen end (an end that is not selected does not count). */
+export function isTaken(f: Pick<TourForm, "places" | "start" | "end" | "endKind">, key: string): boolean {
+  return f.places.some((p) => p.key === key) || f.start?.key === key || (f.endKind === "other" && f.end?.key === key);
+}
+
 /** Whether a point may be added: not yet a place, start or end, and room left. */
 export function canAddPlace(f: TourForm, key: string): boolean {
   if (f.places.length >= MAX_TOUR_PLACES) return false;
-  return !f.places.some((p) => p.key === key) && f.start?.key !== key && f.end?.key !== key;
+  return !isTaken(f, key);
 }
 
 // --- Dwell and duration choices ---------------------------------------------------------------------------------
@@ -237,6 +251,15 @@ export function formatKm(km: number, locale: string): string {
 /** Metres rounded for display: 10 m steps below 1 km. */
 export function roundMetres(m: number): number {
   return m < 1000 ? Math.max(10, Math.round(m / 10) * 10) : Math.round(m / 100) * 100;
+}
+
+/**
+ * Whether a stored result can be shown with this input: every point of its order is still known (name and
+ * coordinates). A result computed before the input changed may name removed points; then it is withheld.
+ */
+export function resultFitsInput(input: Pick<TourInput, "places" | "start" | "end">, result: Pick<TourResult, "order">): boolean {
+  const known = pointCoords(input);
+  return result.order.every((k) => known.has(k));
 }
 
 // --- Result rows ------------------------------------------------------------------------------------------------

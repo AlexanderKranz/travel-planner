@@ -8,6 +8,7 @@ import type { Tour } from "@/lib/domain/tour";
 import { getTrip, listTrips } from "@/lib/server/trips";
 import { tourMapStyleUrl } from "@/lib/server/tour/map-style";
 import { getTour } from "@/lib/server/tours";
+import { resultFitsInput } from "@/lib/tour/ui";
 import { tourView } from "@/lib/tour/view";
 import { unwrap } from "@/lib/unwrap";
 
@@ -15,7 +16,8 @@ export default async function TourPage({ params }: { params: Promise<{ locale: s
   const { locale, id } = await params;
   setRequestLocale(locale);
   const tour = unwrap(await getTour(id), locale);
-  const view = tourView(tour.input, tour.result);
+  // A result saved before the input changed: its times and limit check would mix old legs with new dwell values.
+  const view = tour.outdated ? { stopTimes: null, byMin: null } : tourView(tour.input, tour.result);
   const mapStyleUrl = tourMapStyleUrl();
 
   if (tour.access !== "owner") return <ReadOnlyTour tour={tour} view={view} mapStyleUrl={mapStyleUrl} />;
@@ -48,7 +50,7 @@ async function ReadOnlyTour({ tour, view, mapStyleUrl }: { tour: Tour; view: Ret
           {t("readOnly")}
         </p>
       </div>
-      {tour.result ? (
+      {tour.result && resultFitsInput(tour.input, tour.result) ? (
         <TourResultView
           input={tour.input}
           result={tour.result}

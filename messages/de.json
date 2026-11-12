@@ -2053,6 +2053,8 @@
     "placesHint": "Mindestens 3 Zeichen. Gesucht wird im Umkreis von 20 km.",
     "placesNeedCity": "Wähle zuerst eine Stadt oder füge einen vorgeschlagenen Ort hinzu, dann kannst du in der Nähe suchen.",
     "placesMin": "Füge mindestens 2 Orte hinzu.",
+    "endMissing": "Wähle einen Ort als Ende oder stell das Ende auf „Offen“.",
+    "durationOrder": "Mindestens darf nicht länger sein als Höchstens.",
     "searching": "Suche läuft …",
     "noResults": "Nichts gefunden.",
     "resultCount": "{count, plural, one {# Treffer} other {# Treffer}}",

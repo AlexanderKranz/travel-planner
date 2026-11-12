@@ -16,11 +16,14 @@ import {
   applyLegSheet,
   applyProposal,
   canAddPlace,
+  type FormProblem,
   draftSignature,
   emptyForm,
   formFromInput,
-  formReady,
+  formProblem,
   isOutdated,
+  isTaken,
+  resultFitsInput,
   issueKeys,
   openLegSheet,
   toDraft,
@@ -93,30 +96,33 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
   const [saved, setSaved] = useState<Tour | null>(tour);
   const [savedSig, setSavedSig] = useState<string | null>(() => (tour ? draftSignature(toDraft(formFromInput(tour.input, tour.title))) : null));
   const [updatedAt, setUpdatedAt] = useState<string | null>(tour?.updatedAt ?? null);
-  const [result, setResult] = useState<TourResult | null>(tour?.result ?? null);
+  // A stored result whose points are no longer all in the input (saved, not recomputed) is withheld.
+  const [result, setResult] = useState<TourResult | null>(tour?.result && resultFitsInput(tour.input, tour.result) ? tour.result : null);
   // The input the shown result belongs to (names and coordinates of its keys).
   const [resultInput, setResultInput] = useState(tour?.input ?? null);
   const [serverOutdated, setServerOutdated] = useState(tour?.outdated ?? true);
   const [extras, setExtras] = useState<Extras | null>(
-    tour && view ? { stopTimes: view.stopTimes, byMin: view.byMin, proposals: [], droppedOverrides: 0, sightsPending: false } : null,
+    tour && view && !tour.outdated ? { stopTimes: view.stopTimes, byMin: view.byMin, proposals: [], droppedOverrides: 0, sightsPending: false } : null,
   );
   const [notRecomputed, setNotRecomputed] = useState(false);
   const [busy, setBusy] = useState<"saving" | "computing" | "deleting" | null>(null);
   const [error, setError] = useState<ActionError | null>(null);
   const [unreachable, setUnreachable] = useState<string[]>([]);
   const [unknown, setUnknown] = useState<string[]>([]);
-  const [showMin, setShowMin] = useState(false);
+  const [problem, setProblem] = useState<FormProblem | null>(null);
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const signature = useMemo(() => draftSignature(toDraft(form)), [form]);
   const outdated = isOutdated({ hasResult: result !== null, serverOutdated, savedSignature: savedSig, signature });
   const centre = form.city ?? form.places[0] ?? null;
-  const taken = (key: string) => form.places.some((p) => p.key === key) || form.start?.key === key || form.end?.key === key;
+  const taken = (key: string) => isTaken(form, key);
   const full = form.places.length >= MAX_TOUR_PLACES;
   const title = tourTitle(t, form.title || null, form.city?.name ?? null, form.places.length);
 
+  // Edits outside the form (leg sheet, nearby sights, proposals) wait for a running save or computation too.
   function edit(next: TourForm) {
+    if (busy !== null) return;
     setForm(next);
     setError(null);
   }
@@ -142,11 +148,9 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
   }
 
   async function plan() {
-    if (!formReady(form)) {
-      setShowMin(true);
-      return;
-    }
-    setShowMin(false);
+    const blocked = formProblem(form);
+    setProblem(blocked);
+    if (blocked) return;
     setError(null);
     setUnreachable([]);
     setNotRecomputed(false);
@@ -201,8 +205,8 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
       droppedOverrides: c.data.droppedOverrides,
       sightsPending: c.data.sightsPending,
     });
-    // From a trip day (spec 2.2): after the first successful plan the user returns to the trip.
-    if (isNew && prefill) {
+    // From a trip day (spec 2.2): after the first successful plan (also after a retry) the user returns to the trip.
+    if (prefill) {
       router.push(`/app/trips/${prefill.tripId}`);
       router.refresh();
     }
@@ -258,6 +262,8 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
           void plan();
         }}
       >
+        {/* Locked while saving or computing: the response replaces the form, an edit in between would be lost. */}
+        <fieldset disabled={busy !== null} className="contents min-w-0 border-0 p-0">
         <div className={`${cardCls} flex flex-col gap-4`}>
           <CityField value={form.city} onChange={(city) => edit({ ...form, city })} />
 
@@ -287,8 +293,8 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
               unknown={unknown}
               onChange={(places) => edit({ ...form, places })}
             />
-            {(showMin || form.places.length < 2) && (
-              <p className={`text-sm ${showMin ? "text-danger" : mutedCls}`} role={showMin ? "alert" : undefined}>
+            {(problem === "places" || form.places.length < 2) && (
+              <p className={`text-sm ${problem === "places" ? "text-danger" : mutedCls}`} role={problem === "places" ? "alert" : undefined}>
                 {t("placesMin")}
               </p>
             )}
@@ -296,6 +302,16 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
         </div>
 
         <TourOptions form={form} centre={centre} isTaken={taken} onChange={edit} />
+        {problem === "end" && (
+          <p role="alert" className="text-sm text-danger">
+            {t("endMissing")}
+          </p>
+        )}
+        {problem === "durations" && (
+          <p role="alert" className="text-sm text-danger">
+            {t("durationOrder")}
+          </p>
+        )}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <button type="submit" className={`${btnPrimary} w-full sm:w-auto`} disabled={busy !== null} data-testid="tour-plan">
@@ -305,6 +321,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
             {busy === "saving" ? t("saving") : busy === "computing" ? t("computing") : ""}
           </p>
         </div>
+        </fieldset>
         <TourError error={error} onReload={() => window.location.reload()} />
       </ClientForm>
 

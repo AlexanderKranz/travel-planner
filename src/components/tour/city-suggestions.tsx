@@ -39,7 +39,9 @@ export function CitySuggestions({
     <details
       className="rounded-lg border border-line"
       onToggle={(e) => {
-        if ((e.currentTarget as HTMLDetailsElement).open && state.status === "idle") void load();
+        // Again while the places are still loading in the background or the last request failed.
+        const canLoad = state.status === "idle" || state.status === "failed" || (state.status === "done" && state.pending);
+        if ((e.currentTarget as HTMLDetailsElement).open && canLoad) void load();
       }}
     >
       <summary className="flex min-h-11 cursor-pointer items-center px-3 text-sm font-medium">{t("suggestions", { city: city.name })}</summary>

@@ -31,6 +31,14 @@ export type TourResultProps = {
   onApplyProposal?: (p: Proposal) => void;
 };
 
+/** Remount key of the map: changes with any of its inputs (route geometry, modes, stops, sights). */
+function mapKey(result: TourResult, mode: string): string {
+  const text = [mode, result.order.join("|"), ...result.legs.map((l) => `${l.mode}:${l.poly ?? ""}`), ...result.sights.map((s) => s.key)].join(";");
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return `${text.length}-${h >>> 0}`;
+}
+
 const warnBox = "rounded-lg border border-warn-line bg-warn-bg p-3 text-sm text-warn-fg";
 
 /** Result of a tour (spec 2.1 step 3, sections 6 and 7): summary, map, stops and legs, nearby sights, sources. */
@@ -124,7 +132,7 @@ export function TourResultView(p: TourResultProps) {
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <div className="order-first sm:sticky sm:top-4 sm:order-last">
           <TourMapPanel
-            key={result.order.join("|") + result.legs.map((l) => l.poly?.length ?? 0).join(",")}
+            key={mapKey(result, input.mode)}
             styleUrl={p.mapStyleUrl}
             legs={result.legs.map((l) => ({ poly: l.poly, dashed: l.mode !== input.mode }))}
             points={markerPoints}
