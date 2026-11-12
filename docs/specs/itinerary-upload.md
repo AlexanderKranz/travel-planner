@@ -317,7 +317,12 @@ New keys under `trips.stops` in `messages/de.json` and `messages/en.json` (same 
 | `error.limit` | Tageslimit erreicht. Morgen wieder oder Stopps eintippen. | Daily limit reached. Try tomorrow or type the stops. |
 | `purposeHint` (under `purposes`) | Fahrplan mit Häfen und Zeiten lädst du bei der Reise hoch. | Upload the itinerary with ports and times on the trip. |
 
-The trip context strip shows "6 Stopps" with a link to the form section. Stop places are user data and shown as
+The trip page lists the stops read-only (section "Stopps & Zeiten", anchor `#stops`, above the plan; every viewer,
+read grantees included): day with date when the trip has dates, place or "Seetag", arrival–departure, note. Confirmed
+stops, else the stops derived from the saved notes, labelled with `derived`; that view never calls the AI (parser and
+the owner's cache only). Owner and write grantees get a "Stopps bearbeiten" link to the form section. The trip context
+strip (hero pills) shows "6 Stopps" (`count`) linking to that list: an in-page anchor works for every viewer, while
+the form is closed to read grantees. New keys: `count`, `edit`, `arriveAt`, `departAt`. Stop places are user data and shown as
 typed or extracted (not translated); the model's own text is not shown. The plan-side message keys (unchanged-patch
 notices, the reworded "aus deinen Reiseangaben" badge) are listed in port-places §3 and §5.
 

@@ -10,6 +10,7 @@ import { SharedHeader } from "@/components/sharing/shared-header";
 import { PlanSection } from "@/components/plan/plan-section";
 import { TripHeader } from "@/components/trips/trip-header";
 import { TripHeroPills, type ContextGroup } from "@/components/trips/trip-hero-pills";
+import { TripStopsCount, TripStopsList } from "@/components/trips/trip-stops-list";
 import { Link } from "@/i18n/navigation";
 import { berlinToday } from "@/lib/date";
 import { Locale, type FactsCtx } from "@/lib/domain";
@@ -164,7 +165,17 @@ export default async function TripDetailPage({
         trip={trip}
         purposeName={purpose?.name ?? null}
         shared={owner && trip.access !== "owner" ? <SharedHeader resource="trip" owner={owner} access={trip.access} shareId={shareId} /> : undefined}
-        pills={<TripHeroPills trip={trip} group={group} />}
+        pills={
+          <TripHeroPills
+            trip={trip}
+            group={group}
+            stops={
+              <Suspense fallback={null}>
+                <TripStopsCount tripId={trip.id} />
+              </Suspense>
+            }
+          />
+        }
         aside={
           <Suspense
             fallback={
@@ -194,6 +205,10 @@ export default async function TripDetailPage({
           canChange={trip.access === "write"}
         />
       )}
+      {/* Read-only stops of a multi-stop trip (nothing otherwise); the stop count in the hero links here. */}
+      <Suspense fallback={null}>
+        <TripStopsList trip={trip} />
+      </Suspense>
       <PlanSection tripId={trip.id} locale={locale} lengthDays={trip.lengthDays} version={version} partySize={partySize} startDate={startDate} authors={authors} />
       {/* Same 2/3 + 1/3 split as the plan at lg; stacked on phones. */}
       <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)] lg:items-start lg:gap-x-8">

@@ -541,7 +541,11 @@
         "limit": "Daily limit reached. Try tomorrow or type the stops.",
         "forbidden": "You can't edit the stops of this trip."
       },
-      "stopsPerDay": "A day can have at most {max} places (day {days})."
+      "stopsPerDay": "A day can have at most {max} places (day {days}).",
+      "count": "{count, plural, one {# stop} other {# stops}}",
+      "edit": "Edit stops",
+      "arriveAt": "Arrival {time}",
+      "departAt": "Departure {time}"
     }
   },
   "facts": {

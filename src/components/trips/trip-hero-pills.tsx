@@ -7,8 +7,11 @@ import type { ResolvedGroup } from "@/lib/group-text";
 /** `id`/`name` only for a saved group; a one-off group of the trip has neither. `text` is its free text. */
 export type ContextGroup = { id?: string; name?: string; text?: string; resolved: ResolvedGroup };
 
-/** Pills in the trip hero: length (solid), group summary and region radius (outlined). */
-export function TripHeroPills({ trip, group }: { trip: Trip; group: ContextGroup | null }) {
+/**
+ * Pills in the trip hero: length (solid), group summary and region radius (outlined), then `stops` (a server-rendered
+ * `<li>`, the stop count of a multi-stop trip linked to the list).
+ */
+export function TripHeroPills({ trip, group, stops }: { trip: Trip; group: ContextGroup | null; stops?: React.ReactNode }) {
   const t = useTranslations("trips");
   const summary = useGroupSummaryText();
   const groupText = group ? summary(group.resolved) : "";
@@ -18,6 +21,7 @@ export function TripHeroPills({ trip, group }: { trip: Trip; group: ContextGroup
       <li className={pillSolidCls}>{t("days", { count: trip.lengthDays })}</li>
       {groupText && <li className={pillCls}>{groupText}</li>}
       {d.kind === "region" && <li className={pillCls}>{t("detail.radius", { km: d.radiusKm })}</li>}
+      {stops}
     </ul>
   );
 }
