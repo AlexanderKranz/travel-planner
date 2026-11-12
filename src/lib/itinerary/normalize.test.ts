@@ -121,6 +121,64 @@ describe("placeInSource", () => {
     expect(placeInSource("Dürnst", src)).toBe(false);
     expect(placeInSource("Paris", src)).toBe(false);
   });
+
+  it("needs the place within one source line, not words from different rows", () => {
+    const rows = indexSource("Sa 19.12. New Orleans an 08:00\nSo 20.12. York ab 18:00");
+    expect(placeInSource("New York", rows)).toBe(false);
+    expect(placeInSource("New Orleans", rows)).toBe(true);
+    const got = normalizeExtract({ stops: [w({ date: "--12-19", place: "New York", arr: "08:00" })] }, "Sa 19.12. New Orleans an 08:00\nSo 20.12. York ab 18:00");
+    expect(got).toEqual({ stops: [], drops: { notInSource: 1, noPlace: 0, invalid: 0 } });
+  });
+});
+
+describe("normalizeExtract: dates and day numbers on the text path", () => {
+  it("keeps a date printed on the stop's line or on a date-only line above it", () => {
+    const src = "Sa 19.12.2037\nPassau ab 16:00\nSo 20.12. Wien an 14:00";
+    const got = normalizeExtract({ stops: [w({ date: "2037-12-19", place: "Passau", dep: "16:00" }), w({ date: "2037-12-20", place: "Wien", arr: "14:00" })] }, src);
+    expect(got.stops).toEqual([
+      { date: "2037-12-19", place: "Passau", dep: "16:00" },
+      { date: "2037-12-20", place: "Wien", arr: "14:00" },
+    ]);
+  });
+
+  it("drops a date that is not printed for the stop and flags it (a wrong date would move the stop)", () => {
+    const got = normalizeExtract({ stops: [w({ date: "--12-21", place: "Wien", arr: "14:00" }), w({ date: "2037-12-24", place: "Passau" })] }, SOURCE);
+    expect(got.stops).toEqual([
+      { place: "Wien", arr: "14:00", flags: ["not_in_source"] },
+      { place: "Passau", flags: ["not_in_source"] },
+    ]);
+    const mapped = mapStops(got.stops, { startDate: "2037-12-19", lengthDays: 5 }, "2026-11-11");
+    expect(mapped.every((s) => s.flags.includes("not_in_source"))).toBe(true);
+  });
+
+  it("never takes a year from the model: unprinted years become --MM-DD, a year from an earlier full date counts", () => {
+    expect(normalizeExtract({ stops: [w({ date: "2036-12-19", place: "Passau" })] }, SOURCE).stops).toEqual([{ date: "--12-19", place: "Passau" }]);
+    const src = "19.12.2037 Passau ab 16:00\n20.12. Wien an 14:00";
+    expect(normalizeExtract({ stops: [w({ date: "2037-12-20", place: "Wien" }), w({ date: "2036-12-19", place: "Passau" })] }, src).stops).toEqual([
+      { date: "2037-12-20", place: "Wien" },
+      { place: "Passau", flags: ["not_in_source"] },
+    ]);
+  });
+
+  it("checks day numbers the same way, including a bare day column and sea days", () => {
+    const src = "Tag | Hafen | an | ab\n1 | Passau | – | 16:00\n2 | Wien | 14:00 | 23:59\nTag 3 Seetag";
+    const got = normalizeExtract(
+      { stops: [w({ day: 1, place: "Passau", dep: "16:00" }), w({ day: 3, place: "Wien", arr: "14:00" }), w({ day: 3, sea: true }), w({ day: 4, sea: true })] },
+      src,
+    );
+    expect(got.stops).toEqual([
+      { day: 1, place: "Passau", dep: "16:00" },
+      { place: "Wien", arr: "14:00", flags: ["not_in_source"] },
+      { day: 3, sea: true },
+      { sea: true, flags: ["not_in_source"] },
+    ]);
+  });
+
+  it("image path: dates and days are kept (nothing to check)", () => {
+    expect(normalizeExtract({ stops: [w({ date: "2037-12-21", day: 9, place: "Wien" })] }, null).stops).toEqual([
+      { date: "2037-12-21", day: 9, place: "Wien", flags: ["from_image"] },
+    ]);
+  });
 });
 
 describe("StoredRawStops", () => {

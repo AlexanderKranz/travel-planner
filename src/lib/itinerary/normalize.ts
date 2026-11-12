@@ -2,7 +2,7 @@ import { z } from "zod";
 import { ITINERARY_FLAGS, type ItineraryFlag } from "@/lib/domain/itinerary";
 import { MAX_TRIP_STOPS } from "@/lib/domain/trip-stops";
 import { isValidIso, isValidYearless, type RawStop } from "./map";
-import { DAYPART_WORDS, findTimes, foldText, matchKey } from "./text";
+import { DAYPART_WORDS, findDate, findDayNumber, findTimes, foldText, matchKey, SEA_WORDS } from "./text";
 
 /**
  * Wire schema of the Haiku `itinerary_extract` call (docs/specs/itinerary-upload.md section 3.4). Every field is
@@ -75,12 +75,60 @@ function cleanDate(raw: string | null): string | null | undefined {
   return null;
 }
 
-/** The source as a folded word string and its set of times, for the not_in_source check (text path only). */
-export type SourceIndex = { folded: string; words: Set<string>; times: Set<string> };
+/** A date printed in the source: month and day, the year when printed. */
+type SourceDate = { year: number | null; md: string };
+
+/**
+ * One source line for the not_in_source checks: its folded words, and the dates and day numbers that apply to it
+ * (its own, else those of the nearest line above that printed one: "Sa 19.12." / "Passau 16:00").
+ */
+type SourceLine = { folded: string; words: Set<string>; sea: boolean; dates: SourceDate[]; days: number[] };
+
+/** The source as folded words, its times and its lines, for the not_in_source checks (text path only). */
+export type SourceIndex = { folded: string; words: Set<string>; times: Set<string>; lines: SourceLine[] };
+
+const blankSpan = (s: string, start: number, end: number) => s.slice(0, start) + " ".repeat(end - start) + s.slice(end);
+
+/**
+ * Every date of a line ("19.12.–23.12.2037" gives both). A missing year comes from the last full date above it, like
+ * the parser does ("19.12.2037" ... "20.12."): the first on or after it, at most a year later.
+ */
+function datesOf(key: string, last: { iso: string | null }): SourceDate[] {
+  const out: SourceDate[] = [];
+  for (let i = 0; i < 6; i++) {
+    const d = findDate(key);
+    if (!d) break;
+    const md = `${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+    let year = d.year;
+    const prev = last.iso;
+    if (year === null && prev) {
+      const y = Number(prev.slice(0, 4));
+      year = [y, y + 1].find((x) => isValidIso(`${x}-${md}`) && `${x}-${md}` >= prev) ?? null;
+    }
+    if (year !== null) last.iso = `${year}-${md}`;
+    out.push({ year, md });
+    key = blankSpan(key, d.start, d.end);
+  }
+  return out;
+}
+
+/** "Tag 3", "3. Tag", or a bare leading number of a day-column row ("3 | Melk"). */
+function daysOf(key: string): number[] {
+  const out: number[] = [];
+  const d = findDayNumber(key);
+  if (d) out.push(d.day);
+  const lead = /^\s*(\d{1,2})\s*[.|:)–—-]?\s*\p{L}/u.exec(key);
+  if (lead && Number(lead[1]) >= 1) out.push(Number(lead[1]));
+  return out;
+}
 
 export function indexSource(text: string): SourceIndex {
   const folded = ` ${foldText(text)} `;
   const times = new Set<string>();
+  const lines: SourceLine[] = [];
+  let dates: SourceDate[] = [];
+  let days: number[] = [];
+  const lastFull = { iso: null as string | null };
   for (const line of text.normalize("NFC").split(/\r\n|\r|\n/)) {
     const key = matchKey(line);
     for (const t of findTimes(key)) times.add(t.hhmm);
@@ -91,15 +139,45 @@ export function indexSource(text: string): SourceIndex {
     }
     if (/\b(noon|mittag|mittags)\b/.test(key)) times.add("12:00");
     if (/\b(midnight|mitternacht)\b/.test(key)) times.add("00:00");
+    const f = foldText(line);
+    if (!f) continue;
+    const own = datesOf(key, lastFull);
+    if (own.length) dates = own;
+    const ownDays = daysOf(key);
+    if (ownDays.length) days = ownDays;
+    lines.push({ folded: ` ${f} `, words: new Set(f.split(" ")), sea: SEA_WORDS.test(key), dates, days });
   }
-  return { folded, words: new Set(folded.trim().split(" ")), times };
+  return { folded, words: new Set(folded.trim().split(" ")), times, lines };
 }
 
-/** The place occurs in the source: as a folded phrase, or every word of it does ("Wien, Österreich" vs "Wien (Österreich)"). */
-export function placeInSource(place: string, src: SourceIndex): boolean {
+/**
+ * Source lines that print the place: as a folded phrase, or every word of it on that one line ("Wien, Österreich" vs
+ * "Wien (Österreich)"). Words from different lines do not count ("New York" from "New Orleans" and "York").
+ */
+function placeLines(place: string, src: SourceIndex): SourceLine[] {
   const f = foldText(place);
-  if (!f) return false;
-  return src.folded.includes(` ${f} `) || f.split(" ").every((w) => src.words.has(w));
+  if (!f) return [];
+  const words = f.split(" ");
+  return src.lines.filter((l) => l.folded.includes(` ${f} `) || words.every((w) => l.words.has(w)));
+}
+
+/** The place occurs within one line of the source. */
+export function placeInSource(place: string, src: SourceIndex): boolean {
+  return placeLines(place, src).length > 0;
+}
+
+/**
+ * A model date (`YYYY-MM-DD` or `--MM-DD`) checked against the dates of the stop's lines: null when no line has that
+ * month and day (or only with another year); `--MM-DD` when the source has no year for it (the year is then guessed
+ * from the trip and flagged `year_guessed`, never taken from the model).
+ */
+function sourceDate(date: string, lines: readonly SourceLine[]): string | null {
+  const year = date.startsWith("--") ? null : Number(date.slice(0, 4));
+  const md = date.slice(-5);
+  const hits = lines.flatMap((l) => l.dates).filter((d) => d.md === md);
+  if (year === null) return hits.length ? date : null;
+  if (hits.some((d) => d.year === year)) return date;
+  return hits.some((d) => d.year === null) ? `--${md}` : null;
 }
 
 const GERMAN_DAYPARTS = new Set(["morgens", "fruh", "vormittags", "mittags", "nachmittags", "abends", "nachts"]);
@@ -132,9 +210,10 @@ function noteInSource(note: string, src: SourceIndex): boolean {
  * Wire output -> raw stops (pure; never throws on model quirks).
  * - Invalid dates, times and `cc` become null; a time that is not HH:MM sets `time_unclear`.
  * - Stops without place and without `sea` are dropped; place cut to 80, note to 60.
- * - Text path (`source` given, documents and notes alike): every place must occur in the source text, else the stop
- *   is dropped (`drops.notInSource`); every time must occur in the source, else it is dropped and the stop gets
- *   `not_in_source`. Notes not printed in the source are dropped.
+ * - Text path (`source` given, documents and notes alike): every place must occur within one line of the source, else
+ *   the stop is dropped (`drops.notInSource`). Every time must occur in the source, and every date or day number on
+ *   the stop's lines (or carried from a line above them), else it is dropped and the stop gets `not_in_source`.
+ *   Notes not printed in the source are dropped.
  * - Image path (`source` null): nothing can be checked; every stop gets `from_image`.
  * At most MAX_TRIP_STOPS.
  */
@@ -153,16 +232,30 @@ export function normalizeExtract(wire: WireItinerary, source: string | null): No
       drops.noPlace += 1;
       continue;
     }
-    if (!sea && src && !placeInSource(full, src)) {
+    // The source lines of this stop: where its place is printed (a sea day: lines with a sea-day word).
+    const lines = src === null ? [] : sea ? src.lines.filter((l) => l.sea) : placeLines(full, src);
+    if (!sea && src && lines.length === 0) {
       drops.notInSource += 1;
       continue;
     }
     const place = cutAtWord(full, MAX_PLACE);
 
-    const date = cleanDate(w.date);
-    const day = w.day !== null && Number.isInteger(w.day) && w.day >= 1 && w.day <= 366 ? w.day : undefined;
+    let date = cleanDate(w.date);
+    let day = w.day !== null && Number.isInteger(w.day) && w.day >= 1 && w.day <= 366 ? w.day : undefined;
     if (date === null) drops.invalid += 1; // unreadable date: the stop keeps its day number or the day before
     if (w.day !== null && day === undefined) drops.invalid += 1;
+    // Text path: a date or day number not printed on the stop's lines (or carried from a line above them) would move
+    // the stop to another day: dropped like a time, the stop flagged.
+    if (src && date) {
+      const checked = sourceDate(date, lines);
+      if (checked === null) flags.add("not_in_source");
+      date = checked ?? undefined;
+    }
+    const srcDay = day;
+    if (src && srcDay !== undefined && !lines.some((l) => l.days.includes(srcDay))) {
+      day = undefined;
+      flags.add("not_in_source");
+    }
 
     const times: { arr?: string; dep?: string } = {};
     let daypartNote = "";
