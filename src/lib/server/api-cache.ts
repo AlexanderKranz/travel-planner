@@ -44,6 +44,8 @@ export type FetchOutcome<T> = {
   quotaRemaining?: number;
   /** Which sub-source answered (Overpass mirror host), logged in api_calls.variant. */
   variant?: string;
+  /** Shorter lifetime for this answer than the call's `ttlSeconds` (a degraded result that should be redone soon). */
+  ttlSeconds?: number;
 };
 
 export type CachedResult<T> =
@@ -163,7 +165,8 @@ export async function cached<T>(opts: {
       const data = schema.parse(outcome.data);
       const now = new Date();
       const fetchedAt = now.toISOString();
-      const expiresAt = new Date(now.getTime() + ttlSeconds * 1000).toISOString();
+      const ttl = outcome.ttlSeconds !== undefined ? Math.min(ttlSeconds, Math.max(60, outcome.ttlSeconds)) : ttlSeconds;
+      const expiresAt = new Date(now.getTime() + ttl * 1000).toISOString();
       const { error } = await admin.from("api_cache").upsert(
         { provider, cache_key: storeKey, payload: { v: data } as never, fetched_at: fetchedAt, expires_at: expiresAt },
         { onConflict: "provider,cache_key" },

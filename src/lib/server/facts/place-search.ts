@@ -8,6 +8,7 @@ import {
   fetchAutocomplete,
   fetchPlaceDetails,
   normalizeQuery,
+  type AutocompleteMode,
   type PlaceDetails,
   type PlaceSuggestion,
 } from "@/lib/integrations/geoapify-autocomplete";
@@ -47,10 +48,20 @@ const Details: z.ZodType<PlaceDetails> = z.object({
   wikidata: z.string().optional(),
 });
 
-/** `autocomplete` key: normalized query, the 2-decimal cell of the search centre, and the language (spec 11). */
-export function autocompleteKey(q: string, center: { lat: number; lon: number }, lang: string): string {
+/**
+ * `autocomplete` key: normalized query, the 2-decimal cell of the search centre, and the language (spec 11). Mode
+ * `any` keeps the v1 key (start/end search, rows cached before the landmark fix stay valid); `poi` (type=amenity,
+ * filtered) is v2.
+ */
+export function autocompleteKey(
+  q: string,
+  center: { lat: number; lon: number },
+  lang: string,
+  mode: AutocompleteMode = "any",
+): string {
   const c = cell(center);
-  return cacheKey("autocomplete", 1, { q: normalizeQuery(q), cell: `${c.lat.toFixed(2)},${c.lon.toFixed(2)}`, lang });
+  const params = { q: normalizeQuery(q), cell: `${c.lat.toFixed(2)},${c.lon.toFixed(2)}`, lang };
+  return mode === "poi" ? cacheKey("autocomplete", 2, { ...params, type: "amenity" }) : cacheKey("autocomplete", 1, params);
 }
 
 export function placeDetailsKey(placeId: string, lang: string): string {
@@ -62,13 +73,15 @@ export type SearchAnswer =
   | { ok: false; error: "invalid_query" | "unavailable" };
 
 /**
- * Up to 8 places within 20 km of the city for a query of at least 3 characters, cached 30 days. Never throws;
+ * Up to 8 places within 20 km of the city for a query of at least 3 characters, cached 30 days. `mode: "poi"`: tour
+ * places only (no addresses, shops, stops, car parks; see `isTourPoi`), `any`: everything (start and end). Never throws;
  * Geoapify down, the key missing or the daily credits used up → `unavailable`.
  */
 export async function autocompletePlaces(
-  input: { q: string; lat: number; lon: number; lang: string },
+  input: { q: string; lat: number; lon: number; lang: string; mode?: AutocompleteMode },
   ctx: CacheCtx,
 ): Promise<SearchAnswer> {
+  const mode = input.mode ?? "any";
   const q = normalizeQuery(input.q);
   const coordsOk = Math.abs(input.lat) <= 90 && Math.abs(input.lon) <= 180;
   if (q.length < AUTOCOMPLETE_MIN_CHARS || q.length > AUTOCOMPLETE_MAX_CHARS || !Lang.safeParse(input.lang).success || !coordsOk) {
@@ -79,13 +92,13 @@ export async function autocompletePlaces(
     const res = await cached<PlaceSuggestion[]>({
       provider: "geoapify",
       endpoint: "autocomplete",
-      key: autocompleteKey(q, input, input.lang),
+      key: autocompleteKey(q, input, input.lang, mode),
       ttlSeconds: AUTOCOMPLETE_TTL_SECONDS,
       schema: Suggestions,
       ctx,
       fetcher: async () => {
         await assertGeoapifyQuota();
-        const r = await fetchAutocomplete({ ...input, q });
+        const r = await fetchAutocomplete({ ...input, q, mode });
         return { data: r.suggestions, status: r.status, latencyMs: r.latencyMs, units: 1 };
       },
     });

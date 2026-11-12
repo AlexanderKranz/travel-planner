@@ -1,0 +1,25 @@
+{
+ "results": [
+  {
+   "name": "Kaiserdom St. Bartholomäus",
+   "address_line1": "Kaiserdom St. Bartholomäus",
+   "address_line2": "Domplatz 1, 60311 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.1106666,
+   "lon": 8.6853436,
+   "distance": 1105.55884669848,
+   "place_id": "51ba0b395be55e21405938e1b9522a0e4940f00102f9013f22a80000000000c0020192031b4b6169736572646f6d2053742e2042617274686f6c6f6dc3a47573",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.44105200506043646,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  }
+ ],
+ "query": {
+  "text": "kaiserdom"
+ }
+}

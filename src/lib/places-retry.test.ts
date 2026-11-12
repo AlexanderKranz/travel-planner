@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Trip } from "@/lib/domain/trip";
-import { jobsForActivityLookups, jobsForInterests, jobsForStops, jobsForTripFacts, retryKey, RetrySpec, type RetryJob } from "./places-retry";
+import { INTEREST_KEYS } from "@/lib/domain/interests";
+import { jobsForActivityLookups, jobsForInterests, jobsForStops, jobsForTripFacts, landmarksJob, LANDMARKS_JOB_INTEREST, overpassJob, retryKey, RetrySpec, type RetryJob } from "./places-retry";
 
 const dest = { lat: 49.0123456, lon: 12.1012345, kind: "city" as const };
 const trip = {
@@ -151,5 +152,30 @@ describe("jobsForStops (port-places [P7], R2: the stop point is the job's point)
 
   it("an interest without an OSM source is never retried", () => {
     expect(jobsForStops([{ ...stop("s1"), places: [{ interest: "christmas_markets", status: "error" }] as never[] }])).toEqual([]);
+  });
+});
+
+describe("landmarksJob (city tours)", () => {
+  it("an interest job with the reserved name, rounded point, 8 km; never an interest key", () => {
+    expect(landmarksJob({ lat: 50.11552, lon: 8.68417 })).toEqual({
+      kind: "interest",
+      cache_key: "interest:landmarks:50.116:8.684:8",
+      params: { kind: "interest", interest: "landmarks", lat: 50.116, lon: 8.684, radiusKm: 8 },
+    });
+    expect(RetrySpec.safeParse(landmarksJob({ lat: 48.2, lon: 16.37 }).params).success).toBe(true);
+    expect((INTEREST_KEYS as readonly string[]).includes(LANDMARKS_JOB_INTEREST)).toBe(false);
+  });
+});
+
+describe("overpassJob (interests with overpassFirst, issue #172)", () => {
+  it("own dedupe key next to the normal interest job; valid spec", () => {
+    const j = overpassJob({ lat: 41.38879, lon: 2.15899 }, "general", 15);
+    expect(j).toEqual({
+      kind: "interest",
+      cache_key: "interest:general:41.389:2.159:15:overpass",
+      params: { kind: "interest", interest: "general", lat: 41.389, lon: 2.159, radiusKm: 15, overpass: true },
+    });
+    expect(RetrySpec.safeParse(j.params).success).toBe(true);
+    expect(retryKey({ kind: "interest", interest: "general", lat: 41.389, lon: 2.159, radiusKm: 15 })).toBe("interest:general:41.389:2.159:15");
   });
 });

@@ -620,7 +620,7 @@
     "places": {
       "title": "Orte zum Vormerken",
       "general": "Sehenswürdigkeiten",
-      "intro": "Kandidaten aus OpenStreetMap im Umkreis von {radius} km, sortiert nach Bekanntheit und Entfernung. Sie sind kein Plan.",
+      "intro": "Kandidaten aus OpenStreetMap im Umkreis von {radius} km. Die bekanntesten zuerst (bei Sehenswürdigkeiten, Museen und Ähnlichem nach der Zahl der Wikipedia- und Wikimedia-Artikel laut Wikidata, sonst ob es einen Wikipedia-Artikel gibt), bei gleicher Bekanntheit die näheren. Sie sind kein Plan.",
       "distance": "{km} km entfernt",
       "groupMeta": "{count, plural, one {# Ort} other {# Orte}} im Umkreis von {radius} km",
       "linkOsm": "OpenStreetMap",
@@ -816,7 +816,7 @@
       },
       "wikimedia": {
         "label": "Wikimedia Commons und Wikidata",
-        "provides": "Bild des Reiseziels (Seitenbanner oder Hauptbild des Ortes).",
+        "provides": "Bild des Reiseziels (Seitenbanner oder Hauptbild des Ortes). Für Stadttouren: wie bekannt ein Ort ist (Zahl der Wikipedia- und anderen Wikimedia-Artikel darüber), um die Vorschläge zu ordnen.",
         "license": "Je nach Bild: CC0, gemeinfrei, CC BY oder CC BY-SA. Urheber und Lizenz stehen unter dem Bild."
       },
       "rest_countries": {

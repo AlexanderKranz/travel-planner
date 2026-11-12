@@ -8,6 +8,13 @@
  * `datasource.sourcename`), and the same OSM node came back twice. Place details has `datasource.raw` with
  * `osm_type`/`osm_id`, `wikidata`, `opening_hours`. The OSM identity hidden in `place_id` is undocumented and not used.
  * Data: © OpenStreetMap contributors (ODbL), Who's On First (CC0), GeoNames (CC BY 4.0); powered by Geoapify.
+ *
+ * Landmark fix 2026-11-12 (issue #172, fixtures `amenity-*-frankfurt-de.json`): without `type`, "Dom" around Frankfurt
+ * gave only street addresses and "Hauptbahnhof" the shops inside the station. With `type=amenity` (documented values
+ * country|state|city|postcode|street|amenity|locality) no addresses come back; the rest is filtered by category
+ * (`isTourPoi`): pharmacies, car parks, hotels, ticket offices and tram stops go, the Kaiserdom (no category) stays.
+ * The mainline station "Frankfurt (Main) Hauptbahnhof" is not among the results at all: the city's landmark set
+ * (src/lib/server/tour/landmarks.ts) answers those queries first.
  */
 import "server-only";
 import { createHash } from "node:crypto";
@@ -65,6 +72,7 @@ const Result = z.object({
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
   category: z.string().optional(),
+  result_type: z.string().optional(),
   distance: z.number().optional(),
   datasource: z.object({ sourcename: z.string() }).optional(),
 });
@@ -73,7 +81,16 @@ const AutocompleteResponse = z.object({ results: z.array(z.unknown()) });
 /** Centre rounded to 2 decimals (~1 km): the request uses the same cell as the cache key, so cached answers match. */
 export const cell = (p: { lat: number; lon: number }) => ({ lat: Number(p.lat.toFixed(2)), lon: Number(p.lon.toFixed(2)) });
 
-export function autocompleteUrl(q: string, center: { lat: number; lon: number }, lang: string, key: string): string {
+/** `poi`: tour places (type=amenity + `isTourPoi`); `any`: start and end, addresses included (the old behaviour). */
+export type AutocompleteMode = "poi" | "any";
+
+export function autocompleteUrl(
+  q: string,
+  center: { lat: number; lon: number },
+  lang: string,
+  key: string,
+  mode: AutocompleteMode = "any",
+): string {
   const c = cell(center);
   const u = new URL(GEOAPIFY_AUTOCOMPLETE_URL);
   u.searchParams.set("text", normalizeQuery(q));
@@ -82,8 +99,41 @@ export function autocompleteUrl(q: string, center: { lat: number; lon: number },
   u.searchParams.set("lang", lang);
   u.searchParams.set("limit", String(AUTOCOMPLETE_LIMIT));
   u.searchParams.set("format", "json");
+  if (mode === "poi") u.searchParams.set("type", "amenity");
   u.searchParams.set("apiKey", key);
   return u.toString();
+}
+
+/** Categories a tour place can have (prefixes of Geoapify's category tree, https://apidocs.geoapify.com/docs/places/). */
+const POI_KEEP = [
+  "tourism.sights",
+  "tourism.attraction",
+  "entertainment",
+  "religion",
+  "heritage",
+  "building.historic",
+  "building.place_of_worship",
+  "building.tourism",
+  "leisure.park",
+  "natural",
+  "man_made",
+  "public_transport.train",
+  "railway.train",
+  "sport.stadium",
+  "national_park",
+  "beach",
+];
+const startsWithAny = (c: string, prefixes: readonly string[]) => prefixes.some((p) => c === p || c.startsWith(`${p}.`));
+
+/**
+ * A result that can be a tour place: an `amenity` (not a street, building address or postcode) whose categories
+ * include a sight, culture, worship, park or train category. Results without any category stay (the Kaiserdom has
+ * none in Geoapify); every other category (shops, food, car parks, hotels, offices, bus and tram stops) goes.
+ */
+export function isTourPoi(r: { result_type?: string; category?: string }): boolean {
+  if (r.result_type !== undefined && r.result_type !== "amenity") return false;
+  const cats = (r.category ?? "").split(";").map((c) => c.trim()).filter(Boolean);
+  return cats.length === 0 || cats.some((c) => startsWithAny(c, POI_KEEP));
 }
 
 function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
@@ -100,8 +150,9 @@ const fold = (s: string) => s.normalize("NFKC").toLowerCase().replace(/\s+/g, " 
  * Results → suggestions, in Geoapify's order. A result that does not match the schema or has no name is skipped
  * (never repaired); the same name within DEDUPE_M of an earlier result is a duplicate and dropped. Results that all
  * fail the schema mean the response shape changed: that throws, so an empty list is not cached for 30 days.
+ * `poi`: results that are not `isTourPoi` are dropped (they still count as usable, the shape was fine).
  */
-export function parseAutocomplete(body: unknown): PlaceSuggestion[] {
+export function parseAutocomplete(body: unknown, mode: AutocompleteMode = "any"): PlaceSuggestion[] {
   const out: PlaceSuggestion[] = [];
   const results = AutocompleteResponse.parse(body).results;
   let usable = 0;
@@ -111,6 +162,7 @@ export function parseAutocomplete(body: unknown): PlaceSuggestion[] {
     const name = (r.data.name ?? r.data.address_line1)?.trim().slice(0, 120);
     if (!name) continue;
     usable++;
+    if (mode === "poi" && !isTourPoi(r.data)) continue;
     const s: PlaceSuggestion = {
       key: gfyKey(r.data.place_id),
       placeId: r.data.place_id,
@@ -145,14 +197,16 @@ export async function fetchAutocomplete(input: {
   lat: number;
   lon: number;
   lang: string;
+  mode?: AutocompleteMode;
 }): Promise<{ suggestions: PlaceSuggestion[]; status: number; latencyMs: number }> {
   const key = process.env.GEOAPIFY_API_KEY?.trim();
   if (!key) throw new Error("GEOAPIFY_API_KEY missing");
   const q = normalizeQuery(input.q);
   if (q.length < AUTOCOMPLETE_MIN_CHARS || q.length > AUTOCOMPLETE_MAX_CHARS) throw new RangeError("query length");
   if (!/^[a-z]{2}$/.test(input.lang)) throw new RangeError("lang");
-  const r = await fetchJson(autocompleteUrl(q, input, input.lang, key), { timeoutMs: AUTOCOMPLETE_TIMEOUT_MS });
-  return { suggestions: charged(() => parseAutocomplete(r.body)), status: r.status, latencyMs: r.latencyMs };
+  const mode = input.mode ?? "any";
+  const r = await fetchJson(autocompleteUrl(q, input, input.lang, key, mode), { timeoutMs: AUTOCOMPLETE_TIMEOUT_MS });
+  return { suggestions: charged(() => parseAutocomplete(r.body, mode)), status: r.status, latencyMs: r.latencyMs };
 }
 
 export type PlaceDetails = {

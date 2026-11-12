@@ -12,8 +12,10 @@ export async function searchPlaces(
   centre: { lat: number; lon: number },
   lang: string,
   signal: AbortSignal,
+  use: "place" | "endpoint" = "place",
 ): Promise<PlaceSearchAnswer> {
   const params = new URLSearchParams({ q, lat: centre.lat.toFixed(5), lon: centre.lon.toFixed(5), lang });
+  if (use === "endpoint") params.set("use", "endpoint");
   const res = await fetch(`/api/places/search?${params.toString()}`, { signal });
   const body = (await res.json().catch(() => ({}))) as { results?: TourSuggestion[]; error?: string };
   if (res.status === 429) return { items: [], status: body.error === "daily_limit" ? "daily_limit" : "rate_limited" };

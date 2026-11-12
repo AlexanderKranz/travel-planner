@@ -63,7 +63,14 @@ export function matchCategory(tags: Record<string, string>, filters: readonly st
 }
 
 /**
- * Drop unnamed, rank by (wikidata, wikipedia, distance), dedupe by name + 200 m, keep top 25.
+ * Prominence bucket of a Wikidata sitelink count: floor(log2(n + 1)), so 0, 1, 2-3, 4-7, … 64-127 sitelinks are one
+ * step each. Within a bucket the distance decides (Barcelona: Sagrada Família 109 and Camp Nou 89 share bucket 6;
+ * Park Güell 55 and the Cathedral 44 bucket 5; a small memorial with 2 bucket 1).
+ */
+export const prominenceBucket = (sitelinks: number) => Math.floor(Math.log2(Math.max(0, sitelinks) + 1));
+
+/**
+ * Drop unnamed, rank by (prominence when given, wikidata, wikipedia, distance), dedupe by name + 200 m, keep top 25.
  * Pure: `anchor` is the destination point the distance is measured from. `maxKm` enforces the exact radius
  * (the Overpass query only uses a bounding box, whose corners reach 1.41x further).
  */
@@ -76,8 +83,10 @@ export function rankCandidates(
   /**
    * `distinct`: keep every OSM element (no same-name-within-200-m merge), for counting separate things such as lifts.
    * `markOpenAir`: set `openAir` on open-air pools and bathing lakes (interest places, issue #142).
+   * `sitelinks`: Wikidata sitelink counts by item id (interests with `prominence`, issue #172): the prominence bucket
+   * leads, before the wikidata/wikipedia flags and the distance. Absent = the order without it, unchanged.
    */
-  opts: { distinct?: boolean; markOpenAir?: boolean } = {},
+  opts: { distinct?: boolean; markOpenAir?: boolean; sitelinks?: Readonly<Record<string, number>> } = {},
 ): PlaceCandidate[] {
   const all: PlaceCandidate[] = [];
   const nameRe = exclude?.nameRegex ? new RegExp(exclude.nameRegex, "i") : null;
@@ -113,11 +122,15 @@ export function rankCandidates(
     all.push(c);
   }
   const score = (c: PlaceCandidate) => (c.wikidata ? 0 : 2) + (c.wikipedia ? 0 : 1);
-  all.sort((a, b) => score(a) - score(b) || a.distanceKm - b.distanceKm || a.name.localeCompare(b.name));
+  const links = opts.sitelinks;
+  const bucket = (c: PlaceCandidate) => (links && c.wikidata ? prominenceBucket(links[c.wikidata] ?? 0) : -1);
+  all.sort((a, b) => bucket(b) - bucket(a) || score(a) - score(b) || a.distanceKm - b.distanceKm || a.name.localeCompare(b.name));
   const kept: PlaceCandidate[] = [];
   for (const c of all) {
     const key = fold(c.name);
     if (!opts.distinct && kept.some((k) => fold(k.name) === key && haversineKm(k, c) <= DEDUPE_KM)) continue;
+    // With prominence, one place per Wikidata item (La Rambla is several tagged segments, more than 200 m apart).
+    if (links && c.wikidata && kept.some((k) => k.wikidata === c.wikidata)) continue;
     kept.push(c);
     if (kept.length >= MAX_CANDIDATES) break;
   }

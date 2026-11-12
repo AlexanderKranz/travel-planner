@@ -153,3 +153,32 @@ describe("getPlaceRetryStats", () => {
     await expect(getPlaceRetryStats()).rejects.toMatchObject({ code: "42P01" });
   });
 });
+
+describe("runLookup: city tour landmarks (reserved interest name)", () => {
+  it("runs the landmark warm-up with the job's point and budget, not an interest lookup", async () => {
+    const warm = vi.fn().mockResolvedValue("ok");
+    vi.doMock("./tour/landmarks", () => ({ warmLandmarks: warm }));
+    const { runLookup } = await import("./place-retries");
+    const { retryInterestLookup } = await import("./facts/places");
+    const ctx = { userId: null, locale: "de" as const, today: "2026-11-12" };
+    const job = { kind: "interest" as const, interest: "landmarks", lat: 50.116, lon: 8.684, radiusKm: 8 };
+    expect(await runLookup(job, 90_000, ctx)).toBe("done");
+    expect(warm).toHaveBeenCalledWith(job, ctx, 90_000);
+    expect(retryInterestLookup).not.toHaveBeenCalled();
+    warm.mockResolvedValue("failed");
+    expect(await runLookup(job, 90_000, ctx)).toBe("failed");
+    vi.doUnmock("./tour/landmarks");
+  });
+});
+
+describe("runLookup: forced Overpass for an interest", () => {
+  it("passes `overpass` to the interest lookup", async () => {
+    const { runLookup } = await import("./place-retries");
+    const { retryInterestLookup } = await import("./facts/places");
+    vi.mocked(retryInterestLookup).mockResolvedValue("ok");
+    const ctx = { userId: null, locale: "de" as const, today: "2026-11-12" };
+    const job = { kind: "interest" as const, interest: "general", lat: 41.389, lon: 2.159, radiusKm: 15, overpass: true as const };
+    expect(await runLookup(job, 90_000, ctx)).toBe("done");
+    expect(retryInterestLookup).toHaveBeenCalledWith("general", job, 15, ctx, 90_000, { overpass: true });
+  });
+});

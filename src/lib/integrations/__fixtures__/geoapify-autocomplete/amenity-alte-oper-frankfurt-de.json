@@ -1,0 +1,99 @@
+{
+ "results": [
+  {
+   "name": "Alte Oper",
+   "address_line1": "Alte Oper",
+   "address_line2": "Opernplatz 1, 60313 Frankfurt am Main, Deutschland",
+   "category": "entertainment.culture.theatre",
+   "result_type": "amenity",
+   "lat": 50.1160471,
+   "lon": 8.6719866,
+   "distance": 720.859081601998,
+   "place_id": "5152b3aca00e58214059d8a5a1a1da0e4940f00102f9010bb6e51600000000c00201920309416c7465204f706572",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.4512030148252372,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Tiefgarage Alte Oper",
+   "address_line1": "Tiefgarage Alte Oper",
+   "address_line2": "Bockenheimer Anlage, 60313 Frankfurt am Main, Deutschland",
+   "category": "parking.cars",
+   "result_type": "amenity",
+   "lat": 50.1158932,
+   "lon": 8.6725491,
+   "distance": 700.5390477509756,
+   "place_id": "5191e80a5b585821405916ea9f96d50e4940f00102f9011e6d594200000000c002019203145469656667617261676520416c7465204f706572",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Abonnementbüro Alte Oper Frankfurt",
+   "address_line1": "Abonnementbüro Alte Oper Frankfurt",
+   "address_line2": "Opernplatz 1, 60313 Frankfurt am Main, Deutschland",
+   "category": "commercial.tickets_and_lottery",
+   "result_type": "amenity",
+   "lat": 50.1157153,
+   "lon": 8.6717026,
+   "distance": 759.594232235856,
+   "place_id": "51be463767e957214059cb924ac2cf0e4940f00103f90145a5fc7502000000c0020192032341626f6e6e656d656e7462c3bc726f20416c7465204f706572204672616e6b66757274e203246f70656e7374726565746d61703a76656e75653a6e6f64652f3130353639343236323435",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Alte Oper",
+   "address_line1": "Alte Oper",
+   "address_line2": "Opernplatz, 60313 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.1153052,
+   "lon": 8.6712366,
+   "distance": 814.2080596546439,
+   "place_id": "51a8c1d952ac5721405985871f52c20e4940f00103f901d829cf0100000000c00201920309416c7465204f706572",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.2772938966131108,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Holiday Inn Frankfurt - Alte Oper",
+   "address_line1": "Holiday Inn Frankfurt - Alte Oper",
+   "address_line2": "Mainzer Landstraße 27-31, 60329 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.111062,
+   "lon": 8.665733,
+   "distance": 1422.1873697524138,
+   "place_id": "5166bcadf4da5421405907ea9447370e4940f00102f9016aa89c0300000000c00201920321486f6c6964617920496e6e204672616e6b66757274202d20416c7465204f706572e203206f70656e7374726565746d61703a76656e75653a7761792f3630353938333738",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  }
+ ],
+ "query": {
+  "text": "alte oper"
+ }
+}

@@ -87,6 +87,12 @@ describe("cached", () => {
     ]);
   });
 
+  it("an answer's own ttlSeconds can only shorten the lifetime (at least 60 s), never extend it", async () => {
+    await run(async () => ({ data: { n: 2 }, status: 200, latencyMs: 1, ttlSeconds: 3600 }));
+    const up = state.upserts[0] as { fetched_at: string; expires_at: string };
+    expect(Date.parse(up.expires_at) - Date.parse(up.fetched_at)).toBe(60_000);
+  });
+
   it("expired row + fetch ok: refreshes", async () => {
     state.row = { payload: { v: { n: 1 } }, fetched_at: "2026-01-01T00:00:00Z", expires_at: past() };
     const res = await run(async () => ({ data: { n: 3 }, status: 200, latencyMs: 1 }));

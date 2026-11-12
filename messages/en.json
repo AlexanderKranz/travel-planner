@@ -620,7 +620,7 @@
     "places": {
       "title": "Places to consider",
       "general": "Sights",
-      "intro": "Candidates from OpenStreetMap within {radius} km, sorted by notability and distance. They are not a plan.",
+      "intro": "Candidates from OpenStreetMap within {radius} km. The best known first (for sights, museums and the like by the number of Wikipedia and Wikimedia articles according to Wikidata, otherwise whether there is a Wikipedia article), the nearer ones first among equally known. They are not a plan.",
       "distance": "{km} km away",
       "groupMeta": "{count, plural, one {# place} other {# places}} within {radius} km",
       "linkOsm": "OpenStreetMap",
@@ -816,7 +816,7 @@
       },
       "wikimedia": {
         "label": "Wikimedia Commons and Wikidata",
-        "provides": "Picture of the destination (page banner or main image of the place).",
+        "provides": "Picture of the destination (page banner or main image of the place). For city tours: how well known a place is (number of Wikipedia and other Wikimedia articles about it), to order the suggestions.",
         "license": "Per picture: CC0, public domain, CC BY or CC BY-SA. Author and licence are shown under the picture."
       },
       "rest_countries": {
