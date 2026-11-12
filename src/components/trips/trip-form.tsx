@@ -2,7 +2,7 @@
 
 import { ClientForm } from "@/components/ui/client-form";
 import { useLocale, useTranslations } from "next-intl";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { AirportPicker } from "@/components/settings/airport-picker";
 import { emptyDraft, parseToDrafts } from "@/components/groups/draft";
 import { EntryEditor } from "@/components/groups/entry-editor";
@@ -72,6 +72,8 @@ export function TripForm({
 }) {
   const t = useTranslations("trips.form");
   const locale = useLocale();
+  /** The latest first-port destination lookup; an older answer (a replaced upload) is dropped. */
+  const portLookup = useRef(0);
   const tg = useTranslations("groups");
   const ts = useTranslations("sharing");
   const router = useRouter();
@@ -428,10 +430,13 @@ export function TripForm({
           }));
           if (destinationFromStops && destinationIsEmpty(draft.destination)) {
             // The first port as a picked place (facts and weather need one), else free text. Applied to the draft as
-            // it is when the answer arrives: the user may have entered a destination meanwhile.
-            void destinationForPort(destinationFromStops, locale, countryCodes).then((destination) =>
-              setDraft((d) => (destinationIsEmpty(d.destination) ? { ...d, destination } : d)),
-            );
+            // it is when the answer arrives: only for the latest upload, while its stops are still in the list and no
+            // destination was entered meanwhile.
+            const token = ++portLookup.current;
+            void destinationForPort(destinationFromStops, locale, countryCodes).then((destination) => {
+              if (token !== portLookup.current) return;
+              setDraft((d) => (destinationIsEmpty(d.destination) && d.stops.length > 0 ? { ...d, destination } : d));
+            });
           }
         }}
       />

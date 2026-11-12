@@ -1,6 +1,6 @@
 import "server-only";
 import type { GeoPlace } from "@/lib/domain/geo";
-import { COUNTRY_MISS_MAX_KM, NEAR_ROUTE_MAX_KM, featureRank, pickAnchorPlace, pickNearestNamed, type RoutePoint } from "@/lib/discover/names";
+import { COUNTRY_MISS_MAX_KM, NEAR_ROUTE_MAX_KM, featureRank, foldName, pickAnchorPlace, pickNearestNamed, type RoutePoint } from "@/lib/discover/names";
 import { cleanPlaceName, stripLeadingArticle } from "@/lib/discover/place-name";
 import { haversineKm } from "@/lib/facts/places";
 import { getPlaceById, searchPlacesCached, type SearchLang } from "@/lib/integrations/open-meteo-geocoding";
@@ -82,19 +82,30 @@ export async function resolvePlaceName(
     // Without a country the any-country pass needs only en and de.
     if (!country && searchLang === "de") break;
   }
+  // Without its article a name counts only near the route, from any search: "Palmas" (BR) is no answer to "Las
+  // Palmas", and without a reference point it is never a guess.
+  const refs = [opts.near?.prev, opts.near?.anchor].filter((r): r is RoutePoint => !!r);
+  const bareMaxKm = country ? COUNTRY_MISS_MAX_KM : NEAR_ROUTE_MAX_KM;
+  const nearRoute = (p: GeoPlace) => refs.some((r) => haversineKm(r, p) <= bareMaxKm);
   // All candidates of all searches compete, not the first language with an exact match. Each place counts once, in
-  // the language of the first search that returned it.
-  const anyPick = (entries: Seen[], names: string[]) => {
+  // the first search that returned it under a wanted name ("Genoa" in en and "Genua" in de are one geoId).
+  const anyPick = (entries: Seen[], bareName: string | null) => {
+    const full = foldName(search);
+    const bareKey = bareName ? foldName(bareName) : null;
+    const wanted = (p: GeoPlace) => {
+      const n = foldName(p.name);
+      return n === full || (n === bareKey && nearRoute(p));
+    };
     const langOf = new Map<number, Seen>();
-    for (const entry of entries) for (const p of entry.res.data) if (!langOf.has(p.geoId)) langOf.set(p.geoId, entry);
+    for (const entry of entries) for (const p of entry.res.data) if (!langOf.has(p.geoId) && wanted(p)) langOf.set(p.geoId, entry);
     // A given country without a match there: a namesake elsewhere counts only close to the route (#188).
     const guard = country ? { maxKm: COUNTRY_MISS_MAX_KM, strict: true } : {};
-    const pool = [...langOf.values()].flatMap((e) => e.res.data.filter((p) => langOf.get(p.geoId) === e));
-    const hit = pickNearestNamed(pool, names, opts.near ?? {}, guard);
+    const pool = [...langOf.values()].flatMap((e) => e.res.data.filter((p) => langOf.get(p.geoId) === e && wanted(p)));
+    const hit = pickNearestNamed(pool, bareName ? [search, bareName] : [search], opts.near ?? {}, guard);
     const from = hit && langOf.get(hit.geoId);
     return hit && from ? { hit, from } : null;
   };
-  let pick = anyCountry ? anyPick(seen, [search]) : null;
+  let pick = anyCountry ? anyPick(seen, null) : null;
 
   const bare = stripLeadingArticle(search);
   const retry = bare !== null && (country !== null || !pick || featureRank(pick.hit.featureCode) < 2);
@@ -103,13 +114,7 @@ export async function resolvePlaceName(
     if (!res.ok) return pick ? finish(pick.hit, pick.from.lang, pick.from.res) : { status: "failed" };
     const hit = country ? pickAnchorPlace(res.data, bare, country) : null;
     if (hit) return finish(hit, BARE_LANG, res);
-    if (anyCountry) {
-      // Without its article a name counts abroad only near the route: "Palmas" (BR) is no answer to "Las Palmas".
-      const refs = [opts.near?.prev, opts.near?.anchor].filter((r): r is RoutePoint => !!r);
-      const maxKm = country ? COUNTRY_MISS_MAX_KM : NEAR_ROUTE_MAX_KM;
-      const near = res.data.filter((p) => refs.some((r) => haversineKm(r, p) <= maxKm));
-      pick = anyPick([...seen, { lang: BARE_LANG, res: { ...res, data: near } }], [search, bare]) ?? pick;
-    }
+    if (anyCountry) pick = anyPick([...seen, { lang: BARE_LANG, res }], bare) ?? pick;
   }
   return pick ? finish(pick.hit, pick.from.lang, pick.from.res) : { status: "not_found" };
 }

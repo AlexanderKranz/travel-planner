@@ -174,6 +174,28 @@ describe("resolvePlaceName: names that do not geocode as written (Open-Meteo sha
     expect(await resolvePlaceName("La Valletta", null, "de", "u", deps)).toMatchObject({ status: "ok", place: { countryCode: "IT" } });
   });
 
+  it("one place under two names: the search that has the wanted name counts (Genoa en, Genua de)", async () => {
+    const genoa = at(3176219, "Genoa", "IT", "PPLA", 44.41, 8.93, 580_000);
+    const r = await resolvePlaceName("Genua", null, "de", "u", byQuery({ "genua:en": [genoa], "genua:de": [{ ...genoa, name: "Genua" }] }));
+    expect(r).toMatchObject({ status: "ok", place: { geoId: 3176219, name: "Genua" } });
+  });
+
+  it("an article-less namesake from an earlier search is held to the route radius too", async () => {
+    const palmas = at(3474574, "Palmas", "BR", "PPLA", -10.2, -48.3, 200_000);
+    const hamlet = at(31, "Las Palmas", "MX", "PPL", 20.0, -100.0, 50);
+    // The full-name search itself returns "Palmas": without a reference point it must not win.
+    expect(await resolvePlaceName("Las Palmas", null, "de", "u", byQuery({ "las palmas:en": [palmas, hamlet] }))).toMatchObject({
+      status: "ok",
+      place: { geoId: 31 },
+    });
+    // With a reference far from Brazil, the full-name match (fallback beyond range) still wins over Palmas.
+    const near = { prev: { lat: 28.1, lon: -15.4 } };
+    expect(await resolvePlaceName("Las Palmas", null, "de", "u", byQuery({ "las palmas:en": [palmas, hamlet] }), { near })).toMatchObject({
+      status: "ok",
+      place: { geoId: 31 },
+    });
+  });
+
   it("never more than 4 searches for one cold name", async () => {
     const calls: string[] = [];
     await resolvePlaceName("La Nowhere", "PT", "de", "u", byQuery({}, calls), { near: { prev: { lat: 0, lon: 0 } } });
