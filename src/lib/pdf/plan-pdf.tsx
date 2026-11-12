@@ -13,6 +13,7 @@ import { openItemKey } from "@/lib/plan/open-items";
 import type { Fmt } from "./format";
 import type { PdfT } from "./labels";
 import { Card, Checkbox, h2Style, labelStyle, PlaceName, Pill } from "./parts";
+import { TourRowPdf } from "./tour-block";
 import { C, SANS, SERIF } from "./theme";
 
 const s = StyleSheet.create({
@@ -114,11 +115,13 @@ function TimePill({ time, best }: { time: string; best: boolean }) {
 
 function DayCard({ day, doc, fixed, t, fmt, dayCount }: { day: PlanDay; dayCount: number; doc: PlanDocument; fixed: FixedItem[]; t: PdfT; fmt: Fmt }) {
   const { plan } = doc;
-  const merged = mergeDayRows(day, fixed);
+  // City tours from the stored snapshot, with or without items in the link (city-tour 10).
+  const merged = mergeDayRows(day, fixed, doc.tours ?? []);
   const best = isUserBest(day);
   const ink = best ? C.cream : C.ink;
   const muted = best ? C.navyMuted : C.subtle;
-  const rowCount = merged.reduce((n, st) => n + st.rows.length + 1, 0);
+  // A tour block with its sketch is about as tall as six activity rows.
+  const rowCount = merged.reduce((n, st) => n + 1 + st.rows.reduce((m, r) => m + (r.kind === "tour" ? (r.tour.sketch ? 6 : 2) : 1), 0), 0);
   return (
     <View
       wrap={rowCount > 14}
@@ -161,6 +164,7 @@ function DayCard({ day, doc, fixed, t, fmt, dayCount }: { day: PlanDay; dayCount
                 </View>
               )}
               {merged[i].rows.map((row, j) => {
+                if (row.kind === "tour") return <TourRowPdf key={`t${j}`} tour={row.tour} best={best} t={t} fmt={fmt} />;
                 if (row.kind === "fixed") {
                   const it = row.item;
                   return (
@@ -455,6 +459,7 @@ export function PlanPdf({ doc, t, fmt }: Props): ReactElement {
         ))}
 
         {/* Drive times are display-on-request in the web views and omitted in the PDF (spec timed-items [D15]). */}
+        {(doc.tours ?? []).some((x) => x.sketch) && <Text style={{ ...s.small, marginBottom: 6 }}>{t("tour.sources")}</Text>}
 
         {flights && <FlightsCard flights={flights} t={t} fmt={fmt} />}
 

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { writeStorageState } from "./lib/auth";
 import { AUTH_DIR, PASSWORD, PROJECTS, SEED_FILE, emailOf, supabaseEnv, type Seed, type SeedFile } from "./lib/env";
+import { encodePolyline } from "../src/lib/tour/polyline";
 
 const PASSAU = {
   dest_kind: "city",
@@ -34,6 +35,45 @@ const DISCOVER_CARD = {
   climate: { status: "not_checked" },
   pois: [{ status: "not_checked", interest: "christmas_markets" }],
 };
+
+/** Passau city tour points (public places, rounded coordinates; spec city-tour 14 spike points). */
+const DOM = { key: "osm:w101", name: "Dom St. Stephan", lat: 48.5741, lon: 13.4648, source: "osm" };
+const RATHAUS = { key: "osm:w102", name: "Rathaus", lat: 48.5746, lon: 13.4672, source: "osm" };
+const ORTSPITZE = { key: "osm:n103", name: "Ortspitze", lat: 48.5737, lon: 13.4774, source: "osm" };
+const tourLeg = (a: typeof DOM, b: typeof DOM, min: number, km: number) => ({
+  from: a.key, to: b.key, mode: "foot", route: "fastest", min, km, s: "ok",
+  poly: encodePolyline([[a.lat, a.lon], [b.lat, b.lon]]),
+});
+
+/**
+ * A computed city tour on day 2 of the shared trip (city-tour 10). The result is a snapshot only the server writes;
+ * the seed writes it with the secret key like the compute step does.
+ */
+async function seedTour(sb: SupabaseClient, owner: string, tripId: string): Promise<string> {
+  return must(
+    await sb
+      .from("city_tours")
+      .insert({
+        owner_id: owner,
+        trip_id: tripId,
+        trip_day: 2,
+        input: { places: [DOM, RATHAUS, ORTSPITZE], order: "optimize", mode: "foot", route: "fastest", startTime: "10:00", dwellDefaultMin: 30 },
+        result: {
+          v: 1,
+          order: [DOM.key, RATHAUS.key, ORTSPITZE.key],
+          legs: [tourLeg(DOM, RATHAUS, 4, 0.3), tourLeg(RATHAUS, ORTSPITZE, 9, 0.8)],
+          totalMin: 103,
+          fit: "none",
+          sights: [],
+          source: { ors: "2026-11-12T10:00:00.000Z" },
+        },
+        computed_at: "2026-11-12T10:00:00.000Z",
+      })
+      .select("id")
+      .single<{ id: string }>(),
+    "insert city tour",
+  ).id;
+}
 
 const must = <T>(r: { data: T | null; error: { message: string } | null }, what: string): T => {
   if (r.error || r.data === null) throw new Error(`${what}: ${r.error?.message ?? "no data"}`);
@@ -67,7 +107,7 @@ async function ensureUser(sb: SupabaseClient, key: string, role: "user" | "admin
     .eq("id", id);
   if (p.error) throw new Error(`profile: ${p.error.message}`);
   // Start from a clean slate on re-runs.
-  for (const t of ["trips", "destination_searches", "travel_groups", "trip_purposes"]) {
+  for (const t of ["trips", "city_tours", "destination_searches", "travel_groups", "trip_purposes"]) {
     const d = await sb.from(t).delete().eq("owner_id", id);
     if (d.error) throw new Error(`wipe ${t}: ${d.error.message}`);
   }
@@ -180,6 +220,7 @@ export default async function globalSetup() {
 
     const tripId = await seedPlanTrip(sb, a, "E2E Plan", fixture.plan);
     const a11yTripId = await seedPlanTrip(sb, a, "E2E Share", fixture.plan);
+    const tourId = await seedTour(sb, a, a11yTripId);
     const token = randomBytes(32).toString("base64url");
     const sl = await sb.from("share_links").insert({
       owner_id: a,
@@ -189,7 +230,7 @@ export default async function globalSetup() {
       include_items: true,
     });
     if (sl.error) throw new Error(`insert share link: ${sl.error.message}`);
-    seed[proj] = { purposeId, searchId, typedSearchId, tripId, a11yTripId, a11yToken: token, groupId: g.id, groupName } satisfies Seed;
+    seed[proj] = { purposeId, searchId, typedSearchId, tripId, a11yTripId, a11yToken: token, tourId, groupId: g.id, groupName } satisfies Seed;
 
     await ensureUser(sb, `s-${proj}`, "user", false);
     await writeStorageState(`s-${proj}`);

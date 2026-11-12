@@ -11,6 +11,7 @@ import { statusTone } from "@/components/items/status-badge";
 import type { SharedItem } from "@/lib/domain/items";
 import { fittingLegs } from "@/lib/flights/ui";
 import { fixedItemsOf, flightPrefill, flightTitle, itemForLeg } from "@/lib/plan/fixed-items";
+import type { TourBlock } from "@/lib/plan/tour-blocks";
 import { PlanFlights } from "./plan-flights";
 import { PlanHeader } from "./plan-header";
 import { PlanNotes, PlanOpenItems, PlanPacking } from "./plan-lists";
@@ -26,6 +27,7 @@ export function PlanView({
   locale,
   openDone,
   items,
+  tours = [],
   readOnly = false,
 }: {
   state: PlanState;
@@ -37,6 +39,8 @@ export function PlanView({
    * rows of the day cards; `changed` = a timed item changed after this version.
    */
   items: { lengthDays: number; partySize: number | null; startDate: string | null; list: SharedItem[]; changed: boolean };
+  /** City tours on days of the trip (city-tour 10), merged into their day cards at render time. */
+  tours?: TourBlock[];
   /** Read grantee (sharing spec 4.3): no quick add, no edits, no open-item ticks, no regenerate. */
   readOnly?: boolean;
 }) {
@@ -105,6 +109,10 @@ export function PlanView({
             places={plan.places}
             changed={changed.has(d.n)}
             fixed={fixed}
+            tours={tours}
+            tourAccess={state.access ?? "owner"}
+            // The day action is the trip owner's only (city-tour 2.2 [T15]); a grantee cannot link a tour to this trip.
+            tourAction={(state.access ?? "owner") === "owner" && !readOnly ? { tripId: state.tripId } : undefined}
             edit={editCtx}
             renderQuickAdd={
               quick

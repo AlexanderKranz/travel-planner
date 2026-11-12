@@ -5,6 +5,9 @@ import { isUserBest, type Plan, type PlanActivity, type PlanDay, type PlanStop }
 import { placeHref } from "@/lib/facts/sources";
 import { StatusBadge } from "@/components/items/status-badge";
 import { mergeDayRows, timeRange, type FixedItem } from "@/lib/plan/fixed-items";
+import type { TourBlock } from "@/lib/plan/tour-blocks";
+import { Link } from "@/i18n/navigation";
+import { DayTourBlock } from "@/components/tour/day-tour-block";
 import { DRIVE_ONLY, driveStopNames, windowKind } from "./helpers";
 import { AltEditButtons, BestDayButton, EditableActRow, type ActEditCtx } from "./act-edit";
 
@@ -213,6 +216,9 @@ export function DayCard({
   places,
   changed,
   fixed = [],
+  tours = [],
+  tourAccess,
+  tourAction,
   renderQuickAdd,
   edit,
   dayCount,
@@ -224,11 +230,18 @@ export function DayCard({
   changed?: boolean;
   /** Booked/planned trip items with day + start time; merged into this day's rows in time order. */
   fixed?: FixedItem[];
+  /** City tours linked to the trip (city-tour 10); this day's are merged into the rows like fixed items. */
+  tours?: readonly TourBlock[];
+  /** Viewer's access to the trip: "Tour öffnen" for owner and grantees; absent on the public share page. */
+  tourAccess?: "owner" | "write" | "read";
+  /** Owner only: trip id for "Stadttour für diesen Tag" (city-tour 2.2 [T15]). */
+  tourAction?: { tripId: string };
   renderQuickAdd?: (place: Plan["places"][string], ref: string, day: number) => React.ReactNode;
   /** Owner's latest, idle version: activity edits without AI. */
   edit?: ActEditCtx;
 }) {
   const t = useTranslations("plan");
+  const tt = useTranslations("tours");
   const f = useFormatter();
   const used = day.stops
     .flatMap((s) => s.acts)
@@ -270,7 +283,7 @@ export function DayCard({
           </h3>
           {edit && <BestDayButton ctx={edit} n={day.n} isBest={best} />}
           </div>
-          {mergeDayRows(day, fixed).map(({ stop, rows }, i) => {
+          {mergeDayRows(day, fixed, tours).map(({ stop, rows }, i) => {
             const showHead = day.stops.length > 1 || stop.place !== day.title || windowKind(stop.from, stop.to) || stop.fixed;
             return (
               <div key={i} className="flex min-w-0 flex-col gap-1.5">
@@ -286,6 +299,8 @@ export function DayCard({
                     {rows.map((r, j) =>
                       r.kind === "fixed" ? (
                         <FixedRow key={`f-${r.item.id}`} item={r.item} />
+                      ) : r.kind === "tour" ? (
+                        <DayTourBlock key={`t-${r.tour.id}`} tour={r.tour} access={tourAccess} />
                       ) : (
                         <Activity
                           key={j}
@@ -335,6 +350,22 @@ export function DayCard({
                 </span>
               )}
             </p>
+          )}
+          {tours.some((x) => x.day === day.n && x.sketch) && (
+            <p className={`text-xs ${mutedCls}`}>
+              <a href="https://openrouteservice.org/" target="_blank" rel="noopener noreferrer" className={linkCls}>
+                {tt("routeCredit")}
+              </a>
+            </p>
+          )}
+          {tourAction && (
+            <Link
+              href={`/app/tours/new?trip=${encodeURIComponent(tourAction.tripId)}&day=${day.n}`}
+              className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}
+              data-day-tour-action
+            >
+              {tt("dayAction")}
+            </Link>
           )}
         </div>
       </article>

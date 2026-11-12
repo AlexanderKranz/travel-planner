@@ -1199,7 +1199,8 @@
     "pdfBusy": "PDF wird erstellt …",
     "pdfFailed": "Das PDF konnte nicht erstellt werden. Bitte versuche es später noch einmal.",
     "pdfTitle": "Herunterladen",
-    "linksTitle": "Öffentliche Links"
+    "linksTitle": "Öffentliche Links",
+    "tourEndpointsVisible": "Start und Ende deiner Stadttouren sind sichtbar."
   },
   "picture": {
     "alt": "Foto von {place}",
@@ -1327,7 +1328,20 @@
     "dayShort": "TAG",
     "daysUnit": "Tage",
     "windowFrom": "ab {time}",
-    "windowUntil": "bis {time}"
+    "windowUntil": "bis {time}",
+    "tour": {
+      "label": "Stadttour",
+      "places": "{count} Orte",
+      "placesOne": "1 Ort",
+      "km": "{km} km {mode}",
+      "modes": {
+        "foot": "zu Fuß",
+        "wheelchair": "im Rollstuhl",
+        "cycling": "mit dem Fahrrad",
+        "car": "mit dem Auto"
+      },
+      "sources": "Routen: © openrouteservice.org, Kartendaten © OpenStreetMap-Mitwirkende"
+    }
   },
   "admin": {
     "title": "Admin",
@@ -2033,6 +2047,15 @@
       "conflict": "Die Tour wurde inzwischen geändert. Lade die Seite neu und versuch es noch einmal.",
       "invalid": "Bitte prüf deine Angaben.",
       "failed": "Das hat nicht geklappt. Versuch es bitte noch einmal."
-    }
+    },
+    "dayBlock": "Stadttour{time, select, none {} other { · {time}}} · {count, plural, one {# Ort} other {# Orte}}{km, select, none {} other { · {km} km {mode, select, foot {zu Fuß} wheelchair {im Rollstuhl} cycling {mit dem Fahrrad} other {mit dem Auto}}}}",
+    "dayBlockNoTime": "Startzeit setzen, damit der Plan diese Zeit freihält.",
+    "dayBlockStops": "Stationen der Tour",
+    "openTour": "Tour öffnen",
+    "dayAction": "Stadttour für diesen Tag",
+    "noDay": "Ohne Tag",
+    "noDayTitle": "Stadttouren ohne Tag",
+    "noDayHint": "Diese Touren gehören zu keinem Tag der Reise und fließen nicht in den Plan ein.",
+    "routeCredit": "Routen: © openrouteservice.org"
   }
 }

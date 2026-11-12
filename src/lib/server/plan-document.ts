@@ -20,6 +20,8 @@ import {
 } from "./item-mapping";
 import { getUserSession } from "./session";
 import { itemsChangedSince } from "@/lib/plan/fixed-items";
+import { tourBlocks, toursChangedSince, type LinkedTour } from "@/lib/plan/tour-blocks";
+import { loadLinkedTours } from "./tour/trip-tours";
 import { createSupabaseAdminClient } from "./supabase/admin";
 import { hashShareToken, isShareTokenFormat } from "./share-token";
 
@@ -37,6 +39,8 @@ export type PlanDocumentParts = {
   home?: PlanHome | null;
   /** Current destination of the trip, only to fill the tiles; null = unknown. Never part of the document. */
   place?: PlanGlancePlace | null;
+  /** City tours linked to the trip (city-tour 10); rendered into their day from the stored snapshot. */
+  tours?: readonly LinkedTour[];
 };
 
 const PLACE_COLUMNS = "dest_name, dest_country_code, dest_lat, dest_lon, dest_timezone";
@@ -68,6 +72,8 @@ export function buildPlanDocument(parts: PlanDocumentParts): PlanDocument {
     costs: parts.items ? computeCosts(parts.items, parts.partySize) : null,
     timeDifference: parts.home === undefined ? null : planTimeDifference(parts.plan, parts.home, berlinToday()),
     glance: planGlance(parts.plan, parts.place ?? null, berlinToday()),
+    // Same blocks with or without items in the link: a tour is no cost item (spec 10).
+    tours: tourBlocks(parts.tours ?? [], parts.plan.days.length),
   };
 }
 
@@ -163,6 +169,8 @@ export async function getOwnerPlanDocumentResult(
               .eq("id", session.userId)
               .maybeSingle<{ home_location: string | null; home_timezone: string | null }>(),
           );
+    // A failed tour read costs the tour blocks, not the plan.
+    const toursQ = loadLinkedTours(sb, tripId).catch((): LinkedTour[] => []);
     const partyQ = loadPartySize(sb, tripId).then(
       (v) => ({ v, failed: false as const }),
       () => ({ v: null, failed: true as const }),
@@ -210,6 +218,7 @@ export async function getOwnerPlanDocumentResult(
     }
     const party = await partyQ;
     if (party.failed) return { ok: false, error: "failed" };
+    const tours = await toursQ;
     const doc = buildPlanDocument({
       home,
       place: rowToPlace(trip),
@@ -219,9 +228,12 @@ export async function getOwnerPlanDocumentResult(
       openDone: planRow.open_done ?? [],
       items,
       partySize: party.v,
+      tours,
     });
     const timed = rows.map((r) => ({ day: r.day, startTime: r.start_time, updatedAt: r.updated_at }));
-    return { ok: true, doc: { ...doc, itemsChanged: itemsChangedSince(timed, versionAt) } };
+    // [D8]: a tour that enters the plan counts like a timed item (city-tour 10).
+    const changed = itemsChangedSince(timed, versionAt) || toursChangedSince(tours, versionPlan.days.length, versionAt);
+    return { ok: true, doc: { ...doc, itemsChanged: changed } };
   } catch {
     return { ok: false, error: "failed" };
   }
@@ -306,6 +318,10 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
       party = await loadPartySize(admin, link.trip_id);
     }
 
+    // City tours of exactly this trip and owner, from their stored snapshot only (no external call). A failed read
+    // costs the tour blocks, not the page. The secret-key read is filtered by the shared trip id (ground rule 6).
+    const tours = await loadLinkedTours(admin, link.trip_id, link.owner_id).catch((): LinkedTour[] => []);
+
     // A failed read only costs the country tile and the sunset, not the page.
     const { data: placeRow } = await admin.from("trips").select(PLACE_COLUMNS).eq("id", link.trip_id).maybeSingle<PlaceRow>();
 
@@ -325,6 +341,7 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
       home: owner ? { name: owner.home_location, timezone: owner.home_timezone } : flagMissing ? undefined : null,
       // Coordinates stay here too: the document gets the computed tiles only.
       place: rowToPlace(placeRow),
+      tours,
     });
   } catch {
     return null;

@@ -3,6 +3,7 @@ import type { Plan } from "./plan";
 import type { PlanGlance } from "@/lib/facts/plan-glance";
 import type { PlanTimeDifference } from "@/lib/facts/plan-time-difference";
 import type { CostSummary, SharedItem } from "./items";
+import type { TourBlock } from "@/lib/plan/tour-blocks";
 
 export const SHARE_EXPIRY_DAYS = [7, 30, 90] as const;
 export const MAX_LINKS_PER_TRIP = 10;
@@ -40,6 +41,8 @@ export type PlanDocument = {
   timeDifference?: PlanTimeDifference | null;
   /** "At a glance" tiles of share page and PDF: display values only, no coordinates. */
   glance?: PlanGlance;
-  /** Owner view only: a timed item changed after this plan version (soft "regenerate?" hint). */
+  /** Owner view only: a timed item or a linked city tour changed after this plan version (soft "regenerate?" hint). */
   itemsChanged?: boolean;
+  /** City tours on a day of the trip, rendered into their day card (city-tour 10). Absent in older documents. */
+  tours?: TourBlock[];
 };

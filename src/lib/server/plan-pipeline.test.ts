@@ -518,6 +518,23 @@ describe("generatePlan", () => {
     expect(h.compose).not.toHaveBeenCalled();
     expect(h.insert).not.toHaveBeenCalled();
   });
+  it("same hash, but a newly linked tour holds a place of the plan: the guard runs in code, restore version, no AI call", async () => {
+    const place = { name: "Dom", category: "amenity=place_of_worship", lat: 48.57, lon: 13.46, distanceKm: 1, osmUrl: "https://www.openstreetmap.org/way/1", source: "osm", fetchedAt: "x" };
+    const plan = {
+      ...Plan,
+      places: { "way/1": place },
+      days: [1, 2, 3].map((n) => ({ n, title: `Tag ${n}`, stops: [{ place: "Passau", acts: [{ kind: "see", text: "Dom", ref: "way/1" }] }] })),
+    };
+    h.latest = { ...stored("hash-new", 1), plan };
+    h.build.mockReturnValueOnce({ stored: { llm: { v: 1 }, index: {}, tourStops: { "2": ["way/1"] } }, header: {}, digest: {} } as never);
+    const res = await generatePlan(TRIP, "en");
+    expect(res.ok).toBe(true);
+    expect(h.compose).not.toHaveBeenCalled();
+    const arg = insertArg()[2] as unknown as { kind: string; plan: typeof plan; input: { tourStops?: unknown } };
+    expect(arg.kind).toBe("restore");
+    expect(arg.plan.days.map((d) => d.stops[0].acts.length)).toEqual([1, 0, 1]);
+    expect(arg.input.tourStops).toEqual({ "2": ["way/1"] });
+  });
   it("hash of an older version: restore version, no AI call", async () => {
     h.planRow = { id: "plan1", latestVersion: 3, busyUntil: null };
     h.latest = stored("hash-x", 3);

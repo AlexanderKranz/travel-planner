@@ -8,6 +8,9 @@ import { getProfile } from "./profile";
 import { getPurpose } from "./purposes";
 import { shownTripStops, type ShownTripStops } from "./trip-stops";
 import { getTrip } from "./trips";
+import { getUserSession } from "./session";
+import { loadLinkedTours } from "./tour/trip-tours";
+import type { LinkedTour } from "@/lib/plan/tour-blocks";
 
 /**
  * Request-scoped reads for server components (the trip page and what it renders).
@@ -28,6 +31,16 @@ export const getPurposeOnce = cache((id: string) => getPurpose(id));
 export const getShownStopsOnce = cache(async (tripId: string): Promise<ShownTripStops> => {
   const trip = await getTripOnce(tripId);
   return trip.ok ? shownTripStops(trip.data) : { stops: [], source: "confirmed" };
+});
+
+/**
+ * City tours linked to the trip (owner, or a grantee of the trip through RLS), once per request: the "Ohne Tag" list
+ * and the share box notice. Empty without a session or on a read error (the page never fails for tours).
+ */
+export const getTripToursOnce = cache(async (tripId: string): Promise<LinkedTour[]> => {
+  const session = await getUserSession();
+  if (!session) return [];
+  return loadLinkedTours(session.supabase, tripId).catch((): LinkedTour[] => []);
 });
 
 const readers: ContextReaders = {

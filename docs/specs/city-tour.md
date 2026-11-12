@@ -584,6 +584,39 @@ the ORS gate is released.
 - A stored result with a `failed` leg is recomputed even when the input is unchanged (an outage is not kept).
 - `updateTour` with `expectedUpdatedAt` is a conditional update; a concurrent save in between gives `conflict`.
 
+### Implementation notes (plan PR, 2026-11-12)
+
+- **Plan input.** `src/lib/plan/tour-blocks.ts` (pure). A tour on a day of the trip with a start time and a stored
+  result with a total enters `INPUT.fixed` as `{ day, from, to, cat: "activity", title }`; `to` wraps past midnight
+  ("ends the next day", timed-items [D2]). The title is model input, so it follows the plan language like the rest
+  of the input: `"Stadttour: <places in visiting order>"` / `"City tour: …"`, start and end left out, cut to 60
+  characters with "…". An outdated result (input changed since the computation) is still used: its total is the best
+  known duration, and a changed start time alone should not drop the slot. Item slots and tour slots are merged by
+  day and start (stable, items first); without tours `fixed` is the same object as before, so the golf, cruise and
+  Würzburg inputs are byte-identical (checked against the hashes on main). No prompt change.
+- **Duplicate guard.** The OSM stops of every tour on a day (with or without a start time, start and end included)
+  are stored beside the input as `PlanInputStored.tourStops` (day → plan keys, not hashed, not sent). In
+  `assembleDay`, after the stop-ref guard, a ref that is a tour stop becomes the first alternative that is none (the
+  text names the new place, as the open-air guard does); with no alternative left the activity is dropped, because the
+  tour block already shows that place on that day. Names of removed alternatives are cut out of the text. Removed keys
+  count as `tour_duplicate`. Patches use the current tours (like the current fixed slots). An untimed tour leaves the
+  input hash unchanged, so a version reused by the dedupe gets the same guard in code (a restore version that stores
+  the current `tourStops`; no AI call). Not covered: unlinking an untimed tour does not bring a dropped activity back
+  until the next real generation.
+- **Visiting order.** The stored result's order is used only when it covers exactly the current points; otherwise
+  the input order (a place added since the last computation is never left out of the block or the slot title).
+- **Hint.** The "items changed" note of timed-items [D8] also fires for a tour on a day of the trip with a start time
+  whose `updated_at` is later than the version (a computation moves `updated_at` too).
+- **Rendering.** `mergeDayRows` takes the tour blocks: timed ones by the [D7] rule (a fixed item before a tour with
+  the same start), untimed ones at the top of the day. The block is a `<details>` (no client JS); "Tour öffnen" for
+  owner and grantees, the start-time hint for the owner only, nothing of both on the public page. The day action is
+  shown to the trip owner on every day card. Tours without a day of the trip are listed on the trip page under
+  "Stadttouren ohne Tag".
+- **Share and PDF.** The public read (`getSharedPlanDocument`) reads `city_tours` with the secret key filtered by
+  `trip_id` and `owner_id` of the link, and drops any row of another trip in code as well. The share box shows
+  `share.tourEndpointsVisible` when a tour on a day starts or ends at a `gfy:` Geoapify result. The PDF draws the
+  block with a react-pdf `Svg` sketch and a sources line under the days.
+
 ## 15. Decisions (accepted by Alex, 2026-11-12)
 
 - **[T1] Own resource `city_tours`, points and settings as jsonb, optional link `(trip_id, trip_day)` to an own trip
