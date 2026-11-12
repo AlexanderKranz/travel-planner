@@ -10,7 +10,6 @@ import { assertOrsQuota } from "./ors-quota";
 export type DriveTimes = { byKey: Record<string, { min: number; km: number }>; fetchedAt: string };
 
 export const DRIVE_TTL_SECONDS = 90 * 86400;
-export { orsDailyCap, ORS_DAILY_REQUESTS_DEFAULT } from "./ors-quota";
 
 const Payload = z.record(z.string(), z.object({ min: z.number().int().min(0), km: z.number().min(0) }));
 
@@ -44,7 +43,7 @@ export async function getDriveTimes(
       schema: Payload,
       ctx,
       fetcher: async () => {
-        await assertOrsQuota();
+        await assertOrsQuota("matrix");
         const r = await fetchDriveMatrix(origin, list);
         const data: Record<string, { min: number; km: number }> = {};
         r.drives.forEach((d, i) => {

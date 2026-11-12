@@ -1,6 +1,7 @@
 import "server-only";
 import { isAiEnabled } from "../ai-usage";
 import { isDemoEnabled } from "../demo";
+import { orsUsage24h } from "../facts/ors-quota";
 import { checkDb } from "../health";
 import { getPlaceRetryStats } from "../place-retries";
 import { createSupabaseAdminClient } from "../supabase/admin";
@@ -41,7 +42,7 @@ export async function getAdminDashboard(now: Date = new Date()) {
   const p = adminPeriods(now);
   const day = p.dayStart.toISOString();
   const month = p.monthStart.toISOString();
-  const [users, usage, ai, api, events, shares] = await Promise.all([
+  const [users, usage, ai, api, events, shares, orsUsage] = await Promise.all([
     rpc("admin_user_stats", { p_now: now.toISOString(), p_month_start: month }, UserStatsRaw),
     rpc("admin_usage_stats", { p_month_start: month, p_days: 14 }, UsageStatsRaw),
     rpc("admin_ai_stats", { p_day_start: day, p_month_start: month }, AiStatsRaw),
@@ -49,8 +50,10 @@ export async function getAdminDashboard(now: Date = new Date()) {
     rpc("admin_recent_events", { p_limit: 50 }, RecentEventsRaw),
     // Share counters are one extra row on the page: a failure there must not take the dashboard down.
     rpc("admin_share_stats", { p_month_start: month }, ShareStatsRaw).catch(() => undefined),
+    // ORS buckets over the last 24 h, as the guard counts them; a failed count shows "no data", not 0.
+    orsUsage24h(now).catch(() => undefined),
   ]);
-  return shapeDashboard({ users, usage, ai, api, events, shares }, readBudgetConfig(await getEffectiveEnv()));
+  return shapeDashboard({ users, usage, ai, api, events, shares, orsUsage }, readBudgetConfig(await getEffectiveEnv()));
 }
 
 /** DB reachability, feature switches, key presence and the last cron run (timestamp only). Admin only. */

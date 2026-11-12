@@ -29,7 +29,7 @@ vi.mock("../api-cache", async (orig) => {
 });
 vi.mock("../supabase/admin", () => ({
   createSupabaseAdminClient: () => {
-    const q = { select: () => q, eq: () => q, neq: () => q, gte: async () => ({ count: h.count, error: h.countError }) };
+    const q = { select: () => q, eq: () => q, neq: () => q, in: () => q, or: () => q, gte: async () => ({ count: h.count, error: h.countError }) };
     return { from: () => q };
   },
 }));
@@ -94,8 +94,8 @@ describe("getDriveRoute", () => {
     expect(h.cacheStore.size).toBe(0);
   });
 
-  it("the daily cap is checked before the request (the cap is shared with plans); an unreadable count fails closed", async () => {
-    h.count = 200;
+  it("the Directions cap (1800 in 24 h, shared with tours) is checked before the request; an unreadable count fails closed", async () => {
+    h.count = 1800;
     expect(await getDriveRoute(frankfurt, munich, ctx)).toEqual({ ok: false, error: "quota_exhausted" });
     h.count = null;
     h.countError = { code: "x" };
@@ -115,15 +115,16 @@ describe("orsRequestsLeft", () => {
     h.count = 0;
     h.countError = null;
   });
-  it("cap (default 200) minus today's network requests, never below 0", async () => {
+  it("bucket cap (Directions 1800, matrix 450) minus the bucket's network requests, never below 0", async () => {
     h.count = 120;
-    expect(await orsRequestsLeft()).toBe(80);
-    h.count = 999;
-    expect(await orsRequestsLeft()).toBe(0);
+    expect(await orsRequestsLeft("directions")).toBe(1680);
+    expect(await orsRequestsLeft("matrix")).toBe(330);
+    h.count = 9999;
+    expect(await orsRequestsLeft("directions")).toBe(0);
   });
   it("fails closed: an unreadable count is 0", async () => {
     h.count = null;
     h.countError = { code: "x" };
-    expect(await orsRequestsLeft()).toBe(0);
+    expect(await orsRequestsLeft("directions")).toBe(0);
   });
 });

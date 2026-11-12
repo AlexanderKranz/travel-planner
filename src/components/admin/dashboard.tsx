@@ -247,13 +247,22 @@ export async function AdminDashboard({
           </div>
           <div className="flex flex-col gap-2">
             <h3 className={labelCls}>{t("api.orsTitle")}</h3>
-            <Bar
-              label={t("api.orsToday")}
-              valueText={t("ofCap", { used: num(ors.requestsToday.used), cap: num(ors.requestsToday.cap) })}
-              widthPct={ors.requestsToday.pct}
-              level={ors.requestsToday.level}
-              aria={t("api.orsTitle")}
-            />
+            {ors === null ? <p className={mutedCls}>{t("noData")}</p> : null}
+            {ors
+              ? (["matrix", "directions"] as const).map((b) => {
+                  const label = t(b === "matrix" ? "api.orsMatrix" : "api.orsDirections");
+                  return (
+                    <Bar
+                      key={b}
+                      label={label}
+                      valueText={t("ofCap", { used: num(ors[b].used), cap: num(ors[b].cap) })}
+                      widthPct={ors[b].pct}
+                      level={ors[b].level}
+                      aria={label}
+                    />
+                  );
+                })
+              : null}
             <h3 className={`${labelCls} mt-2`}>{t("api.geoapifyTitle")}</h3>
             <Bar
               label={t("api.geoapifyToday")}

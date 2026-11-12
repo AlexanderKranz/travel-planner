@@ -44,7 +44,7 @@ export async function getDriveRoute(
       ctx,
       fetchAllowed: opts.fetchAllowed,
       fetcher: async () => {
-        await assertOrsQuota();
+        await assertOrsQuota("directions");
         const r = await fetchDriveRoute(origin, place);
         return { data: r.route, status: r.status, latencyMs: r.latencyMs };
       },
