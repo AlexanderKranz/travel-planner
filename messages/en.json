@@ -540,7 +540,8 @@
         "aiOff": "Automatic reading is not available right now. Please type the stops.",
         "limit": "Daily limit reached. Try tomorrow or type the stops.",
         "forbidden": "You can't edit the stops of this trip."
-      }
+      },
+      "stopsPerDay": "A day can have at most {max} places (day {days})."
     }
   },
   "facts": {

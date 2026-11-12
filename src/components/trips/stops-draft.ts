@@ -1,5 +1,5 @@
 import type { ExtractedStop, ItineraryFlag } from "@/lib/domain/itinerary";
-import { dayOfDate, MAX_TRIP_STOPS, sortStops, stopDate, type TripStop } from "@/lib/domain/trip-stops";
+import { dayOfDate, MAX_STOPS_PER_DAY, MAX_TRIP_STOPS, sortStops, stopDate, type TripStop } from "@/lib/domain/trip-stops";
 import { MAX_TRIP_DAYS } from "@/lib/domain/common";
 
 /** One editable row of the stops list (strings for inputs; `key` for React). */
@@ -73,8 +73,17 @@ export function rowProblems(r: StopRow, lengthDays: number): RowProblem[] {
   return out;
 }
 
+/** Days with more places than a plan day can hold (MAX_STOPS_PER_DAY; sea rows do not count). */
+export function overfullDays(rows: readonly StopRow[]): number[] {
+  const perDay = new Map<number, number>();
+  for (const r of rows) if (!r.sea) perDay.set(r.day, (perDay.get(r.day) ?? 0) + 1);
+  return [...perDay].filter(([, n]) => n > MAX_STOPS_PER_DAY).map(([day]) => day).sort((a, b) => a - b);
+}
+
 export const rowsHaveProblems = (rows: readonly StopRow[], lengthDays: number) =>
-  rows.length > MAX_TRIP_STOPS || rows.some((r) => rowProblems(r, lengthDays).length > 0);
+  rows.length > MAX_TRIP_STOPS ||
+  overfullDays(rows).length > 0 ||
+  rows.some((r) => rowProblems(r, lengthDays).length > 0);
 
 /** Warnings shown under a row: extraction flags plus the two that depend on the form's current dates. */
 export function rowFlags(r: StopRow, ctx: { startDate: string | null; lengthDays: number }): ItineraryFlag[] {

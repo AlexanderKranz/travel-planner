@@ -540,7 +540,8 @@
         "aiOff": "Automatisches Lesen ist gerade nicht verfügbar. Bitte Stopps eintippen.",
         "limit": "Tageslimit erreicht. Morgen wieder oder Stopps eintippen.",
         "forbidden": "Du kannst die Stopps dieser Reise nicht bearbeiten."
-      }
+      },
+      "stopsPerDay": "Pro Tag sind höchstens {max} Orte möglich (Tag {days})."
     }
   },
   "facts": {

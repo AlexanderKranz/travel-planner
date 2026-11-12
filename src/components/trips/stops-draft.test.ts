@@ -4,12 +4,14 @@ import {
   datesOffer,
   emptyRow,
   fillMissingRows,
+  overfullDays,
   patchRow,
   remapRowsToStart,
   rowFlags,
   rowProblems,
   rowsFromExtracted,
   rowsFromStops,
+  rowsHaveProblems,
   rowsToStops,
 } from "./stops-draft";
 
@@ -93,5 +95,15 @@ describe("patchRow", () => {
   it("keeps it for other edits and an unchanged place", () => {
     expect(patchRow(row, { arr: "09:00" }).cc).toBe("AT");
     expect(patchRow(row, { place: "Wien" }).cc).toBe("AT");
+  });
+});
+
+describe("overfullDays", () => {
+  const row = (day: number, place = "Ort", sea = false) => ({ ...emptyRow(day), place: sea ? "" : place, sea });
+  it("reports days with more than 4 places; sea rows do not count", () => {
+    const rows = [1, 1, 1, 1, 1, 2, 2].map((d) => row(d)).concat([row(2, "", true)]);
+    expect(overfullDays(rows)).toEqual([1]);
+    expect(rowsHaveProblems(rows, 5)).toBe(true);
+    expect(overfullDays(rows.slice(1))).toEqual([]);
   });
 });

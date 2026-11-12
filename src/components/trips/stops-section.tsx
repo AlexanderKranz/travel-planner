@@ -1,5 +1,7 @@
 "use client";
 
+import { MAX_STOPS_PER_DAY } from "@/lib/domain/trip-stops";
+
 import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { btnPrimary, btnSecondary, errorCls, mutedCls } from "@/components/ui/styles";
@@ -15,6 +17,7 @@ import {
   rowsFromExtracted,
   rowsFromStops,
   patchRow,
+  overfullDays,
   rowsHaveProblems,
   type StopRow,
 } from "./stops-draft";
@@ -195,7 +198,9 @@ export function StopsSection({
 
           {canEdit && showProblems && rowsHaveProblems(rows, lengthDays) && (
             <p role="alert" className={errorCls}>
-              {t("invalidList")}
+              {overfullDays(rows).length > 0
+                ? t("stopsPerDay", { days: overfullDays(rows).join(", "), max: MAX_STOPS_PER_DAY })
+                : t("invalidList")}
             </p>
           )}
 
