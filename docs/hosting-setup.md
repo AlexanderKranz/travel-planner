@@ -40,7 +40,7 @@ Strato ── DNS for alexanderkranz.de (email sender records)
 | **Strato** | DNS for `alexanderkranz.de` | Existing domain contract | Brevo TXT + DKIM records | Keep the existing DMARC record (`p=reject`) |
 | **Anthropic** | Claude API | Pay per use | `ANTHROPIC_API_KEY` | Monthly spend limit in the console + daily budgets on the admin page |
 | **AeroDataBox** (via RapidAPI) | Direct flights per airport and day | Free/basic plan | `AERODATABOX_API_KEY` | Monthly unit quota; app guard `AERODATABOX_DAILY_UNITS` |
-| **OpenRouteService** (HeiGIT) | Driving times (matrix, directions) | Free Standard key | `OPENROUTESERVICE_API_KEY` | ~500 matrix and 200 directions requests/day; app guard `ORS_DAILY_REQUESTS` (default 200) |
+| **OpenRouteService** (HeiGIT) | Driving times (matrix, directions) | Free Standard key | `OPENROUTESERVICE_API_KEY` | 500 matrix and 2000 directions requests per 24 h; app guards `ORS_MATRIX_DAILY` (default 450) and `ORS_DIRECTIONS_DAILY` (default 1800), counted over the last 24 h |
 | **Open-Meteo** | Geocoding, climate history | No account | none | Fair use; cached |
 | **Geoapify** | Places and golf courses (OpenStreetMap data), primary source | Free (3,000 credits/day) | `GEOAPIFY_API_KEY` | 1 credit per 20 places; app guard `GEOAPIFY_DAILY_CREDITS` (default 2,000); cached 30 days |
 | **Overpass (OpenStreetMap)** | Places: fallback when Geoapify fails, has no key, or for interests without a Geoapify category | No account | optional `OVERPASS_URL`; contact in `INTEGRATIONS_CONTACT` | Slow (25–60 s per query, often 5xx); mirrors maps.mail.ru and overpass.private.coffee; cached 30 days |
@@ -182,7 +182,7 @@ Settings marked "admin page" can be changed under Admin → Einstellungen withou
 | `CRON_SECRET` | Vercel | **yes** |
 | `DEMO_EMAIL`, `DEMO_PASSWORD` | Vercel, `.env.local` | password **yes** |
 | `AI_ENABLED`, `DEMO_ENABLED` | Vercel (defaults; admin page) | no. `false` in Vercel is a hard off |
-| `AI_*_USD`, `AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`, `ORS_DAILY_REQUESTS`, `GEOAPIFY_DAILY_CREDITS`, `ALERT_ERRORS_24H` | Vercel (defaults; admin page) | no |
+| `AI_*_USD`, `AERODATABOX_DAILY_UNITS`, `AERODATABOX_MIN_REMAINING`, `ORS_MATRIX_DAILY`, `ORS_DIRECTIONS_DAILY`, `GEOAPIFY_DAILY_CREDITS`, `ALERT_ERRORS_24H` | Vercel (defaults; admin page) | no |
 | `APP_URL` | Vercel, only for a custom domain | no |
 | `INTEGRATIONS_CONTACT`, `OVERPASS_URL` | Vercel, `.env.local` | no |
 | `NEXT_PUBLIC_SENTRY_DSN`, `SENTRY_ORG`, `SENTRY_PROJECT` | Vercel | no |

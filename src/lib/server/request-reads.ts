@@ -6,6 +6,7 @@ import { getGroup } from "./groups";
 import { loadPlanContext, loadPlanState, type ContextReaders } from "./plan-pipeline";
 import { getProfile } from "./profile";
 import { getPurpose } from "./purposes";
+import { shownTripStops, type ShownTripStops } from "./trip-stops";
 import { getTrip } from "./trips";
 
 /**
@@ -23,6 +24,11 @@ export const getProfileOnce = cache(() => getProfile());
 export const getTripOnce = cache((id: string) => getTrip(id));
 export const getGroupOnce = cache((id: string) => getGroup(id));
 export const getPurposeOnce = cache((id: string) => getPurpose(id));
+/** The stops the trip page shows (list and strip count), resolved once per request; none when the trip is unreadable. */
+export const getShownStopsOnce = cache(async (tripId: string): Promise<ShownTripStops> => {
+  const trip = await getTripOnce(tripId);
+  return trip.ok ? shownTripStops(trip.data) : { stops: [], source: "confirmed" };
+});
 
 const readers: ContextReaders = {
   getProfile: getProfileOnce,

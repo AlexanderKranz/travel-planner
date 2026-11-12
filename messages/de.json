@@ -541,7 +541,11 @@
         "limit": "Tageslimit erreicht. Morgen wieder oder Stopps eintippen.",
         "forbidden": "Du kannst die Stopps dieser Reise nicht bearbeiten."
       },
-      "stopsPerDay": "Pro Tag sind höchstens {max} Orte möglich (Tag {days})."
+      "stopsPerDay": "Pro Tag sind höchstens {max} Orte möglich (Tag {days}).",
+      "count": "{count, plural, one {# Stopp} other {# Stopps}}",
+      "edit": "Stopps bearbeiten",
+      "arriveAt": "Ankunft {time}",
+      "departAt": "Abfahrt {time}"
     }
   },
   "facts": {
@@ -1412,7 +1416,8 @@
       "adbMargin": "Sicherheitsabstand: {margin}",
       "adbUnknown": "unbekannt",
       "orsTitle": "OpenRouteService",
-      "orsToday": "Anfragen heute (Tageslimit ORS_DAILY_REQUESTS)",
+      "orsMatrix": "Matrix-Anfragen in 24 Stunden (Limit ORS_MATRIX_DAILY)",
+      "orsDirections": "Routen-Anfragen in 24 Stunden (Limit ORS_DIRECTIONS_DAILY)",
       "geoapifyTitle": "Geoapify (Orte)",
       "geoapifyToday": "Credits heute (Tageslimit GEOAPIFY_DAILY_CREDITS)",
       "overpassTitle": "Overpass-Server, dieser Monat",
@@ -1546,7 +1551,8 @@
         "ai_monthly_alert_usd": "KI-Warnung pro Monat (USD)",
         "aerodatabox_daily_units": "AeroDataBox: Einheiten pro Tag",
         "aerodatabox_min_remaining": "AeroDataBox: Sicherheitsreserve im Monat",
-        "ors_daily_requests": "OpenRouteService: Anfragen pro Tag",
+        "ors_matrix_daily": "OpenRouteService: Matrix-Anfragen pro 24 Stunden",
+        "ors_directions_daily": "OpenRouteService: Routen-Anfragen pro 24 Stunden",
         "geoapify_daily_credits": "Geoapify: Credits pro Tag",
         "feedback_user_daily": "Feedback: Meldungen pro Nutzer und Tag",
         "feedback_daily_issues": "Feedback: GitHub-Issues pro Tag (0 = pausieren)",

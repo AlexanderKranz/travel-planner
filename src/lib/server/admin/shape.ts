@@ -34,6 +34,8 @@ type Raw = {
   events: z.infer<typeof RecentEventsRaw>;
   /** Share counters (sharing spec 2.8); absent when the reader failed or in tests. */
   shares?: z.infer<typeof ShareStatsRaw>;
+  /** ORS network requests per bucket over the last 24 h (ors-quota.ts); absent when the count failed. */
+  orsUsage?: { matrix: number; directions: number };
 };
 
 const AI_TASKS = ["purpose_tags", "group_parse", "destination_ideas", "itinerary_extract", "plan_generate", "plan_patch"] as const;
@@ -57,7 +59,6 @@ export function shapeDashboard(raw: Raw, cfg: BudgetConfig) {
   }));
   const byProvider = (name: string) => raw.api.providers.find((p) => p.provider === name);
   const adb = byProvider("aerodatabox");
-  const ors = byProvider("openrouteservice");
   const geoapify = byProvider("geoapify");
 
   return {
@@ -83,7 +84,10 @@ export function shapeDashboard(raw: Raw, cfg: BudgetConfig) {
         : raw.api.aerodataboxQuotaRemaining < cfg.adbMinRemaining ? "over"
         : raw.api.aerodataboxQuotaRemaining < 2 * cfg.adbMinRemaining ? "warn" : "ok") as Level,
     },
-    ors: { requestsToday: meter(ors?.networkToday ?? 0, cfg.orsDailyCap) },
+    // The same rolling 24 h buckets as the guard, so the bars match what refuses requests.
+    ors: raw.orsUsage
+      ? { matrix: meter(raw.orsUsage.matrix, cfg.orsMatrixCap), directions: meter(raw.orsUsage.directions, cfg.orsDirectionsCap) }
+      : null,
     geoapify: { creditsToday: meter(geoapify?.unitsToday ?? 0, cfg.geoapifyDailyCap) },
     overpass: raw.api.overpassVariants,
     events: raw.events,

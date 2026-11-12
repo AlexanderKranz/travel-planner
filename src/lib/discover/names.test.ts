@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GeoPlace } from "@/lib/domain/geo";
-import { DUPLICATE_KM, foldName, isDuplicate, kindOf, pickAnchorPlace } from "./names";
+import { DUPLICATE_KM, foldName, isDuplicate, kindOf, pickAnchorPlace, pickNearestNamed } from "./names";
 
 const place = (o: Partial<GeoPlace>): GeoPlace => ({
   geoId: 1,
@@ -87,4 +87,17 @@ describe("isDuplicate", () => {
     expect(isDuplicate({ geoId: 3, lat: 36.72, lon: -4.42 }, [marbella])).toBe(false);
   });
   it("no others", () => expect(isDuplicate(marbella, [])).toBe(false));
+});
+
+describe("pickNearestNamed strict radius (#188)", () => {
+  const place = (geoId: number, lat: number, lon: number): GeoPlace => ({
+    geoId, name: "Wien", featureCode: "PPL", countryCode: "XX", admin1: null, lat, lon, timezone: null, population: 10, suggestedKind: "city",
+  });
+  it("keeps only candidates within maxKm and returns null instead of a far fallback", () => {
+    const refs = { prev: { lat: 48.31, lon: 14.29 } };
+    expect(pickNearestNamed([place(1, 48.21, 16.37)], "Wien", refs, { maxKm: 500, strict: true })?.geoId).toBe(1);
+    expect(pickNearestNamed([place(2, 39.74, -91)], "Wien", refs, { maxKm: 500, strict: true })).toBeNull();
+    expect(pickNearestNamed([place(2, 39.74, -91)], "Wien", refs)?.geoId).toBe(2); // without strict: fallback as before
+    expect(pickNearestNamed([place(1, 48.21, 16.37)], "Wien", {}, { strict: true })).toBeNull();
+  });
 });

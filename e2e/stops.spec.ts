@@ -151,13 +151,12 @@ test.describe("trip stops", () => {
     // Nothing is saved yet, and no AI ran: the parser path needs no token.
     await noHorizontalScroll(page);
 
-    // The trip has no dates yet and the document prints some: offer them.
-    const take = page.getByRole("button", { name: /Reisedaten übernehmen/ });
-    await expect(take).toBeVisible();
-    await take.click();
+    // The trip has no dates yet and the document prints some: the trip takes them (no offer left to click).
     await expect(page.getByLabel("Startdatum")).toHaveValue("2037-12-19");
     await expect(page.getByLabel("Dauer der Reise")).toHaveValue("5");
-    await expect(take).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Reisedaten übernehmen/ })).toHaveCount(0);
+    // A destination the user picked stays.
+    await expect(page.getByRole("button", { name: "Ändern" })).toBeVisible();
 
     // With stops in the list a second upload is a proposal below them.
     await page.getByRole("button", { name: "Stopp 6 entfernen" }).click();
@@ -177,6 +176,17 @@ test.describe("trip stops", () => {
     await expect(rowsOf(page)).toHaveCount(6);
     await expect(rowsOf(page).nth(2).getByLabel("Ort", { exact: true })).toHaveValue("Dürnstein");
     await expect(rowsOf(page).nth(2).getByLabel("Tag", { exact: true })).toHaveValue("3");
+  });
+
+  test("an upload fills an empty destination with the first port and sets the trip length", async ({ page }) => {
+    await page.goto("/de/app/trips/new");
+    await page.getByRole("checkbox", { name: MULTI }).check();
+    await page.locator('#field-stops input[type="file"]').first().setInputFiles(path.join(DOCS, "donau-table.pdf"));
+    await expect(page.getByText(/Erkannt: 6 Stopps\. Bitte prüfen\./)).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByLabel("Anzeigename")).toHaveValue(await rowsOf(page).nth(0).getByLabel("Ort", { exact: true }).inputValue());
+    await expect(page.getByLabel("Dauer der Reise")).toHaveValue("5");
+    await expect(page.getByLabel("Startdatum")).toHaveValue("2037-12-19");
+    await noHorizontalScroll(page);
   });
 
   test("a document without a schedule says so, and an injected instruction never becomes a stop", async ({ page }) => {
@@ -208,6 +218,69 @@ test.describe("trip stops", () => {
       .setInputFiles({ name: "plan.txt", mimeType: "text/plain", buffer: Buffer.from("Sa 19.12. Passau") });
     await expect(page.getByText("Bitte PDF, JPG, PNG oder WebP verwenden.")).toBeVisible();
     await expect(rowsOf(page)).toHaveCount(0);
+  });
+});
+
+test.describe("trip stops: read-only list on the trip page (issues #185, #186)", () => {
+  test("owner sees the list and the strip link; a read grantee sees the list without the edit link", async ({ page, contextAs }, testInfo) => {
+    await startTripForm(page, "geo");
+    await setDateMode(page, "2037-12-19");
+    await page.getByLabel("Dauer der Reise").fill("3");
+    await page.getByRole("checkbox", { name: MULTI }).check();
+    const add = page.getByRole("button", { name: "Stopp hinzufügen" });
+    await add.click();
+    await fillRow(rowsOf(page).nth(0), { day: 1, place: "Passau", dep: "16:00" });
+    await add.click();
+    await fillRow(rowsOf(page).nth(1), { day: 2, sea: true });
+    await add.click();
+    await fillRow(rowsOf(page).nth(2), { day: 3, place: "Wien", arr: "07:00", dep: "18:30" });
+    await submitTrip(page);
+    const tripId = page.url().match(/trips\/([0-9a-f-]{36})$/)![1];
+
+    const checkList = async (p: Page) => {
+      const list = p.getByRole("region", { name: "Stopps & Zeiten" });
+      await expect(list).toBeVisible();
+      const items = list.getByRole("listitem");
+      await expect(items).toHaveCount(3);
+      await expect(items.nth(0)).toContainText(/Tag 1 \(.*19\.12\./);
+      await expect(items.nth(0)).toContainText("Passau");
+      await expect(items.nth(0)).toContainText("Abfahrt 16:00");
+      await expect(items.nth(1)).toContainText("Seetag");
+      await expect(items.nth(2)).toContainText("Wien");
+      await expect(items.nth(2)).toContainText("07:00–18:30");
+      // The strip: "3 Stopps" jumps to the list on the same page.
+      const count = p.getByRole("link", { name: "3 Stopps", exact: true });
+      await expect(count).toHaveAttribute("href", "#stops");
+      await count.click();
+      await expect(p).toHaveURL(/#stops$/);
+      await expect(list).toBeInViewport();
+      await noHorizontalScroll(p);
+      return list;
+    };
+
+    // Owner: list, strip link, and the edit link to the form section.
+    const ownList = await checkList(page);
+    const edit = ownList.getByRole("link", { name: "Stopps bearbeiten" });
+    await expect(edit).toBeVisible();
+    await edit.click();
+    await expect(page).toHaveURL(new RegExp(`/app/trips/${tripId}/edit#field-stops$`));
+    await expect(rowsOf(page)).toHaveCount(3);
+
+    // Read grantee: the same list, no edit link.
+    const { url, serviceKey } = supabaseEnv();
+    const admin = createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const users = await admin.auth.admin.listUsers({ perPage: 1000 });
+    expect(users.error).toBeNull();
+    const grantee = users.data.users.find((u) => u.email === emailOf(`b-${testInfo.project.name}`));
+    expect(grantee).toBeDefined();
+    const owner = await admin.from("trips").select("owner_id").eq("id", tripId).single<{ owner_id: string }>();
+    expect(owner.error).toBeNull();
+    const share = await admin.from("trip_shares").insert({ owner_id: owner.data!.owner_id, trip_id: tripId, grantee_id: grantee!.id, access: "read" });
+    expect(share.error).toBeNull();
+    const reader = await (await contextAs("b")).newPage();
+    await reader.goto(`/de/app/trips/${tripId}`);
+    const readList = await checkList(reader);
+    await expect(readList.getByRole("link", { name: "Stopps bearbeiten" })).toHaveCount(0);
   });
 });
 

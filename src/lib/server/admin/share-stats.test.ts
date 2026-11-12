@@ -23,7 +23,7 @@ describe("admin_share_stats reader", () => {
       api: { providers: [], aerodataboxQuotaRemaining: null, overpassVariants: [] },
       events: [],
     };
-    const cfg = { aiDailyCapMicroUsd: 1, aiMonthlyAlertMicroUsd: 1, adbDailyUnits: 1, adbMinRemaining: 1, orsDailyCap: 1, geoapifyDailyCap: 1 };
+    const cfg = { aiDailyCapMicroUsd: 1, aiMonthlyAlertMicroUsd: 1, adbDailyUnits: 1, adbMinRemaining: 1, orsMatrixCap: 1, orsDirectionsCap: 1, geoapifyDailyCap: 1 };
     expect(shapeDashboard({ ...base, shares: raw }, cfg as never).shares).toEqual(raw);
     expect(shapeDashboard(base, cfg as never).shares).toBeNull();
   });

@@ -37,7 +37,7 @@ vi.mock("../groups", () => ({ getGroup: async () => (h.group ? { ok: true, data:
 vi.mock("../owner-context", () => ({ loadGroupOwnerBirthdate: h.groupOwner }));
 vi.mock("../settings", () => ({ getEffectiveEnv: async () => h.env }));
 vi.mock("../events", () => ({ logEvent: h.logEvent }));
-vi.mock("../facts/ors-quota", () => ({ orsRequestsLeft: async () => h.orsLeft }));
+vi.mock("../facts/ors-quota", () => ({ orsRequestsLeft: async (bucket: string) => (bucket === "directions" ? h.orsLeft : 0) }));
 vi.mock("@/lib/integrations/open-meteo-geocoding", () => ({ getPlaceById: h.placeById }));
 vi.mock("../purpose-tagging", () => ({ wantsTags: () => h.wantsTags, tagAndSave: h.tagAndSave }));
 vi.mock("../ai/destination-ideas", () => ({ proposeIdeas: h.propose }));
@@ -676,18 +676,18 @@ describe("drive mode (find-destinations-drive)", () => {
     expect(h.claim1.mock.calls[0][1].inputHash).not.toBe(h.claim1.mock.calls[1][1].inputHash);
   });
 
-  it("ORS gate before the LLM call: key missing, or fewer than 8 + 50 requests left -> drive_unavailable, no Haiku call (tags included)", async () => {
+  it("ORS gate before the LLM call: key missing, or fewer than 8 Directions requests left -> drive_unavailable, no Haiku call (tags included)", async () => {
     h.wantsTags = true;
     vi.stubEnv("OPENROUTESERVICE_API_KEY", "");
     expect(await runDestinationSearch(drive)).toMatchObject({ ok: false, error: "drive_unavailable" });
     vi.stubEnv("OPENROUTESERVICE_API_KEY", "k");
-    h.orsLeft = 57;
+    h.orsLeft = 7;
     expect(await runDestinationSearch(drive)).toMatchObject({ ok: false, error: "drive_unavailable" });
     expect(h.propose).not.toHaveBeenCalled();
     expect(h.tagAndSave).not.toHaveBeenCalled();
     expect(h.claim1).not.toHaveBeenCalled();
     h.wantsTags = false;
-    h.orsLeft = 58;
+    h.orsLeft = 8;
     expect(await runDestinationSearch(drive)).toMatchObject({ ok: true });
   });
 
@@ -717,7 +717,7 @@ describe("drive mode (find-destinations-drive)", () => {
     const row = stored({ travelMode: "drive", maxDriveHours: 3, homeName: "Frankfurt", homeLat: 50.11, homeLon: 8.68, origins: [], cards: [card(1)] });
     h.byId.mockResolvedValue(row);
     h.claim2.mockResolvedValue({ ok: true, search: { ...row, status: "running" } });
-    h.orsLeft = 10;
+    h.orsLeft = 7;
     expect(await showOtherDestinations(SEARCH)).toMatchObject({ ok: false, error: "drive_unavailable" });
     expect(h.propose).not.toHaveBeenCalled();
     expect(h.claim2).not.toHaveBeenCalled();

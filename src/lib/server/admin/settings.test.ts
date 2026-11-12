@@ -99,14 +99,14 @@ describe("saveSetting", () => {
 
   it("reports a failed write and does not audit it", async () => {
     h.upsertError = { code: "42P01" };
-    expect(await saveSetting({ key: "ors_daily_requests", value: 5 })).toEqual({ ok: false, error: "failed" });
+    expect(await saveSetting({ key: "ors_directions_daily", value: 5 })).toEqual({ ok: false, error: "failed" });
     expect(logEvent).not.toHaveBeenCalled();
   });
 
   it("is rate limited (20 changes per minute per admin)", async () => {
-    for (let i = 0; i < 20; i++) expect((await saveSetting({ key: "ors_daily_requests", value: i })).ok).toBe(true);
-    expect(await saveSetting({ key: "ors_daily_requests", value: 99 })).toEqual({ ok: false, error: "rate_limited" });
-    expect(await resetSetting({ key: "ors_daily_requests" })).toEqual({ ok: false, error: "rate_limited" });
+    for (let i = 0; i < 20; i++) expect((await saveSetting({ key: "ors_directions_daily", value: i })).ok).toBe(true);
+    expect(await saveSetting({ key: "ors_directions_daily", value: 99 })).toEqual({ ok: false, error: "rate_limited" });
+    expect(await resetSetting({ key: "ors_directions_daily" })).toEqual({ ok: false, error: "rate_limited" });
   });
 });
 
@@ -132,7 +132,7 @@ describe("listSettings", () => {
       { created_at: "2026-11-01T09:00:00Z", props: { weird: 1 } },
     ];
     const r = await listSettings();
-    expect(r.ok && r.data.settings).toHaveLength(14);
+    expect(r.ok && r.data.settings).toHaveLength(15);
     expect(r.ok && r.data.changes).toEqual([{ at: "2026-11-01T10:00:00Z", key: "ai_enabled", old: false, new: true }]);
   });
 });

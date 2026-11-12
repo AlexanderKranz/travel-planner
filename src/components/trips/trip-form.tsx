@@ -22,6 +22,7 @@ import { StopsSection } from "./stops-section";
 import { StopsToggle } from "./stops-toggle";
 import { TimingField } from "./timing-field";
 import {
+  destinationIsEmpty,
   draftFromTrip,
   draftProblems,
   draftToInput,
@@ -417,11 +418,21 @@ export function TripForm({
         tripId={trip?.id ?? null}
         canEdit={!trip || canEditAccess(trip.access)}
         showProblems={local.includes("stops") || hasIssue(issues, "stops")}
-        onChange={({ startDate, ...rest }) =>
-          set({
+        onChange={({ startDate, destinationFromStops, ...rest }) =>
+          setDraft((d) => ({
+            ...d,
             ...rest,
-            ...(startDate ? { timing: { mode: "date" as const, startDate, months: draft.timing.months } } : {}),
-          })
+            ...(startDate ? { timing: { mode: "date" as const, startDate, months: d.timing.months } } : {}),
+            ...(destinationFromStops && destinationIsEmpty(d.destination)
+              ? {
+                  destination: {
+                    mode: "freetext" as const,
+                    name: destinationFromStops.name,
+                    countryCode: destinationFromStops.cc && countryCodes.includes(destinationFromStops.cc) ? destinationFromStops.cc : "",
+                  },
+                }
+              : {}),
+          }))
         }
       />
 

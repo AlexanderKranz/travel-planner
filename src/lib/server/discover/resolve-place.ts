@@ -1,6 +1,6 @@
 import "server-only";
 import type { GeoPlace } from "@/lib/domain/geo";
-import { pickAnchorPlace, pickNearestNamed, type RoutePoint } from "@/lib/discover/names";
+import { COUNTRY_MISS_MAX_KM, pickAnchorPlace, pickNearestNamed, type RoutePoint } from "@/lib/discover/names";
 import { getPlaceById, searchPlacesCached, type SearchLang } from "@/lib/integrations/open-meteo-geocoding";
 import type { CachedResult } from "../api-cache";
 
@@ -65,7 +65,9 @@ export async function resolvePlaceName(
     // All candidates of all searches compete (largest population wins), not the first language with an exact match.
     const langOf = new Map<number, (typeof seen)[number]>();
     for (const entry of seen) for (const p of entry.res.data) if (!langOf.has(p.geoId)) langOf.set(p.geoId, entry);
-    const hit = pickNearestNamed([...langOf.values()].flatMap((e) => e.res.data.filter((p) => langOf.get(p.geoId) === e)), name, opts.near ?? {});
+    // A given country without a match there: a namesake elsewhere counts only close to the route (#188).
+    const guard = country ? { maxKm: COUNTRY_MISS_MAX_KM, strict: true } : {};
+    const hit = pickNearestNamed([...langOf.values()].flatMap((e) => e.res.data.filter((p) => langOf.get(p.geoId) === e)), name, opts.near ?? {}, guard);
     const from = hit && langOf.get(hit.geoId);
     if (hit && from) return finish(hit, from.lang, from.res);
   }

@@ -1,5 +1,6 @@
 /**
- * OpenRouteService v2 matrix and directions API (driving-car), keyed, on api.heigit.org (api.openrouteservice.org is deprecated, 10 % quota, being shut off). The docs site was down
+ * OpenRouteService v2 matrix and directions API (driving-car for plans and drive searches; four profiles for city
+ * tours, docs checked 2026-11-12, see the tour section below), keyed, on api.heigit.org (api.openrouteservice.org is deprecated, 10 % quota, being shut off). The docs site was down
  * on 2026-10-28; request/response shape verified with one live call, recorded in
  * __fixtures__/openrouteservice/matrix-marbella.json). Free Standard plan: matrix 500 and directions 2000 requests/day, 40/minute,
  * <= 3500 elements per request; the response carries `x-ratelimit-*` headers.
@@ -9,6 +10,7 @@
 import "server-only";
 import { z } from "zod";
 import { HttpError, postJson } from "./http";
+import { splitPolyline } from "./polyline";
 
 export const ORS_MATRIX_URL = "https://api.heigit.org/openrouteservice/v2/matrix/driving-car";
 export const ORS_DIRECTIONS_URL = "https://api.heigit.org/openrouteservice/v2/directions/driving-car/json";
@@ -153,6 +155,190 @@ export async function fetchDriveRoute(
     return { route: { road: true, ...parseDirections(r.body) }, status: r.status, latencyMs: r.latencyMs };
   } catch (err) {
     if (isNoRouteError(err)) return { route: { road: false }, status: 404, latencyMs: Date.now() - started };
+    throw err;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// City tours (spec docs/specs/city-tour.md 5.2, 5.3 and section 14 "Spike results (2026-11-12)"). Docs checked
+// 2026-11-12: https://giscience.github.io/openrouteservice/api-reference/endpoints/directions/routing-options and
+// https://giscience.github.io/openrouteservice/api-reference/endpoints/matrix/. The docs' `{ factor }` weighting
+// format is rejected live (400, code 2002); plain numbers are accepted. Matrix and Directions have separate daily
+// quotas (500 / 2000 per 24 h), each shared by all profiles. Recorded bodies: __fixtures__/ors-tour/.
+// ---------------------------------------------------------------------------------------------------------------
+
+/** ORS profiles of the four tour modes (spec 5.1). The server PR maps the domain modes onto these. */
+export const ORS_TOUR_PROFILES = ["foot-walking", "wheelchair", "cycling-regular", "driving-car"] as const;
+export type OrsTourProfile = (typeof ORS_TOUR_PROFILES)[number];
+/** Same values as the domain's route option (spec 5.2); defined here so the client has no domain import. */
+export type TourRouteOption = "fastest" | "shortest" | "green" | "quiet" | "no_steps" | "no_highways";
+
+/** Options ORS accepted per profile in the spike (section 14); anything else is a bug and is refused before a call. */
+export const TOUR_OPTIONS_BY_PROFILE: Record<OrsTourProfile, readonly TourRouteOption[]> = {
+  "foot-walking": ["fastest", "shortest", "green", "quiet", "no_steps"],
+  wheelchair: ["fastest", "shortest"],
+  "cycling-regular": ["fastest", "shortest", "quiet"],
+  "driving-car": ["fastest", "shortest", "no_highways"],
+};
+
+/** 10 places + start + end (spec 3.1). ORS itself allows 50 waypoints and 3500 matrix elements. */
+export const ORS_TOUR_MAX_POINTS = 12;
+/** ORS "could not find routable point" (HTTP 404); the message names the 0-based coordinate index. */
+export const ORS_NOT_ROUTABLE_CODE = 2010;
+
+export const orsMatrixUrl = (profile: OrsTourProfile) => `https://api.heigit.org/openrouteservice/v2/matrix/${profile}`;
+export const orsDirectionsUrl = (profile: OrsTourProfile) =>
+  `https://api.heigit.org/openrouteservice/v2/directions/${profile}/json`;
+
+const lonLat = (p: LonLat) => [Number(p.lon.toFixed(5)), Number(p.lat.toFixed(5))];
+
+function assertTourPoints(points: readonly LonLat[]): void {
+  if (points.length < 2) throw new RangeError("at least two points");
+  if (points.length > ORS_TOUR_MAX_POINTS) throw new RangeError("too many points");
+}
+
+/** Matrix body: every point to every point, durations only (the order needs no distances). */
+export function tourMatrixBody(points: readonly LonLat[]) {
+  return { locations: points.map(lonLat), metrics: ["duration"] };
+}
+
+/** n x n travel seconds (null = no connection) and how far ORS moved each point onto the network, in metres. */
+export type TourMatrix = { durations: (number | null)[][]; snappedM: (number | null)[] };
+
+const TourMatrixResponse = z.object({
+  durations: z.array(z.array(z.number().nullable())),
+  sources: z.array(z.object({ snapped_distance: z.number().optional() })).optional(),
+});
+
+/** Validates the n x n shape; negative or non-finite cells become null (never guessed). */
+export function parseTourMatrix(body: unknown, n: number): TourMatrix {
+  const m = TourMatrixResponse.parse(body);
+  if (m.durations.length !== n || m.durations.some((r) => r.length !== n)) throw new z.ZodError([]);
+  const durations = m.durations.map((r) => r.map((s) => (s === null || !Number.isFinite(s) || s < 0 ? null : s)));
+  const snappedM = Array.from({ length: n }, (_, i) => {
+    const d = m.sources?.[i]?.snapped_distance;
+    return typeof d === "number" && Number.isFinite(d) ? d : null;
+  });
+  return { durations, snappedM };
+}
+
+/** One matrix request over the tour points (index order kept). Throws on missing key, HTTP errors, timeout, shape. */
+export async function fetchMatrixFull(
+  profile: OrsTourProfile,
+  points: readonly LonLat[],
+  opts: { timeoutMs?: number } = {},
+): Promise<{ matrix: TourMatrix; status: number; latencyMs: number }> {
+  const key = process.env.OPENROUTESERVICE_API_KEY?.trim();
+  if (!key) throw new MissingKeyError();
+  assertTourPoints(points);
+  const r = await postJson(orsMatrixUrl(profile), tourMatrixBody(points), {
+    timeoutMs: opts.timeoutMs ?? ORS_TIMEOUT_MS,
+    headers: { Authorization: key },
+  });
+  return { matrix: parseTourMatrix(r.body, points.length), status: r.status, latencyMs: r.latencyMs };
+}
+
+/**
+ * Directions body, exactly as the spike's table: the common part plus the option's preference and options.
+ * `instructions: true` because ORS sends `segments` only with instructions; the parser drops the steps.
+ */
+export function tourRouteBody(points: readonly LonLat[], option: TourRouteOption) {
+  const common = { coordinates: points.map(lonLat), geometry: true, instructions: true, elevation: false, units: "km" };
+  switch (option) {
+    case "fastest":
+    case "shortest":
+      return { ...common, options: { avoid_features: ["ferries"] }, preference: option };
+    case "green":
+    case "quiet":
+      return {
+        ...common,
+        options: { avoid_features: ["ferries"], profile_params: { weightings: { [option]: 1 } } },
+        preference: "recommended",
+      };
+    case "no_steps":
+      return { ...common, options: { avoid_features: ["ferries", "steps"] }, preference: "fastest" };
+    case "no_highways":
+      return { ...common, options: { avoid_features: ["ferries", "highways"] }, preference: "recommended" };
+  }
+}
+
+/** One leg between two consecutive points: whole minutes, km (2 decimals), encoded polyline (precision 5). */
+export type TourLeg = { min: number; km: number; poly: string };
+/** A run's answer. `no_route` (2009) and `not_routable` (2010, 0-based point index) are facts, not failures. */
+export type TourRoute =
+  | { result: "ok"; legs: TourLeg[] }
+  | { result: "no_route" }
+  | { result: "not_routable"; point: number };
+
+const TourDirectionsResponse = z.object({
+  routes: z
+    .array(
+      z.object({
+        geometry: z.string().min(1),
+        way_points: z.array(z.number().int().min(0)),
+        segments: z.array(z.object({ distance: z.number().min(0), duration: z.number().min(0) })),
+      }),
+    )
+    .min(1),
+});
+
+/**
+ * Segments → legs; the polyline is cut at `way_points` (inclusive), so each leg starts and ends at the snapped
+ * waypoints. Only `distance`/`duration` of a segment are read: its `steps` never reach the result or the cache.
+ */
+export function parseTourRoute(body: unknown, n: number): TourLeg[] {
+  const route = TourDirectionsResponse.parse(body).routes[0];
+  if (route.segments.length !== n - 1 || route.way_points.length !== n) throw new z.ZodError([]);
+  let polys: string[];
+  try {
+    polys = splitPolyline(route.geometry, route.way_points);
+  } catch {
+    throw new z.ZodError([]);
+  }
+  return route.segments.map((s, i) => ({
+    min: Math.round(s.duration / 60),
+    km: Math.round(s.distance * 100) / 100,
+    poly: polys[i],
+  }));
+}
+
+/** 0-based coordinate index from a 2010 answer ("... of specified coordinate 1: 13.46 48.57 ..."), or null. */
+export function notRoutablePoint(err: unknown, n: number): number | null {
+  if (!(err instanceof HttpError) || err.status !== 404) return null;
+  const e = (err.body as { error?: { code?: unknown; message?: unknown } } | undefined)?.error;
+  if (e?.code !== ORS_NOT_ROUTABLE_CODE || typeof e.message !== "string") return null;
+  const m = /coordinate (\d+)/.exec(e.message);
+  const i = m ? Number(m[1]) : NaN;
+  return Number.isInteger(i) && i >= 0 && i < n ? i : null;
+}
+
+/**
+ * One Directions request for a run of legs with the same profile and option. 2009 → `no_route`, 2010 with a point
+ * index → `not_routable`. Everything else (400/2002 = a bug in the body, 429, 5xx, timeout, shape, a 2010 without a
+ * readable index) throws, so the caller reports `failed` and never mistakes an outage for an unreachable place.
+ */
+export async function fetchRoute(
+  profile: OrsTourProfile,
+  points: readonly LonLat[],
+  option: TourRouteOption,
+  opts: { timeoutMs?: number } = {},
+): Promise<{ route: TourRoute; status: number; latencyMs: number }> {
+  const key = process.env.OPENROUTESERVICE_API_KEY?.trim();
+  if (!key) throw new MissingKeyError();
+  assertTourPoints(points);
+  if (!TOUR_OPTIONS_BY_PROFILE[profile].includes(option)) throw new RangeError(`option ${option} not offered for ${profile}`);
+  const started = Date.now();
+  try {
+    const r = await postJson(orsDirectionsUrl(profile), tourRouteBody(points, option), {
+      timeoutMs: opts.timeoutMs ?? ORS_DIRECTIONS_TIMEOUT_MS,
+      headers: { Authorization: key },
+    });
+    return { route: { result: "ok", legs: parseTourRoute(r.body, points.length) }, status: r.status, latencyMs: r.latencyMs };
+  } catch (err) {
+    const latencyMs = Date.now() - started;
+    if (isNoRouteError(err)) return { route: { result: "no_route" }, status: 404, latencyMs };
+    const point = notRoutablePoint(err, points.length);
+    if (point !== null) return { route: { result: "not_routable", point }, status: 404, latencyMs };
     throw err;
   }
 }

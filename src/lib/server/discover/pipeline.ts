@@ -59,10 +59,11 @@ import { verifyIdeas } from "./verify";
 /** Budget held back for one Haiku ideas call, in micro-USD (est. $0.0004; spec section 9). */
 export const RESERVE_IDEAS = 20_000;
 const RESERVE_TAGS = 2_000;
-/** ORS requests one cold drive round may need (at most 8: 5 cards plus the places that drop; spec section 5). */
+/**
+ * ORS Directions requests one cold drive round may need (at most 8: 5 cards plus the places that drop; spec section
+ * 5). Plans use the matrix bucket only, so no plan reserve applies to the Directions bucket (ors-quota.ts).
+ */
 export const DRIVE_ROUND_REQUESTS = 8;
-/** ORS requests kept for plans (drive times of a plan are a matrix call): a drive search never uses the last 50. */
-export const ORS_PLAN_RESERVE = 50;
 /** Real runs per Berlin day, counted from ai_usage (spec [D14]). */
 export const DAILY_RUNS = { user: 10, admin: 30, demo: 5 } as const;
 /** One real run per minute and user protects Open-Meteo's per-minute limit. */
@@ -176,12 +177,12 @@ async function checkBudget(c: Ctx, reserve: number): Promise<SearchError | null>
 
 /**
  * The ORS gate of a drive search, right before the first LLM call (spec section 7): the key is set and one cold round
- * plus the plan reserve fit into today's cap. Otherwise no Haiku call is spent on a search that cannot be verified.
+ * fits into the Directions bucket (last 24 h). Otherwise no Haiku call is spent on a search that cannot be verified.
  * An unreadable count fails closed.
  */
 async function gateDrive(): Promise<SearchError | null> {
   if (!process.env.OPENROUTESERVICE_API_KEY?.trim()) return err("drive_unavailable");
-  return (await orsRequestsLeft()) >= DRIVE_ROUND_REQUESTS + ORS_PLAN_RESERVE ? null : err("drive_unavailable");
+  return (await orsRequestsLeft("directions")) >= DRIVE_ROUND_REQUESTS ? null : err("drive_unavailable");
 }
 
 /** Where the tags of a run came from: the saved purpose already had them, an earlier search or purpose with the same text, a Haiku call, or nowhere. */
