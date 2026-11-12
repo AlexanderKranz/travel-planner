@@ -79,18 +79,6 @@ export function notesStops(trip: Pick<Trip, "notes" | "timing" | "lengthDays">):
   return parsed.usable ? derivableStops(parsed.stops) : [];
 }
 
-/**
- * The parser sets no `cc`. Without it stop resolution falls back to the destination's country (DE) and the recorded
- * geocoding picks Wien, Missouri and Linz in Saxony, so the notes variant takes the `cc` of the matching confirmed row
- * (same day and place; everything else comes from the parser, see port-places.test.ts).
- */
-export function withCountryHints(derived: readonly TripStop[], confirmed: readonly TripStop[]): TripStop[] {
-  return derived.map((s) => {
-    const cc = confirmed.find((c) => c.day === s.day && c.place === s.place)?.cc;
-    return cc && !s.cc ? { ...s, cc } : s;
-  });
-}
-
 /** The recorded Open-Meteo answers as the geocoding calls of `resolvePlaceName`. */
 export function replayGeocode(rec: StopRecording): GeocodeDeps {
   return {
@@ -144,7 +132,7 @@ export async function evalStopContext(variant: StopVariant, opts: { failing?: re
   const rows = scheduleStops(f.fixedSchedule, f.trip.startDate);
   const plain = evalTrip("cruise");
   const trip: Trip = variant === "confirmed" ? { ...plain, notes: undefined, stops: rows } : plain;
-  const stops = tripStops(trip, variant === "notes" ? { notes: plain.notes ?? "", stops: withCountryHints(notesStops(plain), rows) } : null);
+  const stops = tripStops(trip, variant === "notes" ? { notes: plain.notes ?? "", stops: notesStops(plain) } : null);
   const resolved = await resolveStopPlaces(trip, stops, { userId: "eval", locale: f.locale, today: EVAL_TODAY }, replayGeocode(rec));
   const tags = opts.tags ?? readRecording<PurposeTags>("cruise", "tags")?.output ?? null;
   return { trip, stops, resolved, facts: replayStopFacts(rec, resolved, evalPurpose("cruise", tags), opts.failing) };

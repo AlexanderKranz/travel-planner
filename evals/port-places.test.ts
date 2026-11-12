@@ -21,7 +21,7 @@ import { haversineKm } from "@/lib/facts/places";
 import { MODEL_PLAN } from "@/lib/domain/ai";
 import { FIXTURES, FIXTURE_IDS, buildEvalInput, evalTrip, type FixtureId } from "./build-input";
 import { EVAL_TODAY } from "./build-input";
-import { evalStopContext, evaluatePortPatch, evaluateStopGenerate, notesStops, readStopRecording, scheduleStops, STOP_NAMES, withCountryHints } from "./port-places";
+import { evalStopContext, evaluatePortPatch, evaluateStopGenerate, notesStops, readStopRecording, scheduleStops, STOP_NAMES } from "./port-places";
 import { readRecording } from "./recorded";
 import { evaluateGenerate, RECORDED_GENERATED_AT } from "./evaluate";
 import { rawStopMismatches, stopFailureChecks, stopGenerateChecks, mealWindows } from "./stop-checks";
@@ -66,6 +66,10 @@ describe.runIf(!!rec)("cruise stops: both variants give the same schedule", () =
   it("rows from the notes and from the confirmed stops are equal, apart from the note wording", async () => {
     const notes = (await evalStopContext("notes"))!;
     const confirmed = (await evalStopContext("confirmed"))!;
+    // Parser rows as they are (no cc): the namesake nearest the route wins, so every port is in Austria (not Linz in Saxony, Wien in Missouri).
+    const ports = notes.resolved.filter((r) => r.role === "stop");
+    expect(ports.map((s) => [s.name, s.countryCode])).toEqual([["Wien", "AT"], ["Dürnstein", "AT"], ["Melk", "AT"], ["Linz", "AT"]]);
+    expect(notes.resolved.map((r) => r.point?.geoId)).toEqual(confirmed.resolved.map((r) => r.point?.geoId));
     const strip = (rows: { note?: string }[]) => rows.map(({ note: _note, ...r }) => (void _note, r));
     const a = buildEvalInput("cruise", tags, undefined, notes).stored.llm.trip.stops!;
     const b = buildEvalInput("cruise", tags, undefined, confirmed).stored.llm.trip.stops!;
@@ -83,7 +87,6 @@ describe("cruise stops: the notes variant comes from the parser (0 tokens)", () 
     const derived = notesStops(evalTrip("cruise"));
     const confirmed = scheduleStops(FIXTURES.cruise.fixedSchedule!, FIXTURES.cruise.trip.startDate);
     expect(derived).toEqual(confirmed.map(({ cc: _cc, ...r }) => (void _cc, r)));
-    expect(withCountryHints(derived, confirmed)).toEqual(confirmed);
   });
 
   it("gives no rows when the parser cannot read the notes (production would call Haiku)", () => {
