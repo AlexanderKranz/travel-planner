@@ -85,7 +85,7 @@ export async function prepareStopsForPatch(a: {
       for (const g of stopsToGeocode(stored, a.scopeDays).slice(0, MAX_GEOCODE_RETRIES)) {
         if (left() <= 0) break;
         const [r] = await resolveStopPlaces(a.trip, [{ day: g.day, place: g.place }], ctx);
-        if (r?.role === "stop" && r.status === "ok" && r.point) points[g.id] = { ...r.point };
+        if (r?.role === "stop" && r.status === "ok" && r.point) points[g.id] = { ...r.point, ...(r.countryCode ? { cc: r.countryCode } : {}) };
       }
       if (Object.keys(points).length) stored = { ...stored, stopPoints: { ...stored.stopPoints, ...points } };
       const ids = [...new Set([...stopsToRetry(stored, a.scopeDays), ...stopsWithoutSights(stored, a.scopeDays)])];
