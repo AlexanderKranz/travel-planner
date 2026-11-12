@@ -142,6 +142,13 @@ describe("runItineraryAi", () => {
     expect(h.settle).not.toHaveBeenCalled();
   });
 
+  it("gives the slot back when the budget read throws", async () => {
+    h.budget.mockRejectedValueOnce(new Error("db"));
+    expect(await run()).toEqual({ ok: false, error: "failed" });
+    expect(h.releaseSlot).toHaveBeenCalledWith("slot-1");
+    expect(h.settle).not.toHaveBeenCalled();
+  });
+
   it("settles the slot also when the model call fails", async () => {
     ok.mockResolvedValueOnce({ ok: false, error: "invalid_output" });
     await run();

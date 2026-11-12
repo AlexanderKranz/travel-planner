@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import { logEvent } from "./events";
 import { createSupabaseAdminClient } from "./supabase/admin";
 
 /**
@@ -34,20 +35,24 @@ export async function reserveAiCall(args: {
   return Reply.parse(data);
 }
 
-/** Best effort: an unsettled slot stops holding budget after 10 minutes anyway. */
+/** Best effort, logged on failure: an unsettled slot stops holding budget after 10 minutes anyway. */
 export async function settleAiCall(id: string): Promise<void> {
-  try {
-    await createSupabaseAdminClient().rpc("ai_settle_call", { p_id: id });
-  } catch {
-    // ignored
-  }
+  await bestEffort("ai_settle_call", id);
 }
 
-/** Best effort: a slot that is not released counts once against the limits. */
+/** Best effort, logged on failure: a slot that is not released counts once against the limits. */
 export async function releaseAiCall(id: string): Promise<void> {
+  await bestEffort("ai_release_call", id);
+}
+
+async function bestEffort(fn: "ai_settle_call" | "ai_release_call", id: string): Promise<void> {
+  let code: string | undefined;
   try {
-    await createSupabaseAdminClient().rpc("ai_release_call", { p_id: id });
+    const { error } = await createSupabaseAdminClient().rpc(fn, { p_id: id });
+    if (!error) return;
+    code = error.code;
   } catch {
-    // ignored
+    code = "thrown";
   }
+  await logEvent({ event: "ai.slot_write_failed", level: "warn", props: { fn, code: code ?? "unknown" } });
 }

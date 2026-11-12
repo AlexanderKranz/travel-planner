@@ -107,6 +107,7 @@ export async function runItineraryAi(
   };
 
   let slotId: string | null = null;
+  let callStarted = false;
   try {
     if (!isAiEnabled(await getEffectiveEnv())) return await fail("ai_off");
     const { role, isDemo } = await profileOf(session);
@@ -126,14 +127,10 @@ export async function runItineraryAi(
     if (!slot.ok) return await fail("rate_limited");
     slotId = slot.id;
     const info = await getBudgetStatus(session.userId, role, isDemo);
-    if (!budgetAllows(info, RESERVE_ITINERARY * (slot.pending + 1))) {
-      const id = slotId;
-      slotId = null;
-      await releaseAiCall(id); // no call happened: the slot does not count
-      return await fail("budget");
-    }
+    if (!budgetAllows(info, RESERVE_ITINERARY * (slot.pending + 1))) return await fail("budget");
 
     const ctx: AiCtx = { onUsage: (u) => logAiUsage(session.userId, isDemo, u) };
+    callStarted = true;
     const r = await (deps.extract ?? extractItineraryStops)(payload, ctx);
     if (!r.ok) return await fail("failed", r.error);
     await saveExtract(ownerId, hash, r.data);
@@ -141,6 +138,7 @@ export async function runItineraryAi(
   } catch {
     return await fail("failed");
   } finally {
-    if (slotId) await settleAiCall(slotId);
+    // A slot whose model call never started (budget refused, budget read failed) does not count.
+    if (slotId) await (callStarted ? settleAiCall(slotId) : releaseAiCall(slotId));
   }
 }

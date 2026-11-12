@@ -229,7 +229,18 @@ LINK="$("${PSQL[@]}" -c "select coalesce(linked_user_id::text, '') from public.g
 [ -z "$LINK" ] || fail "case 5: the link '$LINK' outlived the revoked route"
 rm -f "$RACE_OUT1" "$RACE_OUT2"
 
+# ---------- case 6: two AI slot reservations of one user and task race for the last minute slot ----------
+echo "case 6: two AI slot reservations race for the last minute slot"
+RESERVE_SQL="set local role service_role; select public.ai_reserve_call('$(uid 1)', 'concurrency_probe', 1, 10, now() - interval '1 hour');"
+run_race reserve-same "$RESERVE_SQL" "begin; $RESERVE_SQL commit;"
+grep -q '"ok": true' "$RACE_OUT1" || fail "case 6: session 1 did not reserve a slot (output: $(cat "$RACE_OUT1"))"
+grep -q '"reason": "minute"' "$RACE_OUT2" || fail "case 6: session 2 was not refused by the minute limit (output: $(cat "$RACE_OUT2"))"
+[ "$RACE_WAITED" -eq 1 ] || fail "case 6: session 2 was never seen waiting on the reservation lock"
+SLOTS="$("${PSQL[@]}" -c "select count(*) from public.ai_call_slots where user_id = '$(uid 1)' and task = 'concurrency_probe'")"
+[ "$SLOTS" = "1" ] || fail "case 6: $SLOTS slots, expected exactly 1"
+rm -f "$RACE_OUT1" "$RACE_OUT2"
+
 if [ "$FAILED" -ne 0 ]; then
   exit 1
 fi
-echo "OK: trip cap, group cap, same-entry claim, same-user claim and claim-vs-revoke all behaved under concurrency"
+echo "OK: trip cap, group cap, same-entry claim, same-user claim, claim-vs-revoke and AI slot reservation all behaved under concurrency"
