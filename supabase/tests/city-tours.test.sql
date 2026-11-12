@@ -194,7 +194,8 @@ insert into public.city_tours (id, owner_id, input, trip_id, trip_day, updated_a
   ('7c000000-0000-4000-8000-0000000089a1', '7c000000-0000-4000-8000-0000000000a1', '{}', '7c000000-0000-4000-8000-00000000a203', 1, now() - interval '3 years');
 select lives_ok($$select private.purge_expired_trips()$$, 'the purge runs again');
 select is((select count(*)::int from public.trips where id = '7c000000-0000-4000-8000-00000000a203'), 0, 'the old trip is purged');
-select is((select trip_id from public.city_tours where id = '7c000000-0000-4000-8000-0000000089a1'), null::uuid, 'its tour stays, now standalone');
+select is((select count(*)::int from public.city_tours where id = '7c000000-0000-4000-8000-0000000089a1'), 1, 'its tour stays');
+select is((select trip_id from public.city_tours where id = '7c000000-0000-4000-8000-0000000089a1'), null::uuid, 'its tour is now standalone');
 
 -- ---------- account deletion ----------
 delete from auth.users where id = '7c000000-0000-4000-8000-0000000000a1';
