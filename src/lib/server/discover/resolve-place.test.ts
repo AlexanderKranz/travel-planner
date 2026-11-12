@@ -81,3 +81,102 @@ describe("resolvePlaceName (port-places [P1])", () => {
     expect(await resolvePlaceName("Wien", "AT", "de", "u", down)).toEqual({ status: "failed" });
   });
 });
+
+describe("resolvePlaceName: names that do not geocode as written (Open-Meteo shapes, checked live 2026-11-12)", () => {
+  const at = (geoId: number, name: string, cc: string, code: string, lat: number, lon: number, pop: number | null): GeoPlace => ({
+    ...p(geoId, name, cc, code, pop ?? 0), lat, lon, population: pop,
+  });
+  const messina = at(2524170, "Messina", "IT", "PPLA2", 38.19, 15.55, 220_000);
+  // "La Valletta" in de/en: two Italian villages; in it: the Maltese capital first. "Valletta" in de/en: the capital.
+  const villages = [at(11, "La Valletta", "IT", "PPL", 45.72, 9.37, null), at(12, "La Valletta", "IT", "PPL", 44.65, 7.3, null)];
+  const capitalIt = at(2562305, "La Valletta", "MT", "PPLC", 35.9, 14.51, 6_444);
+  const capital = { ...capitalIt, name: "Valletta" };
+  /** Answers by "name:lang" (lower-case name), like the cached search. */
+  const byQuery = (table: Record<string, GeoPlace[]>, calls: string[] = []): GeocodeDeps => ({
+    geocode: async (name, lang) => {
+      calls.push(`${name}:${lang}`);
+      return { ok: true, data: table[`${name.toLowerCase()}:${lang}`] ?? [], fetchedAt: "2026-11-12T00:00:00.000Z", stale: false, cache: "hit" };
+    },
+    placeById: async (geoId) => (geoId === capital.geoId ? capital : null),
+  });
+  const table = {
+    "messina:en": [messina],
+    "messina:de": [messina],
+    "la valletta:en": villages,
+    "la valletta:de": villages,
+    "la valletta:it": [capitalIt, ...villages],
+    "valletta:en": [capital],
+    "valletta:de": [capital],
+  };
+
+  it('"Messina (Sizilien)" with cc IT searches "Messina" and finds the PPLA2 in one call', async () => {
+    const calls: string[] = [];
+    const r = await resolvePlaceName("Messina (Sizilien)", "IT", "de", "u", byQuery(table, calls));
+    expect(r).toMatchObject({ status: "ok", place: { geoId: messina.geoId, featureCode: "PPLA2" } });
+    expect(calls).toEqual(["Messina:en"]);
+  });
+
+  it('"Messina (Sizilien), Italien" without a country is found too', async () => {
+    const r = await resolvePlaceName("Messina (Sizilien), Italien", null, "de", "u", byQuery(table));
+    expect(r).toMatchObject({ status: "ok", place: { geoId: messina.geoId } });
+  });
+
+  it('"La Valletta" with cc MT: the Italian search finds the Maltese capital (MT has no Open-Meteo language)', async () => {
+    const calls: string[] = [];
+    const r = await resolvePlaceName("La Valletta", "MT", "de", "u", byQuery(table, calls));
+    expect(r).toMatchObject({ status: "ok", place: { geoId: capital.geoId, countryCode: "MT", name: "Valletta" } });
+    expect(calls).toEqual(["La Valletta:en", "La Valletta:de", "La Valletta:it"]);
+  });
+
+  it('"La Valletta" with cc MT and no Italian hit: one retry without the article', async () => {
+    const calls: string[] = [];
+    const r = await resolvePlaceName("La Valletta", "MT", "de", "u", byQuery({ ...table, "la valletta:it": villages }, calls));
+    expect(r).toMatchObject({ status: "ok", place: { geoId: capital.geoId } });
+    expect(calls).toEqual(["La Valletta:en", "La Valletta:de", "La Valletta:it", "Valletta:en"]);
+  });
+
+  it('"La Valletta" without a country after Messina: the capital, not an Italian village', async () => {
+    const calls: string[] = [];
+    const near = { prev: { lat: messina.lat, lon: messina.lon } };
+    const r = await resolvePlaceName("La Valletta", null, "de", "u", byQuery(table, calls), { near });
+    expect(r).toMatchObject({ status: "ok", place: { geoId: capital.geoId } });
+    expect(calls).toEqual(["La Valletta:en", "La Valletta:de", "Valletta:en"]);
+  });
+
+  it('"Valletta" finds the capital directly', async () => {
+    const calls: string[] = [];
+    expect(await resolvePlaceName("Valletta", "MT", "en", "u", byQuery(table, calls))).toMatchObject({ status: "ok", place: { geoId: capital.geoId } });
+    expect(calls).toEqual(["Valletta:en"]);
+  });
+
+  it("without a reference point a name without its article is no guess (Las Palmas is not Palmas, BR)", async () => {
+    const palmas = at(3474574, "Palmas", "BR", "PPLA", -10.2, -48.3, 200_000);
+    const r = await resolvePlaceName("Las Palmas", null, "de", "u", byQuery({ "palmas:en": [palmas] }));
+    expect(r).toEqual({ status: "not_found" });
+  });
+
+  it("a capital or seat beats a village of the same name in the any-country pass", async () => {
+    const town = at(21, "Santa Cruz", "ES", "PPLA", 28.47, -16.25, 200_000);
+    const hamlet = at(22, "Santa Cruz", "PT", "PPL", 32.69, -16.79, 5_000); // nearer to Funchal
+    const near = { prev: { lat: 32.65, lon: -16.91 } };
+    expect(await resolvePlaceName("Santa Cruz", null, "de", "u", byQuery({ "santa cruz:en": [hamlet, town] }), { near })).toMatchObject({
+      status: "ok",
+      place: { geoId: 21 },
+    });
+  });
+
+  it("a failed retry keeps the pick made before it", async () => {
+    const deps: GeocodeDeps = {
+      geocode: async (name, lang) =>
+        name === "Valletta" ? { ok: false, error: "provider_error" } : { ok: true, data: (table as Record<string, GeoPlace[]>)[`${name.toLowerCase()}:${lang}`] ?? [], fetchedAt: "x", stale: false, cache: "hit" },
+      placeById: async () => null,
+    };
+    expect(await resolvePlaceName("La Valletta", null, "de", "u", deps)).toMatchObject({ status: "ok", place: { countryCode: "IT" } });
+  });
+
+  it("never more than 4 searches for one cold name", async () => {
+    const calls: string[] = [];
+    await resolvePlaceName("La Nowhere", "PT", "de", "u", byQuery({}, calls), { near: { prev: { lat: 0, lon: 0 } } });
+    expect(calls).toHaveLength(4);
+  });
+});
