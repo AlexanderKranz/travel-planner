@@ -84,6 +84,24 @@ describe("getInterestGroups: overpass cache_only (port places [P7])", () => {
     expect(trace()).toContain("geoapify:net");
   });
 
+  it("cache_only does not join an Overpass network lookup already in flight for the same key", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    state.impl = (o) =>
+      o.provider === "geoapify"
+        ? Promise.resolve({ ok: false, error: "provider_error" })
+        : o.fetchAllowed?.() === false
+          ? Promise.resolve({ ok: false, error: "timeout" })
+          : gate.then(() => ok("miss"));
+    const dest = trip.destination as never;
+    const warm = getInterestGroups(dest, ["wellness"], ctx, 110_000); // network lookup, held open
+    await vi.waitFor(() => expect(trace()).toContain("overpass:net"));
+    const groups = await getInterestGroups(dest, ["wellness"], ctx, 110_000, { overpass: "cache_only" });
+    expect(groups.map((g) => g.status)).toEqual(["error"]); // answered at once from the cache path, did not wait for `gate`
+    release();
+    await warm;
+  });
+
   it("without the option the same failure goes to Overpass over the network", async () => {
     state.impl = (o) => Promise.resolve(o.provider === "geoapify" ? { ok: false, error: "provider_error" } : o.fetchAllowed?.() === false ? { ok: false, error: "timeout" } : ok("miss"));
     await getInterestGroups(trip.destination as never, ["wellness"], ctx, 110_000);

@@ -596,6 +596,8 @@ async function patchWithPlaces(
     restaurants: need.restaurants ? around(need.restaurants.near) : false,
     cafes: need.cafes ? around(need.cafes.near) : false,
     wanted: need.types,
+    // A stop's restaurants and cafés never start Overpass inline; the retry jobs below warm them (port places [P7]).
+    ...(need.restaurants?.near?.stop || need.cafes?.near?.stop ? { overpass: "cache_only" as const } : {}),
   };
   const factsCtx = { userId: c.session.userId, locale: base.plan.locale as Locale, today: berlinToday() };
   await logEvent({
