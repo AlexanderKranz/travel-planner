@@ -194,6 +194,17 @@ test.describe("city tours (docs/specs/city-tour.md)", () => {
     await expect(page.getByRole("link", { name: /Passau · 3 Orte/ })).toBeVisible();
     await page.goto("/de/app");
     await expect(page.getByRole("heading", { name: "Stadttouren" })).toBeVisible();
+    // Desktop: the tours are their own column between the trips and the groups/purposes (Alex, 2026-11-12).
+    const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
+    const trips = await box('main section[aria-label="Reisen"]');
+    const tours = await box('section[aria-labelledby="dashboard-tours"]');
+    const side = await box('section[aria-labelledby="dashboard-tours"] + div');
+    if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      expect(tours.x).toBeGreaterThan(trips.x + trips.width - 1);
+      expect(side.x).toBeGreaterThan(tours.x + tours.width - 1);
+    } else {
+      expect(tours.y).toBeGreaterThan(trips.y);
+    }
     await noHorizontalScroll(page);
   });
 });

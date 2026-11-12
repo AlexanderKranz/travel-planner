@@ -70,8 +70,10 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           </Link>
         </div>
       </div>
-      <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_20rem]">
-        <section aria-label={t("title")} className="flex flex-col gap-3">
+      {/* Phones: trips, tours, side lists stacked. md: tours below the trips, side lists on the right. lg (desktop):
+          three columns, trips | city tours | groups and purposes (Alex, 2026-11-12). */}
+      <div className="grid items-start gap-6 md:grid-cols-[minmax(0,1fr)_20rem] lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)_20rem]">
+        <section aria-label={t("title")} className="flex flex-col gap-3 md:col-start-1 md:row-start-1">
           {trips.length === 0 ? (
             <div className={`${cardCls} flex flex-col gap-3`}>
               <p>{t("empty")}</p>
@@ -92,11 +94,24 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           <SharedTrips shares={incoming} />
           {/* Below the list, so the first card lines up with the side column. */}
           <p className={`text-sm ${mutedCls}`}>{t("retention", { max: MAX_TRIPS_PER_USER })}</p>
-          {tours.length > 0 && (
-            <section aria-labelledby="dashboard-tours" className="flex flex-col gap-2 pt-2">
-              <h2 id="dashboard-tours" className="text-2xl font-bold">
-                {tt("title")}
-              </h2>
+        </section>
+        {/* Hidden when empty, except as the desktop column, where an empty state keeps the layout. */}
+        <section
+          aria-labelledby="dashboard-tours"
+          className={`${tours.length > 0 ? "flex" : "hidden lg:flex"} flex-col gap-2 md:col-start-1 md:row-start-2 lg:col-start-2 lg:row-start-1`}
+        >
+          <h2 id="dashboard-tours" className="text-2xl font-bold">
+            {tt("title")}
+          </h2>
+          {tours.length === 0 ? (
+            <div className={`${cardCls} flex flex-col gap-3`}>
+              <p className={`text-sm ${mutedCls}`}>{tt("empty")}</p>
+              <Link href="/app/tours/new" className={`${linkCls} inline-flex min-h-11 items-center self-start`}>
+                {tt("newTour")}
+              </Link>
+            </div>
+          ) : (
+            <>
               <ul className="flex flex-col gap-2">
                 {tours.slice(0, DASHBOARD_TOURS).map((tour) => (
                   <li key={tour.id}>
@@ -107,10 +122,10 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
               <Link href="/app/tours" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
                 {tours.length > DASHBOARD_TOURS ? t("showAll", { count: tours.length }) : tt("allTours")}
               </Link>
-            </section>
+            </>
           )}
         </section>
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 md:col-start-2 md:row-span-2 md:row-start-1 lg:col-start-3 lg:row-span-1">
           <SideList
             id="side-groups"
             title={tg("title")}
