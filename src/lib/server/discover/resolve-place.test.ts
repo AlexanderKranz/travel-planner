@@ -38,13 +38,19 @@ describe("resolvePlaceName (port-places [P1])", () => {
     expect(calls).toEqual(["Lisboa:en", "Lisboa:de", "Lisboa:pt"]);
   });
 
-  it("falls back to an exact name in any country, the largest population first (a cruise leaves the destination's country)", async () => {
-    const calls: string[] = [];
-    const r = await resolvePlaceName("Wien", "DE", "de", "u", deps({ en: [p(1, "Wien", "AT", "PPLC", 1_700_000), p(2, "Wien", "DE", "PPL", 3)], de: [] }, calls));
+  it("with a country given, a namesake elsewhere counts only within 500 km of the route (#188)", async () => {
+    const at = (geoId: number, name: string, cc: string, lat: number, lon: number, pop = 100) => ({ ...p(geoId, name, cc, "PPL", pop), lat, lon });
+    const wienAT = at(1, "Wien", "AT", 48.21, 16.37, 1_700_000);
+    const wienUS = at(4, "Wien", "US", 39.74, -91.0, 300);
+    const near = { prev: { lat: 48.31, lon: 14.29 } }; // Linz: Wien AT is about 150 km away
     // the DE namesake wins inside the country
+    const r = await resolvePlaceName("Wien", "DE", "de", "u", deps({ en: [wienAT, at(2, "Wien", "DE", 51, 10, 3)], de: [] }), { near });
     expect(r).toMatchObject({ status: "ok", place: { geoId: 2 } });
-    const only = await resolvePlaceName("Wien", "DE", "de", "u", deps({ en: [p(1, "Wien", "AT", "PPLC", 1_700_000), p(3, "Wien", "CH", "PPL", 50)] }));
-    expect(only).toMatchObject({ status: "ok", place: { geoId: 1 } });
+    // a wrong country hint: the near namesake in another country is taken
+    expect(await resolvePlaceName("Wien", "DE", "de", "u", deps({ en: [wienAT, wienUS] }), { near })).toMatchObject({ status: "ok", place: { geoId: 1 } });
+    // only a far namesake, or no reference point: not found instead of a guess
+    expect(await resolvePlaceName("Wien", "DE", "de", "u", deps({ en: [wienUS] }), { near })).toEqual({ status: "not_found" });
+    expect(await resolvePlaceName("Wien", "DE", "de", "u", deps({ en: [wienAT] }))).toEqual({ status: "not_found" });
   });
 
   it("without any country only the any-country pass runs, and it needs just English and German", async () => {
