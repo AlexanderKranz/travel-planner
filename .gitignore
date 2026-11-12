@@ -53,3 +53,6 @@ travel-planner-backup.env
 /playwright-report/
 /test-results/
 /e2e/.auth/
+
+# MapLibre worker, copied from node_modules before dev/build (scripts/maplibre/copy-worker.mjs)
+/public/vendor/

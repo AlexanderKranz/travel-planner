@@ -7,7 +7,8 @@ const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
   // .claude/ holds agent worktrees (full copies of the repo); linting them repeats every warning per copy.
-  globalIgnores(["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", ".claude/**"]),
+  // public/vendor/ holds the copied MapLibre worker (scripts/maplibre/copy-worker.mjs), third-party minified code.
+  globalIgnores(["node_modules/**", ".next/**", "out/**", "build/**", "next-env.d.ts", ".claude/**", "public/vendor/**"]),
   {
     files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     // eslint-plugin-react-hooks 7 (bundled with eslint-config-next 16) adds React Compiler rules. We do not use the

@@ -1,6 +1,8 @@
 import path from "node:path";
 
 export const BASE_URL = "http://127.0.0.1:3000";
+/** Second server of the same build with (stubbed) ORS and Geoapify keys, for the city tour specs only. */
+export const TOURS_BASE_URL = "http://127.0.0.1:3001";
 export const AUTH_DIR = path.join(__dirname, "..", ".auth");
 export const SEED_FILE = path.join(AUTH_DIR, "seed.json");
 export const PASSWORD = "E2e-test-pass-123!";
