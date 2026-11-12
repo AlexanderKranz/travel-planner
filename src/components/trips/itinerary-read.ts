@@ -40,6 +40,30 @@ export function hasTextLayer(pageTexts: readonly string[]): boolean {
   return chars / pageTexts.length >= TEXT_LAYER_MIN_CHARS;
 }
 
+/** Pages (1-based) whose text layer is too thin to read: scanned or image-only. */
+export function textlessPages(pageTexts: readonly string[]): number[] {
+  const out: number[] = [];
+  pageTexts.forEach((t, i) => {
+    if (t.replace(/\s/g, "").length < TEXT_LAYER_MIN_CHARS) out.push(i + 1);
+  });
+  return out;
+}
+
+export type PdfPlan =
+  | { mode: "text" }
+  /** Every page lacks text: render these pages (at most MAX_SCAN_PAGES) and send images. */
+  | { mode: "scan"; pages: number[] }
+  /** Text pages first (parser); only if they are not usable, send these textless pages as images. */
+  | { mode: "mixed"; pages: number[] };
+
+/** How to read a PDF, judged per page so a text cover cannot hide an image-only itinerary page. */
+export function planPdfRead(pageTexts: readonly string[]): PdfPlan {
+  const textless = textlessPages(pageTexts);
+  if (textless.length === 0) return { mode: "text" };
+  const pages = textless.slice(0, MAX_SCAN_PAGES);
+  return textless.length === pageTexts.length ? { mode: "scan", pages } : { mode: "mixed", pages };
+}
+
 /** Size that fits `max` on the long edge, never enlarged. */
 export function fitSize(width: number, height: number, max = MAX_IMAGE_EDGE): { width: number; height: number } {
   const scale = Math.min(1, max / Math.max(width, height));
@@ -67,7 +91,12 @@ export function errorKey(error: ItineraryExtractError): ItineraryErrorKey {
 
 /** What the browser could take from a document: text (prefiltered here) or downscaled images. */
 export type ItinerarySource =
-  | { kind: "text"; text: string }
+  | {
+      kind: "text";
+      text: string;
+      /** Renders the textless pages; used when the text alone does not parse usably. */
+      scanFallback?: () => Promise<Extract<ItineraryExtractInput, { kind: "images" }>["images"]>;
+    }
   | { kind: "images"; images: Extract<ItineraryExtractInput, { kind: "images" }>["images"] };
 
 export type ItineraryOutcome =
@@ -86,10 +115,18 @@ export async function extractFromSource(
   let input: ItineraryExtractInput;
   if (source.kind === "text") {
     const text = prefilterItinerary(source.text);
-    if (text.trim() === "") return { ok: false, error: "noStops" };
-    const parsed = parseItinerary(text, ctx);
-    if (parsed.usable) return { ok: true, path: "parser", stops: parsed.stops };
-    input = { kind: "text", text };
+    if (text.trim() === "" && !source.scanFallback) return { ok: false, error: "noStops" };
+    const parsed = text.trim() === "" ? null : parseItinerary(text, ctx);
+    if (parsed?.usable) return { ok: true, path: "parser", stops: parsed.stops };
+    if (source.scanFallback) {
+      try {
+        input = { kind: "images", images: await source.scanFallback() };
+      } catch {
+        return { ok: false, error: "unreadable" };
+      }
+    } else {
+      input = { kind: "text", text };
+    }
   } else {
     input = { kind: "images", images: source.images };
   }

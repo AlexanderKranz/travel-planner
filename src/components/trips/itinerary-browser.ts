@@ -1,7 +1,7 @@
 "use client";
 
 import { MAX_ITINERARY_IMAGE_B64, MAX_ITINERARY_TOTAL_B64, type ItineraryExtractInput } from "@/lib/domain/itinerary";
-import { fitSize, hasTextLayer, MAX_IMAGE_EDGE, MAX_PDF_PAGES, MAX_SCAN_PAGES, type ItinerarySource } from "./itinerary-read";
+import { fitSize, MAX_IMAGE_EDGE, MAX_PDF_PAGES, planPdfRead, type ItinerarySource } from "./itinerary-read";
 
 /**
  * Browser-only file reading (docs/specs/itinerary-upload.md sections 3 and 6). The file never leaves the browser:
@@ -104,21 +104,28 @@ export async function readPdf(file: File): Promise<ReadResult> {
       }
       texts.push(text);
     }
-    if (hasTextLayer(texts)) return result({ kind: "text", text: texts.join("\n") });
-
-    const scanPages = Math.min(pages, MAX_SCAN_PAGES);
-    const images: UploadImage[] = [];
-    for (let n = 1; n <= scanPages; n++) {
-      const page = await doc.getPage(n);
-      const base = page.getViewport({ scale: 1 });
-      const scale = fitSize(base.width, base.height, MAX_IMAGE_EDGE).width / base.width;
-      const viewport = page.getViewport({ scale });
-      const canvas = newCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-      await page.render({ canvas, viewport }).promise;
-      // All pages go in one request: split the request budget (MAX_ITINERARY_TOTAL_B64) across them.
-      images.push(await canvasToImage(canvas, Math.min(MAX_ITINERARY_IMAGE_B64, Math.floor(MAX_ITINERARY_TOTAL_B64 / scanPages))));
+    const plan = planPdfRead(texts);
+    // Pages are judged one by one: a text cover must not hide an image-only itinerary page.
+    const render = async (numbers: number[]): Promise<UploadImage[]> => {
+      const images: UploadImage[] = [];
+      for (const n of numbers) {
+        const page = await doc.getPage(n);
+        const base = page.getViewport({ scale: 1 });
+        const scale = fitSize(base.width, base.height, MAX_IMAGE_EDGE).width / base.width;
+        const viewport = page.getViewport({ scale });
+        const canvas = newCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+        await page.render({ canvas, viewport }).promise;
+        // All pages go in one request: split the request budget (MAX_ITINERARY_TOTAL_B64) across them.
+        images.push(await canvasToImage(canvas, Math.min(MAX_ITINERARY_IMAGE_B64, Math.floor(MAX_ITINERARY_TOTAL_B64 / numbers.length))));
+      }
+      return images;
+    };
+    if (plan.mode === "text") return result({ kind: "text", text: texts.join("\n") });
+    if (plan.mode === "mixed") {
+      // The page count is only known once the fallback ran; the text pages are tried first.
+      return result({ kind: "text", text: texts.join("\n"), scanFallback: () => render(plan.pages) });
     }
-    return result({ kind: "images", images }, scanPages);
+    return result({ kind: "images", images: await render(plan.pages) }, plan.pages.length);
   } finally {
     void task.destroy();
   }

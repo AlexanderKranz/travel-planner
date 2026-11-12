@@ -9,7 +9,7 @@ vi.mock("@/lib/itinerary/parse", () => ({
 }));
 vi.mock("@/lib/itinerary/prefilter", () => ({ prefilterItinerary: (t: string) => t }));
 
-import { checkFile, errorKey, extractFromSource, fitSize, hasTextLayer, MAX_FILE_BYTES } from "./itinerary-read";
+import { checkFile, errorKey, extractFromSource, fitSize, hasTextLayer, MAX_FILE_BYTES, planPdfRead, textlessPages } from "./itinerary-read";
 
 const ctx = { startDate: null, lengthDays: 5 };
 const stop: ExtractedStop = { stop: { day: 1, place: "Wien" }, flags: ["from_image"] };
@@ -78,5 +78,33 @@ describe("extractFromSource", () => {
     expect(await extractFromSource(src, ctx, async () => ({ ok: true, path: "text_ai", stops: [] }))).toEqual({ ok: false, error: "noStops" });
     expect(await extractFromSource(src, ctx, async () => { throw new Error("x"); })).toEqual({ ok: false, error: "unreadable" });
     expect(await extractFromSource({ kind: "text", text: "  " }, ctx, vi.fn())).toEqual({ ok: false, error: "noStops" });
+  });
+});
+
+describe("planPdfRead", () => {
+  const text = "word ".repeat(40);
+  it("reads all-text PDFs as text", () => expect(planPdfRead([text, text])).toEqual({ mode: "text" }));
+  it("scans a PDF without text, at most 3 pages", () =>
+    expect(planPdfRead(["", " ", "", "", ""])).toEqual({ mode: "scan", pages: [1, 2, 3] }));
+  it("finds an image-only page behind a text cover", () => {
+    expect(textlessPages([text, "", text])).toEqual([2]);
+    expect(planPdfRead([text, "", text])).toEqual({ mode: "mixed", pages: [2] });
+  });
+});
+
+describe("extractFromSource with scanFallback", () => {
+  const ok: ItineraryExtractResult = { ok: true, path: "image_ai", stops: [stop] };
+  it("keeps the parser result and never renders when the text parses", async () => {
+    const scanFallback = vi.fn();
+    const out = await extractFromSource({ kind: "text", text: "TABLE", scanFallback }, ctx, vi.fn());
+    expect(out).toMatchObject({ ok: true, path: "parser" });
+    expect(scanFallback).not.toHaveBeenCalled();
+  });
+  it("sends the textless pages as images when the text does not parse", async () => {
+    const extract = vi.fn().mockResolvedValue(ok);
+    const images = [{ mediaType: "image/jpeg" as const, data: "x" }];
+    const out = await extractFromSource({ kind: "text", text: "cover only", scanFallback: async () => images }, ctx, extract);
+    expect(extract).toHaveBeenCalledWith({ kind: "images", images });
+    expect(out.ok).toBe(true);
   });
 });
