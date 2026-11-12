@@ -1,6 +1,6 @@
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { cardCls, linkCls, mutedCls } from "@/components/ui/styles";
+import { cardCls, linkCls, mutedCls, pillAccentCls } from "@/components/ui/styles";
 import type { TourSummary } from "@/lib/domain/tour";
 import { formatDuration, tourTitle } from "./format";
 import { ModeIcon } from "./mode-icon";
@@ -32,6 +32,9 @@ export function TourSideList({ tours, max, className = "" }: { tours: TourSummar
                 <span>{t(`modes.${tour.mode}`)}</span>
                 {tour.totalMin !== null && <span>· {formatDuration(t, tour.totalMin)}</span>}
                 {tour.startTime && <span>· {tour.startTime}</span>}
+                {(tour.outdated || tour.computedAt === null) && (
+                  <span className={pillAccentCls}>{tour.computedAt === null ? t("notComputed") : t("notRecomputed")}</span>
+                )}
               </span>
             </li>
           ))}
