@@ -19,8 +19,14 @@ export type GeocodeOutcome =
   | { status: "not_found" }
   | { status: "error" };
 
-/** Key of a typed place name: accents, case and spacing ignored ("Dürnstein" = "durnstein"). */
-export const stopKey = (place: string): string => foldName(place);
+/**
+ * Key of a typed place name: accents, case and spacing ignored ("Dürnstein" = "durnstein"). With a country the key
+ * carries it, so "Cartagena" (ES) and "Cartagena" (CO) are two stops; without one the key is the folded name.
+ */
+export const stopKey = (place: string, cc?: string): string => {
+  const name = foldName(place);
+  return name && cc ? `${name}|${cc}` : name;
+};
 
 export type StopName = { key: string; name: string; cc?: string };
 
@@ -30,7 +36,7 @@ export function distinctStopNames(stops: readonly TripStop[]): StopName[] {
   const seen = new Set<string>();
   for (const s of stops) {
     if (s.sea || !s.place) continue;
-    const key = stopKey(s.place);
+    const key = stopKey(s.place, s.cc);
     if (!key || seen.has(key)) continue;
     seen.add(key);
     out.push({ key, name: s.place, ...(s.cc ? { cc: s.cc } : {}) });
@@ -69,7 +75,7 @@ export function assignStops(
   };
   for (const s of stops) {
     if (s.sea || !s.place) continue;
-    const key = stopKey(s.place);
+    const key = stopKey(s.place, s.cc);
     if (!key) continue;
     const known = byKey.get(key);
     if (known) {
@@ -115,8 +121,8 @@ export function assignStops(
 }
 
 /** The resolved stop a typed stop row belongs to. */
-export function stopOfRow(row: Pick<TripStop, "place" | "sea">, resolved: readonly ResolvedStop[]): ResolvedStop | undefined {
+export function stopOfRow(row: Pick<TripStop, "place" | "sea"> & { cc?: string }, resolved: readonly ResolvedStop[]): ResolvedStop | undefined {
   if (row.sea || !row.place) return undefined;
-  const key = stopKey(row.place);
+  const key = stopKey(row.place, row.cc);
   return resolved.find((r) => r.keys?.includes(key));
 }
