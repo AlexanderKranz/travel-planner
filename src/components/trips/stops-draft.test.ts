@@ -133,6 +133,18 @@ describe("tripFitFromRows and firstPlace", () => {
     expect(tripFitFromRows(rows, { startDate: "2037-05-03", lengthDays: 7 })).toMatchObject({ lengthDays: 2 });
   });
 
+  it("counts undated rows for the length when only some rows carry a date", () => {
+    const fit = tripFitFromRows([row(1, "Passau", { date: "2037-05-03" }), row(8, "Wien")], { startDate: null, lengthDays: 3 });
+    expect(fit).toMatchObject({ startDate: "2037-05-03", lengthDays: 8 });
+  });
+
+  it("remaps dated rows to the user's start date before taking the length", () => {
+    const rows = [row(1, "Passau", { date: "2037-05-03" }), row(2, "Linz", { date: "2037-05-04" })];
+    const fit = tripFitFromRows(rows, { startDate: "2037-05-01", lengthDays: 7 });
+    expect(fit.lengthDays).toBe(4);
+    expect(fit.stops.map((r) => r.day)).toEqual([3, 4]);
+  });
+
   it("leaves the user's start date and length alone when the printed dates do not fit it", () => {
     const rows = [row(1, "Passau", { date: "2037-06-01" })];
     const fit = tripFitFromRows(rows, { startDate: "2037-05-03", lengthDays: 7 });

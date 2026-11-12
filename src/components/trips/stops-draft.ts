@@ -153,12 +153,16 @@ export function tripFitFromRows(
   ctx: { startDate: string | null; lengthDays: number },
 ): { startDate?: string; lengthDays?: number; stops: StopRow[] } {
   const offer = datesOffer(rows, ctx);
+  const lastDay = (rs: readonly StopRow[]) => Math.min(MAX_TRIP_DAYS, Math.max(1, ...rs.map((r) => r.day)));
   if (offer && !ctx.startDate) {
-    return { startDate: offer.startDate, lengthDays: offer.days, stops: remapRowsToStart(rows, offer.startDate) };
+    // Undated rows (e.g. only embarkation printed a date) still count for the length.
+    const stops = remapRowsToStart(rows, offer.startDate);
+    return { startDate: offer.startDate, lengthDays: Math.max(offer.days, lastDay(stops)), stops };
   }
   if (offer || rows.length === 0) return { stops: [...rows] };
-  const last = Math.max(...rows.map((r) => r.day));
-  return { lengthDays: Math.min(MAX_TRIP_DAYS, Math.max(1, last)), stops: [...rows] };
+  // Printed dates that fit the user's start date: their days follow that start date before the length is taken.
+  const stops = ctx.startDate ? remapRowsToStart(rows, ctx.startDate) : [...rows];
+  return { lengthDays: lastDay(stops), stops };
 }
 
 /** The first port of call (embarkation), offered as the trip destination when the user has not entered one. */

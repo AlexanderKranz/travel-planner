@@ -80,6 +80,11 @@ export function StopsSection({
     rowsRef.current = rows;
   }, [rows]);
   const ctx = { startDate: startDate || null, lengthDays: Number.isFinite(lengthDays) && lengthDays >= 1 ? lengthDays : 1 };
+  // The form's timing when an extraction finishes (the user may have set a start date meanwhile).
+  const ctxRef = useRef(ctx);
+  useEffect(() => {
+    ctxRef.current = ctx;
+  });
 
   // Stops the server derived from the saved notes: ticks the box so an existing trip opens with the section.
   useEffect(() => {
@@ -117,7 +122,7 @@ export function StopsSection({
 
   /** Takes rows as the stop list and fits the trip to them: length (or dates) and an empty destination. */
   function applyRows(next: StopRow[]) {
-    const fit = tripFitFromRows(next, ctx);
+    const fit = tripFitFromRows(next, ctxRef.current);
     const dest = firstPlace(next);
     onChange({ ...fit, ...(dest ? { destinationFromStops: dest } : {}) });
   }
