@@ -1376,7 +1376,9 @@
       "readWrite": "{read} nur lesen, {write} bearbeiten",
       "groupShares": "Gruppen-Freigaben",
       "groupsShared": "Geteilte Gruppen",
-      "entryLinks": "Verknüpfte Einträge"
+      "entryLinks": "Verknüpfte Einträge",
+      "toursCreated": "Stadttouren erstellt (7 Tage)",
+      "toursComputed": "Stadttouren berechnet (7 Tage)"
     },
     "ai": {
       "title": "KI-Kosten",
@@ -2016,6 +2018,21 @@
       "remove": "Verknüpfung entfernen",
       "removeFor": "Verknüpfung entfernen: {name}",
       "confirmRemove": "{name} ist nicht mehr als dieser Eintrag markiert. Der Eintrag bleibt."
+    }
+  },
+  "tours": {
+    "errors": {
+      "ors_unavailable": "Die Routenberechnung ist gerade nicht verfügbar. Die bisherige Tour bleibt angezeigt; versuch es später noch einmal.",
+      "rate_limited": "Zu viele Anfragen in kurzer Zeit. Warte einen Moment und versuch es dann noch einmal.",
+      "daily_limit": "Du hast heute alle Tourberechnungen genutzt. Morgen geht es weiter.",
+      "limit_reached": "Du hast die Höchstzahl von 50 Stadttouren erreicht. Lösche eine Tour, um eine neue anzulegen.",
+      "not_found": "Diese Stadttour gibt es nicht (mehr).",
+      "forbidden": "Diese Stadttour kannst du nur ansehen.",
+      "unknown_point": "Ein Ort ist nicht mehr gültig. Such ihn bitte noch einmal und füge ihn neu hinzu.",
+      "unreachable": "Mindestens ein Ort ist mit diesem Verkehrsmittel nicht erreichbar. Entferne ihn oder wähle ein anderes Verkehrsmittel.",
+      "conflict": "Die Tour wurde inzwischen geändert. Lade die Seite neu und versuch es noch einmal.",
+      "invalid": "Bitte prüf deine Angaben.",
+      "failed": "Das hat nicht geklappt. Versuch es bitte noch einmal."
     }
   }
 }

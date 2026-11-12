@@ -28,7 +28,7 @@ export async function AdminDashboard({
   const day = (iso: string) => f.dateTime(new Date(`${iso}T12:00:00Z`), { day: "2-digit", month: "2-digit", timeZone: "UTC" });
   const levelText = (m: Meter) => t(`level.${m.level}`);
 
-  const { users, usage, ai, providers, adb, ors, geoapify, overpass, events, shares } = data;
+  const { users, usage, ai, providers, adb, ors, geoapify, overpass, events, shares, tours } = data;
 
   return (
     <div className="flex flex-col gap-4">
@@ -89,6 +89,8 @@ export async function AdminDashboard({
           <Stat label={t("usage.generated")} value={num(usage.generatedThisMonth)} hint={`${t("usage.versionsGenerate")}: ${num(usage.versionsGenerate)}`} />
           <Stat label={t("usage.patched")} value={num(usage.patchedThisMonth)} hint={`${t("usage.versionsPatch")}: ${num(usage.versionsPatch)}`} />
           <Stat label={t("usage.shares")} value={num(usage.shareLinksActive)} />
+          {tours && <Stat label={t("usage.toursCreated")} value={num(tours.created7)} />}
+          {tours && <Stat label={t("usage.toursComputed")} value={num(tours.computed7)} />}
         </Stats>
         {shares && (
           <Stats>

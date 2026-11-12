@@ -36,6 +36,8 @@ type Raw = {
   shares?: z.infer<typeof ShareStatsRaw>;
   /** ORS network requests per bucket over the last 24 h (ors-quota.ts); absent when the count failed. */
   orsUsage?: { matrix: number; directions: number };
+  /** City tours created and computed in the last 7 days (tour-stats.ts); absent when the count failed. */
+  tours?: { created7: number; computed7: number };
 };
 
 const AI_TASKS = ["purpose_tags", "group_parse", "destination_ideas", "itinerary_extract", "plan_generate", "plan_patch"] as const;
@@ -92,6 +94,7 @@ export function shapeDashboard(raw: Raw, cfg: BudgetConfig) {
     overpass: raw.api.overpassVariants,
     events: raw.events,
     shares: raw.shares ?? null,
+    tours: raw.tours ?? null,
   };
 }
 export type Dashboard = ReturnType<typeof shapeDashboard>;

@@ -4,12 +4,11 @@ import { z } from "zod";
 import {
   fetchMatrixFull,
   fetchRoute,
-  type OrsTourProfile,
   type TourMatrix,
   type TourRoute,
-  type TourRouteOption,
 } from "@/lib/integrations/openrouteservice";
-import { cacheKey, cached, type CacheCtx } from "../api-cache";
+import type { OrsTourProfile, RouteOption } from "@/lib/domain/tour";
+import { cacheKey, cached, peekCache, type CacheCtx } from "../api-cache";
 import { assertOrsQuota } from "./ors-quota";
 
 /**
@@ -38,7 +37,7 @@ export function tourMatrixKey(profile: OrsTourProfile, points: readonly TourPoin
 }
 
 /** `tour-route` key: profile + option + hash of the ordered points (the order is the route). */
-export function tourRouteKey(profile: OrsTourProfile, option: TourRouteOption, points: readonly TourPointRef[]): string {
+export function tourRouteKey(profile: OrsTourProfile, option: RouteOption, points: readonly TourPointRef[]): string {
   return cacheKey("tour-route", 1, { profile, route: option, h: sha(points.map(pointId).join("|")) });
 }
 
@@ -59,7 +58,8 @@ const RoutePayload: z.ZodType<TourRoute> = z.discriminatedUnion("result", [
   z.object({ result: z.literal("not_routable"), point: z.number().int().min(0) }),
 ]);
 
-export type Fetched = { fetchedAt: string; stale: boolean };
+/** `cache`: how `cached()` answered (hit, miss = fetched now, stale = expired row after a failed refresh). */
+export type Fetched = { fetchedAt: string; stale: boolean; cache: "hit" | "miss" | "stale" };
 
 /** Re-indexes a canonical matrix to the caller's order (duplicate points, e.g. start = end, share a row). */
 export function reindexMatrix(m: MatrixPayload, points: readonly TourPointRef[]): TourMatrix | null {
@@ -98,10 +98,22 @@ export async function getTourMatrix(
     });
     if (!res.ok) return null;
     const m = reindexMatrix(res.data, points);
-    return m ? { ...m, fetchedAt: res.fetchedAt, stale: res.stale } : null;
+    return m ? { ...m, fetchedAt: res.fetchedAt, stale: res.stale, cache: res.cache } : null;
   } catch {
     return null;
   }
+}
+
+/**
+ * The cached matrix for these points, or null: cache read only, never a network call and no `api_calls` row (drop
+ * proposals of a "keep my order" tour or of an unchanged tour, spec 7: 0 API calls). Expired rows count too: the
+ * proposals are labelled approximate anyway. Never throws.
+ */
+export async function peekTourMatrix(profile: OrsTourProfile, points: readonly TourPointRef[]): Promise<TourMatrix | null> {
+  const list = canonical(points);
+  if (list.length < 2) return null;
+  const hit = await peekCache({ provider: "openrouteservice", key: tourMatrixKey(profile, list), schema: MatrixPayload });
+  return hit ? reindexMatrix(hit.data, points) : null;
 }
 
 /** A run's route, or `failed` (ORS down, 429, bucket used up, key missing): never a guessed time. */
@@ -113,7 +125,7 @@ export type TourRouteAnswer = (TourRoute & Fetched) | { result: "failed" };
  */
 export async function getTourRoute(
   profile: OrsTourProfile,
-  option: TourRouteOption,
+  option: RouteOption,
   points: readonly TourPointRef[],
   ctx: CacheCtx,
 ): Promise<TourRouteAnswer> {
@@ -134,7 +146,7 @@ export async function getTourRoute(
     });
     if (!res.ok) return { result: "failed" };
     if (res.data.result === "ok" && res.data.legs.length !== points.length - 1) return { result: "failed" };
-    return { ...res.data, fetchedAt: res.fetchedAt, stale: res.stale };
+    return { ...res.data, fetchedAt: res.fetchedAt, stale: res.stale, cache: res.cache };
   } catch {
     return { result: "failed" };
   }
