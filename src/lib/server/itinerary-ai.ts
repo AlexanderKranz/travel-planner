@@ -6,7 +6,7 @@ import { StoredRawStops, type ExtractDrops, type NormalizedExtract } from "@/lib
 import { berlinMidnight, budgetAllows, getBudgetStatus, isAiEnabled, logAiUsage, type Role } from "./ai-usage";
 import { extractItineraryStops, itineraryHash, type ItineraryPayload } from "./ai/itinerary-extract";
 import { logEvent } from "./events";
-import { rateLimit, rateLimitAvailable } from "./rate-limit";
+import { releaseAiCall, reserveAiCall, settleAiCall } from "./ai-slots";
 import type { getUserSession } from "./session";
 import { getEffectiveEnv } from "./settings";
 import { createSupabaseAdminClient } from "./supabase/admin";
@@ -17,25 +17,10 @@ type Session = NonNullable<Awaited<ReturnType<typeof getUserSession>>>;
 export const RESERVE_ITINERARY = 3_000;
 /** AI extractions per Berlin day and user, notes derivations included ([D9]). Demo users: parser only. */
 export const DAILY_EXTRACTS = { user: 10, admin: 30 } as const;
-/** Per user and minute, in memory ([D9]). */
+/** Per user and minute ([D9]). Both limits are held in `ai_call_slots`, atomic across server instances. */
 export const MINUTE_EXTRACTS = 3;
-const MINUTE_MS = 60_000;
 /** Max decoded size of one image ([D9]). */
 export const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
-
-const rateKey = (userId: string) => `itinerary:${userId}`;
-
-/**
- * Extractions of this instance that passed the gates but have not logged usage yet, per user. Gates read the
- * `ai_usage` log, which only grows when a call finishes; counting the in-flight ones closes the read-then-charge
- * race between overlapping requests on one instance. Across instances the race remains (same as the other AI tasks).
- */
-const inflight = new Map<string, number>();
-const release = (userId: string) => {
-  const n = (inflight.get(userId) ?? 0) - 1;
-  if (n > 0) inflight.set(userId, n);
-  else inflight.delete(userId);
-};
 
 /**
  * Images as the server receives them: base64 that decodes, at most 2 MB, magic bytes matching the declared type
@@ -50,18 +35,6 @@ export function checkImages(images: readonly { mediaType: string; data: string }
     if (bytes.length === 0 || bytes.length > MAX_IMAGE_BYTES) return false;
     return detectScreenshotType(bytes)?.mime === img.mediaType;
   });
-}
-
-/** AI extractions of the user since Berlin midnight, from `ai_usage` (find-destinations [D14] pattern). Throws on a read error. */
-export async function countExtractionsToday(userId: string, now: Date = new Date()): Promise<number> {
-  const { count, error } = await createSupabaseAdminClient()
-    .from("ai_usage")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("task", "itinerary_extract")
-    .gte("created_at", berlinMidnight(now).toISOString());
-  if (error || count === null) throw new Error("ai_usage read failed");
-  return count;
 }
 
 /**
@@ -112,8 +85,9 @@ async function profileOf(session: Session): Promise<{ role: Role; isDemo: boolea
 
 /**
  * The AI path of section 3.4 for one payload, shared by uploads and notes derivations ([D2]).
- * Order: cache of the owner (also with AI off) → AI switch → demo (parser only) → 3 per minute → 10 per Berlin day
- * (admin 30; an unreadable count fails closed) → budget with RESERVE_ITINERARY → one Haiku call charged to the
+ * Order: cache of the owner (also with AI off) → AI switch → demo (parser only) → one slot in `ai_call_slots`
+ * (3 per minute, 10 per Berlin day, admin 30; atomic across instances; an unreadable table fails closed) → budget
+ * with RESERVE_ITINERARY per pending slot → one Haiku call charged to the
  * ACTING user → cache under the OWNER. Never throws. Events carry no content.
  */
 export async function runItineraryAi(
@@ -132,26 +106,33 @@ export async function runItineraryAi(
     return { ok: false, error };
   };
 
-  let held = false;
+  let slotId: string | null = null;
   try {
     if (!isAiEnabled(await getEffectiveEnv())) return await fail("ai_off");
     const { role, isDemo } = await profileOf(session);
     if (isDemo) return await fail("demo");
-    if (!rateLimitAvailable(rateKey(session.userId), MINUTE_EXTRACTS).ok) return await fail("rate_limited");
-    const others = inflight.get(session.userId) ?? 0;
-    inflight.set(session.userId, others + 1); // taken synchronously, before any await below
-    held = true;
-    let today: number;
+    let slot: Awaited<ReturnType<typeof reserveAiCall>>;
     try {
-      today = await countExtractionsToday(session.userId, deps.now);
+      slot = await reserveAiCall({
+        userId: session.userId,
+        task: "itinerary_extract",
+        perMinute: MINUTE_EXTRACTS,
+        perDay: DAILY_EXTRACTS[role],
+        dayStart: berlinMidnight(deps.now ?? new Date()),
+      });
     } catch {
-      return await fail("failed", "usage_read"); // fail closed: an unreadable usage log must not open the gate
+      return await fail("failed", "usage_read"); // fail closed: unreadable limits must not open the gate
     }
-    if (today + others >= DAILY_EXTRACTS[role]) return await fail("rate_limited");
+    if (!slot.ok) return await fail("rate_limited");
+    slotId = slot.id;
     const info = await getBudgetStatus(session.userId, role, isDemo);
-    if (!budgetAllows(info, RESERVE_ITINERARY * (others + 1))) return await fail("budget");
+    if (!budgetAllows(info, RESERVE_ITINERARY * (slot.pending + 1))) {
+      const id = slotId;
+      slotId = null;
+      await releaseAiCall(id); // no call happened: the slot does not count
+      return await fail("budget");
+    }
 
-    if (!rateLimit(rateKey(session.userId), MINUTE_EXTRACTS, MINUTE_MS).ok) return await fail("rate_limited");
     const ctx: AiCtx = { onUsage: (u) => logAiUsage(session.userId, isDemo, u) };
     const r = await (deps.extract ?? extractItineraryStops)(payload, ctx);
     if (!r.ok) return await fail("failed", r.error);
@@ -160,6 +141,6 @@ export async function runItineraryAi(
   } catch {
     return await fail("failed");
   } finally {
-    if (held) release(session.userId);
+    if (slotId) await settleAiCall(slotId);
   }
 }
