@@ -7,6 +7,8 @@ import type { Trip } from "./trip";
  * guard and the per-stop place lookups (docs/specs/port-places.md) use it unchanged. Pure, no I/O.
  */
 export const MAX_TRIP_STOPS = 40;
+/** Places on one day; equals the `PlanDay.stops` limit (domain/plan.ts), so every row can become a plan stop. */
+export const MAX_STOPS_PER_DAY = 4;
 
 export const TripStop = z
   .object({
@@ -39,6 +41,16 @@ export function sortStops<T extends Pick<TripStop, "day" | "arr" | "dep">>(stops
 export const TripStops = z
   .array(TripStop)
   .max(MAX_TRIP_STOPS)
+  .superRefine((stops, ctx) => {
+    // A plan day holds at most MAX_STOPS_PER_DAY stops (`PlanDay.stops`); sea rows are no plan stops. Path: the row.
+    const seen = new Map<number, number>();
+    stops.forEach((s, i) => {
+      if (!s.place) return;
+      const n = (seen.get(s.day) ?? 0) + 1;
+      seen.set(s.day, n);
+      if (n === MAX_STOPS_PER_DAY + 1) ctx.addIssue({ code: "custom", path: [i, "day"], message: "stopsPerDay" });
+    });
+  })
   .transform((stops) => sortStops(stops));
 export type TripStopsInput = z.input<typeof TripStops>;
 

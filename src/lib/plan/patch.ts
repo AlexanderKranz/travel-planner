@@ -14,6 +14,9 @@ import {
 } from "./assemble";
 import { canonicalJson } from "./hash";
 import type { PlanInputStored } from "./input";
+import { placeMatches } from "./place-match";
+import { windowRows } from "./port-windows";
+import type { StopRow } from "./stops-input";
 
 /** Day numbers whose content differs between two day lists (same length, same order). */
 export function diffDays(base: PlanDay[], next: PlanDay[]): number[] {
@@ -27,10 +30,15 @@ const sameWindow = (a: PlanStop, b: PlanStop) =>
  * Fixed windows of the base day survive a patch: a model stop that matches one exactly (place/from/to/fixed) is
  * kept (its acts may change); otherwise the base stop is re-inserted in time order and model stops at the same
  * place are dropped (they are the moved copy). Non-fixed stops are cut from the end to stay within LIMITS.stops.
+ * A window of the current trip stops (`rows`, already applied to `next`) wins over the base: when the user changed
+ * 08:00 to 09:00, the old window is not restored.
  */
-export function keepFixedStops(baseDay: PlanDay | undefined, next: PlanDay): PlanDay {
+export function keepFixedStops(baseDay: PlanDay | undefined, next: PlanDay, rows?: readonly StopRow[]): PlanDay {
   const fixed = baseDay?.stops.filter((s) => s.fixed) ?? [];
-  const missing = fixed.filter((f) => !next.stops.some((s) => sameWindow(s, f)));
+  const current = windowRows(rows);
+  const owned = (f: PlanStop) =>
+    current.some((r) => placeMatches(f.place, r.place!)) && next.stops.some((s) => s.fixed && placeMatches(s.place, f.place));
+  const missing = fixed.filter((f) => !owned(f) && !next.stops.some((s) => sameWindow(s, f)));
   if (!missing.length) return next;
   const lower = (s: string) => s.toLowerCase();
   let stops = next.stops.filter((s) => !missing.some((f) => lower(f.place) === lower(s.place)));
@@ -91,7 +99,7 @@ export function applyPatch(a: {
       baseText: baseTexts(base.days[d.n - 1]),
       ...guards,
     });
-    replaced.set(d.n, guardFixed(keepFixedStops(base.days[d.n - 1], day), "fixed" in a ? a.fixed : stored.llm.fixed, issues));
+    replaced.set(d.n, guardFixed(keepFixedStops(base.days[d.n - 1], day, guards.stops?.rows.get(d.n)), "fixed" in a ? a.fixed : stored.llm.fixed, issues));
   }
 
   // The best-day highlight is the user's (patch-safety [D8]): a patched day keeps the base day's marker.
