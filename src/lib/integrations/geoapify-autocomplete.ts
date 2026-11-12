@@ -98,15 +98,19 @@ const fold = (s: string) => s.normalize("NFKC").toLowerCase().replace(/\s+/g, " 
 
 /**
  * Results → suggestions, in Geoapify's order. A result that does not match the schema or has no name is skipped
- * (never repaired); the same name within DEDUPE_M of an earlier result is a duplicate and dropped.
+ * (never repaired); the same name within DEDUPE_M of an earlier result is a duplicate and dropped. Results that all
+ * fail the schema mean the response shape changed: that throws, so an empty list is not cached for 30 days.
  */
 export function parseAutocomplete(body: unknown): PlaceSuggestion[] {
   const out: PlaceSuggestion[] = [];
-  for (const raw of AutocompleteResponse.parse(body).results) {
+  const results = AutocompleteResponse.parse(body).results;
+  let usable = 0;
+  for (const raw of results) {
     const r = Result.safeParse(raw);
     if (!r.success) continue;
     const name = (r.data.name ?? r.data.address_line1)?.trim().slice(0, 120);
     if (!name) continue;
+    usable++;
     const s: PlaceSuggestion = {
       key: gfyKey(r.data.place_id),
       placeId: r.data.place_id,
@@ -121,7 +125,18 @@ export function parseAutocomplete(body: unknown): PlaceSuggestion[] {
     if (out.some((o) => fold(o.name) === fold(s.name) && distanceM(o, s) <= DEDUPE_M)) continue;
     out.push(s);
   }
+  if (results.length > 0 && usable === 0) throw new z.ZodError([]);
   return out;
+}
+
+/** Geoapify bills the request once it answered, also when the body then fails to parse: carry the credit to cached(). */
+function charged<T>(parse: () => T): T {
+  try {
+    return parse();
+  } catch (err) {
+    if (err !== null && typeof err === "object") Object.assign(err, { units: 1 });
+    throw err;
+  }
 }
 
 /** One autocomplete request (1 credit). Throws on missing key, invalid input, non-2xx, timeout or a bad body. */
@@ -137,7 +152,7 @@ export async function fetchAutocomplete(input: {
   if (q.length < AUTOCOMPLETE_MIN_CHARS || q.length > AUTOCOMPLETE_MAX_CHARS) throw new RangeError("query length");
   if (!/^[a-z]{2}$/.test(input.lang)) throw new RangeError("lang");
   const r = await fetchJson(autocompleteUrl(q, input, input.lang, key), { timeoutMs: AUTOCOMPLETE_TIMEOUT_MS });
-  return { suggestions: parseAutocomplete(r.body), status: r.status, latencyMs: r.latencyMs };
+  return { suggestions: charged(() => parseAutocomplete(r.body)), status: r.status, latencyMs: r.latencyMs };
 }
 
 export type PlaceDetails = {
@@ -195,7 +210,8 @@ export function parsePlaceDetails(body: unknown, lang: string): PlaceDetails {
   const catKey = CAT_KEYS.find((k) => str(raw[k]) && raw[k] !== "yes");
   if (catKey) out.cat = str(raw[catKey])!.slice(0, 40);
   const oh = str(raw.opening_hours);
-  if (oh) out.openingHours = oh.slice(0, 255);
+  // Never cut: a truncated rule can drop an exception ("…; PH off") and turn into a wrong fact. OSM caps tags at 255.
+  if (oh && oh.length <= 255) out.openingHours = oh;
   const wd = str(raw.wikidata);
   if (wd && /^Q\d+$/.test(wd)) out.wikidata = wd;
   return out;
@@ -211,5 +227,5 @@ export async function fetchPlaceDetails(
   PlaceId.parse(placeId);
   if (!/^[a-z]{2}$/.test(lang)) throw new RangeError("lang");
   const r = await fetchJson(placeDetailsUrl(placeId, lang, key), { timeoutMs: DETAILS_TIMEOUT_MS });
-  return { details: parsePlaceDetails(r.body, lang), status: r.status, latencyMs: r.latencyMs };
+  return { details: charged(() => parsePlaceDetails(r.body, lang)), status: r.status, latencyMs: r.latencyMs };
 }

@@ -71,10 +71,19 @@ describe("Geoapify autocomplete", () => {
     expect(new Set(s.map((x) => x.key)).size).toBe(s.length);
   });
 
-  it("skips malformed results instead of repairing them; a body without results is a shape error", () => {
-    const body = { results: [{ name: "x", lat: 1, lon: 2 }, { place_id: "abcdef0123", lat: 99, lon: 2, name: "bad lat" }, { place_id: "abcdef0123", lat: 1, lon: 2 }] };
-    expect(parseAutocomplete(body)).toEqual([]);
+  it("skips malformed results instead of repairing them; none usable or no results array is a shape error", () => {
+    const bad = [{ name: "x", lat: 1, lon: 2 }, { place_id: "abcdef0123", lat: 99, lon: 2, name: "bad lat" }, { place_id: "abcdef0123", lat: 1, lon: 2 }];
+    const good = { place_id: "abcdef0123", lat: 1, lon: 2, name: "Ok" };
+    expect(parseAutocomplete({ results: [...bad, good] }).map((s) => s.name)).toEqual(["Ok"]);
+    expect(() => parseAutocomplete({ results: bad })).toThrow();
+    expect(parseAutocomplete({ results: [] })).toEqual([]); // no match is a real answer
     expect(() => parseAutocomplete({ features: [] })).toThrow();
+  });
+
+  it("a body that fails to parse still carries its credit (units: 1) for the quota guard", async () => {
+    h.fetchJson.mockResolvedValue({ status: 200, latencyMs: 5, body: { features: [] } });
+    await expect(fetchAutocomplete({ q: "Stephansdom", lat: 1, lon: 2, lang: "de" })).rejects.toMatchObject({ units: 1 });
+    await expect(fetchPlaceDetails("abcdef0123", "de")).rejects.toMatchObject({ units: 1 });
   });
 
   it("fetchAutocomplete: one GET with the short timeout; refuses short queries, a bad lang and a missing key", async () => {
@@ -118,6 +127,8 @@ describe("Geoapify place details", () => {
     expect(parsePlaceDetails(one({ osm_type: "r", osm_id: 7 }), "de").osmKey).toBe("osm:r7");
     expect(parsePlaceDetails(one({ osm_type: "x", osm_id: 7 }), "de").osmKey).toBeNull();
     expect(parsePlaceDetails(one({ osm_type: "n", osm_id: 7 }, "whosonfirst"), "de")).toEqual({ osmKey: null, name: "P", lat: 1, lon: 2 });
+    // An over-long opening_hours tag is dropped, never cut (a cut rule can lose an exception).
+    expect(parsePlaceDetails(one({ osm_type: "n", osm_id: 7, opening_hours: `Mo-Fr 09:00-18:00; ${"x".repeat(250)}` }), "de").openingHours).toBeUndefined();
     expect(() => parsePlaceDetails({ type: "FeatureCollection", features: [] }, "de")).toThrow();
   });
 
