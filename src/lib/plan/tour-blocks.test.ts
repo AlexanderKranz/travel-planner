@@ -81,6 +81,11 @@ describe("tour blocks (render)", () => {
     const b = tourBlockOf(linkedTour({ result: wienResult({ order: ["osm:w9", "osm:w1"] }) }), 5)!;
     expect(b.stops).toEqual(["Stephansdom", "Hofburg", "Naschmarkt"]);
   });
+  it("a place added since the computation is not left out: the input order is used", () => {
+    const input = wienInput({ startTime: "10:00", places: [...wienInput().places, RIESENRAD] });
+    expect(tourBlockOf(linkedTour({ input }), 5)!.stops).toEqual(["Stephansdom", "Hofburg", "Naschmarkt", "Riesenrad"]);
+    expect(tourSlotTitle(input, wienResult(), "de")).toBe("Stadttour: Stephansdom, Hofburg, Naschmarkt, Riesenrad");
+  });
   it("no km when a leg has none; dashed legs for a per-leg mode", () => {
     const r = wienResult();
     const legs = [{ ...r.legs[0]!, km: null }, { ...r.legs[1]!, mode: "cycling" as const }];

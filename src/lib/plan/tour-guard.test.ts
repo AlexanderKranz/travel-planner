@@ -4,6 +4,7 @@ import { assemblePlan } from "./assemble";
 import { applyPatch } from "./patch";
 import { header, llmDay, llmPlan, storedFor } from "./test-helpers";
 import { guardTourDuplicates, tourStopsByDay } from "./tour-guard";
+import { guardPlanTours } from "./tour-plan-guard";
 
 const names = new Map([
   ["way/1", "Aloha"],
@@ -32,6 +33,24 @@ describe("guardTourDuplicates", () => {
     const r = guardTourDuplicates(act({ alts: ["way/2"] }), new Set(["way/2"]), names);
     expect(r.act).toEqual(act());
     expect(r.dropped).toBe(1);
+  });
+  it("on a reused (cached) plan: guards only the tour's days, recomputes places, same object without tours", () => {
+    const stored = storedFor(3);
+    const r = assemblePlan({ llm: llmPlan(3), stored, header: header(3), digest: {}, locale: "de" });
+    if (!r.ok) throw new Error(r.reason);
+    expect(guardPlanTours(r.plan, undefined, stored.index).plan).toBe(r.plan);
+    expect(guardPlanTours(r.plan, { "2": ["node/9"] }, stored.index).plan).toBe(r.plan);
+    // Day 1 and 3 use way/1, day 2 way/2.
+    const g = guardPlanTours(r.plan, { "2": ["way/2"] }, stored.index);
+    expect(g.dropped).toBe(1);
+    expect(g.plan.days[1].stops[0].acts).toEqual([]);
+    expect(g.plan.days[0]).toBe(r.plan.days[0]);
+    expect(g.plan.places["way/2"]).toBeUndefined();
+    expect(g.plan.places["way/1"]).toBeDefined();
+  });
+  it("cuts the name of a removed alternative out of the text", () => {
+    const r = guardTourDuplicates(act({ text: "Aloha oder Brisas", alts: ["way/2"] }), new Set(["way/2"]), names);
+    expect(r.act).toEqual(act({ text: "Aloha" }));
   });
   it("leaves other activities alone (same object)", () => {
     const a = act();

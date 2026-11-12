@@ -120,7 +120,8 @@ function DayCard({ day, doc, fixed, t, fmt, dayCount }: { day: PlanDay; dayCount
   const best = isUserBest(day);
   const ink = best ? C.cream : C.ink;
   const muted = best ? C.navyMuted : C.subtle;
-  const rowCount = merged.reduce((n, st) => n + st.rows.length + 1, 0);
+  // A tour block with its sketch is about as tall as six activity rows.
+  const rowCount = merged.reduce((n, st) => n + 1 + st.rows.reduce((m, r) => m + (r.kind === "tour" ? (r.tour.sketch ? 6 : 2) : 1), 0), 0);
   return (
     <View
       wrap={rowCount > 14}

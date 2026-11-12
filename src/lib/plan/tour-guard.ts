@@ -35,10 +35,13 @@ export function guardTourDuplicates(
   delete act.alts;
   act.ref = kept[0];
   if (kept.length > 1) act.alts = kept.slice(1);
-  if (act.ref !== a.ref) {
-    const old = names.get(a.ref);
-    const next = names.get(act.ref);
-    if (old) act.text = rewriteRemovedName(act.text, old, next) || act.text;
+  // The text names the new ref instead of a replaced one, and loses the names of removed alternatives
+  // ("Aloha oder Brisas" with Brisas a tour stop → "Aloha").
+  const swapped = act.ref !== a.ref ? names.get(act.ref) : undefined;
+  for (const k of keys.filter((x) => stops.has(x))) {
+    const name = names.get(k);
+    if (name) act.text = rewriteRemovedName(act.text, name, k === a.ref ? swapped : undefined);
   }
+  if (!act.text) act.text = names.get(act.ref) ?? a.text;
   return { act, dropped };
 }

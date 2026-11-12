@@ -20,6 +20,7 @@ import { tripPurpose } from "@/lib/purpose-source";
 import { getGroupOnce, getPlanStateOnce, getProfileOnce, getPurposeOnce, getTripOnce, getTripToursOnce } from "@/lib/server/request-reads";
 import { TripToursNoDay } from "@/components/tour/trip-tours-no-day";
 import { tourBlocks } from "@/lib/plan/tour-blocks";
+import { MAX_TRIP_DAYS } from "@/lib/domain/trip";
 import { loadAgeRefs } from "@/lib/server/age-refs";
 import { getUserSession } from "@/lib/server/session";
 import { getTripOwnerContext, listGrants, listSharedWithMe } from "@/lib/server/sharing";
@@ -223,7 +224,9 @@ export default async function TripDetailPage({
           isDemo={profile.isDemo}
           isAdmin={profile.role === "admin"}
           owner={isOwner}
-          tourEndpointsVisible={tourBlocks(tours, trip.lengthDays).some((b) => b.addressEnds)}
+          // Any tour with a day counts: the shared document uses the stored plan's day count, which can differ from
+          // the trip length after the trip was shortened. A notice too many is harmless, one too few is not.
+          tourEndpointsVisible={tourBlocks(tours, MAX_TRIP_DAYS).some((b) => b.addressEnds)}
         />
       </div>
       <p className="text-sm text-muted">

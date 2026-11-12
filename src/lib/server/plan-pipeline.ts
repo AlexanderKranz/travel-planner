@@ -40,6 +40,7 @@ import { guardPatch } from "@/lib/plan/patch-guard";
 import { assemblePlan } from "@/lib/plan/assemble";
 import { fixedItemsOf, fixedSlots } from "@/lib/plan/fixed-items";
 import { tourSlots, tourStopKeys, withTourSlots } from "@/lib/plan/tour-blocks";
+import { guardPlanTours } from "@/lib/plan/tour-plan-guard";
 import { loadLinkedTours } from "./tour/trip-tours";
 import type { TripItem } from "@/lib/domain/items";
 import { ITEM_COLUMNS, rowToItem, type ItemRow } from "./item-mapping";
@@ -486,10 +487,13 @@ export async function generatePlan(
         ? latest
         : await findVersionByHash(c.sb, plan.id, inputHash);
     if (hit) {
-      const refreshed = Plan.safeParse({ ...hit.plan, header: { ...hit.plan.header, ...built.header } });
+      // A tour without a start time does not change the model input: apply the current duplicate guard to the reused
+      // plan in code (city-tour 10), so a place of a newly linked tour does not stay in its day twice.
+      const tours = guardPlanTours(hit.plan, built.stored.tourStops, built.stored.index);
+      const refreshed = Plan.safeParse({ ...tours.plan, header: { ...hit.plan.header, ...built.header } });
       if (refreshed.success) {
         const sameBasis = canonicalJson(refreshed.data.header) === canonicalJson(hit.plan.header);
-        if (hit.meta.versionNo === latest?.meta.versionNo && sameBasis) {
+        if (hit.meta.versionNo === latest?.meta.versionNo && sameBasis && tours.dropped === 0) {
           await logEvent({ event: "plan.generated", userId: c.session.userId, props: { tripId: c.trip.id, days: hit.plan.days.length, cached: true, unchanged: true, costMicroUsd: ai.cost() } });
           return await done(c, { unchanged: true });
         }
@@ -497,7 +501,8 @@ export async function generatePlan(
         const no = await insertVersion(c.sb, plan.id, {
           kind: "restore",
           plan: refreshed.data,
-          input: hit.input,
+          // The current tour stops go with the version, so later patches guard against them.
+          input: tours.dropped ? { ...hit.input, tourStops: built.stored.tourStops } : hit.input,
           inputHash,
           restoredFrom: hit.meta.versionNo,
           changedDays: latest ? diffDays(latest.plan, refreshed.data) : [],

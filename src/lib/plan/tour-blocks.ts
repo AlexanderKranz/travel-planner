@@ -80,12 +80,14 @@ function inputOrder(i: TourInput): string[] {
 }
 
 /**
- * Visiting order: the stored result's order when every key of it is a point of the input, else the input order (a
- * result computed for an earlier input may name removed places).
+ * Visiting order: the stored result's order when it covers exactly the input's points, else the input order (a result
+ * computed for an earlier input may name removed places or miss added ones).
  */
 export function visitOrder(i: TourInput, result: TourResult | null): TourPoint[] {
   const byKey = pointsByKey(i);
-  const order = result?.order.length && result.order.every((k) => byKey.has(k)) ? result.order : inputOrder(i);
+  // The stored order must name exactly the current points: a place added since the computation is in no result.
+  const fits = !!result?.order.length && result.order.every((k) => byKey.has(k)) && [...byKey.keys()].every((k) => result.order.includes(k));
+  const order = fits ? result.order : inputOrder(i);
   return order.map((k) => byKey.get(k)!);
 }
 

@@ -598,8 +598,13 @@ the ORS gate is released.
   are stored beside the input as `PlanInputStored.tourStops` (day → plan keys, not hashed, not sent). In
   `assembleDay`, after the stop-ref guard, a ref that is a tour stop becomes the first alternative that is none (the
   text names the new place, as the open-air guard does); with no alternative left the activity is dropped, because the
-  tour block already shows that place on that day. Removed keys count as `tour_duplicate`. Patches use the current
-  tours (like the current fixed slots).
+  tour block already shows that place on that day. Names of removed alternatives are cut out of the text. Removed keys
+  count as `tour_duplicate`. Patches use the current tours (like the current fixed slots). An untimed tour leaves the
+  input hash unchanged, so a version reused by the dedupe gets the same guard in code (a restore version that stores
+  the current `tourStops`; no AI call). Not covered: unlinking an untimed tour does not bring a dropped activity back
+  until the next real generation.
+- **Visiting order.** The stored result's order is used only when it covers exactly the current points; otherwise
+  the input order (a place added since the last computation is never left out of the block or the slot title).
 - **Hint.** The "items changed" note of timed-items [D8] also fires for a tour on a day of the trip with a start time
   whose `updated_at` is later than the version (a computation moves `updated_at` too).
 - **Rendering.** `mergeDayRows` takes the tour blocks: timed ones by the [D7] rule (a fixed item before a tour with
