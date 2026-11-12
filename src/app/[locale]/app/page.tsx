@@ -1,6 +1,7 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
 import { TourCard } from "@/components/tour/tour-card";
+import { TourSideList } from "@/components/tour/tour-side-list";
 import { TripCard } from "@/components/trips/trip-card";
 import { personLabel } from "@/components/sharing/helpers";
 import { SharedTrips } from "@/components/sharing/shared-lists";
@@ -96,36 +97,26 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           {/* Below the list, so the first card lines up with the side column. */}
           <p className={`text-sm ${mutedCls}`}>{t("retention", { max: MAX_TRIPS_PER_USER })}</p>
         </section>
-        {/* Hidden when empty, except as the desktop column, where an empty state keeps the layout. */}
-        <section
-          aria-labelledby="dashboard-tours"
-          className={`${tours.length > 0 ? "flex" : "hidden lg:flex"} flex-col gap-2 md:col-start-1 md:row-start-2 lg:col-start-2 lg:row-start-1`}
-        >
-          <h2 id="dashboard-tours" className="text-2xl font-bold">
-            {tt("title")}
-          </h2>
-          {tours.length === 0 ? (
-            <div className={`${cardCls} flex flex-col gap-3`}>
-              <p className={`text-sm ${mutedCls}`}>{tt("empty")}</p>
-              <Link href="/app/tours/new" className={`${linkCls} inline-flex min-h-11 items-center self-start`}>
-                {tt("newTour")}
-              </Link>
-            </div>
-          ) : (
-            <>
-              <ul className="flex flex-col gap-2">
-                {tours.slice(0, DASHBOARD_TOURS).map((tour) => (
-                  <li key={tour.id}>
-                    <TourCard tour={tour} />
-                  </li>
-                ))}
-              </ul>
-              <Link href="/app/tours" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
-                {tours.length > DASHBOARD_TOURS ? t("showAll", { count: tours.length }) : tt("allTours")}
-              </Link>
-            </>
-          )}
-        </section>
+        {/* Phones and tablets: heading plus tour cards below the trips, hidden when empty. Desktop: one card like the
+            side lists, so the three columns start on the same line; it shows an empty state instead of hiding. */}
+        {tours.length > 0 && (
+          <section aria-labelledby="dashboard-tours" className="flex flex-col gap-2 md:col-start-1 md:row-start-2 lg:hidden">
+            <h2 id="dashboard-tours" className="text-2xl font-bold">
+              {tt("title")}
+            </h2>
+            <ul className="flex flex-col gap-2">
+              {tours.slice(0, DASHBOARD_TOURS).map((tour) => (
+                <li key={tour.id}>
+                  <TourCard tour={tour} />
+                </li>
+              ))}
+            </ul>
+            <Link href="/app/tours" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
+              {tours.length > DASHBOARD_TOURS ? t("showAll", { count: tours.length }) : tt("allTours")}
+            </Link>
+          </section>
+        )}
+        <TourSideList tours={tours} max={DASHBOARD_TOURS} className="hidden lg:col-start-2 lg:row-start-1 lg:block" />
         <div className="flex flex-col gap-4 md:col-start-2 md:row-span-2 md:row-start-1 lg:col-start-3 lg:row-span-1">
           <SideList
             id="side-groups"
