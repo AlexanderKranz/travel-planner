@@ -14,6 +14,7 @@ import {
   stopsInput,
   stopsToGeocode,
   stopsToRetry,
+  stopsWithoutSights,
 } from "./stops-input";
 import { CRUISE_FACTS, CRUISE_RESOLVED, CRUISE_STOPS, T, cand, emptyStored, group, okRestaurants, rest, stopOk, storedWithStops, WIEN } from "./stops-test-helpers";
 
@@ -203,6 +204,43 @@ describe("extendInputWithStops (upgrade of an old input, retry of failed stops)"
     expect(stopsToGeocode(stored, [2])).toEqual([]);
     stored.stopPoints = { ...stored.stopPoints, s9: WIEN };
     expect(stopsToGeocode(stored, [])).toEqual([]);
+  });
+
+  it("stopsWithoutSights: looked-up stops in scope whose entry lists no sights (the cruise report of 2026-11-12)", () => {
+    // Wien has Stephansdom (general); Dürnstein's general came back empty, so it has none.
+    const stored = extendInputWithStops(emptyStored(), { rows: stopRows(CRUISE_STOPS, CRUISE_RESOLVED), points: stopPointsOf(CRUISE_RESOLVED), facts: CRUISE_FACTS, lang: "de" });
+    expect(stopsWithoutSights(stored, [])).toEqual(["s2"]);
+    expect(stopsWithoutSights(stored, [2])).toEqual([]);
+    expect(stopsWithoutSights(stored, [3])).toEqual(["s2"]);
+    // A purpose with two other interests: Wien was looked up for nature only.
+    const noSights: StopFacts = { ...CRUISE_FACTS[1], places: [group("nature_wildlife", [cand(111, "Lobau", 48.17, 16.5, "leisure=nature_reserve")])] };
+    const old = extendInputWithStops(emptyStored(), { rows: stopRows(CRUISE_STOPS, CRUISE_RESOLVED), points: stopPointsOf(CRUISE_RESOLVED), facts: [noSights], lang: "de" });
+    expect(stopsWithoutSights(old, [])).toEqual(["s1"]);
+    // Not a failure: the retry list (and so the "unchecked" notice) does not count it.
+    expect(stopsToRetry(old, [])).toEqual([]);
+    // Stops without a point or with a status are not looked up for sights.
+    old.llm.stopPlaces = [...old.llm.stopPlaces!, { id: "s9", name: "Nirgendwo", s: "not_found" }];
+    expect(stopsWithoutSights(old, [])).toEqual(["s1"]);
+  });
+
+  it("a new lookup of a stop adds its sights and never loses what the old entry had", () => {
+    const noSights: StopFacts = { ...CRUISE_FACTS[1], places: [group("nature_wildlife", [cand(111, "Lobau", 48.17, 16.5, "leisure=nature_reserve")])] };
+    const old = extendInputWithStops(emptyStored(), { rows: stopRows(CRUISE_STOPS, CRUISE_RESOLVED), points: stopPointsOf(CRUISE_RESOLVED), facts: [noSights], lang: "de" });
+    const lobau = old.llm.stopPlaces![0].places![0].id;
+    // The second lookup finds the sights, but its restaurants failed this time.
+    const again: StopFacts = {
+      ...CRUISE_FACTS[1],
+      places: [group("nature_wildlife", []), group("general", [cand(103, "Stephansdom", 48.2086, 16.3731, "building=cathedral")])],
+      restaurants: { status: "error", restaurants: [] },
+    };
+    const next = extendInputWithStops(old, { facts: [again], lang: "de" });
+    const e = next.llm.stopPlaces![0];
+    expect(e.places!.map((p) => p.name)).toEqual(["Stephansdom", "Lobau"]);
+    expect(e.places!.find((p) => p.name === "Lobau")!.id).toBe(lobau);
+    expect(e.restaurants).toEqual(old.llm.stopPlaces![0].restaurants);
+    expect(e.s).toBeUndefined();
+    expect(next.index[e.places![0].id]).toMatchObject({ key: "node/103", stop: "s1" });
+    expect(stopsWithoutSights(next, [])).toEqual([]);
   });
 
   it("stopOk helper sanity", () => {

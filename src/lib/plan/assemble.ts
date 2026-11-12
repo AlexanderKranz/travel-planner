@@ -91,6 +91,12 @@ export function clampText(s: string | undefined, max: number, issues: AssembleIs
 }
 
 /** Model prose (not place names): distances removed (issue #142), then clamped like `clampText`. */
+/**
+ * A text that says nothing: one character or no letter at all ("x", "-", "…"). The live cruise patch of 2026-11-12
+ * returned "x" for a new sight with a ref; it is treated like an empty text (base text, then the place name).
+ */
+export const placeholderText = (s: string | undefined): boolean => !!s && (s.trim().length <= 1 || !/\p{L}/u.test(s));
+
 export function proseText(s: string | undefined, max: number, issues: AssembleIssues): string | undefined {
   if (!s) return clampText(s, max, issues);
   const r = stripDistances(s);
@@ -226,7 +232,7 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
       // An empty text with a valid ref falls back to the base day's text for that place, then to the place name
       // (both seen live in patches, spec patch-safety [D6]); else the act is dropped.
       const text =
-        proseText(a.text, LIMITS.text, issues) ??
+        proseText(placeholderText(a.text) ? undefined : a.text, LIMITS.text, issues) ??
         proseText(ref ? ctx.baseText?.get(ref) : undefined, LIMITS.text, issues) ??
         clampText(refName, LIMITS.text, issues);
       if (!text) continue;

@@ -207,7 +207,7 @@ export function extendInputWithStops(
   const known = new Map(Object.entries(stored.index).map(([id, v]) => [v.key as string, id]));
   const built = stopsInput({ ...a, known, index: stored.index });
   const byId = new Map((stored.llm.stopPlaces ?? []).map((p) => [p.id, p]));
-  for (const p of built.stopPlaces) byId.set(p.id, p);
+  for (const p of built.stopPlaces) byId.set(p.id, mergeStopEntry(byId.get(p.id), p));
   const num = (id: string) => Number(id.slice(1)) || 0;
   const stopPlaces = [...byId.values()].sort((x, y) => num(x.id) - num(y.id));
   const llm = { ...stored.llm, trip: { ...stored.llm.trip, ...(a.rows?.length ? { stops: a.rows } : {}) } };
@@ -218,6 +218,41 @@ export function extendInputWithStops(
     index: { ...stored.index, ...built.index },
     ...(a.points && Object.keys(a.points).length ? { stopPoints: { ...stored.stopPoints, ...a.points } } : {}),
   };
+}
+
+/**
+ * A new lookup of a stop never loses what an earlier one found (pure): places of the old entry that the new one does
+ * not list stay (their ids and index entries are unchanged), and an ok restaurants or cafés block is kept when the new
+ * lookup of it failed. `s` (nothing usable) is dropped once something usable is kept.
+ */
+export function mergeStopEntry(old: StopPlacesEntry | undefined, next: StopPlacesEntry): StopPlacesEntry {
+  if (!old || next.s === "not_found" || next.s === "cap") return next;
+  const out: StopPlacesEntry = { ...next };
+  const ids = new Set((next.places ?? []).map((p) => p.id));
+  const keptPlaces = (old.places ?? []).filter((p) => !ids.has(p.id));
+  if (keptPlaces.length) out.places = [...(next.places ?? []), ...keptPlaces];
+  if (old.restaurants && !failedStatus(old.restaurants.s) && (!next.restaurants || failedStatus(next.restaurants.s))) out.restaurants = old.restaurants;
+  if (old.cafes && !failedStatus(old.cafes.s) && (!next.cafes || failedStatus(next.cafes.s))) out.cafes = old.cafes;
+  if ((out.s === "error" || out.s === "skipped") && (out.places?.length || (out.restaurants && !failedStatus(out.restaurants.s)))) delete out.s;
+  return out;
+}
+
+/** Is `entry` a place row of the town's sights (`general` or `city_sightseeing`)? */
+const isSightRow = (p: NonNullable<StopPlacesEntry["places"]>[number]) =>
+  (Array.isArray(p.i) ? p.i : [p.i]).some((i) => i === "general" || i === "city_sightseeing");
+
+/**
+ * Looked-up stops in scope whose entry lists no sights (pure): inputs made while a stop's two interests could both be
+ * other than sights (before 2026-11-12), or whose sights lookup came back empty. Patches look them up again with the
+ * current interests (cache and Geoapify; an empty result is a cache hit next time), so a request for concrete sights
+ * at the ports has ids to use. Not a failure: the "unchecked" notice never counts them.
+ */
+export function stopsWithoutSights(stored: Pick<PlanInputStored, "llm" | "stopPoints">, scopeDays: readonly number[]): string[] {
+  const rows = stored.llm.trip?.stops ?? [];
+  return (stored.llm.stopPlaces ?? [])
+    .filter((p) => stored.stopPoints?.[p.id] && !p.s && !(p.places ?? []).some(isSightRow))
+    .filter((p) => !scopeDays.length || rows.some((r) => r.at === p.id && scopeDays.includes(r.day)))
+    .map((p) => p.id);
 }
 
 /** Stops of a stored input that need a new lookup: nothing usable (`s` error/skipped), a failed restaurants/cafés block or a failed interest group (`gf`). */

@@ -161,9 +161,9 @@ describe("alternatives (alts)", () => {
 
   it("alts without a valid ref are ignored; an empty result is omitted", () => {
     const r = run(withActs([
-      { kind: "sport", text: "a", alts: ["p2"] },
-      { kind: "sport", text: "b", ref: "p404", alts: ["p3"] },
-      { kind: "sport", text: "c", ref: "p1", alts: ["p1"] },
+      { kind: "sport", text: "Runde a", alts: ["p2"] },
+      { kind: "sport", text: "Runde b", ref: "p404", alts: ["p3"] },
+      { kind: "sport", text: "Runde c", ref: "p1", alts: ["p1"] },
     ]));
     if (!r.ok) throw new Error(r.reason);
     const acts = r.plan.days[0].stops[0].acts;

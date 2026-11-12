@@ -121,10 +121,20 @@ describe("resolveStopPlaces", () => {
 });
 
 describe("stopInterests (port-places [P4])", () => {
-  it("the first two interests with an OSM source; general when none; sources of kind none are skipped", () => {
+  it("sights plus the first other interest with an OSM source; general when none; sources of kind none are skipped", () => {
     expect(stopInterests(null)).toEqual(["general"]);
-    expect(stopInterests({ guided: { interests: ["family_activities", "christmas_markets", "golf", "beach"] }, tags: null } as never)).toEqual(["family_activities", "golf"]);
+    expect(stopInterests({ guided: { interests: ["family_activities", "christmas_markets", "golf", "beach"] }, tags: null } as never)).toEqual(["family_activities", "general"]);
     expect(stopInterests({ guided: { interests: ["christmas_markets"] }, tags: null } as never)).toEqual(["general"]);
+  });
+
+  it("a port always gets its sights: two other interests no longer push them out (the cruise report of 2026-11-12)", () => {
+    // Tags only: interestsForTrip appends general last, behind the derived interests.
+    expect(stopInterests({ guided: null, tags: { interests: ["cruise", "nature_wildlife", "photography"] } } as never)).toEqual(["nature_wildlife", "general"]);
+    // The purpose's own city sightseeing stands in for general (same filters), in the purpose's order.
+    expect(stopInterests({ guided: { interests: ["city_sightseeing", "museums", "golf"] }, tags: null } as never)).toEqual(["city_sightseeing", "museums"]);
+    expect(stopInterests({ guided: { interests: ["museums", "golf", "city_sightseeing"] }, tags: null } as never)).toEqual(["museums", "city_sightseeing"]);
+    // The cruise fixture (family activities from the tags): unchanged, so its recorded input stays byte-identical.
+    expect(stopInterests({ guided: null, tags: { interests: ["christmas_markets", "family_activities", "cruise"] } } as never)).toEqual(["family_activities", "general"]);
   });
 });
 

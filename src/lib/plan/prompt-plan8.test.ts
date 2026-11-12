@@ -5,11 +5,21 @@ import { PATCH_ADDENDUM, SYSTEM_RULES } from "./prompt";
 import type { PlanInput } from "./input";
 
 describe("prompt plan-8 (port-places section 3)", () => {
-  it("is plan-8 and the hash follows the version, a recording's own version still verifies", () => {
-    expect(PLAN_PROMPT_VERSION).toBe("plan-8");
+  it("is plan-9 (patch scope and concrete places, 2026-11-12) and the hash follows the version, a recording's own version still verifies", () => {
+    expect(PLAN_PROMPT_VERSION).toBe("plan-9");
     const llm = { v: 1 } as PlanInput;
-    expect(planInputHash(llm)).toBe(planInputHash(llm, "plan-8"));
-    expect(planInputHash(llm)).not.toBe(planInputHash(llm, "plan-7"));
+    expect(planInputHash(llm)).toBe(planInputHash(llm, "plan-9"));
+    expect(planInputHash(llm)).not.toBe(planInputHash(llm, "plan-8"));
+  });
+
+  it("plan-9: without FEEDBACK.days every day the request concerns changes, not as few as possible", () => {
+    expect(PATCH_ADDENDUM).not.toMatch(/as few days as needed/);
+    expect(PATCH_ADDENDUM).toMatch(/Otherwise change every day the request concerns \(every day with the item it names, or all days when it says so\) and no other\./);
+  });
+
+  it("plan-9: generic items asked to become concrete get refs from that day's lists; needPlaces interests load at the destination only", () => {
+    expect(PATCH_ADDENDUM).toMatch(/concrete places instead of generic items: give each such item a ref \(rules 3, 16, 17\) wherever that day's lists have a fitting id/);
+    expect(PATCH_ADDENDUM).toMatch(/both loaded around the destination only/);
   });
 
   it("the INPUT legend names trip.stops and stopPlaces", () => {

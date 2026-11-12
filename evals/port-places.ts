@@ -19,15 +19,16 @@ import { stopInterests } from "@/lib/server/facts/stops";
 import { EVAL_FETCHED_AT, EVAL_TODAY, FIXTURES, buildEvalInput, evalPurpose, evalTrip, type EvalStopContext, type ScheduleEntry } from "./build-input";
 import { readRecording } from "./recorded";
 import { tripStops } from "@/lib/domain/trip-stops";
-import type { LlmPatch, LlmPlan, PlanFeedback, PurposeTags } from "@/lib/domain/plan";
+import type { LlmPatch, LlmPlan, Plan, PlanFeedback, PurposeTags } from "@/lib/domain/plan";
 import { applyPatch } from "@/lib/plan/patch";
+import { guardPatch } from "@/lib/plan/patch-guard";
 import type { PlanInputStored } from "@/lib/plan/input";
 import { extendInputWithStops, stopPointsOf, stopRows } from "@/lib/plan/stops-input";
 import { MODEL_PLAN } from "@/lib/domain/ai";
 import { assemblePlan } from "@/lib/plan/assemble";
 import { RECORDED_GENERATED_AT, evaluateGenerate } from "./evaluate";
 import { genericChecks, rawRefs, type CheckResult } from "./checks";
-import { portPatchChecks, stopFailureChecks, stopGenerateChecks } from "./stop-checks";
+import { portPatchChecks, portSightsChecks, stopFailureChecks, stopGenerateChecks } from "./stop-checks";
 import type { Trip } from "@/lib/domain/trip";
 import { resolveStopPlaces } from "@/lib/server/facts/stops";
 import { derivableStops } from "@/lib/itinerary/map";
@@ -192,4 +193,72 @@ export function upgradedInput(stored: PlanInputStored, ctx: EvalStopContext): Pl
     cuisine: stored.llm.restaurants?.ask,
     countryCode: FIXTURES.cruise.trip.anchor.countryCode,
   });
+}
+
+/** The cruise report of 2026-11-12, as Alex asked it (no day selected): walks on port days -> concrete sights. */
+export const PORT_SIGHTS_FEEDBACK: PlanFeedback = {
+  chips: [],
+  days: [],
+  text: "Mehrmals ist ein Spaziergang oder Bummel geplant. Ersetze den Spaziergang oder Bummel durch konkrete Sehenswürdigkeiten oder schlage Aktivitäten vor",
+};
+
+const GENERIC_WALKS = ["Spaziergang am Wasser", "Stadtbummel, Hafen und Innenstadt", "Bummel durch die Altstadtgassen"];
+
+/**
+ * The reported base: the recorded `stops` generation (plan-8, confirmed stops) with every sight at a port made generic
+ * (ref and alts removed, text one of the reported walks), as the live plan showed them. Days 1 and 5 (destination) stay.
+ */
+export async function portSightsBase(): Promise<{ stored: PlanInputStored; plan: Plan } | null> {
+  const rec = readRecording<LlmPlan>("cruise", "stops");
+  if (!rec) return null;
+  const g = await evaluateStopGenerate("confirmed", rec.output);
+  if (!g.plan || !g.built) return null;
+  let i = 0;
+  const ports = new Set(PORT_DAYS.map((p) => p.day));
+  const plan: Plan = {
+    ...g.plan,
+    days: g.plan.days.map((d) =>
+      !ports.has(d.n)
+        ? d
+        : {
+            ...d,
+            stops: d.stops.map((s) => ({
+              ...s,
+              acts: s.acts.map((a) => {
+                if (a.kind !== "see" || !a.ref) return a;
+                const { ref: _ref, alts: _alts, ...rest } = a;
+                void _ref;
+                void _alts;
+                return { ...rest, text: GENERIC_WALKS[i++ % GENERIC_WALKS.length] };
+              }),
+            })),
+          },
+    ),
+  };
+  return { stored: g.built.stored, plan };
+}
+
+/** The patch of `portsights` applied to `portSightsBase` with the real guards, then `portSightsChecks`. */
+export async function evaluatePortSights(patch: LlmPatch) {
+  const base = await portSightsBase();
+  if (!base) return { results: [{ name: "stops recording", ok: false, detail: "missing" }] as CheckResult[] };
+  const applied = applyPatch({ base: base.plan, patch, stored: base.stored, scope: [] });
+  if (!applied.ok) return { results: [{ name: "applyPatch", ok: false, detail: applied.reason }] as CheckResult[] };
+  const guarded = guardPatch({ base: base.plan, next: applied.plan, feedback: PORT_SIGHTS_FEEDBACK, index: base.stored.index });
+  return {
+    plan: guarded.plan,
+    changedDays: guarded.changedDays,
+    results: [
+      { name: "applyPatch", ok: true } as CheckResult,
+      ...portSightsChecks({
+        stored: base.stored,
+        base: base.plan,
+        next: guarded.plan,
+        changedDays: guarded.changedDays,
+        rejectedDays: guarded.rejected.map((r) => r.n),
+        issues: applied.issues,
+        portDays: PORT_DAYS,
+      }),
+    ],
+  };
 }
