@@ -1,7 +1,7 @@
 "use client";
 
 import { useFormatter, useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { btnPrimary, btnSecondary, errorCls, mutedCls } from "@/components/ui/styles";
 import { MAX_TRIP_STOPS, type TripStop } from "@/lib/domain/trip-stops";
 import { derivedTripStops } from "@/lib/server/itinerary";
@@ -14,6 +14,7 @@ import {
   rowDate,
   rowsFromExtracted,
   rowsFromStops,
+  patchRow,
   rowsHaveProblems,
   type StopRow,
 } from "./stops-draft";
@@ -61,6 +62,11 @@ export function StopsSection({
   const [derived, setDerived] = useState<TripStop[]>([]);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [info, setInfo] = useState<{ count: number; truncatedTo?: number } | null>(null);
+  // The draft as it is when an extraction finishes (the user may have typed meanwhile), not when it started.
+  const rowsRef = useRef(rows);
+  useEffect(() => {
+    rowsRef.current = rows;
+  }, [rows]);
   const ctx = { startDate: startDate || null, lengthDays: Number.isFinite(lengthDays) && lengthDays >= 1 ? lengthDays : 1 };
 
   // Stops the server derived from the saved notes: ticks the box so an existing trip opens with the section.
@@ -86,7 +92,7 @@ export function StopsSection({
 
   function onResult(r: UploadResult) {
     const incoming = rowsFromExtracted(r.stops);
-    if (rows.length === 0) {
+    if (rowsRef.current.length === 0) {
       // Nothing typed yet: the proposal is the editable list, to be checked and saved.
       onChange({ stops: incoming });
       setProposal(null);
@@ -107,7 +113,7 @@ export function StopsSection({
   }
 
   const updateRow = (key: string, patch: Partial<StopRow>) =>
-    onChange({ stops: rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) });
+    onChange({ stops: rows.map((r) => (r.key === key ? patchRow(r, patch) : r)) });
 
   return (
     <section aria-label={t("title")} id="field-stops" className="flex flex-col gap-3">
