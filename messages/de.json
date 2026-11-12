@@ -538,7 +538,8 @@
         "unsupportedType": "Bitte PDF, JPG, PNG oder WebP verwenden.",
         "tooManyPages": "Nur die ersten {pages} Seiten wurden gelesen.",
         "aiOff": "Automatisches Lesen ist gerade nicht verfügbar. Bitte Stopps eintippen.",
-        "limit": "Tageslimit erreicht. Morgen wieder oder Stopps eintippen."
+        "limit": "Tageslimit erreicht. Morgen wieder oder Stopps eintippen.",
+        "forbidden": "Du kannst die Stopps dieser Reise nicht bearbeiten."
       }
     }
   },

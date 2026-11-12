@@ -38,7 +38,7 @@ describe("hasTextLayer and fitSize", () => {
 describe("errorKey", () => {
   it("maps every server error", () => {
     const all: Record<ItineraryExtractError, string> = {
-      forbidden: "unreadable",
+      forbidden: "forbidden",
       invalid: "unreadable",
       failed: "unreadable",
       ai_off: "aiOff",

@@ -3,7 +3,13 @@
 import { useTranslations } from "next-intl";
 import { useRef, useState, useSyncExternalStore } from "react";
 import { btnSecondary, errorCls, mutedCls } from "@/components/ui/styles";
-import { MAX_ITINERARY_IMAGES, type ExtractedStop, type ItineraryContext } from "@/lib/domain/itinerary";
+import {
+  MAX_ITINERARY_IMAGE_B64,
+  MAX_ITINERARY_IMAGES,
+  MAX_ITINERARY_TOTAL_B64,
+  type ExtractedStop,
+  type ItineraryContext,
+} from "@/lib/domain/itinerary";
 import { extractItinerary } from "@/lib/server/itinerary";
 import { downscaleImage, readPdf } from "./itinerary-browser";
 import {
@@ -79,7 +85,10 @@ export function StopsUpload({
         const outcome = await extractFromSource(read.source, ctx, extract);
         return { outcome, truncatedTo: read.truncatedTo };
       }
-      const images = await Promise.all(list.slice(0, MAX_ITINERARY_IMAGES).map(downscaleImage));
+      const picked = list.slice(0, MAX_ITINERARY_IMAGES);
+      // All photos go in one request: they share its budget (Vercel refuses bodies over 4.5 MB).
+      const maxB64 = Math.min(MAX_ITINERARY_IMAGE_B64, Math.floor(MAX_ITINERARY_TOTAL_B64 / picked.length));
+      const images = await Promise.all(picked.map((f) => downscaleImage(f, maxB64)));
       return { outcome: await extractFromSource({ kind: "images", images }, ctx, extract) };
     });
   }

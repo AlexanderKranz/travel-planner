@@ -21,7 +21,7 @@ export const TEXT_LAYER_MIN_CHARS = 40;
 export const FILE_ACCEPT = "application/pdf,image/jpeg,image/png,image/webp";
 
 /** Message keys under `trips.stops.error`. */
-export type ItineraryErrorKey = "unreadable" | "noStops" | "tooLarge" | "unsupportedType" | "aiOff" | "limit";
+export type ItineraryErrorKey = "unreadable" | "noStops" | "tooLarge" | "unsupportedType" | "aiOff" | "limit" | "forbidden";
 
 export type FileCheck = { ok: true; kind: "pdf" | "image" } | { ok: false; error: ItineraryErrorKey };
 
@@ -58,6 +58,7 @@ export function errorKey(error: ItineraryExtractError): ItineraryErrorKey {
     case "no_stops":
       return "noStops";
     case "forbidden":
+      return "forbidden";
     case "invalid":
     case "failed":
       return "unreadable";

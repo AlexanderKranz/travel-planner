@@ -60,7 +60,8 @@ async function loadBitmap(file: File): Promise<{ source: CanvasImageSource; widt
   }
 }
 
-export async function downscaleImage(file: File): Promise<UploadImage> {
+/** `maxB64` lets several photos of one request share the request budget (MAX_ITINERARY_TOTAL_B64). */
+export async function downscaleImage(file: File, maxB64 = MAX_ITINERARY_IMAGE_B64): Promise<UploadImage> {
   const bmp = await loadBitmap(file);
   try {
     const { width, height } = fitSize(bmp.width, bmp.height, MAX_IMAGE_EDGE);
@@ -70,7 +71,7 @@ export async function downscaleImage(file: File): Promise<UploadImage> {
     ctx.fillStyle = "#fff"; // JPEG has no alpha
     ctx.fillRect(0, 0, width, height);
     ctx.drawImage(bmp.source, 0, 0, width, height);
-    return await canvasToImage(canvas);
+    return await canvasToImage(canvas, maxB64);
   } finally {
     bmp.close();
   }

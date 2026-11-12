@@ -538,7 +538,8 @@
         "unsupportedType": "Please use PDF, JPG, PNG or WebP.",
         "tooManyPages": "Only the first {pages} pages were read.",
         "aiOff": "Automatic reading is not available right now. Please type the stops.",
-        "limit": "Daily limit reached. Try tomorrow or type the stops."
+        "limit": "Daily limit reached. Try tomorrow or type the stops.",
+        "forbidden": "You can't edit the stops of this trip."
       }
     }
   },
