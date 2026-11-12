@@ -137,3 +137,10 @@ export function datesOffer(
 export function remapRowsToStart(rows: readonly StopRow[], startDate: string): StopRow[] {
   return rows.map((r) => (r.date ? { ...r, day: dayOfDate(startDate, r.date) } : r));
 }
+
+/** Applies an edit to a row. A changed place drops the extracted country hint: it belonged to the old place. */
+export function patchRow(row: StopRow, patch: Partial<StopRow>): StopRow {
+  const next = { ...row, ...patch };
+  if (patch.place !== undefined && patch.place !== row.place && !("cc" in patch)) delete next.cc;
+  return next;
+}

@@ -4,6 +4,7 @@ import {
   datesOffer,
   emptyRow,
   fillMissingRows,
+  patchRow,
   remapRowsToStart,
   rowFlags,
   rowProblems,
@@ -83,5 +84,14 @@ describe("datesOffer [D8]", () => {
   it("moves dated rows to the new start", () => {
     const out = remapRowsToStart([row({ day: 9, date: "2037-12-21" }), row({ day: 2 })], "2037-12-19");
     expect(out.map((r) => r.day)).toEqual([3, 2]);
+  });
+});
+
+describe("patchRow", () => {
+  const row = { ...emptyRow(1), place: "Wien", cc: "AT" };
+  it("drops the country hint when the place changes", () => expect(patchRow(row, { place: "Paris" }).cc).toBeUndefined());
+  it("keeps it for other edits and an unchanged place", () => {
+    expect(patchRow(row, { arr: "09:00" }).cc).toBe("AT");
+    expect(patchRow(row, { place: "Wien" }).cc).toBe("AT");
   });
 });
