@@ -740,7 +740,9 @@ by 44 items within 1.5 km.
   city_sightseeing/general, architecture, history, museums, nature_wildlife, family_activities, hiking. Golf, beach,
   wellness, food and the rest are unchanged (same keys, same order). The counts come in the Overpass and Geoapify
   fetchers (cache miss only): the Wikidata items within the radius, at most 500 (10 requests), cached 90 days as
-  `sitelinks:v1:ids=<hash>;n=<count>`, at most 15 s; when Wikidata does not answer, the list is ranked as before. The
+  `sitelinks:v1:ids=<hash>;n=<count>`, at most 15 s; when Wikidata does not answer, the list is ranked as before and
+  cached for one day instead of 30. Their Overpass queries return up to 1,000 elements (the default 150 would be an
+  arbitrary subset to rank). The
   Wikidata client sends one request at a time per instance. The discover variant (find destinations) is not ranked.
 - Flagged interests use cache key v3 (`interpreter:v3`, `places:v3`), so every trip fetches its list once more
   (Geoapify credits; Overpass via the retry job).
