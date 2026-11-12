@@ -6,6 +6,10 @@
  */
 import type { TourMode } from "@/lib/domain/tour";
 
+/**
+ * Spec 8 splits beyond 9 waypoints (the limit in the Google Maps app and on desktop). Google's docs allow only 3 in a
+ * mobile browser without the app; pass `maxWaypoints: 3` for that case.
+ */
 export const GOOGLE_MAX_WAYPOINTS = 9;
 
 const TRAVELMODE: Record<TourMode, string> = {
@@ -25,9 +29,13 @@ function link(points: readonly { lat: number; lon: number }[], mode: TourMode): 
 }
 
 /** Links for the ordered stops (a round trip lists the start again at the end); empty for fewer than 2 points. */
-export function googleMapsLinks(points: readonly { lat: number; lon: number }[], mode: TourMode): string[] {
+export function googleMapsLinks(
+  points: readonly { lat: number; lon: number }[],
+  mode: TourMode,
+  maxWaypoints: number = GOOGLE_MAX_WAYPOINTS,
+): string[] {
   if (points.length < 2) return [];
-  const per = GOOGLE_MAX_WAYPOINTS + 1; // steps per link: origin + 9 waypoints + destination
+  const per = Math.max(0, Math.floor(maxWaypoints)) + 1; // legs per link: origin + waypoints + destination
   const out: string[] = [];
   for (let i = 0; i < points.length - 1; i += per) out.push(link(points.slice(i, i + per + 1), mode));
   return out;

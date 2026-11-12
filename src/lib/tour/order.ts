@@ -94,7 +94,7 @@ export function orderTour(m: Matrix, opts: OrderOpts): OrderResult {
     for (let k = 0; k < n; k++) {
       if (mask & (1 << k)) continue;
       const c = edge(at, k) + g[(mask | (1 << k)) * n + k];
-      if (Math.abs(c - want) <= EPS * Math.max(1, Math.abs(want))) {
+      if (Math.abs(c - want) <= EPS) {
         order.push(k);
         mask |= 1 << k;
         at = k;

@@ -89,6 +89,10 @@ describe("orderTour", () => {
     expect(orderTour(m, { start: 2, end: 2 })).toEqual({ order: [2, 0, 1, 3, 4, 2] });
   });
 
+  it("reconstructs with an absolute tolerance on large durations", () => {
+    expect(orderTour([[0, 10000.009, 10000], [10000, 0, 0], [10000, 0, 0]], { start: 0 })).toEqual({ order: [0, 2, 1] });
+  });
+
   it("keep returns the input order with start first and end last", () => {
     const m = randomMatrix(5, seededRandom(1), 100);
     expect(orderTour(m, { keep: true })).toEqual({ order: [0, 1, 2, 3, 4] });

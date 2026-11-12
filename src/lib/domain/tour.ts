@@ -6,8 +6,11 @@ import { HHMM, IsoDate } from "./common";
  */
 
 /** One place of a tour. Coordinates are always resolved by the server from a key it handed out (spec 3.1). */
+/** Spec 3.1 said 40; Geoapify place ids are longer, so `gfy:<place_id>` needs more room. */
+export const MAX_POINT_KEY = 160;
+
 export const TourPoint = z.object({
-  key: z.string().min(1).max(40), // "osm:n123", "osm:w456", "geo:2761369" (GeoNames), "gfy:<place_id>"
+  key: z.string().min(1).max(MAX_POINT_KEY), // "osm:n123", "osm:w456", "geo:2761369" (GeoNames), "gfy:<place_id>"
   name: z.string().min(1).max(120),
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
@@ -71,7 +74,7 @@ export const TourInput = z
     order: z.enum(["optimize", "keep"]).default("optimize"),
     mode: z.enum(TOUR_MODES).default("foot"),
     route: z.enum(ROUTE_OPTIONS).default("fastest"),
-    legOverrides: z.record(z.string().max(81), LegSetting).optional(),
+    legOverrides: z.record(z.string().max(2 * MAX_POINT_KEY + 1), LegSetting).optional(),
     date: IsoDate.optional(),
     startTime: HHMM.optional(),
     endBy: HHMM.optional(), // needs startTime
@@ -89,6 +92,9 @@ export const TourInput = z
     if (v.endBy !== undefined) {
       if (v.startTime === undefined) bad(["endBy"], "endBy needs startTime");
       else if (toMin(v.endBy) <= toMin(v.startTime)) bad(["endBy"], "endBy must be after startTime");
+      else if (v.minMin !== undefined && v.minMin > toMin(v.endBy) - toMin(v.startTime)) {
+        bad(["minMin"], "minMin longer than startTime to endBy");
+      }
     }
     if (v.end === "start" && !v.start) bad(["end"], "A round trip needs a start");
     // Leg keys and override keys need distinct points. `end` may share the start key (a round trip written out).

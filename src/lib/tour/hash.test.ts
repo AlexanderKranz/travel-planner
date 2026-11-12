@@ -52,4 +52,12 @@ describe("tour hashes", () => {
     expect(pointSeqHash(pts)).not.toBe(pointSeqHash(rev));
     expect(pointSetHash(pts)).toMatch(/^[0-9a-f]{64}$/);
   });
+
+  it("separators inside keys cannot make two point lists collide", () => {
+    const P = (key: string, n: number) => ({ key, lat: n, lon: n });
+    const x = [P("a", 0), P("b@1.00000,1.00000|c", 2)];
+    const y = [P("a", 0), P("b", 1), P("c", 2)];
+    expect(pointSeqHash(x)).not.toBe(pointSeqHash(y));
+    expect(pointSetHash(x)).not.toBe(pointSetHash(y));
+  });
 });

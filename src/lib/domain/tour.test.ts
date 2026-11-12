@@ -39,6 +39,8 @@ describe("TourInput", () => {
     expect(ok({ startTime: "10:00", endBy: "15:00" })).toBe(true);
     expect(ok({ startTime: "10:00", endBy: "10:00" })).toBe(false);
     expect(ok({ startTime: "10:00", endBy: "09:00" })).toBe(false);
+    expect(ok({ startTime: "10:00", endBy: "11:00", minMin: 90 })).toBe(false);
+    expect(ok({ startTime: "10:00", endBy: "11:30", minMin: 90 })).toBe(true);
     expect(ok({ startTime: "25:00" })).toBe(false);
     expect(ok({ date: "2026-02-31" })).toBe(false);
   });
@@ -47,6 +49,7 @@ describe("TourInput", () => {
     expect(ok({ places: [p("osm:n1"), p("osm:n1")] })).toBe(false);
     expect(ok({ start: p("osm:n1") })).toBe(false);
     expect(ok({ end: "start" })).toBe(false);
+    expect(ok({ places: [{ ...p("osm:n1"), key: `gfy:${"5".repeat(120)}` }, p("osm:n2")] })).toBe(true);
     expect(ok({ start: p("geo:1"), end: "start" })).toBe(true);
   });
 });

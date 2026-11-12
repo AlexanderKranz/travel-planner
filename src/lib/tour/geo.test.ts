@@ -25,4 +25,8 @@ describe("geo", () => {
     expect(pointToPolylineM(p, [a])).toBeCloseTo(100, -1);
     expect(pointToPolylineM(p, [])).toBe(Infinity);
   });
+
+  it("works across the antimeridian", () => {
+    expect(pointToSegmentM({ lat: 0, lon: 179.995 }, [0, 179.999], [0, -179.999])).toBeCloseTo(445, -1);
+  });
 });

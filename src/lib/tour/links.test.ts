@@ -37,4 +37,11 @@ describe("googleMapsLinks", () => {
     expect(params(two[1]).get("destination")).toBe("48.21200,16.37000");
     expect(googleMapsLinks(pts(1), "foot")).toEqual([]);
   });
+
+  it("honours a smaller waypoint limit (mobile browser)", () => {
+    const links = googleMapsLinks(pts(9), "foot", 3);
+    expect(links).toHaveLength(2);
+    expect(params(links[0]).get("waypoints")!.split("|")).toHaveLength(3);
+    expect(params(links[1]).get("destination")).toBe("48.20800,16.37000");
+  });
 });

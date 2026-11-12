@@ -11,7 +11,8 @@ type Pt = { lat: number; lon: number };
 
 /** Project to local metres (x east, y north) around `o`. */
 function project(o: Pt, lat: number, lon: number): [number, number] {
-  return [(lon - o.lon) * RAD * Math.cos(o.lat * RAD) * R, (lat - o.lat) * RAD * R];
+  const dLon = ((((lon - o.lon) % 360) + 540) % 360) - 180; // shortest way, also across the antimeridian
+  return [dLon * RAD * Math.cos(o.lat * RAD) * R, (lat - o.lat) * RAD * R];
 }
 
 /** Distance in metres from `p` to the segment a–b. */
