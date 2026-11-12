@@ -94,6 +94,8 @@ describe("landmark set (Frankfurt, Wien, Passau fixtures)", () => {
     expect(all).toContain("Frankfurt (Main) Hauptbahnhof");
     expect(all).not.toContain("Hauptbahnhof (tief)");
     expect(all).toContain("Offenbach (Main) Hauptbahnhof");
+    // Its name stays searchable on the station.
+    expect(matchLandmarks(ranked("frankfurt"), "tief", 1).map((l) => l.name)).toEqual(["Frankfurt (Main) Hauptbahnhof"]);
   });
 
   it("the names of a dropped element with the same wikidata id stay searchable", () => {

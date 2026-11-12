@@ -218,11 +218,19 @@ export function rankLandmarks(list: readonly Landmark[], sitelinks: Readonly<Rec
   const scored = list.map((l) => ({ l, s: landmarkScore(l, sitelinks) }));
   scored.sort((a, b) => b.s - a.s || a.l.distanceKm - b.l.distanceKm || a.l.osmId - b.l.osmId);
   const out: Landmark[] = [];
-  const stations: Landmark[] = [];
+  const stations: number[] = []; // indexes into `out`
   for (const { l } of scored) {
     if (l.kind === "station") {
-      if (stations.some((st) => sameAsLandmark({ name: l.name, lat: l.lat, lon: l.lon }, st))) continue;
-      stations.push(l);
+      const at = stations.find((i) => sameAsLandmark({ name: l.name, lat: l.lat, lon: l.lon }, out[i]));
+      if (at !== undefined) {
+        // The level's names stay searchable on the station ("tief" still finds the Hauptbahnhof).
+        const st = out[at];
+        const alt = new Set(st.alt);
+        for (const n of [l.name, l.names.de, l.names.en, ...l.alt]) if (n && n !== st.name) alt.add(n);
+        out[at] = { ...st, alt: [...alt].slice(0, 12) };
+        continue;
+      }
+      stations.push(out.length);
     }
     out.push(l);
   }

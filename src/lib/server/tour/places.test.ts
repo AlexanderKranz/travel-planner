@@ -26,7 +26,7 @@ vi.mock("@/lib/integrations/overpass", async (orig) => ({ ...(await orig<typeof 
 import { collectLandmarks } from "@/lib/facts/landmarks";
 import { parseElements } from "@/lib/integrations/overpass";
 import { resetLandmarkWarmState } from "./landmarks";
-import { cityDestination, cityPlaces } from "./places";
+import { cityDestination, cityPlaces, mergePlaces, type CityPlace } from "./places";
 
 const fx = (p: string) => JSON.parse(readFileSync(join(__dirname, "../../integrations/__fixtures__", p), "utf8"));
 const dest = cityDestination({ name: "Wien", lat: 48.20849, lon: 16.37208 });
@@ -126,5 +126,29 @@ describe("cityPlaces (tour suggestions and sights)", () => {
     expect(h.calls.every((c) => c.fetchAllowed?.() === false)).toBe(true);
     expect(h.after).not.toHaveBeenCalled();
     expect(h.enqueue).toHaveBeenCalled();
+  });
+});
+
+describe("mergePlaces (landmarks first, room for purpose interests)", () => {
+  const pl = (k: string): CityPlace => ({ key: `osm:n${k}`, name: k, lat: 0, lon: 0, cat: "x" });
+  const lm = Array.from({ length: 50 }, (_, i) => pl(`L${i}`));
+
+  it("interests get up to half; landmarks the rest, in order", () => {
+    const out = mergePlaces(lm, Array.from({ length: 30 }, (_, i) => pl(`I${i}`)), 40);
+    expect(out).toHaveLength(40);
+    expect(out.slice(0, 20).map((p) => p.name)).toEqual(lm.slice(0, 20).map((p) => p.name));
+    expect(out.slice(20).every((p) => p.name.startsWith("I"))).toBe(true);
+  });
+
+  it("interest places that are already landmarks reserve nothing; the list still fills with landmarks", () => {
+    const out = mergePlaces(lm, lm.slice(0, 20), 40);
+    expect(out.map((p) => p.name)).toEqual(lm.slice(0, 40).map((p) => p.name));
+  });
+
+  it("a few interests take only their slots; without landmarks the interests fill the list alone", () => {
+    const out = mergePlaces(lm, [pl("I0"), pl("I0"), pl("I1")], 40);
+    expect(out).toHaveLength(40);
+    expect(out.slice(38).map((p) => p.name)).toEqual(["I0", "I1"]);
+    expect(mergePlaces([], [pl("I0"), pl("I1")], 40).map((p) => p.name)).toEqual(["I0", "I1"]);
   });
 });

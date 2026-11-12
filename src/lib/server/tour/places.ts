@@ -84,27 +84,41 @@ export async function cityPlaces(
     : ["general", ...interests.filter((k) => k !== "general")];
   const fromInterests = rest.length ? await interestPlaces(dest, rest, a) : { places: [], pending: false, dates: [] as string[] };
 
-  const seen = new Set<string>();
-  const places: CityPlace[] = [];
-  const add = (p: CityPlace) => {
-    if (seen.has(p.key) || places.length >= limit) return;
-    seen.add(p.key);
-    places.push(p);
-  };
-  // Purpose interest places get up to half of the list, the landmarks the rest (at least half).
-  const fresh = fromInterests.places.filter((p, i, all) => all.findIndex((x) => x.key === p.key) === i);
-  const reserve = landmarks?.ranked.length ? Math.min(fresh.length, Math.floor(limit / 2)) : 0;
-  for (const l of landmarks?.ranked ?? []) {
-    if (places.length >= limit - reserve) break;
-    add(landmarkPlace(l, a.locale));
-  }
-  fresh.forEach(add);
+  const places = mergePlaces(
+    (landmarks?.ranked ?? []).map((l) => landmarkPlace(l, a.locale)),
+    fromInterests.places,
+    limit,
+  );
   const dates = [...fromInterests.dates, ...(landmarks ? [landmarks.fetchedAt] : [])];
   return {
     places,
     pending: !landmarks || !landmarks.prominence || fromInterests.pending,
     fetchedAt: dates.length ? [...dates].sort()[0] : null,
   };
+}
+
+/**
+ * Landmarks first, then the purpose interest places with up to half of `limit` (the landmarks keep at least half).
+ * An interest place that is already among the landmarks shown counts once and reserves no slot; slots the interests
+ * do not fill go to further landmarks. Pure.
+ */
+export function mergePlaces(landmarks: readonly CityPlace[], interests: readonly CityPlace[], limit: number): CityPlace[] {
+  const uniq = (list: readonly CityPlace[]) => list.filter((p, i) => list.findIndex((x) => x.key === p.key) === i);
+  const lm = uniq(landmarks);
+  const half = Math.floor(limit / 2);
+  const sure = new Set(lm.slice(0, limit - half).map((p) => p.key));
+  let extra = uniq(interests).filter((p) => !sure.has(p.key));
+  const reserve = lm.length ? Math.min(extra.length, half) : 0;
+  const head = lm.slice(0, limit - reserve);
+  const shown = new Set(head.map((p) => p.key));
+  extra = extra.filter((p) => !shown.has(p.key));
+  const out = [...head, ...extra.slice(0, limit - head.length)];
+  // Interests that turned out fewer than reserved: the next landmarks fill the list.
+  for (const p of lm.slice(head.length)) {
+    if (out.length >= limit) break;
+    if (!out.some((x) => x.key === p.key)) out.push(p);
+  }
+  return out;
 }
 
 /** Interest places through `getInterestGroups` (Overpass cache only, Geoapify fast path with `network`). */
