@@ -117,6 +117,6 @@ describe("warm-up derives stops from the notes on behalf of the saving user (iti
     await h.afterFns[0]();
     expect(notesDeriver).toHaveBeenCalledWith(s);
     expect(h.warmFacts).toHaveBeenCalledOnce();
-    expect(h.warmFacts.mock.calls[0][3]).toEqual(expect.objectContaining({ derive: deriver }));
+    expect((h.warmFacts.mock.calls as unknown[][])[0][3]).toEqual(expect.objectContaining({ derive: deriver }));
   });
 });
