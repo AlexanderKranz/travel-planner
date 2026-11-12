@@ -38,7 +38,7 @@ describe("port-window guard", () => {
   it("no matching plan stop counts as missing; rows without times and sea rows need nothing", () => {
     expect(applyPortWindows([stop("Linz")], rows.filter((x) => x.day === 2)).missing).toBe(1);
     expect(applyPortWindows([stop("Linz")], [{ day: 2, place: "Wien" }]).missing).toBe(0);
-    expect(applyPortWindows([stop("Linz")], rows.filter((x) => x.day === 4))).toEqual({ stops: [stop("Linz")], missing: 0 });
+    expect(applyPortWindows([stop("Linz")], rows.filter((x) => x.day === 4))).toEqual({ stops: [stop("Linz")], missing: 0, clipped: 0 });
   });
   it("each plan stop takes one row only", () => {
     const r = applyPortWindows([stop("Melk")], [{ day: 3, place: "Melk", arr: "15:00", dep: "21:00" }, { day: 3, place: "Melk", arr: "22:00" }]);
@@ -165,8 +165,8 @@ describe("assemblePlan with stops (both guards run in assembleDay)", () => {
     expect(r.ok && r.issues.port_window_missing).toBe(1);
   });
 
-  it("the row times count as times of the user (a window with them stays fixed)", () => {
-    expect([...inputTimes(stored)].sort()).toEqual(["07:00", "08:00", "12:00", "14:00", "16:00", "23:59"]);
+  it("the row times belong to their own stop row, not to the plan-wide notes times", () => {
+    expect([...inputTimes(stored)]).toEqual([]);
   });
 
   it("a plan without trip.stops is assembled as before (no stop issues)", () => {
