@@ -15,7 +15,7 @@ export const DESTINATION_KM = 5;
 export const MAX_GEOCODED_NAMES = 16;
 
 export type GeocodeOutcome =
-  | { status: "ok"; name: string; point: { lat: number; lon: number; geoId: number } }
+  | { status: "ok"; name: string; point: { lat: number; lon: number; geoId: number }; countryCode?: string }
   | { status: "not_found" }
   | { status: "error" };
 
@@ -104,7 +104,7 @@ export function assignStops(
       }
       if (looked < MAX_STOPS) {
         looked += 1;
-        r = { id: `s${++n}`, name: o.name, days: [], role: "stop", point: o.point, status: "ok" };
+        r = { id: `s${++n}`, name: o.name, days: [], role: "stop", point: o.point, status: "ok", ...(o.countryCode ? { countryCode: o.countryCode } : {}) };
       } else {
         r = { id: `s${++n}`, name: o.name, days: [], role: "stop", status: "cap" };
       }

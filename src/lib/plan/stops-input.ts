@@ -24,6 +24,8 @@ export type StopPlacesEntry = {
   id: string;
   name: string;
   s?: "not_found" | "error" | "skipped" | "cap";
+  /** Interests whose lookup failed at this stop (retry marker; absent when none, so older inputs stay valid). */
+  gf?: string[];
   places?: Omit<PlanInputPlace, "min" | "ap">[];
   restaurants?: Omit<RestaurantsInput, "ask" | "near">;
   cafes?: Omit<CafesInput, "near" | "kids">;
@@ -128,9 +130,11 @@ export function stopsInput(a: StopsInputArgs): { stopPlaces: StopPlacesEntry[]; 
       }
     }
     if (rows.size) entry.places = [...rows.values()];
+    const failedGroups = (f.places as PlaceGroup[]).filter((g) => g.status === "error").map((g) => g.interest as string);
+    if (failedGroups.length) entry.gf = failedGroups;
 
     if (f.restaurants) {
-      const r = restaurantsInput(f.restaurants, { cuisine: a.cuisine, countryCode: a.countryCode, known: a.known, startN: maxId(all(), "r"), limit: STOP_RESTAURANTS });
+      const r = restaurantsInput(f.restaurants, { cuisine: a.cuisine, countryCode: stop.countryCode ?? a.countryCode, known: a.known, startN: maxId(all(), "r"), limit: STOP_RESTAURANTS });
       for (const [id, e] of Object.entries(r.index)) {
         added[id] = { ...e, stop: stop.id };
         a.known.set(e.key, id);
@@ -216,12 +220,28 @@ export function extendInputWithStops(
   };
 }
 
-/** Stops of a stored input that need a new lookup: nothing usable (`s` error/skipped) or a failed restaurants/cafés block. */
+/** Stops of a stored input that need a new lookup: nothing usable (`s` error/skipped), a failed restaurants/cafés block or a failed interest group (`gf`). */
 export function stopsToRetry(stored: Pick<PlanInputStored, "llm" | "stopPoints">, scopeDays: readonly number[]): string[] {
   const rows = stored.llm.trip?.stops ?? [];
   return (stored.llm.stopPlaces ?? [])
     .filter((p) => stored.stopPoints?.[p.id])
-    .filter((p) => p.s === "error" || p.s === "skipped" || failedStatus(p.restaurants?.s) || failedStatus(p.cafes?.s))
+    .filter((p) => p.s === "error" || p.s === "skipped" || failedStatus(p.restaurants?.s) || failedStatus(p.cafes?.s) || !!p.gf?.length)
     .filter((p) => !scopeDays.length || rows.some((r) => r.at === p.id && scopeDays.includes(r.day)))
     .map((p) => p.id);
+}
+
+/**
+ * Stops whose geocoding failed when the input was made (`s` error, no stored point): they were never looked up, so
+ * `stopsToRetry` cannot see them. Returns their id, typed name and first day; patches geocode them again.
+ */
+export function stopsToGeocode(stored: Pick<PlanInputStored, "llm" | "stopPoints">, scopeDays: readonly number[]): { id: string; place: string; day: number }[] {
+  const rows = stored.llm.trip?.stops ?? [];
+  const out: { id: string; place: string; day: number }[] = [];
+  for (const p of stored.llm.stopPlaces ?? []) {
+    if (p.s !== "error" || stored.stopPoints?.[p.id]) continue;
+    const own = rows.filter((r) => r.at === p.id && r.place);
+    if (scopeDays.length && !own.some((r) => scopeDays.includes(r.day))) continue;
+    if (own[0]) out.push({ id: p.id, place: own[0].place as string, day: own[0].day });
+  }
+  return out;
 }

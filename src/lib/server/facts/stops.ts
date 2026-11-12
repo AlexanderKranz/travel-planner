@@ -64,7 +64,7 @@ export async function resolveStopPlaces(
         outcomes.set(
           n.key,
           r.status === "ok"
-            ? { status: "ok", name: r.place.name, point: { lat: r.place.lat, lon: r.place.lon, geoId: r.place.geoId } }
+            ? { status: "ok", name: r.place.name, point: { lat: r.place.lat, lon: r.place.lon, geoId: r.place.geoId }, ...(r.place.countryCode ? { countryCode: r.place.countryCode } : {}) }
             : r.status === "not_found"
               ? { status: "not_found" }
               : { status: "error" },
