@@ -19,7 +19,7 @@ import { stripDistances } from "./distance-text";
 import { dropOverlaps } from "./fixed-items";
 import type { PlanInputStored } from "./input";
 import { guardOpenAir, placeClasses, type PlaceClass } from "./open-air";
-import { applyPortWindows, rowTimes } from "./port-windows";
+import { applyPortWindows, rowTimes, rowsOfPlace } from "./port-windows";
 import { guardScheduleTimes } from "./schedule-times";
 import { guardStopRefs, stopRefCtx, type StopCtx } from "./stop-refs";
 
@@ -164,7 +164,7 @@ export type DayCtx = {
   index: PlanInputStored["index"];
   fallbackPlace: string;
   issues: AssembleIssues;
-  /** Times from the user's trip notes; a stop stays `fixed` only if all its window times are in here. */
+  /** Times from the user's trip notes; a stop stays `fixed` only if all its window times are in here or in its own stop row. */
   noteTimes: Set<string>;
   /** Patch only: text of the base day's activity at the same place, used when the model left text empty. */
   baseText?: Map<OsmKey, string>;
@@ -181,13 +181,17 @@ export type DayCtx = {
 };
 
 /**
- * Times the user gave: those in the notes and the arrival and departure times of the trip stops. A stop window stays
- * `fixed` only if every time of it is in here.
+ * Times the user wrote in the trip notes. The arrival and departure times of the trip stops are not in here: they
+ * belong to their own day and stop row (`ownTimes`), so a time of day 1 does not vouch for a model time on day 2.
  */
 export function inputTimes(stored: Pick<PlanInputStored, "llm">): Set<string> {
-  const out = noteTimes(stored.llm.trip.notes);
-  for (const t of rowTimes(stored.llm.trip.stops)) out.add(t);
-  return out;
+  return noteTimes(stored.llm.trip.notes);
+}
+
+/** Times the user gave for one plan stop: the notes' times plus the times of the day's rows that name the stop. */
+export function ownTimes(base: Set<string>, rows: PlanInputStored["llm"]["trip"]["stops"], place: string): Set<string> {
+  const mine = rowTimes(rowsOfPlace(rows, place));
+  return mine.length ? new Set([...base, ...mine]) : base;
 }
 
 /** The per-plan part of DayCtx that the guards of issue #142 need. */
@@ -207,6 +211,7 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
     const to = time(s.to, issues);
     if (s.acts.length > LIMITS.acts) issues.truncated += 1;
     const acts: PlanActivity[] = [];
+    const place = proseText(s.place, LIMITS.place, issues) ?? ctx.fallbackPlace;
     for (const a of s.acts.slice(0, LIMITS.acts)) {
       let ref: OsmKey | undefined;
       let refName: string | undefined;
@@ -238,14 +243,15 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
         act = g.act;
       }
       if (ctx.stops) {
-        const g = guardStopRefs(act, d.n, ctx.stops);
+        const g = guardStopRefs(act, d.n, ctx.stops, place);
         issues.stop_mismatch += g.dropped;
         act = g.act;
       }
       acts.push(act);
     }
-    const place = proseText(s.place, LIMITS.place, issues) ?? ctx.fallbackPlace;
-    const sched = guardScheduleTimes(acts, place, ctx.notes, ctx.noteTimes);
+    // Times from the trip stops count only for the stop row of this day that names the place.
+    const times = ownTimes(ctx.noteTimes, ctx.stops?.rows.get(d.n), place);
+    const sched = guardScheduleTimes(acts, place, ctx.notes, times);
     issues.invented_time += sched.dropped;
     return defined({
       place,
@@ -254,13 +260,14 @@ export function assembleDay(d: LlmDay, ctx: DayCtx): PlanDay {
       // "From your notes" is a claim about user input: only trust it when the user actually wrote both times.
       // A one-sided window ("departs 16:00") is fine; every time it does give must be in the notes.
       fixed:
-        s.fixed === true && (from || to) && [from, to].every((t) => !t || ctx.noteTimes.has(t)) ? true : undefined,
+        s.fixed === true && (from || to) && [from, to].every((t) => !t || times.has(t)) ? true : undefined,
       acts: sched.acts,
     });
   });
   // Port windows come from the trip stops, never from the model (itinerary-upload section 5).
   const windows = applyPortWindows(stops, ctx.stops?.rows.get(d.n));
   issues.port_window_missing += windows.missing;
+  issues.window_violation += windows.clipped;
   const title = proseText(d.title, LIMITS.title, issues) ?? stops[0]?.place ?? ctx.fallbackPlace;
   return defined({
     n: d.n,
