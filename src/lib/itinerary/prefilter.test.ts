@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_ITINERARY_TEXT } from "@/lib/domain/itinerary";
+import { parseItinerary } from "./parse";
 import { isItineraryLine, prefilterItinerary } from "./prefilter";
 
 // Synthetic document: made-up ship, passenger and booking number.
@@ -43,6 +44,29 @@ Samstag, 19.12.2037
 Passau
 Abfahrt 16:00`;
     expect(prefilterItinerary(text)).toBe("Samstag, 19.12.2037\nPassau\nAbfahrt 16:00");
+  });
+
+  it("keeps the place below a date-only row at the end of the text, but not a name before more prose", () => {
+    expect(prefilterItinerary("20.12.2037 Wien an 14:00\n21.12.2037\nMelk")).toBe("20.12.2037 Wien an 14:00\n21.12.2037\nMelk");
+    expect(prefilterItinerary("20.12.2037 Wien an 14:00\n21.12.2037\nMelk\n\n")).toBe("20.12.2037 Wien an 14:00\n21.12.2037\nMelk");
+    expect(prefilterItinerary("21.12.2037\nErika Mustermann\nWir freuen uns auf Sie")).toBe("21.12.2037");
+  });
+
+  it("keeps untimed rows of a day-column table and its header, not a number line after the table", () => {
+    const text = `Erika Mustermann
+Tag | Hafen | an | ab
+1 | Passau | – | 16:00
+2 | Wien | – | –
+3 | Melk | 15:00 | 21:00
+4 Personen in Kabine 3012`;
+    expect(prefilterItinerary(text).split("\n")).toEqual(["Tag | Hafen | an | ab", "1 | Passau | – | 16:00", "2 | Wien | – | –", "3 | Melk | 15:00 | 21:00"]);
+    expect(parseItinerary(prefilterItinerary(text), { startDate: "2037-12-19", lengthDays: 5 }, "2026-11-11").stops.map((s) => s.stop)).toEqual([
+      { day: 1, place: "Passau", dep: "16:00" },
+      { day: 2, place: "Wien" },
+      { day: 3, place: "Melk", arr: "15:00", dep: "21:00" },
+    ]);
+    // Without a day header a bare number line stays out.
+    expect(prefilterItinerary("1 Passau ab 16:00\n2 Wien\n3 Melk an 15:00")).toBe("1 Passau ab 16:00\n3 Melk an 15:00");
   });
 
   it("collapses whitespace and caps at MAX_ITINERARY_TEXT on a line boundary", () => {
