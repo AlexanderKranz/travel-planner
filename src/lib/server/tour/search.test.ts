@@ -68,7 +68,7 @@ beforeEach(() => {
 
 function cacheLandmarks() {
   h.store.set(landmarksKey(FFM), landmarks);
-  h.store.set(sitelinksKey(FFM), fx("wikidata/sitelinks-frankfurt.json"));
+  h.store.set(sitelinksKey(FFM, landmarks.map((l) => l.wikidata)), fx("wikidata/sitelinks-frankfurt.json"));
 }
 
 describe("tour place search (Frankfurt)", () => {
@@ -105,7 +105,8 @@ describe("tour place search (Frankfurt)", () => {
       Dom: ["Kaiserdom St. Bartholomäus", "Dominikanerkloster", "Dommuseum"],
       Kaiserdom: ["Kaiserdom St. Bartholomäus"],
       "Alte Oper": ["Alte Oper"],
-      Hauptbahnhof: ["Frankfurt (Main) Hauptbahnhof", "Hauptbahnhof (tief)", "Offenbach (Main) Hauptbahnhof"],
+      // The S-Bahn level "Hauptbahnhof (tief)" (own Wikidata item, 60 m away) is part of the station.
+      Hauptbahnhof: ["Frankfurt (Main) Hauptbahnhof", "Offenbach (Main) Hauptbahnhof"],
       Römer: ["Römer", "Römerberg", "Haus zum Römer"],
     });
   });

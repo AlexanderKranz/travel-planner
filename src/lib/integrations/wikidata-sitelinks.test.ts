@@ -73,5 +73,8 @@ describe("Wikidata sitelink counts", () => {
     h.fetchJson.mockResolvedValueOnce(answer([page("Q1", 1)])).mockRejectedValueOnce(Object.assign(new Error("x"), { status: 503 }));
     const ids = Array.from({ length: 60 }, (_, i) => `Q${i + 1}`);
     await expect(fetchSitelinkCounts(ids)).rejects.toMatchObject({ status: 503, units: 2 });
+    // An API error in the first answer is one request, one unit.
+    h.fetchJson.mockResolvedValueOnce({ status: 200, latencyMs: 5, body: { error: { code: "maxlag" } } });
+    await expect(fetchSitelinkCounts(["Q1"])).rejects.toMatchObject({ units: 1 });
   });
 });

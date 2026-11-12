@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { after } from "next/server";
 import { z } from "zod";
 import {
@@ -23,8 +24,10 @@ import { enqueuePlaceRetries } from "../place-retries";
  * `after`) plus the place retry job as a fallback. Wikidata answers in ~250 ms per 50 ids and is only called in the
  * same warm-up, never inline either.
  *
- * Cache keys: `landmarks:v1:lat=…;lon=…;r=8` (overpass, 30 d) and `sitelinks:v1:lat=…;lon=…;r=8` (wikidata, 90 d),
- * anchor rounded to 3 decimals like the interest places. Shared across users (public places only).
+ * Cache keys: `landmarks:v1:lat=…;lon=…;r=8` (overpass, 30 d) and `sitelinks:v1:ids=<hash>;lat=…;lon=…;r=8`
+ * (wikidata, 90 d; the hash of the set's ids, so a refreshed set with other ids fetches its counts again), anchor
+ * rounded to 3 decimals like the interest places. Shared across users (public places only). A complete set is also
+ * kept in memory for READ_MEMO_MS per instance: Wien's set is ~340 KB and the search reads it on every keystroke.
  */
 export const LANDMARKS_TTL_SECONDS = 30 * 86400;
 export const SITELINKS_TTL_SECONDS = 90 * 86400;
@@ -34,6 +37,9 @@ export const LANDMARK_QUERY_LIMIT = 3000;
 export const LANDMARK_WARM_BUDGET_MS = 110_000;
 /** One warm-up per city point and instance in this window (a search sends a request per keystroke). */
 export const WARM_COOLDOWN_MS = 10 * 60_000;
+/** A complete (fresh, ranked) set is read from the cache at most this often per point and instance. */
+export const READ_MEMO_MS = 5 * 60_000;
+const READ_MEMO_MAX = 20;
 
 export type Anchor = { lat: number; lon: number };
 export const anchorOf = (p: Anchor): Anchor => ({ lat: Number(p.lat.toFixed(3)), lon: Number(p.lon.toFixed(3)) });
@@ -42,9 +48,11 @@ export const landmarksKey = (p: Anchor) => {
   const a = anchorOf(p);
   return cacheKey("landmarks", 1, { lat: a.lat, lon: a.lon, r: LANDMARK_RADIUS_KM });
 };
-export const sitelinksKey = (p: Anchor) => {
+/** Sitelinks key: the anchor plus a hash of the set's Wikidata ids (sorted), 16 hex characters. */
+export const sitelinksKey = (p: Anchor, ids: readonly string[]) => {
   const a = anchorOf(p);
-  return cacheKey("sitelinks", 1, { lat: a.lat, lon: a.lon, r: LANDMARK_RADIUS_KM });
+  const h = createHash("sha256").update([...new Set(ids)].sort().join(",")).digest("hex").slice(0, 16);
+  return cacheKey("sitelinks", 1, { ids: h, lat: a.lat, lon: a.lon, r: LANDMARK_RADIUS_KM });
 };
 
 const LandmarkSchema: z.ZodType<Landmark> = z.object({
@@ -92,7 +100,7 @@ function sitelinksLookup(
   return cached({
     provider: "wikidata",
     endpoint: "sitelinks",
-    key: sitelinksKey(anchor),
+    key: sitelinksKey(anchor, landmarks.map((l) => l.wikidata)),
     ttlSeconds: SITELINKS_TTL_SECONDS,
     schema: SitelinksSchema,
     ctx,
@@ -116,19 +124,30 @@ export type CityLandmarks = {
   needsWarm: boolean;
 };
 
+const memo = new Map<string, { at: number; value: CityLandmarks }>();
+
 /** The cached landmark set of a city point, ranked; null when it was never fetched. 0 external calls. */
-export async function readLandmarks(anchor: Anchor, ctx: CacheCtx): Promise<CityLandmarks | null> {
+export async function readLandmarks(anchor: Anchor, ctx: CacheCtx, now: number = Date.now()): Promise<CityLandmarks | null> {
   const a = anchorOf(anchor);
+  const key = landmarksKey(a);
+  const hit = memo.get(key);
+  if (hit && now - hit.at < READ_MEMO_MS) return hit.value;
   const set = await landmarksLookup(a, ctx, null);
   if (!set.ok) return null;
   const links = set.data.length ? await sitelinksLookup(a, set.data, ctx, null) : null;
   const sitelinks = links?.ok ? links.data : null;
-  return {
+  const value: CityLandmarks = {
     ranked: rankLandmarks(set.data, sitelinks),
     fetchedAt: set.fetchedAt,
     prominence: set.data.length === 0 || sitelinks !== null,
     needsWarm: set.stale || (set.data.length > 0 && (!links?.ok || links.stale)),
   };
+  if (!value.needsWarm) {
+    memo.delete(key);
+    memo.set(key, { at: now, value });
+    if (memo.size > READ_MEMO_MAX) memo.delete(memo.keys().next().value!);
+  }
+  return value;
 }
 
 const inFlight = new Map<string, Promise<"ok" | "failed">>();
@@ -145,11 +164,17 @@ export function warmLandmarks(anchor: Anchor, ctx: CacheCtx, budgetMs: number): 
   const p = (async (): Promise<"ok" | "failed"> => {
     try {
       const deadline = Date.now() + budgetMs;
+      // A refresh that failed serves the expired entry (`stale`): not done, the job tries again.
       const set = await landmarksLookup(a, ctx, deadline);
-      if (!set.ok) return "failed";
-      if (!set.data.length) return "ok";
-      const links = await sitelinksLookup(a, set.data, ctx, deadline);
-      return links.ok ? "ok" : "failed";
+      if (!set.ok || set.stale) return "failed";
+      if (set.data.length) {
+        const links = await sitelinksLookup(a, set.data, ctx, deadline);
+        if (!links.ok || links.stale) return "failed";
+      }
+      // cached() reports a failed cache write only in its log: done only when the stored set reads back complete.
+      memo.delete(key);
+      const stored = await readLandmarks(a, ctx);
+      return stored && !stored.needsWarm ? "ok" : "failed";
     } catch {
       return "failed";
     }
@@ -182,8 +207,9 @@ export async function scheduleLandmarkWarm(anchor: Anchor, now: number = Date.no
   }
 }
 
-/** Test hook: forget the per-instance cooldowns. */
+/** Test hook: forget the per-instance cooldowns and the read memo. */
 export function resetLandmarkWarmState(): void {
   lastWarm.clear();
   inFlight.clear();
+  memo.clear();
 }

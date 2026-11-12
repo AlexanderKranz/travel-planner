@@ -78,8 +78,14 @@ beforeEach(() => {
 describe("landmark cache keys", () => {
   it("anchor rounded to 3 decimals, radius 8 km; nearby points share the key", () => {
     expect(landmarksKey(FFM)).toBe("landmarks:v1:lat=50.116;lon=8.684;r=8");
-    expect(sitelinksKey(FFM)).toBe("sitelinks:v1:lat=50.116;lon=8.684;r=8");
     expect(landmarksKey({ lat: 50.1157, lon: 8.6838 })).toBe(landmarksKey(FFM));
+  });
+
+  it("sitelinks: also a hash of the set's ids, so a refreshed set with other ids gets its counts fetched", () => {
+    const k = sitelinksKey(FFM, ["Q57341", "Q165368"]);
+    expect(k).toMatch(/^sitelinks:v1:ids=[0-9a-f]{16};lat=50\.116;lon=8\.684;r=8$/);
+    expect(sitelinksKey({ lat: 50.1157, lon: 8.6838 }, ["Q165368", "Q57341", "Q57341"])).toBe(k);
+    expect(sitelinksKey(FFM, ["Q57341", "Q165368", "Q1"])).not.toBe(k);
   });
 });
 
@@ -93,6 +99,7 @@ describe("readLandmarks (user requests)", () => {
 
   it("ranks by sitelinks when cached; without them the fallback order and `prominence: false`", async () => {
     await warmLandmarks(FFM, { userId: null }, 100_000);
+    resetLandmarkWarmState();
     h.calls.length = 0;
     const r = await readLandmarks(FFM, { userId: "u1" });
     expect(r).toMatchObject({ prominence: true, needsWarm: false });
@@ -101,12 +108,19 @@ describe("readLandmarks (user requests)", () => {
       ["overpass", "landmarks", false],
       ["wikidata", "sitelinks", false],
     ]);
-    h.store.delete(sitelinksKey(FFM));
+    // A complete set is read from memory for 5 minutes (Wien's set is ~340 KB, the search reads it per keystroke).
+    const t = Date.now();
+    await readLandmarks(FFM, { userId: "u1" }, t);
+    await readLandmarks(FFM, { userId: "u1" }, t + 60_000);
+    expect(h.calls).toHaveLength(2);
+    for (const k of [...h.store.keys()]) if (k.startsWith("sitelinks:")) h.store.delete(k);
+    resetLandmarkWarmState();
     expect(await readLandmarks(FFM, { userId: "u1" })).toMatchObject({ prominence: false, needsWarm: true });
   });
 
   it("an expired set is still served, but a warm-up is due", async () => {
     await warmLandmarks(FFM, { userId: null }, 100_000);
+    resetLandmarkWarmState();
     h.stale.add(landmarksKey(FFM));
     expect(await readLandmarks(FFM, { userId: "u1" })).toMatchObject({ prominence: true, needsWarm: true });
   });
@@ -119,9 +133,12 @@ describe("warmLandmarks (after the response, retry worker)", () => {
     const query = h.runQuery.mock.calls[0][0] as string;
     for (const f of LANDMARK_FILTERS) expect(query).toContain(f);
     expect(query).toContain("out center tags 3000;");
-    expect(h.calls.map((c) => [c.provider, c.endpoint, c.ttl])).toEqual([
-      ["overpass", "landmarks", 30 * 86400],
-      ["wikidata", "sitelinks", 90 * 86400],
+    expect(h.calls.map((c) => [c.provider, c.endpoint, c.ttl, c.allowed])).toEqual([
+      ["overpass", "landmarks", 30 * 86400, true],
+      ["wikidata", "sitelinks", 90 * 86400, true],
+      // Read back from the cache before reporting done.
+      ["overpass", "landmarks", 30 * 86400, false],
+      ["wikidata", "sitelinks", 90 * 86400, false],
     ]);
     const ids = new Set((h.store.get(landmarksKey(FFM)) as { wikidata: string }[]).map((l) => l.wikidata));
     expect(h.fetchJson).toHaveBeenCalledTimes(Math.ceil(ids.size / 50));
@@ -142,7 +159,20 @@ describe("warmLandmarks (after the response, retry worker)", () => {
     h.fetchJson.mockRejectedValue(Object.assign(new Error("x"), { status: 503 }));
     expect(await warmLandmarks(FFM, { userId: null }, 100_000)).toBe("failed");
     expect(h.store.has(landmarksKey(FFM))).toBe(true);
-    expect(h.store.has(sitelinksKey(FFM))).toBe(false);
+    expect([...h.store.keys()].some((k) => k.startsWith("sitelinks:"))).toBe(false);
+  });
+
+  it("a stale answer (refresh failed, expired entry served) or a cache write that did not land is not done", async () => {
+    await warmLandmarks(FFM, { userId: null }, 100_000);
+    h.stale.add(landmarksKey(FFM));
+    h.runQuery.mockRejectedValueOnce(Object.assign(new Error("x"), { status: 504 }));
+    expect(await warmLandmarks(FFM, { userId: null }, 100_000)).toBe("failed");
+    h.store.clear();
+    h.stale.clear();
+    const realSet = h.store.set.bind(h.store);
+    h.store.set = ((k: string, v: unknown) => (k.startsWith("sitelinks:") ? h.store : realSet(k, v))) as typeof h.store.set;
+    expect(await warmLandmarks(FFM, { userId: null }, 100_000)).toBe("failed");
+    h.store.set = realSet;
   });
 });
 

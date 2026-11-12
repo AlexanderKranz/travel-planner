@@ -91,11 +91,12 @@ export async function fetchSitelinkCounts(
     }
     try {
       const r = await fetchJson(sitelinksUrl(unique.slice(i, i + SITELINKS_BATCH)), { timeoutMs: SITELINKS_TIMEOUT_MS });
-      requests += 1;
       Object.assign(counts, parseSitelinks(r.body));
+      requests += 1;
       latencyMs += r.latencyMs;
       status = r.status;
     } catch (err) {
+      // The batches before plus this one (sent, whether it failed on the wire or in the answer).
       if (err !== null && typeof err === "object") Object.assign(err, { units: requests + 1 });
       throw err;
     }

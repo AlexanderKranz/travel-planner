@@ -46,7 +46,7 @@ export function cityDestination(
   };
 }
 
-/** Max places offered as suggestions (landmarks first, then the trip's purpose interests). */
+/** Max places offered as suggestions in total (landmarks first, then up to half of it the trip's purpose interests). */
 export const MAX_CITY_PLACES = 40;
 
 /** Landmark → city place: OSM key and link, the name in the user's language. */
@@ -91,8 +91,14 @@ export async function cityPlaces(
     seen.add(p.key);
     places.push(p);
   };
-  for (const l of landmarks?.ranked ?? []) add(landmarkPlace(l, a.locale));
-  fromInterests.places.forEach(add);
+  // Purpose interest places get up to half of the list, the landmarks the rest (at least half).
+  const fresh = fromInterests.places.filter((p, i, all) => all.findIndex((x) => x.key === p.key) === i);
+  const reserve = landmarks?.ranked.length ? Math.min(fresh.length, Math.floor(limit / 2)) : 0;
+  for (const l of landmarks?.ranked ?? []) {
+    if (places.length >= limit - reserve) break;
+    add(landmarkPlace(l, a.locale));
+  }
+  fresh.forEach(add);
   const dates = [...fromInterests.dates, ...(landmarks ? [landmarks.fetchedAt] : [])];
   return {
     places,

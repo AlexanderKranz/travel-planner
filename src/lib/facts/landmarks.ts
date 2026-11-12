@@ -15,8 +15,11 @@ import type { RawOsmElement } from "@/lib/integrations/overpass";
 
 /** Landmarks within this distance of the city point (Wien: Schönbrunn 5 km; Passau's GeoNames point is 2.7 km from the Dom). */
 export const LANDMARK_RADIUS_KM = 8;
-/** Candidates kept per city (stored in the cache; Wien had ~1,450 after dedupe). Also the sitelinks lookup cap. */
-export const MAX_LANDMARK_CANDIDATES = 1000;
+/**
+ * Candidates kept per city before the sitelink ranking (stored in the cache; also the sitelinks lookup cap, 40
+ * requests). Wien had 1,453 after dedupe; a cap of 1,000 dropped the Wiener Stadthalle (rank 23 by sitelinks).
+ */
+export const MAX_LANDMARK_CANDIDATES = 2000;
 /** Landmarks offered as suggestions / sight candidates. */
 export const MAX_LANDMARKS = 60;
 /** Same-name elements this close are one place (two nodes of one building, a church and its tower). */
@@ -128,11 +131,19 @@ function altNames(tags: Record<string, string>, name: string): string[] {
 
 const TYPE_RANK = { relation: 2, way: 1, node: 0 } as const;
 
-/** Which of two elements with the same wikidata id represents it: a core sight over a park, then more translations. */
+/**
+ * Which of two elements with the same wikidata id represents it: a core sight over a park, then more translations.
+ * The other element's names stay searchable (its name and aliases join the kept one's `alt`).
+ */
 function better(a: Landmark, b: Landmark): Landmark {
   const core = (l: Landmark) => (l.kind === "sight" ? 1 : 0);
   const diff = core(b) - core(a) || b.nameCount - a.nameCount || TYPE_RANK[b.osmType] - TYPE_RANK[a.osmType] || a.osmId - b.osmId;
-  return diff > 0 ? b : a;
+  const [keep, drop] = diff > 0 ? [b, a] : [a, b];
+  const alt = new Set(keep.alt);
+  for (const n of [drop.name, drop.names.de, drop.names.en, ...drop.alt]) {
+    if (n && n !== keep.name) alt.add(n);
+  }
+  return { ...keep, alt: [...alt].slice(0, 12) };
 }
 
 /** Fallback prominence when no sitelink count is known (also the order of the sitelinks lookup). */
@@ -148,6 +159,7 @@ export function collectLandmarks(
   elements: readonly RawOsmElement[],
   anchor: { lat: number; lon: number },
   maxKm = LANDMARK_RADIUS_KM,
+  cap = MAX_LANDMARK_CANDIDATES,
 ): Landmark[] {
   const byQ = new Map<string, Landmark>();
   for (const e of elements) {
@@ -185,7 +197,7 @@ export function collectLandmarks(
     const f = foldName(l.name);
     if (kept.some((k) => foldName(k.name) === f && haversineKm(k, l) <= LANDMARK_DEDUPE_KM)) continue;
     kept.push(l);
-    if (kept.length >= MAX_LANDMARK_CANDIDATES) break;
+    if (kept.length >= cap) break;
   }
   return kept;
 }
@@ -197,11 +209,24 @@ export function landmarkScore(l: Landmark, sitelinks: Readonly<Record<string, nu
   return ((n + (l.wikipedia ? 1 : 0)) * KIND_WEIGHT[l.kind]) / (1 + l.distanceKm / 5);
 }
 
-/** Candidates by prominence (sitelinks when known, else the cheap fallback), ties by distance then id. */
+/**
+ * Candidates by prominence (sitelinks when known, else the cheap fallback), ties by distance then id. A station that
+ * shares a name with a more prominent station within 300 m is one of its levels and is left out ("Hauptbahnhof
+ * (tief)", the S-Bahn level 60 m from "Frankfurt (Main) Hauptbahnhof", has its own Wikidata item).
+ */
 export function rankLandmarks(list: readonly Landmark[], sitelinks: Readonly<Record<string, number>> | null): Landmark[] {
   const scored = list.map((l) => ({ l, s: landmarkScore(l, sitelinks) }));
   scored.sort((a, b) => b.s - a.s || a.l.distanceKm - b.l.distanceKm || a.l.osmId - b.l.osmId);
-  return scored.map((x) => x.l);
+  const out: Landmark[] = [];
+  const stations: Landmark[] = [];
+  for (const { l } of scored) {
+    if (l.kind === "station") {
+      if (stations.some((st) => sameAsLandmark({ name: l.name, lat: l.lat, lon: l.lon }, st))) continue;
+      stations.push(l);
+    }
+    out.push(l);
+  }
+  return out;
 }
 
 const variants = (l: Landmark) => [l.name, l.names.de, l.names.en, ...l.alt].filter((s): s is string => Boolean(s)).map(foldName);

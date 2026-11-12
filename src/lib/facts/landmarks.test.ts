@@ -89,6 +89,26 @@ describe("landmark set (Frankfurt, Wien, Passau fixtures)", () => {
     expect(new Set(wien.map((l) => l.wikidata)).size).toBe(wien.length);
   });
 
+  it("Frankfurt: the S-Bahn level 'Hauptbahnhof (tief)' (own Wikidata item, 60 m away) is part of the main station", () => {
+    const all = names(ranked("frankfurt"));
+    expect(all).toContain("Frankfurt (Main) Hauptbahnhof");
+    expect(all).not.toContain("Hauptbahnhof (tief)");
+    expect(all).toContain("Offenbach (Main) Hauptbahnhof");
+  });
+
+  it("the names of a dropped element with the same wikidata id stay searchable", () => {
+    const base = { type: "node" as const, lat: 50.1, lon: 8.6 };
+    const els: RawOsmElement[] = [
+      { ...base, id: 1, tags: { name: "Kaiserdom St. Bartholomäus", loc_name: "Dom", amenity: "place_of_worship", wikidata: "Q57341" } },
+      { ...base, type: "way", id: 2, tags: { name: "Kaiserdom", "name:en": "Frankfurt Cathedral", "name:fr": "x", building: "cathedral", wikidata: "Q57341" } },
+    ];
+    const [one, ...rest] = collectLandmarks(els, { lat: 50.1, lon: 8.6 });
+    expect(rest).toEqual([]);
+    expect(one.osmId).toBe(2);
+    expect(one.alt).toEqual(expect.arrayContaining(["Frankfurt Cathedral", "Kaiserdom St. Bartholomäus", "Dom"]));
+    expect(matchLandmarks([one], "Dom", 1)).toHaveLength(1);
+  });
+
   it("same name within 150 m is one place; a station's levels and stops do not enter the set", () => {
     const base = { type: "node" as const, lat: 50.1, lon: 8.6 };
     const els: RawOsmElement[] = [

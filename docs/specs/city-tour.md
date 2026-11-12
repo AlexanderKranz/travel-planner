@@ -651,8 +651,10 @@ autocomplete. Measured live with 21 calls (Overpass 5, one a 502; Wikidata 4; Ge
   "Alte Oper" stations shadowed the landmarks); generic buildings only with `landmark=yes` (office towers and
   companies tagged on buildings were most of Frankfurt's noise).
 - Code applies the same filter, the exact radius, one element per wikidata id (a castle wins over a gate or park with
-  the same id: Hofburg over Schweizertor, Schloss Schönbrunn over the Schlosspark), one per name within 150 m, at
-  most 1,000 candidates (Frankfurt 448, Wien 1,000 of ~1,450, Passau 90).
+  the same id: Hofburg over Schweizertor, Schloss Schönbrunn over the Schlosspark; the other element's names stay
+  searchable), one per name within 150 m, at most 2,000 candidates (Frankfurt 448, Wien 1,453, Passau 90; a cap of
+  1,000 dropped the Wiener Stadthalle, rank 23 by sitelinks). After ranking, a station that shares a name with a more
+  prominent station within 300 m is left out ("Hauptbahnhof (tief)", the S-Bahn level of Frankfurt Hbf).
 - **Prominence = Wikidata sitelink count** × kind weight (stations, streets, memorials, markets, plain buildings 0.6;
   parks 0.8; sights 1) / (1 + km from the city point / 5), +1 for a wikipedia tag. Evidence: sitelinks put the
   known sights first in all three cities; the cheap alternative (count of `name:*` tags + wikipedia tag) missed
@@ -661,7 +663,9 @@ autocomplete. Measured live with 21 calls (Overpass 5, one a 502; Wikidata 4; Ge
   50 ids per request, ~250 ms, 3.9 KB for 50; equal to the Query Service values for the 50 checked), serial, with
   `maxlag=5` and the app's User-Agent (`src/lib/integrations/wikidata-sitelinks.ts`). Wikidata data is CC0.
 - Caches: `overpass/landmarks` 30 d and `wikidata/sitelinks` 90 d, both keyed by the anchor (3 dp) and radius,
-  shared across users. **Overpass and Wikidata are never called inside a user request**: suggestions, search and
+  the sitelinks also by a hash of the set's ids (a refreshed set with new ids fetches its counts again); shared across
+  users. A complete set is kept in memory 5 min per instance (Wien's set is ~340 KB; the search reads it per
+  keystroke). The warm-up reports done only when the stored set reads back fresh and complete. **Overpass and Wikidata are never called inside a user request**: suggestions, search and
   sights read the cache only. A miss (or an expired entry) schedules the warm-up with Next.js `after()` (budget
   110 s; one per point and instance per 10 min) and queues the place retry job as a fallback. The job reuses kind
   `interest` with the reserved name `landmarks` (no migration of the `kind` check); the worker branches on it.
@@ -669,7 +673,8 @@ autocomplete. Measured live with 21 calls (Overpass 5, one a 502; Wikidata 4; Ge
   `pending`. A Geoapify landmark fast path was measured and rejected: 500 places (25 credits) with landmark
   categories reach only 1.1 km around Frankfurt's centre and miss the Hauptbahnhof, Paulskirche and Städel; Alte Oper
   and Eiserner Steg come back only as stations.
-- Suggestions: top 40 landmarks, then the linked trip's purpose interests. Sights near the route: top 60.
+- Suggestions: 40 in total, the landmarks by prominence first, then the linked trip's purpose interests with up to
+  20 of the 40 (places that are already landmarks count once). Sights near the route: top 60 landmarks.
 
 **Search** (`src/lib/server/tour/search.ts`, `GET /api/places/search`, new `use=place|endpoint`).
 1. Landmarks of the cached set that match: case-, accent- and ß-insensitive on name, `name:de`/`name:en`,
@@ -720,12 +725,12 @@ recorded `type=amenity` answers merged with the landmark set, `src/lib/server/to
 | Dom | street addresses only (Domstraße …) | Kaiserdom St. Bartholomäus · Dominikanerkloster · Dommuseum |
 | Kaiserdom | not measured | Kaiserdom St. Bartholomäus |
 | Alte Oper | Alte Oper (theatre) · bus stop · car park (plus an office, a ticket office) | Alte Oper |
-| Hauptbahnhof | Deutsche Post · Burgertime · … (businesses inside the station) | Frankfurt (Main) Hauptbahnhof · Hauptbahnhof (tief) · Offenbach (Main) Hauptbahnhof |
+| Hauptbahnhof | Deutsche Post · Burgertime · … (businesses inside the station) | Frankfurt (Main) Hauptbahnhof · Offenbach (Main) Hauptbahnhof (nothing else: the S-Bahn level and the uncategorized exits and stops are the station) |
 | Römer | not measured | Römer · Römerberg · Haus zum Römer |
 
 **Quotas.** Overpass: one query per city per 30 days, in the warm-up or the retry job only (40-55 s on
 overpass-api.de, 278 s for Wien on the private.coffee mirror; the job's 120 s cap can cut a slow mirror, the next run
-retries). Wikidata: per city per 90 days 2 (Passau) to 20 (Wien) light requests. Geoapify: no new Places credits
+retries). Wikidata: per city per 90 days (and after a refreshed set with new ids) 2 (Passau) to 30 (Wien) light requests. Geoapify: no new Places credits
 (suggestions no longer need the `general` Geoapify lookup once the landmarks are cached: 11-15 credits less per new
 city); place searches use a new cache key, so queries cached before are fetched once more, and a query that 8
 landmarks answer costs nothing.

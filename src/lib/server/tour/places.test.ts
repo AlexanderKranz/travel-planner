@@ -89,6 +89,11 @@ describe("cityPlaces (tour suggestions and sights)", () => {
       o.key.startsWith("landmarks:") ? ok(ffmLandmarks) : o.key.startsWith("sitelinks:") ? ok(ffmSitelinks) : o.provider === "overpass" ? ok([museum]) : miss;
     const r = await cityPlaces(ffm, ["general", "museums"], { userId: "u1", locale: "de", network: true, limit: 200 });
     expect(r.places.at(-1)).toMatchObject({ key: "osm:w1", name: "Kleines Museum", cat: "museum" });
+    // With the default 40, the landmarks fill the list but leave room for the purpose places.
+    const capped = await cityPlaces(ffm, ["general", "museums"], { userId: "u1", locale: "de", network: true });
+    expect(capped.places).toHaveLength(40);
+    expect(capped.places.at(-1)).toMatchObject({ key: "osm:w1" });
+    expect(capped.places[0].name).toBe("Frankfurter Wertpapierbörse");
   });
 
   it("landmarks not cached yet: the `general` places stand in, pending, warm-up after the response (never inline)", async () => {
