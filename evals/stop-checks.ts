@@ -146,3 +146,35 @@ export function portPatchChecks(a: { upgraded: PlanInputStored; first: { needPla
   }
   return r;
 }
+
+/**
+ * Patch case of 2026-11-12 ("replace the walks by concrete sights", no day selected) on a base whose port sights were
+ * made generic: every port day in `portDays` is changed and has a see/do activity with a ref of its own stop (where
+ * that stop's input lists places), no day is rejected, and the guards dropped no refs (`stop_mismatch` is reported).
+ */
+export function portSightsChecks(a: {
+  stored: PlanInputStored;
+  base: Plan;
+  next: Plan;
+  changedDays: number[];
+  rejectedDays: number[];
+  issues: Pick<AssembleIssues, "stop_mismatch">;
+  portDays: { day: number; stop: string }[];
+}): CheckResult[] {
+  const r: CheckResult[] = [check("no patched day was rejected", a.rejectedDays.length === 0, a.rejectedDays.join(","))];
+  // Only the stop's own `places` count (not its restaurants or cafés, which a see/do activity could reference too).
+  const placeKeys = (stop: string) =>
+    new Set((a.stored.llm.stopPlaces?.find((p) => p.id === stop)?.places ?? []).flatMap((p) => (Object.hasOwn(a.stored.index, p.id) ? [a.stored.index[p.id].key as string] : [])));
+  const sightRefs = (p: Plan, day: number, stop: string) => {
+    const keys = placeKeys(stop);
+    return p.days.find((d) => d.n === day)?.stops.flatMap((s) => s.acts.filter((x) => (x.kind === "see" || x.kind === "do") && !!x.ref && keys.has(x.ref))).length ?? 0;
+  };
+  for (const { day, stop } of a.portDays) {
+    const listed = (a.stored.llm.stopPlaces?.find((p) => p.id === stop)?.places ?? []).length;
+    if (!listed) continue;
+    r.push(check(`day ${day} is changed`, a.changedDays.includes(day), a.changedDays.join(",")));
+    r.push(check(`day ${day} has a sight ref of ${stop}`, sightRefs(a.next, day, stop) > 0, `${sightRefs(a.base, day, stop)} -> ${sightRefs(a.next, day, stop)}`));
+  }
+  r.push(report("stop_mismatch after the patch", a.issues.stop_mismatch));
+  return r;
+}

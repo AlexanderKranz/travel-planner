@@ -92,10 +92,20 @@ export async function resolveStopPlaces(
   return assignStops(stops, outcomes, anchor);
 }
 
-/** The interests looked up around every stop: the purpose's first two with an OSM source, `general` when none. */
+const isSights = (k: string) => k === "general" || k === "city_sightseeing";
+
+/**
+ * The interests looked up around every stop (port-places [P4], implementation note 2026-11-12): the town's sights
+ * (`city_sightseeing` when the purpose has it, else `general`) plus the purpose's first other interest with an OSM
+ * source, in `interestsForTrip` order. A port call is mostly a town visit: with "the first two" a purpose such as
+ * nature + photography left every port without sights, so port days could only get generic walks.
+ */
 export function stopInterests(purpose: Pick<TripPurpose, "guided" | "tags"> | null): ReturnType<typeof interestsForTrip>["keys"] {
-  const keys = interestsForTrip(purpose?.guided, purpose?.tags).keys.filter((k) => sourceFor(k).source === "osm").slice(0, STOP_INTERESTS);
-  return keys.length ? keys : ["general"];
+  const keys = interestsForTrip(purpose?.guided, purpose?.tags).keys.filter((k) => sourceFor(k).source === "osm");
+  const sights = keys.find(isSights) ?? "general";
+  const other = keys.find((k) => !isSights(k));
+  const picked = [...new Set([...keys.filter((k) => k === sights || k === other), sights])];
+  return picked.slice(0, STOP_INTERESTS);
 }
 
 export type StopLookupOptions = {

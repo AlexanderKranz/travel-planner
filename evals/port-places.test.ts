@@ -2,7 +2,7 @@
  * Port-places evals on recorded data (docs/specs/port-places.md section 9): recorded geocoding and Overpass answers
  * around the cruise stops, the real code from geocoding to the plan input and both guards. No network, no model.
  * The Sonnet calls (generate with stops, the failure replay, the patch) are recorded by `npm run evals:live` with
- * EVAL_TASK=stops,stopsfail,portpatch; their checks (`stop-checks.ts`) run here when a recording exists, and on a
+ * EVAL_TASK=stops,stopsfail,portpatch,portsights; their checks (`stop-checks.ts`) run here when a recording exists, and on a
  * hand-made synthetic plan always.
  */
 import { describe, expect, it, vi } from "vitest";
@@ -21,7 +21,7 @@ import { haversineKm } from "@/lib/facts/places";
 import { MODEL_PLAN } from "@/lib/domain/ai";
 import { FIXTURES, FIXTURE_IDS, buildEvalInput, evalTrip, type FixtureId } from "./build-input";
 import { EVAL_TODAY } from "./build-input";
-import { evalStopContext, evaluatePortPatch, evaluateStopGenerate, notesStops, readStopRecording, scheduleStops, STOP_NAMES } from "./port-places";
+import { evalStopContext, evaluatePortPatch, evaluatePortSights, evaluateStopGenerate, notesStops, portSightsBase, readStopRecording, scheduleStops, STOP_NAMES } from "./port-places";
 import { readRecording } from "./recorded";
 import { evaluateGenerate, RECORDED_GENERATED_AT } from "./evaluate";
 import { rawStopMismatches, stopFailureChecks, stopGenerateChecks, mealWindows } from "./stop-checks";
@@ -257,5 +257,77 @@ describe.runIf(!!rec)("recorded model output with stops", () => {
   it.runIf(!!pr && !!base)("portpatch: the input is upgraded, one call, days 2-4 gain restaurant refs of their stops", async () => {
     const g = await evaluatePortPatch(base!.output, pr!.output);
     expect(failed(g.results), formatResults("cruise portpatch", g.results)).toEqual([]);
+  });
+  const ps = readRecording<LlmPatch>("cruise", "portsights");
+  it.runIf(!!ps)("portsights: walks -> concrete sights with no day selected changes every port day with its own sights", async () => {
+    const g = await evaluatePortSights(ps!.output);
+    expect(failed(g.results), formatResults("cruise portsights", g.results)).toEqual([]);
+  });
+});
+
+// The checks of `portsights` on hand-made patches (always; the model answer is checked above when recorded).
+describe.runIf(!!rec && !!readRecording<LlmPlan>("cruise", "stops"))("portsights base and checks (cruise report of 2026-11-12)", () => {
+  type PlanAct = { kind: string; ref?: string; text: string };
+  const portActs = (plan: { days: { n: number; stops: { acts: PlanAct[] }[] }[] }, n: number) => plan.days.find((d) => d.n === n)!.stops.flatMap((s) => s.acts);
+
+  it("the base has generic walks without refs at every port and keeps the destination days", async () => {
+    const b = (await portSightsBase())!;
+    for (const n of [2, 3, 4]) {
+      const see = portActs(b.plan, n).filter((a) => a.kind === "see");
+      expect(see.every((a) => !a.ref)).toBe(true);
+      expect(see.some((a) => /Spaziergang|Bummel/.test(a.text))).toBe(true);
+    }
+    expect(portActs(b.plan, 1).some((a) => !!a.ref)).toBe(true);
+  });
+
+  /** A patch that puts the first listed place of each port's stop on the first generic walk there. */
+  async function patchFor(days: number[], use: "places" | "restaurants" = "places"): Promise<LlmPatch> {
+    const b = (await portSightsBase())!;
+    const idOf = new Map(Object.entries(b.stored.index).map(([id, e]) => [e.key as string, id]));
+    const rows = b.stored.llm.trip.stops ?? [];
+    return {
+      reply: "ok",
+      days: b.plan.days
+        .filter((d) => days.includes(d.n))
+        .map((d) => ({
+          n: d.n,
+          title: d.title,
+          note: d.note,
+          warn: d.warn,
+          stops: d.stops.map((s) => {
+            const at = rows.find((r) => r.day === d.n && r.place && s.place.toLowerCase().includes(r.place.toLowerCase().slice(0, 4)))?.at;
+            const entry = b.stored.llm.stopPlaces?.find((p) => p.id === at);
+            const first = use === "places" ? entry?.places?.[0]?.id : entry?.restaurants?.list[0]?.id;
+            let used = false;
+            return {
+              place: s.place,
+              from: s.from,
+              to: s.to,
+              fixed: s.fixed,
+              acts: s.acts.map((a) => {
+                const base = { at: a.at, until: a.until, kind: a.kind, text: a.text, ...(a.ref ? { ref: idOf.get(a.ref) } : {}), ...(a.alts?.length ? { alts: a.alts.map((k) => idOf.get(k)!) } : {}) };
+                if (used || a.kind !== "see" || a.ref || !first) return base;
+                used = true;
+                return { ...base, text: "Besichtigung", ref: first };
+              }),
+            };
+          }),
+        })),
+    };
+  }
+
+  it("a patch that gives every port day a sight of its own stop passes", async () => {
+    const g = await evaluatePortSights(await patchFor([2, 3, 4]));
+    expect(failed(g.results), formatResults("synthetic portsights", g.results)).toEqual([]);
+  });
+
+  it("a see activity with a restaurant ref of the stop is not a sight", async () => {
+    const g = await evaluatePortSights(await patchFor([2, 3, 4], "restaurants"));
+    expect(failed(g.results).map((r) => r.name)).toEqual(expect.arrayContaining(["day 2 has a sight ref of s1", "day 3 has a sight ref of s2", "day 3 has a sight ref of s3"]));
+  });
+
+  it("the reported answer (day 2 only) fails for days 3 and 4", async () => {
+    const g = await evaluatePortSights(await patchFor([2]));
+    expect(failed(g.results).map((r) => r.name)).toEqual(expect.arrayContaining(["day 3 is changed", "day 4 is changed"]));
   });
 });

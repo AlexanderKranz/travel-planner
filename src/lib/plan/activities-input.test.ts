@@ -192,7 +192,7 @@ describe("QA: per-type status, multi-type places, own-key refs", () => {
     const index = { a1: { key: "node/1" as const, place: { ...indoor.places[0], category: "x", source: "osm" as const, fetchedAt: T } } } as never;
     const issues = emptyIssues();
     const day = assembleDay(
-      { n: 1, title: "T", stops: [{ place: "X", acts: [{ kind: "do", text: "a", ref: "constructor" }, { kind: "do", text: "b", ref: "__proto__" }, { kind: "do", text: "c", ref: "a1", alts: ["toString", "__proto__"] }] }] },
+      { n: 1, title: "T", stops: [{ place: "X", acts: [{ kind: "do", text: "Ort a", ref: "constructor" }, { kind: "do", text: "Ort b", ref: "__proto__" }, { kind: "do", text: "Ort c", ref: "a1", alts: ["toString", "__proto__"] }] }] },
       { date: null, index, fallbackPlace: "X", issues, noteTimes: new Set() },
     );
     const acts = day.stops[0].acts;

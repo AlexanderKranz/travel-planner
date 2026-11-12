@@ -40,7 +40,7 @@ import {
   type NeedPatchRecording,
 } from "./evaluate";
 import { assertBudget, readLedger, recordSpend } from "./ledger";
-import { PORT_PATCH_FEEDBACK, evalStopContext, evaluatePortPatch, evaluateStopGenerate, upgradedInput, type StopVariant } from "./port-places";
+import { PORT_PATCH_FEEDBACK, PORT_SIGHTS_FEEDBACK, evalStopContext, evaluatePortPatch, evaluatePortSights, evaluateStopGenerate, portSightsBase, upgradedInput, type StopVariant } from "./port-places";
 import { readRecording, writeRecording, type RecordedTask } from "./recorded";
 import { createHash } from "node:crypto";
 
@@ -54,7 +54,7 @@ const pick = <T extends string>(env: string | undefined, all: readonly T[]): T[]
   env ? (env.split(",").map((s) => s.trim()).filter((s) => (all as readonly string[]).includes(s)) as T[]) : [...all];
 const fixtures = pick<FixtureId>(process.env.EVAL_FIXTURE, FIXTURE_IDS);
 const tasks = process.env.EVAL_TASK
-  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "needbase", "patch", "familypatch", "uncoveredpatch", "nogolfbase", "golfpatch", "golfeveryday", "stops", "stopsnotes", "stopsfail", "portpatch"])
+  ? pick<RecordedTask>(process.env.EVAL_TASK, ["drive", "tags", "generate", "needbase", "patch", "familypatch", "uncoveredpatch", "nogolfbase", "golfpatch", "golfeveryday", "stops", "stopsnotes", "stopsfail", "portpatch", "portsights"])
   : (["tags", "generate", "needbase", "patch"] as RecordedTask[]);
 
 const usd = (micro: number) => `$${(micro / 1e6).toFixed(4)}`;
@@ -292,6 +292,21 @@ describe.runIf(LIVE)("live evals", () => {
             console.log(`[${id}] port patch needPlaces ${canonicalJson(first.data.needPlaces ?? null)}; days ${first.data.days.map((d) => d.n).join(",") || "-"}; reply: ${first.data.reply}`);
             console.log(formatResults(`[${id}] port patch`, (await evaluatePortPatch(llmPlan, first.data)).results));
           }
+        }
+      }
+
+      // 5. "Walks -> concrete sights" with no day selected (cruise report of 2026-11-12) on the stops generation whose port
+      // sights were made generic: every port day must get a sight of its own stop (plan-9 addendum).
+      if (id === "cruise" && tasks.includes("portsights")) {
+        const b = await portSightsBase();
+        if (!b) throw new Error("record the stops generation first (EVAL_TASK=stops)");
+        const r = await patchPlan({ llm: b.stored.llm, plan: b.plan, index: b.stored.index, feedback: PORT_SIGHTS_FEEDBACK }, ctxFor(id, "plan_patch", usage));
+        if (!r.ok) console.log(`[${id}] port sights failed: ${r.error}`);
+        else {
+          const inputHash = createHash("sha256").update(canonicalJson({ base: planInputHash(b.stored.llm), plan: b.plan.days, feedback: PORT_SIGHTS_FEEDBACK })).digest("hex");
+          writeRecording(id, "portsights", { promptVersion: PLAN_PROMPT_VERSION, model: MODEL_PLAN, inputHash, output: r.data, usage: r.usage, recordedAt });
+          console.log(`[${id}] port sights needPlaces ${canonicalJson(r.data.needPlaces ?? null)}; days ${r.data.days.map((d) => d.n).join(",") || "-"}; reply: ${r.data.reply}`);
+          console.log(formatResults(`[${id}] port sights`, (await evaluatePortSights(r.data)).results));
         }
       }
 

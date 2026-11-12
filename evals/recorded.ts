@@ -7,8 +7,9 @@ import type { FixtureId } from "./build-input";
 
 export type RecordedTask =
   | "tags" | "generate" | "patch" | "drive" | "needbase" | "familypatch" | "uncoveredpatch" | "nogolfbase" | "golfpatch" | "golfeveryday"
-  // port places (cruise): generate with stops from the confirmed stops / from the notes, with Dürnstein failed, the patch on the plan-7 base
-  | "stops" | "stopsnotes" | "stopsfail" | "portpatch";
+  // port places (cruise): generate with stops from the confirmed stops / from the notes, with Dürnstein failed, the patch on the plan-7 base,
+  // and "walks -> concrete sights" with no day selected on the stops generation with generic port sights (2026-11-12)
+  | "stops" | "stopsnotes" | "stopsfail" | "portpatch" | "portsights";
 export type Recording<T> = {
   promptVersion: string;
   model: string;

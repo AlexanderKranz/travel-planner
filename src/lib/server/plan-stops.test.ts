@@ -16,7 +16,7 @@ vi.mock("./place-retries", () => ({ enqueuePlaceRetries: h.enqueue }));
 import type { StopFacts } from "@/lib/domain/facts";
 import type { Trip } from "@/lib/domain/trip";
 import { extendInputWithStops, stopPointsOf, stopRows } from "@/lib/plan/stops-input";
-import { CRUISE_FACTS, CRUISE_RESOLVED, CRUISE_STOPS, emptyStored } from "@/lib/plan/stops-test-helpers";
+import { CRUISE_FACTS, CRUISE_RESOLVED, CRUISE_STOPS, cand, emptyStored, group } from "@/lib/plan/stops-test-helpers";
 import { STOP_PREP_MAX_MS, prepareStopsForPatch, stopPrepBudget } from "./plan-stops";
 
 const trip = { destination: { kind: "region", countryCode: "DE" } } as unknown as Trip;
@@ -87,6 +87,23 @@ describe("prepareStopsForPatch", () => {
     h.lookupStops.mockClear();
     const out = await run(input, { scopeDays: [2] }); // day 2 is Wien, which is fine
     expect(out.retried).toBe(0);
+    expect(h.lookupStops).not.toHaveBeenCalled();
+  });
+
+  it("stops in scope without sights are looked up again (cache + Geoapify) and the patch input gets their sights", async () => {
+    const noSights: StopFacts = { ...CRUISE_FACTS[1], places: [group("nature_wildlife", [cand(111, "Lobau", 48.17, 16.5, "leisure=nature_reserve")])] };
+    const input = extendInputWithStops(emptyStored(), { rows: stopRows(CRUISE_STOPS, CRUISE_RESOLVED), points: stopPointsOf(CRUISE_RESOLVED), facts: [noSights], lang: "de" });
+    const withSights: StopFacts = { ...noSights, places: [noSights.places[0], group("general", [cand(103, "Stephansdom", 48.2086, 16.3731, "building=cathedral")])] };
+    h.lookupStops.mockResolvedValue([withSights]);
+    const r = await run(input, { purpose: { guided: null, tags: { interests: ["nature_wildlife", "photography"] } } });
+    expect(h.lookupStops.mock.calls[0][0]).toEqual([expect.objectContaining({ id: "s1", name: "Wien", status: "ok" })]);
+    expect(h.lookupStops.mock.calls[0][3]).toMatchObject({ overpass: "cache_only" });
+    expect(r.retried).toBe(1);
+    expect(r.stored.llm.stopPlaces![0].places!.map((p) => [p.name, p.i])).toEqual([["Lobau", "nature_wildlife"], ["Stephansdom", "general"]]);
+
+    // Out of scope (day 3 only, no Wien row): not looked up.
+    h.lookupStops.mockClear();
+    expect((await run(input, { scopeDays: [3] })).retried).toBe(0);
     expect(h.lookupStops).not.toHaveBeenCalled();
   });
 

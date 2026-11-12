@@ -7,7 +7,7 @@ import type { Trip } from "@/lib/domain/trip";
 import type { CuisineWish } from "@/lib/facts/cuisine";
 import type { PlanInputStored } from "@/lib/plan/input";
 import type { StopPoints } from "@/lib/plan/stops-input";
-import { extendInputWithStops, resolvedFromInput, stopPointsOf, stopRows, stopsToGeocode, stopsToRetry } from "@/lib/plan/stops-input";
+import { extendInputWithStops, resolvedFromInput, stopPointsOf, stopRows, stopsToGeocode, stopsToRetry, stopsWithoutSights } from "@/lib/plan/stops-input";
 import { jobsForStops } from "@/lib/places-retry";
 import { enqueuePlaceRetries } from "./place-retries";
 import { getStopFacts, lookupStops, resolveStopPlaces, stopDriveTimes } from "./facts/stops";
@@ -37,7 +37,8 @@ export type StopPrep = {
  * Before the first patch call (port-places section 4):
  * 1. a base input without `trip.stops` of a trip that has stops gets them: geocode, look up (cache and Geoapify only),
  *    add `trip.stops` and `stopPlaces`;
- * 2. stops in scope whose lookup failed are looked up again (they may be cached by now).
+ * 2. stops in scope whose lookup failed are looked up again (they may be cached by now), and so are stops in scope
+ *    whose entry lists no sights (an input from before sights were always looked up per stop, `stopsWithoutSights`).
  * Both share `budgetMs`. Failures are queued for the retry worker. Never throws: on any problem the input stays as it was.
  */
 export async function prepareStopsForPatch(a: {
@@ -87,7 +88,7 @@ export async function prepareStopsForPatch(a: {
         if (r?.role === "stop" && r.status === "ok" && r.point) points[g.id] = { ...r.point };
       }
       if (Object.keys(points).length) stored = { ...stored, stopPoints: { ...stored.stopPoints, ...points } };
-      const ids = stopsToRetry(stored, a.scopeDays);
+      const ids = [...new Set([...stopsToRetry(stored, a.scopeDays), ...stopsWithoutSights(stored, a.scopeDays)])];
       if (ids.length) {
         const resolved = resolvedFromInput(stored).filter((r) => ids.includes(r.id));
         const wantsCafes = a.purpose?.tags?.cafes === true || (stored.llm.stopPlaces ?? []).some((p) => ids.includes(p.id) && p.cafes);
