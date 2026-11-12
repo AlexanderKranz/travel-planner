@@ -64,7 +64,11 @@ export async function TripStopsList({ trip }: { trip: Trip }) {
   );
 }
 
-/** The stop count in the trip context strip, linked to the list above; nothing without stops. */
+/**
+ * "Kreuzfahrt / Rundreise · 6 Stopps" in the trip context strip, linked to the list above; nothing without stops. One
+ * pill for the trip card's badge and the count it already showed: the strip keeps one link and fewer pills at 360 px,
+ * and trips whose stops come from the notes get the badge too.
+ */
 export async function TripStopsCount({ tripId }: { tripId: string }) {
   const { stops } = await getShownStopsOnce(tripId);
   if (stops.length === 0) return null;
@@ -76,7 +80,7 @@ export async function TripStopsCount({ tripId }: { tripId: string }) {
         href={`#${STOPS_ANCHOR}`}
         className={`${pillCls} ${focusCls} relative underline-offset-2 after:absolute after:inset-x-0 after:-inset-y-3 after:content-[''] hover:bg-hover hover:underline`}
       >
-        {t("count", { count: stops.length })}
+        {t("badge")} · {t("count", { count: stops.length })}
       </a>
     </li>
   );

@@ -24,10 +24,11 @@ export function TripCard({ trip }: { trip: TripSummary }) {
       <span className={`block text-sm ${mutedCls}`}>
         {timingLabel(trip.timing, locale, t)} · {t("days", { count: trip.lengthDays })}
       </span>
-      {(trip.groupName || trip.purposeName || trip.sharedBy || (trip.shareCount ?? 0) > 0) && (
+      {(trip.multiStop || trip.groupName || trip.purposeName || trip.sharedBy || (trip.shareCount ?? 0) > 0) && (
         <span className="mt-2 flex flex-wrap gap-1">
           {trip.sharedBy && trip.access !== "owner" && <ShareBadge owner={trip.sharedBy} access={trip.access} />}
           {(trip.shareCount ?? 0) > 0 && <SharedPill count={trip.shareCount} />}
+          {trip.multiStop && <span className={chip}>{t("stops.badge")}</span>}
           {trip.groupName && <span className={chip}>{trip.groupName}</span>}
           {trip.purposeName && <span className={chip}>{trip.purposeName}</span>}
         </span>

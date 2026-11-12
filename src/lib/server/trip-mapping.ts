@@ -178,6 +178,8 @@ export function rowToSummary(row: TripSummaryRow, viewerId: string, sharedBy: Tr
     access: trip.access,
     sharedBy,
     shareCount: trip.access === "owner" ? (row.share_count?.[0]?.count ?? 0) : 0,
+    // From the `stops` column the list already selects: no query per trip. Stops derived from notes do not count.
+    multiStop: (trip.stops?.length ?? 0) > 0,
   };
 }
 

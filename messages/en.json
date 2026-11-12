@@ -543,6 +543,7 @@
       },
       "stopsPerDay": "A day can have at most {max} places (day {days}).",
       "count": "{count, plural, one {# stop} other {# stops}}",
+      "badge": "Cruise / round trip",
       "edit": "Edit stops",
       "arriveAt": "Arrival {time}",
       "departAt": "Departure {time}"

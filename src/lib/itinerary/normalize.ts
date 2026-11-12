@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { ITINERARY_FLAGS, type ItineraryFlag } from "@/lib/domain/itinerary";
 import { MAX_TRIP_STOPS } from "@/lib/domain/trip-stops";
+import { splitCountrySuffix } from "./country";
 import { isValidIso, isValidYearless, type RawStop } from "./map";
 import { DAYPART_WORDS, findDate, findDayNumber, findTimes, foldText, matchKey, SEA_WORDS } from "./text";
 
@@ -238,7 +239,9 @@ export function normalizeExtract(wire: WireItinerary, source: string | null): No
       drops.notInSource += 1;
       continue;
     }
-    const place = cutAtWord(full, MAX_PLACE);
+    // "La Valletta, Malta": the country becomes the hint (the model's own `cc` wins), not part of the name.
+    const split = splitCountrySuffix(full);
+    const place = cutAtWord(split.place, MAX_PLACE);
 
     let date = cleanDate(w.date);
     let day = w.day !== null && Number.isInteger(w.day) && w.day >= 1 && w.day <= 366 ? w.day : undefined;
@@ -272,7 +275,7 @@ export function normalizeExtract(wire: WireItinerary, source: string | null): No
       }
     }
 
-    const cc = w.cc && /^[A-Za-z]{2}$/.test(w.cc.trim()) ? w.cc.trim().toUpperCase() : undefined;
+    const cc = w.cc && /^[A-Za-z]{2}$/.test(w.cc.trim()) ? w.cc.trim().toUpperCase() : split.cc;
     let note = w.note ? oneLine(w.note).slice(0, MAX_NOTE).trim() : "";
     if (note && ((src && !noteInSource(note, src)) || !isRemark(note))) note = "";
     note ||= daypartNote;

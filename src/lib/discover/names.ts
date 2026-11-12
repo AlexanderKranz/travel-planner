@@ -5,6 +5,13 @@ import { haversineKm } from "@/lib/facts/places";
 export const foldName = (s: string): string =>
   s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().replace(/ß/g, "ss").replace(/\s+/g, " ").trim();
 
+/** GeoNames feature rank of a populated place: capital 3, administrative seat (PPLA..PPLA4) 2, other PPL* 1, else 0. */
+export function featureRank(featureCode: string): number {
+  if (featureCode === "PPLC") return 3;
+  if (/^PPLA\d?$/.test(featureCode)) return 2;
+  return featureCode.startsWith("PPL") ? 1 : 0;
+}
+
 /** Two places closer than this are the same suggestion (spec step 1, `duplicate`). */
 export const DUPLICATE_KM = 30;
 
@@ -66,29 +73,35 @@ const NEAR_TIE_KM = 10;
 /**
  * A typed stop without a country (port-places [P1]): among the exact-name populated places (PPL*) of all countries, the
  * one nearest to `prev` (the previous resolved stop on the route), else to `anchor` (the trip destination, for the
- * first stop). Candidates over NEAR_ROUTE_MAX_KM from both references are ignored, unless none is in range. Within
- * NEAR_TIE_KM the larger population wins. With no reference point at all, the largest population wins (same as
- * `pickNamedPlace`). null = not found.
+ * first stop). Candidates over NEAR_ROUTE_MAX_KM from both references are ignored, unless none is in range. Among the
+ * remaining candidates the highest feature rank wins first (PPLC > PPLA* > PPL, so a capital beats a village of the
+ * same name, 2026-11-12), then the nearest; within NEAR_TIE_KM the larger population. With no reference point at
+ * all: rank, then the largest population. `name` may list several spellings (the name without its article). null =
+ * not found.
  */
 export function pickNearestNamed(
   results: GeoPlace[],
-  name: string,
+  name: string | readonly string[],
   refs: { prev?: RoutePoint | null; anchor?: RoutePoint | null },
   /** `strict`: only candidates within `maxKm` count, and without a reference point nothing does. */
   opts: { maxKm?: number; strict?: boolean } = {},
 ): GeoPlace | null {
-  const wanted = foldName(name);
-  if (!wanted) return null;
-  const exact = results.filter((p) => p.featureCode.startsWith("PPL") && foldName(p.name) === wanted);
+  const wanted = new Set((typeof name === "string" ? [name] : name).map(foldName).filter(Boolean));
+  if (wanted.size === 0) return null;
+  const exact = results.filter((p) => p.featureCode.startsWith("PPL") && wanted.has(foldName(p.name)));
   if (exact.length === 0) return null;
   const from = refs.prev ?? refs.anchor ?? null;
   const pop = (p: GeoPlace) => p.population ?? 0;
-  if (!from) return opts.strict ? null : exact.reduce((best, p) => (pop(p) > pop(best) ? p : best));
+  const topRank = (xs: GeoPlace[]) => {
+    const top = Math.max(...xs.map((p) => featureRank(p.featureCode)));
+    return xs.filter((p) => featureRank(p.featureCode) === top);
+  };
+  if (!from) return opts.strict ? null : topRank(exact).reduce((best, p) => (pop(p) > pop(best) ? p : best));
   const maxKm = opts.maxKm ?? NEAR_ROUTE_MAX_KM;
   const near = (p: GeoPlace) => [refs.prev, refs.anchor].some((r) => r && haversineKm(r, p) <= maxKm);
   const inRange = exact.filter(near);
   if (inRange.length === 0 && opts.strict) return null;
-  const pool = inRange.length > 0 ? inRange : exact;
+  const pool = topRank(inRange.length > 0 ? inRange : exact);
   const dist = (p: GeoPlace) => haversineKm(from, p);
   return pool.reduce((best, p) => {
     const d = dist(p) - dist(best);

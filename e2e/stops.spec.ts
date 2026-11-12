@@ -178,15 +178,28 @@ test.describe("trip stops", () => {
     await expect(rowsOf(page).nth(2).getByLabel("Tag", { exact: true })).toHaveValue("3");
   });
 
-  test("an upload fills an empty destination with the first port and sets the trip length", async ({ page }) => {
+  test("an upload fills an empty destination with the first port as a picked place and sets the trip length", async ({ page }) => {
+    await page.goto("/de/app/trips/new");
+    await page.getByRole("checkbox", { name: MULTI }).check();
+    await page.locator('#field-stops input[type="file"]').first().setInputFiles(path.join(DOCS, "donau-table.pdf"));
+    await expect(page.getByText(/Erkannt: 6 Stopps\. Bitte prüfen\./)).toBeVisible({ timeout: 30_000 });
+    // The stubbed geocoder knows Passau: the destination is the picked place (facts and weather), not free text.
+    await expect(page.locator("#field-destination").getByRole("button", { name: "Ändern" })).toBeVisible();
+    await expect(page.locator("#field-destination").getByText("Passau, Bayern, Deutschland")).toBeVisible();
+    await expect(page.getByLabel("Anzeigename")).toHaveValue("Passau");
+    await expect(page.getByLabel("Dauer der Reise")).toHaveValue("5");
+    await expect(page.getByLabel("Startdatum")).toHaveValue("2037-12-19");
+    await noHorizontalScroll(page);
+  });
+
+  test("a first port the geocoder does not find stays a free-text destination", async ({ page }) => {
+    await page.route("**/api/geocode**", (route) => route.fulfill({ json: { results: [] } }));
     await page.goto("/de/app/trips/new");
     await page.getByRole("checkbox", { name: MULTI }).check();
     await page.locator('#field-stops input[type="file"]').first().setInputFiles(path.join(DOCS, "donau-table.pdf"));
     await expect(page.getByText(/Erkannt: 6 Stopps\. Bitte prüfen\./)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByLabel("Anzeigename")).toHaveValue(await rowsOf(page).nth(0).getByLabel("Ort", { exact: true }).inputValue());
-    await expect(page.getByLabel("Dauer der Reise")).toHaveValue("5");
-    await expect(page.getByLabel("Startdatum")).toHaveValue("2037-12-19");
-    await noHorizontalScroll(page);
+    await expect(page.locator("#field-destination").getByRole("button", { name: "Ändern" })).toHaveCount(0);
   });
 
   test("a document without a schedule says so, and an injected instruction never becomes a stop", async ({ page }) => {
@@ -248,8 +261,8 @@ test.describe("trip stops: read-only list on the trip page (issues #185, #186)",
       await expect(items.nth(1)).toContainText("Seetag");
       await expect(items.nth(2)).toContainText("Wien");
       await expect(items.nth(2)).toContainText("07:00–18:30");
-      // The strip: "3 Stopps" jumps to the list on the same page.
-      const count = p.getByRole("link", { name: "3 Stopps", exact: true });
+      // The strip: "Kreuzfahrt / Rundreise · 3 Stopps" jumps to the list on the same page.
+      const count = p.getByRole("link", { name: "Kreuzfahrt / Rundreise · 3 Stopps", exact: true });
       await expect(count).toHaveAttribute("href", "#stops");
       await count.click();
       await expect(p).toHaveURL(/#stops$/);

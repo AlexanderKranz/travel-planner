@@ -363,6 +363,35 @@ What the implementation found that the text above gets wrong or leaves open. The
   any-country pass, but a namesake counts only within 500 km (`COUNTRY_MISS_MAX_KM`) of the previous stop or the
   trip anchor, with no out-of-range fallback; otherwise the stop is `not_found`. Stops without `cc` keep the
   2,500 km rule with fallback.
+- 2026-11-12 (cruise from an itinerary picture): stop names as printed did not geocode. Measured on Open-Meteo:
+  "Messina (Sizilien)" has no result in de/en/it, "Messina" is Messina IT PPLA2; "La Valletta" in de/en returns
+  only two Italian villages (PPL), in it the Maltese capital (PPLC) first; "Valletta" in de/en is the capital.
+  Changes in `resolvePlaceName` (`src/lib/server/discover/resolve-place.ts`, helpers in
+  `src/lib/discover/place-name.ts`):
+  - **Search name.** `cleanPlaceName` drops parentheticals and searches only the first part of "Name / Name2" and
+    "Name, Region". The stop keeps the name as typed (trip form, `trips.stops`); the resolved stop shows the
+    geocoded name, as before.
+  - **Country after the port.** The itinerary parser and `normalizeExtract` split a trailing country ("Messina
+    (Sizilien), Italien", "La Valletta, Malta") into the stop's `cc` (`src/lib/itinerary/country.ts`, names from
+    `Intl.DisplayNames` de + en plus a few aliases); a `cc` the model gave wins. A parenthetical stays in the place.
+  - **MT searches in Italian.** Open-Meteo has no Maltese, so `LOCAL_LANGUAGE.MT = "it"`: "La Valletta" with cc MT
+    is found in the third search.
+  - **One retry without a leading article** (`LEADING_ARTICLES`: la, le, il, lo, l', el, los, las, der, die, das),
+    in English, when the given country has no match, or without a country when the any-country pick is missing or
+    only a plain PPL. The retry's candidates count in the given country, else only within 500 km (with `cc`) or
+    2,500 km (without) of the previous stop or the anchor; without a reference point they are ignored ("Las Palmas"
+    must not become Palmas, BR).
+  - **Feature rank in the any-country pass.** Among the exact-name candidates in range, PPLC beats PPLA* beats
+    PPL before the distance and population tie-breaks (`pickNearestNamed`); the 500 km rule for a given `cc` and
+    the 2,500 km rule without stay.
+  - **Bound.** At most 4 searches (en, de, the country's language, the article retry) plus one by-id read per cold
+    name (was 3 + 1), all through `cached()`: at most 80 Open-Meteo calls for the 16 geocoded names of a cold trip.
+  - The trip form uses the same helpers to turn the first port of an upload into a picked (geo) destination
+    (`pickDestinationPlace`, via `/api/geocode`): exact folded name, only the stop's country when it has one, then
+    feature rank and population; at most 2 searches (the cleaned name, then without its article); free text when
+    nothing matches.
+  - Existing trips: the stops are geocoded again on the next Generate (or a patch that upgrades its input); a trip
+    whose stops were saved with "Name, Land" gets the `cc` only when the stops are uploaded again or edited.
 
 ## Implementation notes (2026-11-12): concrete sights at the ports
 

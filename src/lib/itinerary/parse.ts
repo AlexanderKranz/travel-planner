@@ -1,4 +1,5 @@
 import type { ItineraryContext, ItineraryFlag, ItineraryParseResult } from "@/lib/domain/itinerary";
+import { splitCountrySuffix } from "./country";
 import { mapStops, utcToday, type RawStop } from "./map";
 import {
   ARR_WORDS,
@@ -283,16 +284,19 @@ export function readStops(text: string): { stops: RawStop[]; incomplete: number 
     };
 
     const pushStop = (b: Build, d: LineDate) => {
-      const place = cleanPlace(line.slice(b.placeStart, b.placeEnd));
-      if (!place || b.words > MAX_PLACE_WORDS || looksLikeProse(place)) {
+      const printed = cleanPlace(line.slice(b.placeStart, b.placeEnd));
+      if (!printed || b.words > MAX_PLACE_WORDS || looksLikeProse(printed)) {
         incomplete += 1;
         return;
       }
+      // "Messina (Sizilien), Italien": the country is the stop's hint, not part of its name.
+      const { place, cc } = splitCountrySuffix(printed);
       const t = resolveTimes(b, header);
       const flags = t.unclear || unclear.length > 0 ? (["time_unclear"] as ItineraryFlag[]) : [];
       stops.push({
         ...d,
         place,
+        ...(cc ? { cc } : {}),
         ...(t.arr ? { arr: t.arr } : {}),
         ...(t.dep ? { dep: t.dep } : {}),
         ...noteOf(b),

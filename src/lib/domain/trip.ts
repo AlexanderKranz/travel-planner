@@ -161,4 +161,6 @@ export type TripSummary = Pick<
   sharedBy: Person | null;
   /** Own trips: number of people it is shared with (0 when none). Incoming trips: 0. */
   shareCount: number;
+  /** The trip has confirmed stops (`trips.stops`): a cruise or round trip, shown as a badge on the card. */
+  multiStop: boolean;
 };
