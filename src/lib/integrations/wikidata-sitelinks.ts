@@ -91,22 +91,28 @@ export async function fetchSitelinkCounts(
   let requests = 0;
   let latencyMs = 0;
   let status = 200;
+  const expired = () => {
+    const e = new Error("sitelinks deadline");
+    e.name = "TimeoutError";
+    return Object.assign(e, { units: requests, notSent: true });
+  };
   for (let i = 0; i < unique.length; i += SITELINKS_BATCH) {
-    if (opts.deadline !== undefined && Date.now() >= opts.deadline) {
-      const e = new Error("sitelinks deadline");
-      e.name = "TimeoutError";
-      throw Object.assign(e, { units: requests });
-    }
+    if (opts.deadline !== undefined && Date.now() >= opts.deadline) throw expired();
     try {
       const url = sitelinksUrl(unique.slice(i, i + SITELINKS_BATCH));
-      const r = await serial(() => fetchJson(url, { timeoutMs: SITELINKS_TIMEOUT_MS }));
+      // The wait in the queue counts against the deadline: checked again when the request would start.
+      const r = await serial(() => {
+        const left = opts.deadline === undefined ? SITELINKS_TIMEOUT_MS : opts.deadline - Date.now();
+        if (left <= 0) throw expired();
+        return fetchJson(url, { timeoutMs: Math.min(SITELINKS_TIMEOUT_MS, Math.max(1_000, left)) });
+      });
       Object.assign(counts, parseSitelinks(r.body));
       requests += 1;
       latencyMs += r.latencyMs;
       status = r.status;
     } catch (err) {
-      // The batches before plus this one (sent, whether it failed on the wire or in the answer).
-      if (err !== null && typeof err === "object") Object.assign(err, { units: requests + 1 });
+      // The batches before plus this one (sent, whether it failed on the wire or in the answer); not when it never left.
+      if (err !== null && typeof err === "object" && !(err as { notSent?: boolean }).notSent) Object.assign(err, { units: requests + 1 });
       throw err;
     }
   }

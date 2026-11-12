@@ -94,4 +94,21 @@ describe("Wikidata sitelink counts", () => {
     expect(h.fetchJson).toHaveBeenCalledTimes(5);
     expect(max).toBe(1);
   });
+
+  it("a request waiting in the queue past its deadline is not sent and costs no unit", async () => {
+    let release: () => void = () => {};
+    h.fetchJson.mockImplementationOnce(
+      (url: string) =>
+        new Promise((resolve) => {
+          release = () => resolve(answer(new URL(url).searchParams.get("titles")!.split("|").map((q) => page(q, 1))));
+        }),
+    );
+    const first = fetchSitelinkCounts(["Q1"]);
+    const second = fetchSitelinkCounts(["Q2"], { deadline: Date.now() + 20 });
+    await new Promise((r) => setTimeout(r, 40));
+    release();
+    await first;
+    await expect(second).rejects.toMatchObject({ name: "TimeoutError", units: 0 });
+    expect(h.fetchJson).toHaveBeenCalledTimes(1);
+  });
 });

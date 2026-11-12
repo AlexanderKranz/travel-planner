@@ -24,8 +24,8 @@ describe("rankCandidates with sitelinks", () => {
     const names = rank(bcnSitelinks).map((c) => c.name);
     expect(names).toHaveLength(MAX_CANDIDATES);
     expect(names.slice(0, 2).sort()).toEqual(["Basílica de la Sagrada Família", "Spotify Camp Nou"]);
-    expect(names.indexOf("Catedral de la Santa Creu i Santa Eulàlia")).toBeLessThan(8);
-    expect(names.indexOf("Parc Güell")).toBeLessThan(10);
+    expect(names.slice(0, 8)).toContain("Catedral de la Santa Creu i Santa Eulàlia");
+    expect(names.slice(0, 10)).toContain("Parc Güell");
   });
 
   it("without sitelinks the order is the old one (distance among items): the Sagrada Família is cut", () => {

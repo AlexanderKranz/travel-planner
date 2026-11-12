@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-type Opts = { provider: string; endpoint: string; key: string; fetchAllowed?: () => boolean; fetcher: () => Promise<{ data: unknown }> };
+type Opts = { provider: string; endpoint: string; key: string; ttlSeconds: number; fetchAllowed?: () => boolean; fetcher: () => Promise<{ data: unknown; ttlSeconds?: number }> };
 const h = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   calls: [] as { provider: string; endpoint: string; key: string }[],
+  ttls: new Map<string, number>(),
+  stale: new Set<string>(),
   runQuery: vi.fn(),
   fetchPlaces: vi.fn(),
   fetchJson: vi.fn(),
@@ -14,13 +16,15 @@ vi.mock("../api-cache", async (orig) => ({
   ...(await orig<typeof import("../api-cache")>()),
   cached: async (o: Opts) => {
     h.calls.push({ provider: o.provider, endpoint: o.endpoint, key: o.key });
-    if (h.store.has(o.key)) return { ok: true, data: h.store.get(o.key), fetchedAt: "f0", stale: false, cache: "hit" };
+    if (h.store.has(o.key) && !h.stale.has(o.key)) return { ok: true, data: h.store.get(o.key), fetchedAt: "f0", stale: false, cache: "hit" };
     if (o.fetchAllowed && !o.fetchAllowed()) return { ok: false, error: "timeout" };
     try {
       const out = await o.fetcher();
       h.store.set(o.key, out.data);
+      h.ttls.set(o.key, out.ttlSeconds ?? o.ttlSeconds);
       return { ok: true, data: out.data, fetchedAt: "f1", stale: false, cache: "miss" };
     } catch {
+      if (h.store.has(o.key)) return { ok: true, data: h.store.get(o.key), fetchedAt: "f0", stale: true, cache: "stale" };
       return { ok: false, error: "provider_error" };
     }
   },
@@ -49,6 +53,8 @@ const names = (g: Awaited<ReturnType<typeof getInterestGroups>>[number]) => (g.s
 
 beforeEach(() => {
   h.store.clear();
+  h.ttls.clear();
+  h.stale.clear();
   h.calls.length = 0;
   h.enqueue.mockReset();
   h.runQuery.mockReset().mockResolvedValue({ elements: parseElements(barcelona), status: 200, latencyMs: 40_000, mirror: "overpass-api.de" });
@@ -70,6 +76,7 @@ describe("trip interest places ranked by prominence (issue #172)", () => {
     expect(h.calls[2].key).toMatch(/^sitelinks:v1:ids=[0-9a-f]{16};n=\d+$/);
     expect(h.fetchJson).toHaveBeenCalledTimes(2); // 66 ids → 2 requests of 50
     expect(h.runQuery).not.toHaveBeenCalled();
+    expect(h.ttls.get(h.calls[1].key)).toBe(30 * 86400);
   });
 
   it("general answered by Geoapify: the Overpass lookup is queued (Overpass first), never run inline", async () => {
@@ -97,6 +104,15 @@ describe("trip interest places ranked by prominence (issue #172)", () => {
     expect(h.fetchPlaces).not.toHaveBeenCalled();
     const stored = [...h.store.entries()].find(([k]) => k.startsWith("interpreter:v3:"))![1] as { name: string }[];
     expect(stored.slice(0, 2).map((c) => c.name).sort()).toEqual(["Basílica de la Sagrada Família", "Spotify Camp Nou"]);
+    // The whole set, not Overpass's default 150 (an arbitrary subset to rank).
+    expect(h.runQuery.mock.calls[0][0]).toContain("out center tags 1000;");
+  });
+
+  it("retry: an Overpass refresh that failed and served the expired entry is not done", async () => {
+    await retryInterestLookup("general", bcn, 15, ctx, 100_000, { overpass: true });
+    for (const k of h.store.keys()) if (k.startsWith("interpreter:")) h.stale.add(k);
+    h.runQuery.mockRejectedValue(Object.assign(new Error("x"), { status: 504 }));
+    expect(await retryInterestLookup("general", bcn, 15, ctx, 100_000, { overpass: true })).toBe("failed");
   });
 
   it("Wikidata down: the list is still served, in the old order", async () => {
@@ -104,6 +120,9 @@ describe("trip interest places ranked by prominence (issue #172)", () => {
     const [g] = await getInterestGroups(bcn, ["general"], ctx, 280_000);
     expect(g.status).toBe("ok");
     expect(names(g)).not.toContain("Basílica de la Sagrada Família");
+    // Cached for a day only, so the ranked list follows soon; a normal list keeps its 30 days.
+    const placesKey = [...h.ttls.keys()].find((k) => k.startsWith("places:v3:"))!;
+    expect(h.ttls.get(placesKey)).toBe(86400);
   });
 
   it("golf (no prominence): same v2 keys as before, no Wikidata call, nothing queued", async () => {
