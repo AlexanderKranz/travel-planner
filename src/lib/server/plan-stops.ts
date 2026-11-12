@@ -84,7 +84,9 @@ export async function prepareStopsForPatch(a: {
       const points: StopPoints = {};
       for (const g of stopsToGeocode(stored, a.scopeDays).slice(0, MAX_GEOCODE_RETRIES)) {
         if (left() <= 0) break;
-        const [r] = await resolveStopPlaces(a.trip, [{ day: g.day, place: g.place }], ctx);
+        // The country hint of the typed stop (#187); the stored input rows do not carry it.
+        const cc = (a.trip.stops ?? []).find((t) => t.day === g.day && t.place === g.place)?.cc;
+        const [r] = await resolveStopPlaces(a.trip, [{ day: g.day, place: g.place, ...(cc ? { cc } : {}) }], ctx);
         if (r?.role === "stop" && r.status === "ok" && r.point) points[g.id] = { ...r.point, ...(r.countryCode ? { cc: r.countryCode } : {}) };
       }
       if (Object.keys(points).length) stored = { ...stored, stopPoints: { ...stored.stopPoints, ...points } };
