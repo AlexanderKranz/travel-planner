@@ -27,20 +27,12 @@ export function timingLabel(timing: TripTiming, locale: string, t: Translate): s
   return t("timing.openShort");
 }
 
-/** Title shown when the trip has none: "Passau · Dez. · 7 Tage". Never stored. */
-export function fallbackTitle(
-  trip: Pick<Trip, "destination" | "lengthDays" | "timing">,
-  t: Translate,
-  locale: string,
-): string {
-  const parts = [trip.destination.name];
-  if (trip.timing.kind !== "none") parts.push(timingLabel(trip.timing, locale, t));
-  parts.push(t("days", { count: trip.lengthDays }));
-  return parts.join(" · ");
+/**
+ * Title shown when the trip has none: the destination name. Never stored. Dates and length are not repeated here:
+ * cards and the trip header show them in their own line (Alex, 2026-11-12).
+ */
+export function fallbackTitle(trip: Pick<Trip, "destination">): string {
+  return trip.destination.name;
 }
 
-export const tripTitle = (
-  trip: Pick<Trip, "title" | "destination" | "lengthDays" | "timing">,
-  t: Translate,
-  locale: string,
-) => trip.title ?? fallbackTitle(trip, t, locale);
+export const tripTitle = (trip: Pick<Trip, "title" | "destination">) => trip.title ?? fallbackTitle(trip);

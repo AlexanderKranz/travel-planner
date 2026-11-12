@@ -12,7 +12,7 @@ const chip =
 export function TripCard({ trip }: { trip: TripSummary }) {
   const t = useTranslations("trips");
   const locale = useLocale();
-  const title = tripTitle(trip, t, locale);
+  const title = tripTitle(trip);
   return (
     <Link
       href={`/app/trips/${trip.id}`}
