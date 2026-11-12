@@ -194,15 +194,19 @@ test.describe("city tours (docs/specs/city-tour.md)", () => {
     await expect(page.getByRole("link", { name: /Passau · 3 Orte/ })).toBeVisible();
     await page.goto("/de/app");
     await expect(page.getByRole("heading", { name: "Stadttouren" })).toBeVisible();
-    // Desktop: the tours are their own column between the trips and the groups/purposes (Alex, 2026-11-12).
+    // Desktop: the tours are their own column between the trips and the groups/purposes, and all three columns start
+    // on the same line (Alex, 2026-11-12). Phones: the tours follow the trips.
     const box = async (sel: string) => (await page.locator(sel).first().boundingBox())!;
     const trips = await box('main section[aria-label="Reisen"]');
-    const tours = await box('section[aria-labelledby="dashboard-tours"]');
-    const side = await box('section[aria-labelledby="dashboard-tours"] + div');
     if ((page.viewportSize()?.width ?? 0) >= 1024) {
+      const tours = await box('section[aria-labelledby="side-tours"]');
+      const side = await box('section[aria-labelledby="side-tours"] + div');
       expect(tours.x).toBeGreaterThan(trips.x + trips.width - 1);
       expect(side.x).toBeGreaterThan(tours.x + tours.width - 1);
+      expect(Math.abs(tours.y - trips.y)).toBeLessThanOrEqual(2);
+      expect(Math.abs(side.y - trips.y)).toBeLessThanOrEqual(2);
     } else {
+      const tours = await box('section[aria-labelledby="dashboard-tours"]');
       expect(tours.y).toBeGreaterThan(trips.y);
     }
     await noHorizontalScroll(page);
