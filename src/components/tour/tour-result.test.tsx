@@ -91,7 +91,6 @@ describe("TourResultView", () => {
       onAddSight: () => {},
       sightInTour: () => false,
       canAddMore: true,
-      outdated: true,
       result: { ...result, fit: "over", totalMin: 118 },
       byMin: 18,
       stopTimes: [
@@ -105,7 +104,9 @@ describe("TourResultView", () => {
     expect(html).toContain("Change");
     expect(html).toContain("+ add");
     expect(html).toContain("18 min too long");
-    expect(html).toContain("The tour was changed");
+    const stale = render("en", en as Messages, { outdated: true, result: { ...result, fit: "over", totalMin: 118 }, byMin: 18 });
+    expect(stale).toContain("The tour was changed");
+    expect(stale).not.toContain("too long"); // judged on another input
     expect(html).toContain("10:39–11:09");
     expect(html).toContain("Leave out Hofburg: approx. 1 h 35 min");
     expect(html).toContain("2 leg settings no longer apply");

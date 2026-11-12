@@ -32,8 +32,8 @@ export type TourResultProps = {
 };
 
 /** Remount key of the map: changes with any of its inputs (route geometry, modes, stops, sights). */
-function mapKey(result: TourResult, mode: string): string {
-  const text = [mode, result.order.join("|"), ...result.legs.map((l) => `${l.mode}:${l.poly ?? ""}`), ...result.sights.map((s) => s.key)].join(";");
+function mapKey(result: TourResult, mode: string, coords: { lat: number; lon: number }[]): string {
+  const text = [mode, result.order.join("|"), coords.map((c) => `${c.lat},${c.lon}`).join("|"), ...result.legs.map((l) => `${l.mode}:${l.poly ?? ""}`), ...result.sights.map((s) => `${s.key}@${s.lat},${s.lon}`)].join(";");
   let h = 5381;
   for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
   return `${text.length}-${h >>> 0}`;
@@ -79,7 +79,8 @@ export function TourResultView(p: TourResultProps) {
             <span className={labelCls}>{t("distance")}</span>
             <span className="font-serif text-2xl font-bold text-heading">{km === null ? "–" : t("km", { km: formatKm(km, locale) })}</span>
           </p>
-          {result.fit !== "none" && (
+          {/* Hidden while outdated (judged on another input); over/under only with their minutes. */}
+          {!p.outdated && (result.fit === "ok" || (result.fit !== "none" && p.byMin !== null)) && (
             <span className={result.fit === "over" ? pillAccentCls : pillCls} data-testid="tour-fit">
               {result.fit === "ok"
                 ? t("fit.ok")
@@ -132,7 +133,7 @@ export function TourResultView(p: TourResultProps) {
       <div className="grid items-start gap-4 sm:grid-cols-2">
         <div className="order-first sm:sticky sm:top-4 sm:order-last">
           <TourMapPanel
-            key={mapKey(result, input.mode)}
+            key={mapKey(result, input.mode, coords)}
             styleUrl={p.mapStyleUrl}
             legs={result.legs.map((l) => ({ poly: l.poly, dashed: l.mode !== input.mode }))}
             points={markerPoints}

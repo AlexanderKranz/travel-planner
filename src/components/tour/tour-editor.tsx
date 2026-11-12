@@ -143,7 +143,8 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
     if (c.error === "unreachable") setUnreachable(c.points ?? []);
     if (c.error === "ors_unavailable" && c.notRecomputed) {
       setNotRecomputed(true);
-      if (c.result) setResult(c.result);
+      // Only a result whose stops all exist in the input it is shown with.
+      if (c.result && resultInput && resultFitsInput(resultInput, c.result)) setResult(c.result);
     }
   }
 
@@ -213,7 +214,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
   }
 
   async function remove() {
-    if (!saved) return;
+    if (!saved || busy !== null) return;
     setBusy("deleting");
     const r = await deleteTour(saved.id).catch(() => null);
     setBusy(null);
@@ -278,7 +279,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
             )}
             {form.city?.key.startsWith("geo:") && (
               <CitySuggestions
-                key={form.city.key}
+                key={`${form.city.key}|${prefill?.tripId ?? saved?.tripId ?? ""}`}
                 city={form.city}
                 tripId={prefill?.tripId ?? saved?.tripId ?? undefined}
                 isTaken={taken}
@@ -359,7 +360,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
               setUpdatedAt(x.updatedAt);
             }}
           />
-          <button type="button" className={`${btnSecondary} self-start`} onClick={() => setConfirmDelete(true)}>
+          <button type="button" className={`${btnSecondary} self-start`} disabled={busy !== null} onClick={() => setConfirmDelete(true)}>
             {t("delete")}
           </button>
         </div>
