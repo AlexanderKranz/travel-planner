@@ -161,10 +161,14 @@ export function portSightsChecks(a: {
   issues: Pick<AssembleIssues, "stop_mismatch">;
   portDays: { day: number; stop: string }[];
 }): CheckResult[] {
-  const ctx = stopRefCtx(a.stored);
   const r: CheckResult[] = [check("no patched day was rejected", a.rejectedDays.length === 0, a.rejectedDays.join(","))];
-  const sightRefs = (p: Plan, day: number, stop: string) =>
-    p.days.find((d) => d.n === day)?.stops.flatMap((s) => s.acts.filter((x) => (x.kind === "see" || x.kind === "do") && !!x.ref && ctx?.stopsOfKey.get(x.ref)?.has(stop))).length ?? 0;
+  // Only the stop's own `places` count (not its restaurants or cafés, which a see/do activity could reference too).
+  const placeKeys = (stop: string) =>
+    new Set((a.stored.llm.stopPlaces?.find((p) => p.id === stop)?.places ?? []).flatMap((p) => (Object.hasOwn(a.stored.index, p.id) ? [a.stored.index[p.id].key as string] : [])));
+  const sightRefs = (p: Plan, day: number, stop: string) => {
+    const keys = placeKeys(stop);
+    return p.days.find((d) => d.n === day)?.stops.flatMap((s) => s.acts.filter((x) => (x.kind === "see" || x.kind === "do") && !!x.ref && keys.has(x.ref))).length ?? 0;
+  };
   for (const { day, stop } of a.portDays) {
     const listed = (a.stored.llm.stopPlaces?.find((p) => p.id === stop)?.places ?? []).length;
     if (!listed) continue;

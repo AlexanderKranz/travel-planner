@@ -281,7 +281,7 @@ describe.runIf(!!rec && !!readRecording<LlmPlan>("cruise", "stops"))("portsights
   });
 
   /** A patch that puts the first listed place of each port's stop on the first generic walk there. */
-  async function patchFor(days: number[]): Promise<LlmPatch> {
+  async function patchFor(days: number[], use: "places" | "restaurants" = "places"): Promise<LlmPatch> {
     const b = (await portSightsBase())!;
     const idOf = new Map(Object.entries(b.stored.index).map(([id, e]) => [e.key as string, id]));
     const rows = b.stored.llm.trip.stops ?? [];
@@ -296,7 +296,8 @@ describe.runIf(!!rec && !!readRecording<LlmPlan>("cruise", "stops"))("portsights
           warn: d.warn,
           stops: d.stops.map((s) => {
             const at = rows.find((r) => r.day === d.n && r.place && s.place.toLowerCase().includes(r.place.toLowerCase().slice(0, 4)))?.at;
-            const first = b.stored.llm.stopPlaces?.find((p) => p.id === at)?.places?.[0]?.id;
+            const entry = b.stored.llm.stopPlaces?.find((p) => p.id === at);
+            const first = use === "places" ? entry?.places?.[0]?.id : entry?.restaurants?.list[0]?.id;
             let used = false;
             return {
               place: s.place,
@@ -318,6 +319,11 @@ describe.runIf(!!rec && !!readRecording<LlmPlan>("cruise", "stops"))("portsights
   it("a patch that gives every port day a sight of its own stop passes", async () => {
     const g = await evaluatePortSights(await patchFor([2, 3, 4]));
     expect(failed(g.results), formatResults("synthetic portsights", g.results)).toEqual([]);
+  });
+
+  it("a see activity with a restaurant ref of the stop is not a sight", async () => {
+    const g = await evaluatePortSights(await patchFor([2, 3, 4], "restaurants"));
+    expect(failed(g.results).map((r) => r.name)).toEqual(expect.arrayContaining(["day 2 has a sight ref of s1", "day 3 has a sight ref of s2", "day 3 has a sight ref of s3"]));
   });
 
   it("the reported answer (day 2 only) fails for days 3 and 4", async () => {
