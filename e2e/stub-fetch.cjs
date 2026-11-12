@@ -18,13 +18,21 @@ const blocked = new Set();
 
 // --- City tours (docs/specs/city-tour.md). Only the tours server (port 3001) has ORS and Geoapify keys. ---------------
 // Places the stubbed autocomplete knows: the Passau spike points (section 14). The answer has the recorded shape
-// (`geoapify-autocomplete/autocomplete-stephansdom-wien-de.json`), with these names and coordinates.
+// (`geoapify-autocomplete/autocomplete-stephansdom-wien-de.json`), with these names and coordinates, and real
+// Geoapify categories (`gfy`): the tour search keeps only sight categories (isTourPoi).
 const TOUR_PLACES = [
-  { q: "dom", name: "Dom St. Stephan", lat: 48.5741, lon: 13.4648, osmType: "w", osmId: 24392801, cat: "place_of_worship" },
-  { q: "rathaus", name: "Rathaus Passau", lat: 48.5746, lon: 13.4672, osmType: "w", osmId: 24392802, cat: "townhall" },
-  { q: "ortspitze", name: "Ortspitze", lat: 48.5737, lon: 13.4774, osmType: "n", osmId: 24392803, cat: "viewpoint" },
-  { q: "veste", name: "Veste Oberhaus", lat: 48.5775, lon: 13.4718, osmType: "w", osmId: 24392804, cat: "castle" },
+  { q: "dom", name: "Dom St. Stephan", lat: 48.5741, lon: 13.4648, osmType: "w", osmId: 24392801, cat: "place_of_worship", gfy: "tourism.sights.place_of_worship.cathedral" },
+  { q: "rathaus", name: "Rathaus Passau", lat: 48.5746, lon: 13.4672, osmType: "w", osmId: 24392802, cat: "townhall", gfy: "tourism.sights.city_hall" },
+  { q: "ortspitze", name: "Ortspitze", lat: 48.5737, lon: 13.4774, osmType: "n", osmId: 24392803, cat: "viewpoint", gfy: "tourism.attraction.viewpoint" },
+  { q: "veste", name: "Veste Oberhaus", lat: 48.5775, lon: 13.4718, osmType: "w", osmId: 24392804, cat: "castle", gfy: "tourism.sights.castle" },
 ].map((p) => ({ ...p, placeId: Buffer.from(p.name, "utf8").toString("hex") }));
+
+// Wikidata sitelink counts for the city tour landmarks (`wikidata-sitelinks.ts`), from the recorded Passau counts.
+const PASSAU_SITELINKS = JSON.parse(read("wikidata", "sitelinks-passau.json"));
+function sitelinksBody(titles) {
+  const pages = (titles || "").split("|").filter(Boolean).map((q) => ({ title: q, ns: 0, pageprops: { "wb-sitelinks": String(PASSAU_SITELINKS[q] ?? 0) } }));
+  return { batchcomplete: true, query: { pages } };
+}
 
 const autocompleteTemplate = JSON.parse(read("geoapify-autocomplete", "autocomplete-stephansdom-wien-de.json")).results[0];
 
@@ -40,7 +48,7 @@ function autocompleteBody(text) {
     result_type: "amenity",
     address_line1: p.name,
     address_line2: "94032 Passau, Deutschland",
-    category: `tourism.${p.cat}`,
+    category: p.gfy,
     place_id: p.placeId,
     distance: 300,
   }));
@@ -156,6 +164,7 @@ globalThis.fetch = async function stubbedFetch(input, init) {
   if (host === "archive-api.open-meteo.com") return json(read("open-meteo", "archive-malaga-2016-2025.json"));
   if (host.endsWith("wikivoyage.org")) return json(read("wikivoyage", "geosearch-passau-de.json"));
   if (/overpass|maps\.mail\.ru/.test(host)) return json(read("overpass", "general-passau-15km.json"));
+  if (host === "www.wikidata.org" && url.searchParams.get("prop") === "pageprops") return json(sitelinksBody(url.searchParams.get("titles")));
 
   // City tours: Geoapify Autocomplete + Place Details, ORS tour matrix + directions (synthetic, recorded shapes).
   // Geoapify Places (`/v2/places`) stays blocked: city places then come from the Overpass cache like without a key.
