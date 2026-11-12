@@ -104,7 +104,7 @@ export async function fetchSitelinkCounts(
       const r = await serial(() => {
         const left = opts.deadline === undefined ? SITELINKS_TIMEOUT_MS : opts.deadline - Date.now();
         if (left <= 0) throw expired();
-        return fetchJson(url, { timeoutMs: Math.min(SITELINKS_TIMEOUT_MS, Math.max(1_000, left)) });
+        return fetchJson(url, { timeoutMs: Math.min(SITELINKS_TIMEOUT_MS, left) });
       });
       Object.assign(counts, parseSitelinks(r.body));
       requests += 1;

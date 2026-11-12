@@ -111,4 +111,11 @@ describe("Wikidata sitelink counts", () => {
     await expect(second).rejects.toMatchObject({ name: "TimeoutError", units: 0 });
     expect(h.fetchJson).toHaveBeenCalledTimes(1);
   });
+
+  it("the request timeout never exceeds the time left before the deadline", async () => {
+    h.fetchJson.mockResolvedValue(answer([page("Q1", 1)]));
+    await fetchSitelinkCounts(["Q1"], { deadline: Date.now() + 200 });
+    expect(h.fetchJson.mock.calls[0][1].timeoutMs).toBeLessThanOrEqual(200);
+    expect(h.fetchJson.mock.calls[0][1].timeoutMs).toBeGreaterThan(0);
+  });
 });
