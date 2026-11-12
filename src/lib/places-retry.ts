@@ -5,6 +5,7 @@ import { DEFAULT_RADIUS_KM, type Trip } from "@/lib/domain/trip";
 import { ACTIVITY_GROUPS, ACTIVITY_TYPES, typesInGroup, type ActivityType } from "@/lib/facts/activity-types";
 import { groupPending, type BlockingScope } from "@/lib/plan/places-pending";
 import { interestsForTrip, radiusForInterest, sourceFor, tripRadiusKm } from "@/lib/facts/interest-sources";
+import { LANDMARK_RADIUS_KM } from "@/lib/facts/landmarks";
 
 /** A search is retried in the background for at most this long (spec activities addendum 2, R1). */
 export const RETRY_WINDOW_MS = 30 * 60_000;
@@ -77,6 +78,17 @@ export function jobsForActivityLookups(
     out.push({ kind: "cafes", dest: d, ...(near?.cafes ? { near: round(near.cafes) } : {}) });
   }
   return out.map(job);
+}
+
+/**
+ * City tour landmarks (`src/lib/server/tour/landmarks.ts`) reuse the `interest` job kind with this reserved name, so
+ * the table's `kind` check needs no migration; the worker branches on it. Never an interest key.
+ */
+export const LANDMARKS_JOB_INTEREST = "landmarks";
+
+/** The job that fetches a city point's landmarks (Overpass, then Wikidata sitelinks). */
+export function landmarksJob(p: { lat: number; lon: number }): RetryJob {
+  return job({ kind: "interest", interest: LANDMARKS_JOB_INTEREST, ...round(p), radiusKm: LANDMARK_RADIUS_KM });
 }
 
 /** Jobs for interest lookups of a change request (issue #151) that failed: same radius rule as the plan's. */

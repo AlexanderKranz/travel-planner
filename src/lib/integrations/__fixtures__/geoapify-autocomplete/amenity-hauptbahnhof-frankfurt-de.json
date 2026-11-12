@@ -1,0 +1,111 @@
+{
+ "results": [
+  {
+   "name": "Hauptbahnhof/Münchener Straße",
+   "address_line1": "Hauptbahnhof/Münchener Straße",
+   "address_line2": "Münchener Straße, 60329 Frankfurt am Main, Deutschland",
+   "category": "public_transport.tram",
+   "result_type": "amenity",
+   "lat": 50.1069978,
+   "lon": 8.6665854,
+   "distance": 1733.566224685865,
+   "place_id": "516ffb79ae4a552140593adf991ab20d4940f00103f9011c466b2d00000000c0020192031f48617570746261686e686f662f4dc3bc6e6368656e65722053747261c39f65",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Hauptbahnhof",
+   "address_line1": "Hauptbahnhof",
+   "address_line2": "B-Ebene, 60329 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.1078335,
+   "lon": 8.6638915,
+   "distance": 1774.6967143600803,
+   "place_id": "514d2f3196e953214059e4f4f57ccd0d4940f00103f9018865512d00000000c0020192030c48617570746261686e686f66",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Hauptbahnhof (tief)",
+   "address_line1": "Hauptbahnhof (tief)",
+   "address_line2": "Poststraße, 60329 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.1071727,
+   "lon": 8.6623337,
+   "distance": 1902.9697300086177,
+   "place_id": "51cd1319671d5321405913c3c4d5b70d4940f00103f901c4e85f2800000000c0020192031348617570746261686e686f6620287469656629",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Hauptbahnhof Südseite",
+   "address_line1": "Hauptbahnhof Südseite",
+   "address_line2": "Mannheimer Straße, 60329 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.1056775,
+   "lon": 8.664094,
+   "distance": 1955.1919307691444,
+   "place_id": "518df0f620045421405926361fd7860d4940f00102f9018a26e30200000000c0020192031648617570746261686e686f662053c3bc647365697465",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Hauptbahnhof",
+   "address_line1": "Hauptbahnhof",
+   "address_line2": "Boschstraße, 63450 Hanau, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.1213844,
+   "lon": 8.930886,
+   "distance": 17887.629294380546,
+   "place_id": "51c79bfc169ddc2140594e1f2686890f4940f00102f901f0f2ba0c00000000c0020192030c48617570746261686e686f66",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Hauptbahnhof Vorplatz",
+   "address_line1": "Hauptbahnhof Vorplatz",
+   "address_line2": "Am Hauptbahnhof, 63450 Hanau, Deutschland",
+   "category": "parking.cars",
+   "result_type": "amenity",
+   "lat": 50.1220678,
+   "lon": 8.9302575,
+   "distance": 17843.512028445446,
+   "place_id": "51aab706b64adc2140598572ecea9f0f4940f00102f9012e9dc03f00000000c0020192031548617570746261686e686f6620566f72706c61747a",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  }
+ ],
+ "query": {
+  "text": "hauptbahnhof"
+ }
+}

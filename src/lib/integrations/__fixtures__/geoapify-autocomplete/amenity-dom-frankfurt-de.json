@@ -1,0 +1,156 @@
+{
+ "results": [
+  {
+   "name": "Dominion Food Revolution",
+   "address_line1": "Dominion Food Revolution",
+   "address_line2": "Grüneburgweg 41-43, 60322 Frankfurt am Main, Deutschland",
+   "category": "catering.restaurant",
+   "result_type": "amenity",
+   "lat": 50.1213061,
+   "lon": 8.6708494,
+   "distance": 668.3645061124371,
+   "place_id": "511b1593927957214059142752f5860f4940f00103f901e0fd10b100000000c00201920318446f6d696e696f6e20466f6f64205265766f6c7574696f6e",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Domino's",
+   "address_line1": "Domino's",
+   "address_line2": "Reuterweg 80, 60323 Frankfurt am Main, Deutschland",
+   "category": "catering.fast_food",
+   "result_type": "amenity",
+   "lat": 50.1221042,
+   "lon": 8.6704907,
+   "distance": 717.2018087467693,
+   "place_id": "51578b998e4a5721405925da441ca10f4940f00103f901fffd10b100000000c00201920308446f6d696e6f2773",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Dominikanerkloster",
+   "address_line1": "Dominikanerkloster",
+   "address_line2": "Dominikanergasse, 60311 Frankfurt am Main, Deutschland",
+   "category": "tourism.sights",
+   "result_type": "amenity",
+   "lat": 50.1120992,
+   "lon": 8.6868473,
+   "distance": 1005.0775558234617,
+   "place_id": "511ab10573aa5f21405932f43e44590e4940f00101f90151e9100000000000c00201920312446f6d696e696b616e65726b6c6f73746572",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.319279276758968,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Dom/Römer",
+   "address_line1": "Dom/Römer",
+   "address_line2": "Markt 28, 60311 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.110725,
+   "lon": 8.6836678,
+   "distance": 1063.9766461223783,
+   "place_id": "5113a8b4b4095e214059c0ec9e3c2c0e4940f00103f901608f9bad02000000c0020192030a446f6d2f52c3b66d6572",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.2827546027204031,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Kaiserdom St. Bartholomäus",
+   "address_line1": "Kaiserdom St. Bartholomäus",
+   "address_line2": "Domplatz 1, 60311 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.1106666,
+   "lon": 8.6853436,
+   "distance": 1105.55884669848,
+   "place_id": "51ba0b395be55e21405938e1b9522a0e4940f00102f9013f22a80000000000c0020192031b4b6169736572646f6d2053742e2042617274686f6c6f6dc3a47573",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.44105200506043646,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Dommuseum",
+   "address_line1": "Dommuseum",
+   "address_line2": "Domplatz 1, 60311 Frankfurt am Main, Deutschland",
+   "category": "entertainment.museum",
+   "result_type": "amenity",
+   "lat": 50.1108412,
+   "lon": 8.6850443,
+   "distance": 1080.0608966366774,
+   "place_id": "51579f6120be5e2140595386600b300e4940f00103f9019ec0f8bb01000000c00201920309446f6d6d757365756d",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.22052600253021823,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Dom Römer Apotheke",
+   "address_line1": "Dom Römer Apotheke",
+   "address_line2": "Markt 26, 60311 Frankfurt am Main, Deutschland",
+   "category": "commercial.health_and_beauty.pharmacy;healthcare.pharmacy",
+   "result_type": "amenity",
+   "lat": 50.1107447,
+   "lon": 8.6837691,
+   "distance": 1063.6554358543779,
+   "place_id": "51dc07c5fb165e214059485ae0e12c0e4940f00103f901d4be9c7501000000c00201920313446f6d2052c3b66d65722041706f7468656b65",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Dom/Römer",
+   "address_line1": "Dom/Römer",
+   "address_line2": "Markt, 60311 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.1106734,
+   "lon": 8.6837056,
+   "distance": 1070.201489549327,
+   "place_id": "51222f10a90e5e214059c1c4c48b2a0e4940f00103f901518ff69f00000000c0020192030a446f6d2f52c3b66d6572",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  }
+ ],
+ "query": {
+  "text": "dom"
+ }
+}

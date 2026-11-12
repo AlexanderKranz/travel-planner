@@ -815,7 +815,7 @@
       },
       "wikimedia": {
         "label": "Wikimedia Commons and Wikidata",
-        "provides": "Picture of the destination (page banner or main image of the place).",
+        "provides": "Picture of the destination (page banner or main image of the place). For city tours: how well known a place is (number of Wikipedia and other Wikimedia articles about it), to order the suggestions.",
         "license": "Per picture: CC0, public domain, CC BY or CC BY-SA. Author and licence are shown under the picture."
       },
       "rest_countries": {

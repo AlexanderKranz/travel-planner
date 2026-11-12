@@ -1,0 +1,138 @@
+{
+ "results": [
+  {
+   "name": "Römer",
+   "address_line1": "Römerberg 21",
+   "address_line2": "60311 Frankfurt am Main, Deutschland",
+   "category": "tourism.sights.city_hall",
+   "result_type": "amenity",
+   "lat": 50.1104684,
+   "lon": 8.6816587,
+   "distance": 1066.4455521738541,
+   "place_id": "5158117f5e025d214059e89e1ad4230e4940f00103f901d4330a0200000000c0020192030652c3b66d6572",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.40432454964183334,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Tourist Information Römer",
+   "address_line1": "Tourist Information Römer",
+   "address_line2": "Römerberg 27, 60311 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.1107315,
+   "lon": 8.6818374,
+   "distance": 1038.9054478811518,
+   "place_id": "511c61acca195d2140598a9125732c0e4940f00103f9019e72c31600000000c0020192031a546f757269737420496e666f726d6174696f6e2052c3b66d6572e203226f70656e7374726565746d61703a76656e75653a6e6f64652f333831393037363134",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Dom/Römer",
+   "address_line1": "Dom/Römer",
+   "address_line2": "Markt 28, 60311 Frankfurt am Main, Deutschland",
+   "result_type": "amenity",
+   "lat": 50.110725,
+   "lon": 8.6836678,
+   "distance": 1063.9766461223783,
+   "place_id": "5113a8b4b4095e214059c0ec9e3c2c0e4940f00103f901608f9bad02000000c0020192030a446f6d2f52c3b66d6572",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.2827546027204031,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Dom Römer Apotheke",
+   "address_line1": "Dom Römer Apotheke",
+   "address_line2": "Markt 26, 60311 Frankfurt am Main, Deutschland",
+   "category": "commercial.health_and_beauty.pharmacy;healthcare.pharmacy",
+   "result_type": "amenity",
+   "lat": 50.1107447,
+   "lon": 8.6837691,
+   "distance": 1063.6554358543779,
+   "place_id": "51dc07c5fb165e214059485ae0e12c0e4940f00103f901d4be9c7501000000c00201920313446f6d2052c3b66d65722041706f7468656b65",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Haus zum Römer",
+   "address_line1": "Haus zum Römer",
+   "address_line2": "Römerberg 21, 60311 Frankfurt am Main, Deutschland",
+   "category": "tourism.sights",
+   "result_type": "amenity",
+   "lat": 50.1104726,
+   "lon": 8.6815628,
+   "distance": 1065.2444148681784,
+   "place_id": "512357a0ccf55c214059530d56f7230e4940f00102f901ba7d510400000000c0020192030f48617573207a756d2052c3b66d6572e203206f70656e7374726565746d61703a76656e75653a7761792f3732343439343636",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Tiefgarage Dom/Römer",
+   "address_line1": "Tiefgarage Dom/Römer",
+   "address_line2": "Markt, 60311 Frankfurt am Main, Deutschland",
+   "category": "parking.cars",
+   "result_type": "amenity",
+   "lat": 50.1105395,
+   "lon": 8.6828491,
+   "distance": 1071.3972596866113,
+   "place_id": "51c134b1659e5d21405946b58828260e4940f00102f901fbcd454200000000c002019203155469656667617261676520446f6d2f52c3b66d6572",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  },
+  {
+   "name": "Motel One Frankfurt-Römer",
+   "address_line1": "Motel One Frankfurt-Römer",
+   "address_line2": "Berliner Straße, 60311 Frankfurt am Main, Deutschland",
+   "category": "accommodation.hotel",
+   "result_type": "amenity",
+   "lat": 50.1103042,
+   "lon": 8.6779091,
+   "distance": 1088.3847846345707,
+   "place_id": "515452cce6165b21405944ceb1721e0e4940f00103f9010caaca6901000000c0020192031a4d6f74656c204f6e65204672616e6b667572742d52c3b66d6572e203236f70656e7374726565746d61703a76656e75653a6e6f64652f36303639383536373830",
+   "datasource": {
+    "sourcename": "openstreetmap"
+   },
+   "rank": {
+    "importance": 0.00007941481651021618,
+    "confidence": 1,
+    "match_type": "full_match"
+   }
+  }
+ ],
+ "query": {
+  "text": "römer"
+ }
+}

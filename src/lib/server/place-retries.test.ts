@@ -153,3 +153,20 @@ describe("getPlaceRetryStats", () => {
     await expect(getPlaceRetryStats()).rejects.toMatchObject({ code: "42P01" });
   });
 });
+
+describe("runLookup: city tour landmarks (reserved interest name)", () => {
+  it("runs the landmark warm-up with the job's point and budget, not an interest lookup", async () => {
+    const warm = vi.fn().mockResolvedValue("ok");
+    vi.doMock("./tour/landmarks", () => ({ warmLandmarks: warm }));
+    const { runLookup } = await import("./place-retries");
+    const { retryInterestLookup } = await import("./facts/places");
+    const ctx = { userId: null, locale: "de" as const, today: "2026-11-12" };
+    const job = { kind: "interest" as const, interest: "landmarks", lat: 50.116, lon: 8.684, radiusKm: 8 };
+    expect(await runLookup(job, 90_000, ctx)).toBe("done");
+    expect(warm).toHaveBeenCalledWith(job, ctx, 90_000);
+    expect(retryInterestLookup).not.toHaveBeenCalled();
+    warm.mockResolvedValue("failed");
+    expect(await runLookup(job, 90_000, ctx)).toBe("failed");
+    vi.doUnmock("./tour/landmarks");
+  });
+});

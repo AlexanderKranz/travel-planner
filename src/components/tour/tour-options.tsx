@@ -44,7 +44,7 @@ function PointPicker({
       </div>
     );
   }
-  return <PlaceSearch label={searchLabel} centre={centre} isTaken={isTaken} onPick={(s) => onChange(toPoint(s))} />;
+  return <PlaceSearch label={searchLabel} centre={centre} isTaken={isTaken} use="endpoint" onPick={(s) => onChange(toPoint(s))} />;
 }
 
 type Props = {

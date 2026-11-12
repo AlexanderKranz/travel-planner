@@ -14,17 +14,19 @@ type Props = {
   isTaken: (key: string) => boolean;
   onPick: (s: TourSuggestion) => void;
   disabled?: boolean;
+  /** `endpoint`: start or end of the tour, addresses and hotels allowed; default: sights only. */
+  use?: "place" | "endpoint";
 };
 
 /** Place search (spec 3.1 source 2): Geoapify Autocomplete through /api/places/search, 400 ms, at least 3 characters. */
-export function PlaceSearch({ label, centre, isTaken, onPick, disabled }: Props) {
+export function PlaceSearch({ label, centre, isTaken, onPick, disabled, use = "place" }: Props) {
   const t = useTranslations("tours");
   const locale = useLocale();
   const lat = centre?.lat;
   const lon = centre?.lon;
   const search = useCallback(
-    (q: string, signal: AbortSignal) => searchPlaces(q, { lat: lat ?? 0, lon: lon ?? 0 }, locale, signal),
-    [lat, lon, locale],
+    (q: string, signal: AbortSignal) => searchPlaces(q, { lat: lat ?? 0, lon: lon ?? 0 }, locale, signal, use),
+    [lat, lon, locale, use],
   );
   if (!centre) return <p className={`text-sm ${mutedCls}`}>{t("placesNeedCity")}</p>;
   return (

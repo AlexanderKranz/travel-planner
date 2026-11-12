@@ -12,6 +12,7 @@ import {
   type TourLeg,
   type TourPoint,
 } from "@/lib/domain/tour";
+import { MAX_LANDMARKS } from "@/lib/facts/landmarks";
 import { getPlaceById } from "@/lib/integrations/open-meteo-geocoding";
 import { tourInputHash } from "@/lib/tour/hash";
 import { keepOrder, orderTour } from "@/lib/tour/order";
@@ -382,7 +383,7 @@ async function sightsFor(
   network: boolean,
 ) {
   const anchor = input.city ?? input.places[0];
-  const found = await cityPlaces(cityDestination(anchor), ["general"], { userId, locale, network });
+  const found = await cityPlaces(cityDestination(anchor), ["general"], { userId, locale, network, limit: MAX_LANDMARKS });
   const lines = legs.map((l) => {
     try {
       return { mode: l.mode, line: l.poly ? decodePolyline(l.poly) : null };

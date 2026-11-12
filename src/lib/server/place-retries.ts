@@ -1,7 +1,7 @@
 import "server-only";
 import { berlinToday } from "@/lib/date";
 import type { FactsCtx } from "@/lib/domain/facts";
-import { RetrySpec, type RetryJob } from "@/lib/places-retry";
+import { LANDMARKS_JOB_INTEREST, RetrySpec, type RetryJob } from "@/lib/places-retry";
 import { logEvent } from "./events";
 import type { ActivityType } from "@/lib/facts/activity-types";
 import { getActivityGroupFacts, getCafeFacts, getRestaurantFacts, type ActivityGroupFacts, type LookupFact } from "./facts/activities";
@@ -64,6 +64,11 @@ export async function runLookup(spec: RetrySpec, budgetMs: number, ctx: FactsCtx
   const asDest = (d: { lat: number; lon: number; kind: "city" | "region" }) => d as unknown as GeoDestination;
   switch (spec.kind) {
     case "interest":
+      if (spec.interest === LANDMARKS_JOB_INTEREST) {
+        // Imported lazily: the tour module imports this file (enqueue), a static import would be a cycle.
+        const { warmLandmarks } = await import("./tour/landmarks");
+        return (await warmLandmarks(spec, ctx, budgetMs)) === "ok" ? "done" : "failed";
+      }
       return (await retryInterestLookup(spec.interest as Parameters<typeof retryInterestLookup>[0], spec, spec.radiusKm, ctx, budgetMs)) === "ok" ? "done" : "failed";
     case "activity_group": {
       const f = await getActivityGroupFacts(spec.group, asDest(spec.dest), ctx, { budgetMs, ...(spec.wanted.length ? { wanted: spec.wanted } : {}) });

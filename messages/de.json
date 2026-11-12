@@ -815,7 +815,7 @@
       },
       "wikimedia": {
         "label": "Wikimedia Commons und Wikidata",
-        "provides": "Bild des Reiseziels (Seitenbanner oder Hauptbild des Ortes).",
+        "provides": "Bild des Reiseziels (Seitenbanner oder Hauptbild des Ortes). Für Stadttouren: wie bekannt ein Ort ist (Zahl der Wikipedia- und anderen Wikimedia-Artikel darüber), um die Vorschläge zu ordnen.",
         "license": "Je nach Bild: CC0, gemeinfrei, CC BY oder CC BY-SA. Urheber und Lizenz stehen unter dem Bild."
       },
       "rest_countries": {

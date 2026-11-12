@@ -63,6 +63,17 @@ describe("autocompletePlaces", () => {
     expect(k).toBe("autocomplete:v1:cell=48.21,16.37;lang=de;q=stephansdom");
     expect(autocompleteKey("  STEPHANSDOM ", { lat: 48.2101, lon: 16.3699 }, "de")).toBe(k);
     expect(autocompleteKey("Stephansdom", wien, "en")).not.toBe(k);
+    // POI mode (tour places, type=amenity + filter) has its own v2 key; v1 stays for start/end.
+    expect(autocompleteKey("Stephansdom", wien, "de", "poi")).toBe("autocomplete:v2:cell=48.21,16.37;lang=de;q=stephansdom;type=amenity");
+    expect(autocompleteKey("Stephansdom", wien, "de", "any")).toBe(k);
+  });
+
+  it("POI mode: type=amenity request, filtered results cached under the v2 key", async () => {
+    h.fetchJson.mockResolvedValue({ status: 200, latencyMs: 300, body: fx("amenity-alte-oper-frankfurt-de") });
+    const r = await autocompletePlaces({ q: "Alte Oper", lat: 50.11552, lon: 8.68417, lang: "de", mode: "poi" }, ctx);
+    expect(r.ok && r.suggestions.map((s) => s.name)).toEqual(["Alte Oper", "Alte Oper", "Holiday Inn Frankfurt - Alte Oper"]);
+    expect(new URL(h.fetchJson.mock.calls[0][0]).searchParams.get("type")).toBe("amenity");
+    expect(h.calls[0]).toMatchObject({ key: "autocomplete:v2:cell=50.12,8.68;lang=de;q=alte oper;type=amenity" });
   });
 
   it("one credit through the Geoapify guard, cached 30 days as geoapify/autocomplete; a repeat is a hit", async () => {

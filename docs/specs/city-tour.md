@@ -84,10 +84,11 @@ export const MAX_TOUR_PLACES = 10;   // + start + end = at most 12 points
 ```
 
 Sources, cheapest first:
-1. **Suggestions from the cache**: `getInterestGroups` for `general` (plus the linked trip's purpose interests)
+1. **Suggestions from the cache** (changed by the landmark fix, see "Implementation notes (landmarks)"): the city's
+   landmarks by prominence, then the linked trip's purpose interests. Originally: `getInterestGroups` for `general` (plus the linked trip's purpose interests)
    around the city anchor at the standard city radius, `overpass: "cache_only"` + Geoapify fast path (the option from
    `port-places.md` §2). Same cache keys as a city trip to that town, so usually 0 calls.
-2. **Search**: new `GET /api/places/search?q=&lat=&lon=&lang=` backed by **Geoapify Autocomplete** (same key and
+2. **Search** (landmarks matched first since the landmark fix): new `GET /api/places/search?q=&lat=&lon=&lang=` backed by **Geoapify Autocomplete** (same key and
    quota guard as Places, 1 credit per request). `filter=circle:<city>,20000`, `bias=proximity`, debounced 400 ms,
    minimum 3 characters, 8 results; results with OSM identity get an `osm:` key. Cached per normalized query + city
    cell (2 decimals) + lang, 30 days. Rate limit 30/min and 200/day per user.
@@ -211,6 +212,7 @@ labelled by what they do ("Grüner", "Ruhiger", "Ohne Autobahn"), never "schöne
 ## 6. Sights near the route [T12]
 
 - Candidates: the same cached city places as the suggestions (3.1, no Overpass inline), minus places in the tour.
+  Since the landmark fix: the top 60 landmarks of the city by prominence (the order replaces `rankCandidates`).
 - Code computes the straight-line distance of each candidate to the decoded route polylines (point-to-segment,
   equirectangular, enough at city scale). Kept within the corridor: foot and wheelchair 150 m, cycling 300 m, car
   1 km. Each is assigned to its nearest leg. At most 3 per leg and 8 per tour, ranked by the existing `rankCandidates`
@@ -360,6 +362,9 @@ sources line adds "Routen: © openrouteservice.org". A standalone tour has no PD
 | ORS directions | `cacheKey("tour-route", 1, { profile, route, h })`, h = sha256 of the ordered points | 90 d | 1 per run, usually 1 |
 | Geoapify autocomplete | `cacheKey("autocomplete", 1, { q, cell, lang })` | 30 d | 1 credit per uncached query |
 | City places | existing interest keys | existing | usually 0 |
+| Landmarks (Overpass, warm-up/retry only) | `landmarks:v1:{lat,lon,r=8}` (anchor 3 dp) | 30 d | 1 query per city |
+| Landmark sitelinks (Wikidata, warm-up/retry only) | `sitelinks:v1:{lat,lon,r=8}` | 90 d | 1 request per 50 ids, at most 20 |
+| Geoapify autocomplete, tour places | `cacheKey("autocomplete", 2, { q, cell, lang, type: "amenity" })` | 30 d | 1 credit per uncached query |
 
 - A typical tour costs 2 ORS requests cold and 0 when recomputed unchanged. Adding a place costs 2 again (new
   point set). Routes are cached across users: keys hold public points only, no owner.
@@ -626,6 +631,104 @@ the ORS gate is released.
   `trip_id` and `owner_id` of the link, and drops any row of another trip in code as well. The share box shows
   `share.tourEndpointsVisible` when a tour on a day starts or ends at a `gfy:` Geoapify result. The PDF draws the
   block with a react-pdf `Svg` sketch and a sources line under the days.
+
+### Implementation notes (landmarks, 2026-11-12)
+
+Alex tested Frankfurt: Dom, Alte Oper and Hauptbahnhof were missing from the suggestions, and the search for them
+returned street addresses, shops inside the station, a bus stop, a car park and a ticket office. Causes: the
+suggestions used the `general` interest (attraction/viewpoint, castle/monument/city gate/fort, `building=cathedral`,
+all with wikidata) through the Geoapify fast path, whose categories missed most of it (Frankfurt: 6 places in 15 km,
+no church, theatre or station), ranked by distance (Wien: 15 Palais within 300 m); the search was address
+autocomplete. Measured live with 21 calls (Overpass 5, one a 502; Wikidata 4; Geoapify 12).
+
+**Landmark set** (`src/lib/facts/landmarks.ts`, pure; `src/lib/server/tour/landmarks.ts`, caches and warm-up).
+- One Overpass query per city point, 8 km, `out center tags 3000`: places of worship, theatres, arts centres, concert
+  halls, town halls, marketplaces; cathedral/church/chapel/basilica/synagogue/mosque/temple/palace/castle/train
+  station buildings; museums, galleries, attractions, viewpoints, zoos; historic castles, palaces, monuments,
+  memorials, city gates, forts, buildings, churches, towers, ruins, monasteries, city walls, bridges; railway stations
+  except subway/light rail/tram; squares; pedestrian streets; towers and bridges; buildings with `landmark=yes`;
+  parks, gardens, cemeteries. **Every line needs `wikidata`.** U-Bahn stations are left out (the "Dom/Römer" and
+  "Alte Oper" stations shadowed the landmarks); generic buildings only with `landmark=yes` (office towers and
+  companies tagged on buildings were most of Frankfurt's noise).
+- Code applies the same filter, the exact radius, one element per wikidata id (a castle wins over a gate or park with
+  the same id: Hofburg over Schweizertor, Schloss Schönbrunn over the Schlosspark), one per name within 150 m, at
+  most 1,000 candidates (Frankfurt 448, Wien 1,000 of ~1,450, Passau 90).
+- **Prominence = Wikidata sitelink count** × kind weight (stations, streets, memorials, markets, plain buildings 0.6;
+  parks 0.8; sights 1) / (1 + km from the city point / 5), +1 for a wikipedia tag. Evidence: sitelinks put the
+  known sights first in all three cities; the cheap alternative (count of `name:*` tags + wikipedia tag) missed
+  Belvedere (62 sitelinks) and Tiergarten Schönbrunn even in its top 300 for Wien, so it is only the fallback
+  until Wikidata answered. Sitelinks come from the Action API (`action=query&prop=pageprops&ppprop=wb-sitelinks`,
+  50 ids per request, ~250 ms, 3.9 KB for 50; equal to the Query Service values for the 50 checked), serial, with
+  `maxlag=5` and the app's User-Agent (`src/lib/integrations/wikidata-sitelinks.ts`). Wikidata data is CC0.
+- Caches: `overpass/landmarks` 30 d and `wikidata/sitelinks` 90 d, both keyed by the anchor (3 dp) and radius,
+  shared across users. **Overpass and Wikidata are never called inside a user request**: suggestions, search and
+  sights read the cache only. A miss (or an expired entry) schedules the warm-up with Next.js `after()` (budget
+  110 s; one per point and instance per 10 min) and queues the place retry job as a fallback. The job reuses kind
+  `interest` with the reserved name `landmarks` (no migration of the `kind` check); the worker branches on it.
+- While no set is cached, the old `general` places stand in (cache + Geoapify fast path) and the answer is
+  `pending`. A Geoapify landmark fast path was measured and rejected: 500 places (25 credits) with landmark
+  categories reach only 1.1 km around Frankfurt's centre and miss the Hauptbahnhof, Paulskirche and Städel; Alte Oper
+  and Eiserner Steg come back only as stations.
+- Suggestions: top 40 landmarks, then the linked trip's purpose interests. Sights near the route: top 60.
+
+**Search** (`src/lib/server/tour/search.ts`, `GET /api/places/search`, new `use=place|endpoint`).
+1. Landmarks of the cached set that match: case-, accent- and ß-insensitive on name, `name:de`/`name:en`,
+   `alt_name`, `short_name`, `official_name`, `loc_name`, `old_name`; an equal name first ("Dom" = loc_name of the
+   Kaiserdom), then a word start ("Hauptbahnhof" in "Frankfurt (Main) Hauptbahnhof"), then inside a word ("dom" in
+   "Stephansdom"); within a tier by prominence. They are OSM points with `osm:` keys and refs signed like the
+   suggestions (nothing to resolve on save).
+2. Geoapify Autocomplete for the rest, skipped when 8 landmarks matched. Places: `type=amenity` (no streets,
+   buildings or postcodes) and a category allow-list (sights, attractions, entertainment, religion, heritage,
+   historic buildings, parks, natural, man-made, train; no food, shops, health, car parks, hotels, offices,
+   tickets, bus or tram stops); new cache key v2. Results without a category stay only while no landmark matched
+   (the Kaiserdom has none in Geoapify; the "Holiday Inn Frankfurt - Alte Oper" and "Tourist Information Römer" have
+   none either). Start and end (`use=endpoint`): the old address autocomplete (v1 key), addresses and hotels allowed.
+3. A Geoapify result that is a matched landmark is dropped: the same name within 300 m, or for an uncategorized or
+   transport result one name inside the other (the station's "Hauptbahnhof" B level, the "Dom/Römer" U-Bahn).
+
+**Before / after: top 15 suggestions** (before: the live `general` Geoapify fast path for Frankfurt and Wien, the
+recorded `general` Overpass fixture for Passau; after: the recorded landmark sets and sitelinks).
+
+| # | Frankfurt before | Frankfurt after | Wien before | Wien after | Passau before | Passau after |
+|---|---|---|---|---|---|---|
+| 1 | Kaiserpfalz franconofurd | Frankfurter Wertpapierbörse | Stock im Eisen | Stephansdom | Glasscherbenvilla | Dom St. Stephan |
+| 2 | Saalhof | Paulskirche | Palais Bartolotti-Partenfeld | Hofburg | Schloss Freudenhain | Passau Hbf |
+| 3 | Affentorhäuser | Kaiserdom St. Bartholomäus | Palais Equitable | Wiener Staatsoper | Severinstor | Veste Oberhaus |
+| 4 | Bieberer Aussichtsturm | Städel Museum | Stephansdom | Belvedere | Alte Residenz | St. Michael |
+| 5 | Ellerhöhturm | Römer | Erzbischöfliches Palais | Kunsthistorisches Museum | Dom St. Stephan | Pfarrkirche Sankt Paul |
+| 6 | Wasserturm | Messeturm | Palais Eskeles | Albertina | Neue Residenz | Stadttheater Passau |
+| 7 | – | Alte Oper | Palais Gatterburg | Prunksaal der ÖNB | Veste Oberhaus | Museum Moderner Kunst |
+| 8 | – | Römerberg | Palais Neupauer-Breuner | Burgtheater | Veste Niederhaus | Fernmeldeturm Passau |
+| 9 | – | Goethe-Haus | Palais Starhemberg | Naturhistorisches Museum | Burgruine Hals | Domplatz |
+| 10 | – | Senckenberg Naturmuseum | Kohlmarkt | Karlskirche | Burg Reschenstein | Neue Residenz |
+| 11 | – | Frankfurt (Main) Hauptbahnhof | Palais Corbelli-Schöller | Schloss Schönbrunn | Schloss Neuburg | Sankt Peter |
+| 12 | – | Katharinenkirche | Palais Erdödy-Fürstenberg | Kaisergruft | Burg Wernstein | Mariahilf |
+| 13 | – | Main Tower | Palais Fürstenberg | Rathaus | Ruine Wimberg | Sankt Anton |
+| 14 | – | Oper Frankfurt | Palais Kaiserstein | Musikverein | Kubin Haus | Passauer Glasmuseum |
+| 15 | – | Museum MMK | Palais Rottal | Spanische Hofreitschule | Ruine Königstein | St. Josef |
+
+Eiserner Steg is in the Frankfurt set (rank 53, so among the sight candidates, not the 40 suggestions) and found by the search. Passau's GeoNames point lies 2.7 km from
+the Dom, so the distance term favours the Fernmeldeturm next to it; the sitelink counts there are small (Dom 22,
+Hbf 9, Veste Oberhaus 6). The Wertpapierbörse leads Frankfurt because OSM tags the exchange building with the
+institution's item (54 sitelinks) and `amenity=marketplace` (weight 0.6).
+
+**Before / after: first 3 search results around Frankfurt** (before: Alex's live test without `type`; after: the
+recorded `type=amenity` answers merged with the landmark set, `src/lib/server/tour/search.test.ts`).
+
+| Query | Before | After |
+|---|---|---|
+| Dom | street addresses only (Domstraße …) | Kaiserdom St. Bartholomäus · Dominikanerkloster · Dommuseum |
+| Kaiserdom | not measured | Kaiserdom St. Bartholomäus |
+| Alte Oper | Alte Oper (theatre) · bus stop · car park (plus an office, a ticket office) | Alte Oper |
+| Hauptbahnhof | Deutsche Post · Burgertime · … (businesses inside the station) | Frankfurt (Main) Hauptbahnhof · Hauptbahnhof (tief) · Offenbach (Main) Hauptbahnhof |
+| Römer | not measured | Römer · Römerberg · Haus zum Römer |
+
+**Quotas.** Overpass: one query per city per 30 days, in the warm-up or the retry job only (40-55 s on
+overpass-api.de, 278 s for Wien on the private.coffee mirror; the job's 120 s cap can cut a slow mirror, the next run
+retries). Wikidata: per city per 90 days 2 (Passau) to 20 (Wien) light requests. Geoapify: no new Places credits
+(suggestions no longer need the `general` Geoapify lookup once the landmarks are cached: 11-15 credits less per new
+city); place searches use a new cache key, so queries cached before are fetched once more, and a query that 8
+landmarks answer costs nothing.
 
 ## 15. Decisions (accepted by Alex, 2026-11-12)
 

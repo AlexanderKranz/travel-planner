@@ -12,6 +12,7 @@ import {
   fetchAutocomplete,
   fetchPlaceDetails,
   gfyKey,
+  isTourPoi,
   parseAutocomplete,
   parsePlaceDetails,
   placeDetailsUrl,
@@ -138,5 +139,46 @@ describe("Geoapify place details", () => {
     expect((await fetchPlaceDetails(id, "de")).details.osmKey).toBe("osm:w212496461");
     await expect(fetchPlaceDetails("../../v1/x?y", "de")).rejects.toThrow();
     expect(h.fetchJson).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Recorded live 2026-11-12 (landmark fix, issue #172): `type=amenity`, lang de, 20 km around Frankfurt
+ * (50.12,8.68) for the five queries Alex tested.
+ */
+describe("POI mode (tour places)", () => {
+  const amenity = (q: string) => fx(`amenity-${q}-frankfurt-de`);
+
+  it("URL: type=amenity only in poi mode", () => {
+    const at = { lat: 50.11552, lon: 8.68417 };
+    expect(new URL(autocompleteUrl("dom", at, "de", "gk", "poi")).searchParams.get("type")).toBe("amenity");
+    expect(new URL(autocompleteUrl("dom", at, "de", "gk", "any")).searchParams.has("type")).toBe(false);
+    expect(new URL(autocompleteUrl("dom", at, "de", "gk")).searchParams.has("type")).toBe(false);
+  });
+
+  it.each([
+    ["dom", ["Dominikanerkloster", "Dom/Römer", "Kaiserdom St. Bartholomäus", "Dommuseum"]],
+    ["kaiserdom", ["Kaiserdom St. Bartholomäus"]],
+    ["alte-oper", ["Alte Oper", "Alte Oper", "Holiday Inn Frankfurt - Alte Oper"]],
+    ["hauptbahnhof", ["Hauptbahnhof", "Hauptbahnhof (tief)", "Hauptbahnhof Südseite", "Hauptbahnhof"]],
+    ["roemer", ["Römer", "Tourist Information Römer", "Dom/Römer", "Haus zum Römer"]],
+  ])("%s: results categorized as food, shops, car parks, hotels, tickets or tram stops are dropped", (q, want) => {
+    expect(parseAutocomplete(amenity(q), "poi").map((s) => s.name)).toEqual(want);
+    // The same answer unfiltered still has them (mode `any`, start and end).
+    expect(parseAutocomplete(amenity(q)).length).toBeGreaterThanOrEqual(want.length);
+  });
+
+  it("isTourPoi: sights, culture, worship, parks and trains stay; addresses and businesses go; no category stays", () => {
+    expect(isTourPoi({ result_type: "amenity", category: "entertainment.culture.theatre" })).toBe(true);
+    expect(isTourPoi({ result_type: "amenity", category: "tourism.sights.city_hall" })).toBe(true);
+    expect(isTourPoi({ result_type: "amenity", category: "public_transport.train" })).toBe(true);
+    expect(isTourPoi({ result_type: "amenity" })).toBe(true);
+    expect(isTourPoi({ result_type: "amenity", category: "parking.cars" })).toBe(false);
+    expect(isTourPoi({ result_type: "amenity", category: "commercial.health_and_beauty.pharmacy;healthcare.pharmacy" })).toBe(false);
+    expect(isTourPoi({ result_type: "amenity", category: "public_transport.tram" })).toBe(false);
+    expect(isTourPoi({ result_type: "amenity", category: "tourism.information.office" })).toBe(false);
+    expect(isTourPoi({ result_type: "street" })).toBe(false);
+    expect(isTourPoi({ result_type: "building" })).toBe(false);
+    expect(isTourPoi({ result_type: "amenity", category: "tourismus" })).toBe(false);
   });
 });
