@@ -5,6 +5,7 @@
 `sharing.test.sql` checks sharing trips and purposes (share tables, helper functions, widened policies, owner-only columns, `share_resource`, disabled owners, cascades; `docs/specs/sharing.md`).
 `group-sharing.test.sql` checks sharing travel groups (group_shares, helpers, widened policies, the entry guard, "That's me" claims, link pruning, group references on trips and searches, `share_contacts`, admin counters; `docs/specs/group-sharing.md`).
 `trip-stops.test.sql` checks `trips.stops` (shape checks, owner and write-grantee edits, read-only grantees) and the `itinerary_extracts` cache (owner select/delete only, server-only writes, 30-day purge; `docs/specs/itinerary-upload.md`).
+`city-tours.test.sql` checks `city_tours` (owner RLS, read-only access through a shared trip, server-only `result` columns, the same-owner trip FK and `on delete set null`, size and day checks, the updated_at trigger, the 18-month purge of standalone tours with malformed dates; `docs/specs/city-tour.md`).
 `sharing-concurrency.sh` is not pgTAP: it needs two real connections, so it runs two `psql` sessions against the local database and checks that the 10-grantee cap holds under concurrency (trips and groups) and that two parallel claims of an entry, or two claims by one user, end with exactly one link (`bash supabase/tests/sharing-concurrency.sh` after `supabase start`; needs `psql`; `DATABASE_URL` overrides the default local connection). `supabase test db` does not run it.
 
 Docker is required, so the only place this runs today is GitHub Actions (job `db-test` in

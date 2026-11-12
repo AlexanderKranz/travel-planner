@@ -80,6 +80,7 @@ The plan view, share page and PDF are rendered from this structure. The visual s
   - `travel_groups`, `group_entries` (composition and/or named member)
   - `trip_purposes`
   - `trips`
+  - `city_tours` (standalone or linked to a day of an own trip; input jsonb, server-only result snapshot; read-only to grantees of the linked trip; `docs/specs/city-tour.md`, ADR 0012)
   - `plan_versions` (JSON + the feedback that produced each version)
   - `share_links`
   - `api_cache`
