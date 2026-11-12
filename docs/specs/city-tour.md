@@ -578,6 +578,11 @@ the ORS gate is released.
 - Sights use `general` around the city (or the first place without a city); suggestions add the linked trip's purpose
   interests. Both use a `city` destination (standard city radius), so they share cache keys with a city trip there.
 - Admin "Usage" shows tours created and computed in the last 7 days (`app_events` counts).
+- The sunset check needs the city's time zone (Open-Meteo place of the `geo:` city). A tour without a city gets no
+  sunset warning even with date and start time: no verified zone, and a guessed local time would be wrong. The UI may
+  say the check needs a city.
+- A stored result with a `failed` leg is recomputed even when the input is unchanged (an outage is not kept).
+- `updateTour` with `expectedUpdatedAt` is a conditional update; a concurrent save in between gives `conflict`.
 
 ## 15. Decisions (accepted by Alex, 2026-11-12)
 
