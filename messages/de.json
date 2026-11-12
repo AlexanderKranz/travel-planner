@@ -541,7 +541,11 @@
         "limit": "Tageslimit erreicht. Morgen wieder oder Stopps eintippen.",
         "forbidden": "Du kannst die Stopps dieser Reise nicht bearbeiten."
       },
-      "stopsPerDay": "Pro Tag sind höchstens {max} Orte möglich (Tag {days})."
+      "stopsPerDay": "Pro Tag sind höchstens {max} Orte möglich (Tag {days}).",
+      "count": "{count, plural, one {# Stopp} other {# Stopps}}",
+      "edit": "Stopps bearbeiten",
+      "arriveAt": "Ankunft {time}",
+      "departAt": "Abfahrt {time}"
     }
   },
   "facts": {

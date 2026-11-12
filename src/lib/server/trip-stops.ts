@@ -1,7 +1,7 @@
 import "server-only";
 import type { Trip } from "@/lib/domain/trip";
 import { tripStops, type DerivedStops, type TripStop } from "@/lib/domain/trip-stops";
-import { notesDeriver } from "./itinerary-notes";
+import { deriveNotesStops, notesDeriver } from "./itinerary-notes";
 import { getUserSession } from "./session";
 
 /**
@@ -46,5 +46,23 @@ export async function resolveTripStops(
     return tripStops(trip, await derive(trip));
   } catch {
     return [];
+  }
+}
+
+/** Stops the trip page shows and where they come from ("notes": derived from the saved notes, not confirmed). */
+export type ShownTripStops = { stops: TripStop[]; source: "confirmed" | "notes" };
+
+/**
+ * The stops the trip page shows (read-only list, stop count in the context strip): the same resolution as the plan
+ * (confirmed > derived from the notes), but never an AI call, for any viewer: parser and the owner's cache only. The
+ * plan pipeline and the edit form are what fill that cache. Never throws; no stops = an empty list.
+ */
+export async function shownTripStops(trip: Trip): Promise<ShownTripStops> {
+  if (trip.stops && trip.stops.length > 0) return { stops: tripStops(trip), source: "confirmed" };
+  if (!trip.notes) return { stops: [], source: "notes" };
+  try {
+    return { stops: tripStops(trip, await deriveNotesStops(trip, { session: null, allowAi: false })), source: "notes" };
+  } catch {
+    return { stops: [], source: "notes" };
   }
 }
