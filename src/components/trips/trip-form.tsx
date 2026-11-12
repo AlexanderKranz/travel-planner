@@ -1,7 +1,7 @@
 "use client";
 
 import { ClientForm } from "@/components/ui/client-form";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
 import { AirportPicker } from "@/components/settings/airport-picker";
 import { emptyDraft, parseToDrafts } from "@/components/groups/draft";
@@ -18,6 +18,7 @@ import { TRIP_PURPOSE_TEXT_MAX } from "@/lib/domain/purpose";
 import { canEdit as canEditAccess } from "@/lib/domain/sharing";
 import { createTrip, getTrip, updateTrip } from "@/lib/server/trips";
 import { DestinationPicker } from "./destination-picker";
+import { destinationForPort } from "./port-destination";
 import { StopsSection } from "./stops-section";
 import { StopsToggle } from "./stops-toggle";
 import { TimingField } from "./timing-field";
@@ -70,6 +71,7 @@ export function TripForm({
   purposeFromSearch?: boolean;
 }) {
   const t = useTranslations("trips.form");
+  const locale = useLocale();
   const tg = useTranslations("groups");
   const ts = useTranslations("sharing");
   const router = useRouter();
@@ -418,22 +420,20 @@ export function TripForm({
         tripId={trip?.id ?? null}
         canEdit={!trip || canEditAccess(trip.access)}
         showProblems={local.includes("stops") || hasIssue(issues, "stops")}
-        onChange={({ startDate, destinationFromStops, ...rest }) =>
+        onChange={({ startDate, destinationFromStops, ...rest }) => {
           setDraft((d) => ({
             ...d,
             ...rest,
             ...(startDate ? { timing: { mode: "date" as const, startDate, months: d.timing.months } } : {}),
-            ...(destinationFromStops && destinationIsEmpty(d.destination)
-              ? {
-                  destination: {
-                    mode: "freetext" as const,
-                    name: destinationFromStops.name,
-                    countryCode: destinationFromStops.cc && countryCodes.includes(destinationFromStops.cc) ? destinationFromStops.cc : "",
-                  },
-                }
-              : {}),
-          }))
-        }
+          }));
+          if (destinationFromStops && destinationIsEmpty(draft.destination)) {
+            // The first port as a picked place (facts and weather need one), else free text. Applied to the draft as
+            // it is when the answer arrives: the user may have entered a destination meanwhile.
+            void destinationForPort(destinationFromStops, locale, countryCodes).then((destination) =>
+              setDraft((d) => (destinationIsEmpty(d.destination) ? { ...d, destination } : d)),
+            );
+          }
+        }}
       />
 
       <ErrorBanner error={error} />

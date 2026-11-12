@@ -178,15 +178,28 @@ test.describe("trip stops", () => {
     await expect(rowsOf(page).nth(2).getByLabel("Tag", { exact: true })).toHaveValue("3");
   });
 
-  test("an upload fills an empty destination with the first port and sets the trip length", async ({ page }) => {
+  test("an upload fills an empty destination with the first port as a picked place and sets the trip length", async ({ page }) => {
+    await page.goto("/de/app/trips/new");
+    await page.getByRole("checkbox", { name: MULTI }).check();
+    await page.locator('#field-stops input[type="file"]').first().setInputFiles(path.join(DOCS, "donau-table.pdf"));
+    await expect(page.getByText(/Erkannt: 6 Stopps\. Bitte prüfen\./)).toBeVisible({ timeout: 30_000 });
+    // The stubbed geocoder knows Passau: the destination is the picked place (facts and weather), not free text.
+    await expect(page.locator("#field-destination").getByRole("button", { name: "Ändern" })).toBeVisible();
+    await expect(page.locator("#field-destination").getByText("Passau, Bayern, Deutschland")).toBeVisible();
+    await expect(page.getByLabel("Anzeigename")).toHaveValue("Passau");
+    await expect(page.getByLabel("Dauer der Reise")).toHaveValue("5");
+    await expect(page.getByLabel("Startdatum")).toHaveValue("2037-12-19");
+    await noHorizontalScroll(page);
+  });
+
+  test("a first port the geocoder does not find stays a free-text destination", async ({ page }) => {
+    await page.route("**/api/geocode**", (route) => route.fulfill({ json: { results: [] } }));
     await page.goto("/de/app/trips/new");
     await page.getByRole("checkbox", { name: MULTI }).check();
     await page.locator('#field-stops input[type="file"]').first().setInputFiles(path.join(DOCS, "donau-table.pdf"));
     await expect(page.getByText(/Erkannt: 6 Stopps\. Bitte prüfen\./)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByLabel("Anzeigename")).toHaveValue(await rowsOf(page).nth(0).getByLabel("Ort", { exact: true }).inputValue());
-    await expect(page.getByLabel("Dauer der Reise")).toHaveValue("5");
-    await expect(page.getByLabel("Startdatum")).toHaveValue("2037-12-19");
-    await noHorizontalScroll(page);
+    await expect(page.locator("#field-destination").getByRole("button", { name: "Ändern" })).toHaveCount(0);
   });
 
   test("a document without a schedule says so, and an injected instruction never becomes a stop", async ({ page }) => {
