@@ -46,6 +46,19 @@ export default async function SourcesPage({ params }: { params: Promise<{ locale
             </li>
           );
         })}
+        {/* Not a fact source: the browser loads the city tour map from OpenFreeMap (privacy note, city-tour spec 8). */}
+        <li className={`${cardCls} flex flex-col gap-1`}>
+          <h2 className="font-semibold">{t("mapTiles.label")}</h2>
+          <p className="text-sm">{t("mapTiles.provides")}</p>
+          <p className="text-sm">
+            {t("license")}: {t("mapTiles.license")}
+          </p>
+          <p className="flex flex-wrap gap-x-4 text-sm">
+            <a href="https://openfreemap.org/" target="_blank" rel="noopener noreferrer" className={`${linkCls} inline-flex min-h-11 items-center`}>
+              {t("website")}
+            </a>
+          </p>
+        </li>
       </ul>
       <p className={`text-sm ${mutedCls}`}>{t("note")}</p>
     </main>

@@ -67,7 +67,7 @@ async function ensureUser(sb: SupabaseClient, key: string, role: "user" | "admin
     .eq("id", id);
   if (p.error) throw new Error(`profile: ${p.error.message}`);
   // Start from a clean slate on re-runs.
-  for (const t of ["trips", "destination_searches", "travel_groups", "trip_purposes"]) {
+  for (const t of ["city_tours", "trips", "destination_searches", "travel_groups", "trip_purposes"]) {
     const d = await sb.from(t).delete().eq("owner_id", id);
     if (d.error) throw new Error(`wipe ${t}: ${d.error.message}`);
   }

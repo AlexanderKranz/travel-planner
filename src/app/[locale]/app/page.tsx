@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link, redirect } from "@/i18n/navigation";
+import { TourCard } from "@/components/tour/tour-card";
 import { TripCard } from "@/components/trips/trip-card";
 import { personLabel } from "@/components/sharing/helpers";
 import { SharedTrips } from "@/components/sharing/shared-lists";
@@ -11,24 +12,29 @@ import { listGroups } from "@/lib/server/groups";
 import { getProfile } from "@/lib/server/profile";
 import { listPurposes } from "@/lib/server/purposes";
 import { listSharedWithMe } from "@/lib/server/sharing";
+import { listTours } from "@/lib/server/tours";
 import { listTrips } from "@/lib/server/trips";
 import { unwrap } from "@/lib/unwrap";
+
+const DASHBOARD_TOURS = 5;
 
 export default async function DashboardPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  const [t, tg, tp, ts] = await Promise.all([
+  const [t, tg, tp, ts, tt] = await Promise.all([
     getTranslations("trips"),
     getTranslations("groups"),
     getTranslations("purposes"),
     getTranslations("start"),
+    getTranslations("tours"),
   ]);
-  const [profileRes, tripsRes, groupsRes, purposesRes, incomingRes] = await Promise.all([
+  const [profileRes, tripsRes, groupsRes, purposesRes, incomingRes, toursRes] = await Promise.all([
     getProfile(),
     listTrips(),
     listGroups(),
     listPurposes(),
     listSharedWithMe(),
+    listTours(),
   ]);
   const profile = unwrap(profileRes, locale);
   // First visit after login: show the getting-started guide once (never for the demo account).
@@ -38,6 +44,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
   const purposes = unwrap(purposesRes, locale);
   // A failed shares read must not break the own lists: the section simply stays hidden.
   const incoming = incomingRes.ok ? incomingRes.data : [];
+  // City tours (spec city-tour 2.1): the section is hidden when there are none (or they cannot be read).
+  const tours = toursRes.ok ? toursRes.data : [];
   const sharedPurposeItems = incoming.flatMap((s) =>
     s.resource === "purpose" && s.purpose ? [{ id: s.purpose.id, name: `${s.purpose.name} (${personLabel(s.owner)})` }] : [],
   );
@@ -53,6 +61,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
         <div className="flex flex-wrap gap-2">
           <Link href="/app/trips/discover" className={btnSecondary}>
             {t("discoverLink")}
+          </Link>
+          <Link href="/app/tours/new" className={btnSecondary}>
+            {tt("newTour")}
           </Link>
           <Link href="/app/trips/new" className={btnPrimary}>
             {t("new")}
@@ -81,6 +92,23 @@ export default async function DashboardPage({ params }: { params: Promise<{ loca
           <SharedTrips shares={incoming} />
           {/* Below the list, so the first card lines up with the side column. */}
           <p className={`text-sm ${mutedCls}`}>{t("retention", { max: MAX_TRIPS_PER_USER })}</p>
+          {tours.length > 0 && (
+            <section aria-labelledby="dashboard-tours" className="flex flex-col gap-2 pt-2">
+              <h2 id="dashboard-tours" className="text-2xl font-bold">
+                {tt("title")}
+              </h2>
+              <ul className="flex flex-col gap-2">
+                {tours.slice(0, DASHBOARD_TOURS).map((tour) => (
+                  <li key={tour.id}>
+                    <TourCard tour={tour} />
+                  </li>
+                ))}
+              </ul>
+              <Link href="/app/tours" className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
+                {tours.length > DASHBOARD_TOURS ? t("showAll", { count: tours.length }) : tt("allTours")}
+              </Link>
+            </section>
+          )}
         </section>
         <div className="flex flex-col gap-4">
           <SideList

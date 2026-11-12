@@ -421,6 +421,8 @@ Handy: `npx playwright test e2e/share.spec.ts --project=mobile`, `--ui`, `PW_CHA
 
 **Adding a flow:** add `e2e/<name>.spec.ts`, import `test`/`expect` from `./lib/fixtures` (gives `seed`, `anonContext`, `contextAs`). Anything that needs an external fact must be in the stub (`e2e/stub-fetch.cjs`) or must be shown as "unavailable" in the test.
 
+**Two servers:** `npm run e2e` starts the build twice. Port 3000 runs without provider keys (every spec but the city tours). Port 3001 (`TOURS_BASE_URL`) gets placeholder `OPENROUTESERVICE_API_KEY` and `GEOAPIFY_API_KEY`, so `e2e/tours.spec.ts` can search places and compute tours against the stub (Geoapify Autocomplete / Place Details, ORS tour matrix and directions; synthetic bodies in the recorded shapes). Both run with `TOUR_MAP_STYLE_URL=off`: the tour map never loads tiles and shows "Karte nicht verfügbar" with the route sketch.
+
 ## 14. Docs-only changes (lighter CI and Vercel previews)
 
 A pull request that changes **only documentation** skips the slow parts. What counts as documentation: every changed file is below `docs/` (including `docs/email-templates/*.html`) or is a `*.md` file in the repo root (`README.md`, `CLAUDE.md`, ...). Anything else, such as `.github/**`, `package.json`, `package-lock.json`, `supabase/**`, `messages/**`, `.coderabbit.yaml`, `vercel.json`, `scripts/**` or a `.md` file in another folder, means "not docs-only" and everything runs exactly as before.
