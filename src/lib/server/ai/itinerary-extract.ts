@@ -44,7 +44,8 @@ export function itineraryRequest(p: ItineraryPayload): StructuredRequest<typeof 
 
 /**
  * One Haiku call: itinerary -> normalized raw stops (our own safeParse, usage logged once by `ctx.onUsage`).
- * Text path: places and times are checked against the text (`not_in_source`); image path: every stop `from_image`.
+ * Text path: places (within one line), times, dates and day numbers are checked against the text (`not_in_source`,
+ * `normalizeExtract`); image path: every stop `from_image`.
  */
 export async function extractItineraryStops(p: ItineraryPayload, ctx: AiCtx): Promise<AiResult<NormalizedExtract>> {
   const r = await callStructured(itineraryRequest(p), ctx);

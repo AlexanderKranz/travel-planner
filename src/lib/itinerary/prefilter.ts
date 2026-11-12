@@ -30,6 +30,33 @@ function isDateOnly(line: string): boolean {
   return (date !== null || WEEKDAY_FULL.test(key) || findDayNumber(key) !== null) && findTimes(key).length === 0;
 }
 
+/** A row of a day-column table: a bare day number, then a word ("2 | Wien | – | –", "3. Melk"). */
+const DAY_ROW = /^(\d{1,2})\s*[.|:)–—-]?\s*\p{L}/u;
+const DAY_HEADER = /\b(tag|day)\b/;
+
+/**
+ * Rows of a day-column table ("Tag | Hafen | an | ab" / "2 | Wien | – | –") count as itinerary rows even without a
+ * time, and so does their header. The table ends at the first other non-empty line that is no itinerary row.
+ */
+function markDayTables(lines: string[], hit: boolean[]): void {
+  for (let i = 0; i < lines.length; i++) {
+    const key = matchKey(lines[i]);
+    if (hit[i] || !isHeader(key) || !DAY_HEADER.test(key) || PRIVATE_LINE.test(key)) continue;
+    let rows = 0;
+    let j = i + 1;
+    for (; j < lines.length; j++) {
+      if (!lines[j]) continue;
+      if (hit[j]) continue;
+      const m = DAY_ROW.exec(lines[j]);
+      if (!m || Number(m[1]) < 1 || lines[j].length > MAX_NEIGHBOUR || PRIVATE_LINE.test(matchKey(lines[j]))) break;
+      hit[j] = true;
+      rows += 1;
+    }
+    if (rows > 0) hit[i] = true;
+    i = j - 1;
+  }
+}
+
 /** Line looks like an itinerary row: date, weekday name, day number, time or sea-day word (section 3.2). */
 export function isItineraryLine(line: string): boolean {
   const key = matchKey(line.normalize("NFC"));
@@ -49,6 +76,7 @@ export function prefilterItinerary(text: string): string {
     .split(/\r\n|\r|\n/)
     .map((l) => l.replace(/\s+/g, " ").trim());
   const hit = lines.map(isItineraryLine);
+  markDayTables(lines, hit);
   const keep = lines.map((l, i) => {
     if (!l) return false;
     if (hit[i]) return true;
@@ -56,8 +84,8 @@ export function prefilterItinerary(text: string): string {
     const key = matchKey(l);
     if (PRIVATE_LINE.test(key)) return false;
     // A lone neighbour may be a name ("Erika Mustermann" above or inside the table): kept only as a column header, or
-    // as the place below a date-only row.
-    return isHeader(key) || (hit[i + 1] && isDateOnly(lines[i - 1] ?? ""));
+    // as the place below a date-only row (followed by its times, or the last line of the text).
+    return isHeader(key) || (isDateOnly(lines[i - 1] ?? "") && (hit[i + 1] || lines.slice(i + 1).every((x) => !x)));
   });
   let out = "";
   for (let i = 0; i < lines.length; i++) {

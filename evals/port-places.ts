@@ -30,6 +30,9 @@ import { genericChecks, rawRefs, type CheckResult } from "./checks";
 import { portPatchChecks, stopFailureChecks, stopGenerateChecks } from "./stop-checks";
 import type { Trip } from "@/lib/domain/trip";
 import { resolveStopPlaces } from "@/lib/server/facts/stops";
+import { derivableStops } from "@/lib/itinerary/map";
+import { parseItinerary } from "@/lib/itinerary/parse";
+import { prefilterItinerary } from "@/lib/itinerary/prefilter";
 
 /** Distinct place names of the cruise fixture's schedule, in order. */
 export const STOP_NAMES = ["Passau", "Wien", "Dürnstein", "Melk", "Linz"] as const;
@@ -62,6 +65,29 @@ export function scheduleStops(schedule: readonly ScheduleEntry[], startDate: str
     if (dep) stop.dep = dep;
     if (e.arrive === "morning") stop.note = "Ankunft morgens";
     return stop;
+  });
+}
+
+/**
+ * Stops derived from trip notes the way `deriveNotesStops` does on its parser path (prefilter → parser → stops inside
+ * the trip; 0 tokens, no AI). Empty when the parser cannot read the notes (production would call Haiku then).
+ */
+export function notesStops(trip: Pick<Trip, "notes" | "timing" | "lengthDays">): TripStop[] {
+  if (!trip.notes) return [];
+  const ctx = { startDate: trip.timing.kind === "date" ? trip.timing.startDate : null, lengthDays: trip.lengthDays };
+  const parsed = parseItinerary(prefilterItinerary(trip.notes), ctx, EVAL_TODAY);
+  return parsed.usable ? derivableStops(parsed.stops) : [];
+}
+
+/**
+ * The parser sets no `cc`. Without it stop resolution falls back to the destination's country (DE) and the recorded
+ * geocoding picks Wien, Missouri and Linz in Saxony, so the notes variant takes the `cc` of the matching confirmed row
+ * (same day and place; everything else comes from the parser, see port-places.test.ts).
+ */
+export function withCountryHints(derived: readonly TripStop[], confirmed: readonly TripStop[]): TripStop[] {
+  return derived.map((s) => {
+    const cc = confirmed.find((c) => c.day === s.day && c.place === s.place)?.cc;
+    return cc && !s.cc ? { ...s, cc } : s;
   });
 }
 
@@ -107,9 +133,8 @@ export function replayStopFacts(rec: StopRecording, resolved: readonly ResolvedS
 export type StopVariant = "notes" | "confirmed";
 
 /**
- * The cruise fixture with stops, both ways (section 9): `notes` = stops derived from `scheduleNotes` (the notes stay on
- * the trip; the derivation result is the fixture schedule until the extraction parser lands), `confirmed` = `trips.stops`
- * from `fixedSchedule` (no notes). Resolved by the real code against the recorded geocoding; `failing` = stops (name or id)
+ * The cruise fixture with stops, both ways (section 9): `notes` = stops derived from `scheduleNotes` by the parser
+ * (`notesStops`; the notes stay on the trip), `confirmed` = `trips.stops` from `fixedSchedule` (no notes). Resolved by the real code against the recorded geocoding; `failing` = stops (name or id)
  * whose lookups count as failed (the failure case). null when the lookups were not recorded.
  */
 export async function evalStopContext(variant: StopVariant, opts: { failing?: readonly string[]; tags?: PurposeTags | null } = {}): Promise<EvalStopContext | null> {
@@ -119,7 +144,7 @@ export async function evalStopContext(variant: StopVariant, opts: { failing?: re
   const rows = scheduleStops(f.fixedSchedule, f.trip.startDate);
   const plain = evalTrip("cruise");
   const trip: Trip = variant === "confirmed" ? { ...plain, notes: undefined, stops: rows } : plain;
-  const stops = tripStops(trip, variant === "notes" ? { notes: plain.notes ?? "", stops: rows } : null);
+  const stops = tripStops(trip, variant === "notes" ? { notes: plain.notes ?? "", stops: withCountryHints(notesStops(plain), rows) } : null);
   const resolved = await resolveStopPlaces(trip, stops, { userId: "eval", locale: f.locale, today: EVAL_TODAY }, replayGeocode(rec));
   const tags = opts.tags ?? readRecording<PurposeTags>("cruise", "tags")?.output ?? null;
   return { trip, stops, resolved, facts: replayStopFacts(rec, resolved, evalPurpose("cruise", tags), opts.failing) };

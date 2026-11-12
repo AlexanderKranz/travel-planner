@@ -21,7 +21,7 @@ import { haversineKm } from "@/lib/facts/places";
 import { MODEL_PLAN } from "@/lib/domain/ai";
 import { FIXTURES, FIXTURE_IDS, buildEvalInput, evalTrip, type FixtureId } from "./build-input";
 import { EVAL_TODAY } from "./build-input";
-import { evalStopContext, evaluatePortPatch, evaluateStopGenerate, readStopRecording, scheduleStops, STOP_NAMES } from "./port-places";
+import { evalStopContext, evaluatePortPatch, evaluateStopGenerate, notesStops, readStopRecording, scheduleStops, STOP_NAMES, withCountryHints } from "./port-places";
 import { readRecording } from "./recorded";
 import { evaluateGenerate, RECORDED_GENERATED_AT } from "./evaluate";
 import { rawStopMismatches, stopFailureChecks, stopGenerateChecks, mealWindows } from "./stop-checks";
@@ -75,6 +75,19 @@ describe.runIf(!!rec)("cruise stops: both variants give the same schedule", () =
     expect(buildEvalInput("cruise", tags, undefined, notes).stored.llm.trip.notes).toContain("Schiff");
     expect(buildEvalInput("cruise", tags, undefined, confirmed).stored.llm.trip.notes).toBeUndefined();
     expect(scheduleStops(FIXTURES.cruise.fixedSchedule!, FIXTURES.cruise.trip.startDate)[5]).toMatchObject({ day: 5, place: "Passau", note: "Ankunft morgens" });
+  });
+});
+
+describe("cruise stops: the notes variant comes from the parser (0 tokens)", () => {
+  it("the parser reads scheduleNotes() into exactly the confirmed rows, apart from cc (the parser sets none)", () => {
+    const derived = notesStops(evalTrip("cruise"));
+    const confirmed = scheduleStops(FIXTURES.cruise.fixedSchedule!, FIXTURES.cruise.trip.startDate);
+    expect(derived).toEqual(confirmed.map(({ cc: _cc, ...r }) => (void _cc, r)));
+    expect(withCountryHints(derived, confirmed)).toEqual(confirmed);
+  });
+
+  it("gives no rows when the parser cannot read the notes (production would call Haiku)", () => {
+    expect(notesStops({ ...evalTrip("cruise"), notes: "Am 19.12. legen wir am späten Nachmittag gegen 16 Uhr in Passau ab" })).toEqual([]);
   });
 });
 

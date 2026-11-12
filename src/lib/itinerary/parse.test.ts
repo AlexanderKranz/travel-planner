@@ -248,3 +248,41 @@ describe("readStops", () => {
     ]);
   });
 });
+
+describe("parseItinerary: the column header decides a single time (PR #178 review)", () => {
+  it("an undated row below a dated port under a departure-only header is a stop with that departure", () => {
+    expect(
+      stops(`Datum Hafen Abfahrt
+19.12.2037 Passau 16:00
+Melk 18:00
+20.12.2037 Wien 23:59`),
+    ).toEqual([
+      { day: 1, place: "Passau", dep: "16:00" },
+      { day: 1, place: "Melk", dep: "18:00" },
+      { day: 2, place: "Wien", dep: "23:59" },
+    ]);
+  });
+
+  it("an undated row with an empty arrive cell under an arrive + depart header is a stop", () => {
+    const got = stops(`Datum Hafen Ankunft Abfahrt
+19.12.2037 Passau – 16:00
+Melk – 18:00
+20.12.2037 Wien 14:00 23:59`);
+    expect(got[1]).toEqual({ day: 1, place: "Melk", dep: "18:00" });
+  });
+
+  it("without a header an undated row with one unmarked time still does not continue the stop above", () => {
+    expect(readStops("19.12.2037 Passau 16:00\nMelk 18:00").stops.map((s) => s.place)).toEqual(["Passau"]);
+  });
+
+  it("a day-part word fills its time column, so the one time is the other one", () => {
+    const got = stops(`Datum Hafen Ankunft Abfahrt
+19.12.2037 Passau morgens 16:00
+20.12.2037 Wien 14:00 23:59`);
+    expect(got[0]).toEqual({ day: 1, place: "Passau", dep: "16:00", note: "Ankunft morgens" });
+    const depFirst = stops(`Datum Hafen Abfahrt Ankunft
+19.12.2037 Passau abends 07:00
+20.12.2037 Wien 23:59 14:00`);
+    expect(depFirst[0]).toEqual({ day: 1, place: "Passau", arr: "07:00", note: "Abfahrt abends" });
+  });
+});

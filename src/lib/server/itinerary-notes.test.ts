@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
-const h = vi.hoisted(() => ({ cached: null as unknown, event: vi.fn(), find: vi.fn() }));
+const h = vi.hoisted(() => ({ cached: null as unknown, event: vi.fn(), find: vi.fn(), runAi: vi.fn() }));
 vi.mock("./events", () => ({ logEvent: h.event }));
-vi.mock("./itinerary-ai", () => ({ findExtract: h.find, runItineraryAi: vi.fn() }));
+vi.mock("./itinerary-ai", () => ({ findExtract: h.find, runItineraryAi: h.runAi }));
 
 import type { Trip } from "@/lib/domain/trip";
 import { deriveNotesStops, notesDeriver } from "./itinerary-notes";
@@ -72,9 +72,17 @@ describe("deriveNotesStops [D10]", () => {
   });
 
   it("notesDeriver allows AI only for a session that can edit the trip", async () => {
-    // Read grantee: parser and cache only (the AI path would need runItineraryAi, which is a bare mock here).
+    // Read grantee: parser and cache only, Haiku is never called.
     h.find.mockResolvedValue(null);
+    h.runAi.mockReset();
     expect(await notesDeriver(session)(trip(PROSE, { access: "read" }))).toBeNull();
+    expect(h.runAi).not.toHaveBeenCalled();
+    expect(await notesDeriver(null)(trip(PROSE))).toBeNull();
+    expect(h.runAi).not.toHaveBeenCalled();
     expect(await notesDeriver(null)(trip(NOTES))).toMatchObject({ notes: NOTES });
+    // The same notes with write access do reach Haiku (the assertions above can fail).
+    h.runAi.mockResolvedValue({ ok: true, extract: aiStops, cached: true });
+    expect(await notesDeriver(session)(trip(PROSE, { access: "write" }))).toMatchObject({ notes: PROSE });
+    expect(h.runAi).toHaveBeenCalledTimes(1);
   });
 });

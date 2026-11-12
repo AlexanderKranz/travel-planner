@@ -67,6 +67,15 @@ describe("extractItineraryStops", () => {
     expect(usage[0]).toMatchObject({ task: "itinerary_extract", status: "ok", inputTokens: 900, outputTokens: 300, costMicroUsd: 240 });
   });
 
+  it("text path: a date or day number not printed for the stop is dropped and flagged", async () => {
+    const create = vi.fn(async () => reply([stop({ date: "--12-22", place: "Passau", dep: "16:00" }), stop({ day: 2, date: "--12-20", place: "Wien", arr: "14:00" })]));
+    const r = await extractItineraryStops({ kind: "text", text: TEXT }, { client: { messages: { create } } as unknown as Anthropic, onUsage: async () => {} });
+    expect(r.ok && r.data.stops).toEqual([
+      { place: "Passau", dep: "16:00", flags: ["not_in_source"] },
+      { date: "--12-20", place: "Wien", arr: "14:00", flags: ["not_in_source"] },
+    ]);
+  });
+
   it("image path: flags every stop from_image", async () => {
     const create = vi.fn(async () => reply([stop({ place: "Wien", arr: "14:00" })]));
     const r = await extractItineraryStops({ kind: "images", images: [PNG] }, { client: { messages: { create } } as unknown as Anthropic, onUsage: async () => {} });
