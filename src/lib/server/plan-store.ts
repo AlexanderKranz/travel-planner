@@ -41,6 +41,8 @@ export type NewVersion = {
   changedDays?: number[];
   model?: string | null;
   costMicroUsd?: number;
+  /** The model's reply to a plan adjustment (patch versions only). */
+  reply?: string | null;
 };
 
 export const StoredInput = z.object({
@@ -53,7 +55,7 @@ export const StoredInput = z.object({
   stopPoints: z.record(z.string(), z.object({ lat: z.number(), lon: z.number(), geoId: z.number(), cc: z.string().regex(/^[A-Z]{2}$/).optional() })).optional(),
 });
 
-const META_COLUMNS = "version_no, kind, created_at, feedback, restored_from, changed_days, model, created_by";
+const META_COLUMNS = "version_no, kind, created_at, feedback, restored_from, changed_days, model, created_by, reply";
 const FULL_COLUMNS = `${META_COLUMNS}, plan, input, input_hash, cost_micro_usd`;
 
 type MetaRow = {
@@ -65,6 +67,7 @@ type MetaRow = {
   changed_days: number[] | null;
   model: string | null;
   created_by?: string | null;
+  reply?: string | null;
 };
 type FullRow = MetaRow & { plan: unknown; input: unknown; input_hash: string; cost_micro_usd: number };
 
@@ -81,6 +84,7 @@ export function rowToMeta(r: MetaRow): PlanVersionMeta {
     changedDays: r.changed_days ?? [],
     model: r.model,
     createdBy: r.created_by ?? null,
+    reply: r.reply ?? null,
   };
 }
 
@@ -234,6 +238,8 @@ export async function insertVersion(sb: SupabaseClient, planId: string, v: NewVe
       changed_days: v.changedDays ?? [],
       model: v.model ?? null,
       cost_micro_usd: Math.max(0, Math.round(v.costMicroUsd ?? 0)),
+      // By code point (the DB counts characters): a cut inside a surrogate pair would make the insert fail.
+      ...(v.reply ? { reply: Array.from(v.reply).slice(0, 2000).join("") } : {}),
     })
     .select("version_no")
     .single<{ version_no: number }>();
