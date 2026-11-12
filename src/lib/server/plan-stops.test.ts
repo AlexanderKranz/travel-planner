@@ -5,11 +5,12 @@ const h = vi.hoisted(() => ({
   resolveStops: vi.fn(),
   getStopFacts: vi.fn(),
   lookupStops: vi.fn(),
+  resolveStopPlaces: vi.fn(),
   drive: vi.fn(),
   enqueue: vi.fn(async () => {}),
 }));
 vi.mock("./trip-stops", () => ({ resolveTripStops: h.resolveStops }));
-vi.mock("./facts/stops", () => ({ getStopFacts: h.getStopFacts, lookupStops: h.lookupStops, stopDriveTimes: h.drive }));
+vi.mock("./facts/stops", () => ({ getStopFacts: h.getStopFacts, lookupStops: h.lookupStops, resolveStopPlaces: h.resolveStopPlaces, stopDriveTimes: h.drive }));
 vi.mock("./place-retries", () => ({ enqueuePlaceRetries: h.enqueue }));
 
 import type { StopFacts } from "@/lib/domain/facts";
@@ -28,6 +29,7 @@ beforeEach(() => {
   h.resolveStops.mockResolvedValue([]);
   h.getStopFacts.mockResolvedValue([]);
   h.lookupStops.mockResolvedValue([]);
+  h.resolveStopPlaces.mockResolvedValue([]);
   h.drive.mockResolvedValue({});
 });
 
@@ -85,6 +87,30 @@ describe("prepareStopsForPatch", () => {
     h.lookupStops.mockClear();
     const out = await run(input, { scopeDays: [2] }); // day 2 is Wien, which is fine
     expect(out.retried).toBe(0);
+    expect(h.lookupStops).not.toHaveBeenCalled();
+  });
+
+  it("a stop whose geocoding failed is geocoded again, then looked up like any retry", async () => {
+    const failedGeo = { ...CRUISE_RESOLVED[2], status: "error" as const, point: undefined };
+    const input = extendInputWithStops(emptyStored(), { rows: stopRows(CRUISE_STOPS, CRUISE_RESOLVED), points: stopPointsOf([CRUISE_RESOLVED[1]]), facts: [CRUISE_FACTS[1], { stop: failedGeo, places: [] }], lang: "de" });
+    expect(input.llm.stopPlaces![1].s).toBe("error");
+    expect(input.stopPoints!.s2).toBeUndefined();
+    h.resolveStopPlaces.mockResolvedValue([{ ...CRUISE_RESOLVED[2], id: "s1" }]);
+    h.lookupStops.mockResolvedValue([CRUISE_FACTS[2]]);
+    const r = await run(input, { scopeDays: [3] });
+    expect(h.resolveStopPlaces).toHaveBeenCalledTimes(1);
+    expect(h.resolveStopPlaces.mock.calls[0][1]).toEqual([{ day: 3, place: "Dürnstein" }]);
+    expect(h.lookupStops.mock.calls[0][0]).toEqual([expect.objectContaining({ id: "s2", status: "ok" })]);
+    expect(r.retried).toBe(1);
+    expect(r.stored.stopPoints!.s2).toMatchObject({ geoId: 2780900 });
+  });
+
+  it("a geocoding retry that fails again leaves the stop as it was", async () => {
+    const failedGeo = { ...CRUISE_RESOLVED[2], status: "error" as const, point: undefined };
+    const input = extendInputWithStops(emptyStored(), { rows: stopRows(CRUISE_STOPS, CRUISE_RESOLVED), points: stopPointsOf([CRUISE_RESOLVED[1]]), facts: [CRUISE_FACTS[1], { stop: failedGeo, places: [] }], lang: "de" });
+    h.resolveStopPlaces.mockResolvedValue([{ ...failedGeo, id: "s1" }]);
+    const r = await run(input);
+    expect(r.retried).toBe(0);
     expect(h.lookupStops).not.toHaveBeenCalled();
   });
 

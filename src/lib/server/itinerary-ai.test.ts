@@ -112,6 +112,28 @@ describe("runItineraryAi", () => {
     expect(await runItineraryAi(session, "owner", { kind: "text", text: "t4" }, { extract: ok })).toEqual({ ok: false, error: "rate_limited" });
   });
 
+  it("does not call the model when the atomic minute limit is already used up by an overlapping request", async () => {
+    const { rateLimit } = await import("./rate-limit");
+    for (let i = 0; i < 3; i++) rateLimit("itinerary:actor", 3, 60_000);
+    // simulate the window where the read-only check passed but the slots were taken meanwhile
+    const rl = await import("./rate-limit");
+    const spy = vi.spyOn(rl, "rateLimitAvailable").mockReturnValue({ ok: true, retryAfterSeconds: 0 });
+    expect(await run()).toEqual({ ok: false, error: "rate_limited" });
+    expect(ok).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("counts in-flight extractions against the daily limit", async () => {
+    h.usageCount = DAILY_EXTRACTS.user - 1;
+    let release!: () => void;
+    ok.mockImplementationOnce(() => new Promise((r) => (release = () => r({ ok: true, data: extract, usage: {} }))));
+    const first = runItineraryAi(session, "owner", { kind: "text", text: "a" }, { extract: ok });
+    await vi.waitFor(() => expect(ok).toHaveBeenCalledOnce());
+    expect(await runItineraryAi(session, "owner", { kind: "text", text: "b" }, { extract: ok })).toEqual({ ok: false, error: "rate_limited" });
+    release();
+    expect((await first).ok).toBe(true);
+  });
+
   it("maps a failed model call to failed, logs the AI error class, caches nothing", async () => {
     ok.mockResolvedValueOnce({ ok: false, error: "invalid_output" });
     expect(await run()).toEqual({ ok: false, error: "failed" });

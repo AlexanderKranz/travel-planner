@@ -1097,6 +1097,7 @@ describe("port places in the pipeline (docs/specs/port-places.md)", () => {
       const req = h.lookups.mock.calls[0][1] as { restaurants: { at?: { kind: string; lat: number; lon: number; name: string }; near?: unknown } };
       expect(req.restaurants.near).toBeUndefined();
       expect(req.restaurants.at).toMatchObject({ kind: "city", lat: 48.2, lon: 16.37, name: "Wien" });
+      expect(h.lookups.mock.calls[0][1]).toMatchObject({ overpass: "cache_only" });
       expect(h.patch).toHaveBeenCalledTimes(2);
       expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "plan.patch_need_places", props: expect.objectContaining({ stop: true }) }));
     });

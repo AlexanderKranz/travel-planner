@@ -12,6 +12,7 @@ import {
   stopPointsOf,
   stopRows,
   stopsInput,
+  stopsToGeocode,
   stopsToRetry,
 } from "./stops-input";
 import { CRUISE_FACTS, CRUISE_RESOLVED, CRUISE_STOPS, T, cand, emptyStored, group, okRestaurants, rest, stopOk, storedWithStops, WIEN } from "./stops-test-helpers";
@@ -172,6 +173,36 @@ describe("extendInputWithStops (upgrade of an old input, retry of failed stops)"
     const stored = storedWithStops();
     stored.llm.stopPlaces = [{ id: "s9", name: "Nirgendwo", s: "error" }];
     expect(stopsToRetry(stored, [])).toEqual([]);
+  });
+
+  it("a stop's local-cuisine filter uses the stop's country, not the destination's", () => {
+    const viennese = rest(601, "Beisl", 48.209, 16.37, 0.2, ["viennese"]);
+    const other = rest(602, "Tapas", 48.21, 16.37, 0.3, ["spanish"]);
+    const facts = (cc?: string): StopFacts[] => [{ ...CRUISE_FACTS[1], stop: { ...CRUISE_FACTS[1].stop, ...(cc ? { countryCode: cc } : {}) }, restaurants: okRestaurants([viennese, other]) }];
+    const names = (cc?: string) => stopsInput(args(facts(cc), { cuisine: { local: true }, countryCode: "DE" })).stopPlaces[0].restaurants?.list.map((r) => r.name);
+    expect(names("AT")?.[0]).toBe("Beisl"); // Austrian stop on a German trip: viennese is local
+    expect(names()?.[0]).not.toBe("Beisl"); // no stop country: the destination's (DE) applies
+  });
+
+  it("a failed interest group of a stop is stored in gf and makes the stop retryable", () => {
+    const failedGroup: StopFacts = { ...CRUISE_FACTS[1], places: [{ interest: "family_activities", status: "error" }, group("general", [cand(103, "Stephansdom", 48.2086, 16.3731)])] };
+    const stored = extendInputWithStops(emptyStored(), { rows: stopRows(CRUISE_STOPS, CRUISE_RESOLVED), points: stopPointsOf(CRUISE_RESOLVED), facts: [failedGroup, CRUISE_FACTS[2]], lang: "de" });
+    expect(stored.llm.stopPlaces![0].gf).toEqual(["family_activities"]);
+    expect(stored.llm.stopPlaces![0].s).toBeUndefined();
+    expect(stopsToRetry(stored, [])).toEqual(["s1"]);
+    // older inputs without gf stay valid and are not retried
+    delete stored.llm.stopPlaces![0].gf;
+    expect(stopsToRetry(stored, [])).toEqual([]);
+  });
+
+  it("stopsToGeocode: error stops without a point, in scope, with their typed name", () => {
+    const stored = storedWithStops();
+    stored.llm.trip.stops = [...stored.llm.trip.stops!, { day: 6, place: "Nirgendwo", at: "s9" }];
+    stored.llm.stopPlaces = [{ id: "s9", name: "Nirgendwo", s: "error" }, { id: "s8", name: "X", s: "not_found" }];
+    expect(stopsToGeocode(stored, [])).toEqual([{ id: "s9", place: "Nirgendwo", day: 6 }]);
+    expect(stopsToGeocode(stored, [2])).toEqual([]);
+    stored.stopPoints = { ...stored.stopPoints, s9: WIEN };
+    expect(stopsToGeocode(stored, [])).toEqual([]);
   });
 
   it("stopOk helper sanity", () => {

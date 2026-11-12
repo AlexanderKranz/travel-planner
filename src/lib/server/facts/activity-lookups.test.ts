@@ -74,6 +74,15 @@ describe("loadActivityLookups", () => {
     expect((await loadActivityLookups(dest, { groups: [], cafes: {} }, ctx, 1000)).cafes).toEqual({ status: "error", cafes: [] });
   });
 
+  it("passes overpass cache_only to the restaurant and café lookups only when asked", async () => {
+    await loadActivityLookups(dest, { groups: [], restaurants: { at: dest }, cafes: { at: dest }, overpass: "cache_only" }, ctx, 1000);
+    expect(h.rest).toHaveBeenCalledWith(dest, ctx, expect.objectContaining({ overpass: "cache_only" }));
+    expect(h.cafe).toHaveBeenCalledWith(dest, ctx, expect.objectContaining({ overpass: "cache_only" }));
+    h.rest.mockClear();
+    await loadActivityLookups(dest, { groups: [] }, ctx, 1000);
+    expect(h.rest.mock.calls[0][2]).not.toHaveProperty("overpass");
+  });
+
   it("a throwing lookup counts as error", async () => {
     h.rest.mockRejectedValueOnce(new Error("x"));
     expect((await loadActivityLookups(dest, { groups: [] }, ctx, 1000)).restaurants).toEqual({ status: "error", restaurants: [] });

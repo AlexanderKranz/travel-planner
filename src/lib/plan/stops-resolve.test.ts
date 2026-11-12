@@ -11,8 +11,18 @@ describe("distinctStopNames", () => {
     const names = distinctStopNames([...CRUISE_STOPS, { day: 6, place: "DURNSTEIN" }]);
     expect(names.map((n) => n.name)).toEqual(["Passau", "Wien", "Dürnstein"]);
   });
-  it("keeps the first cc", () => {
-    expect(distinctStopNames([{ day: 1, place: "Wien", cc: "AT" }, { day: 2, place: "wien", cc: "DE" }])).toEqual([{ key: "wien", name: "Wien", cc: "AT" }]);
+  it("keeps the first spelling and cc of the same place and country", () => {
+    expect(distinctStopNames([{ day: 1, place: "Wien", cc: "AT" }, { day: 2, place: "wien", cc: "AT" }])).toEqual([{ key: "wien|AT", name: "Wien", cc: "AT" }]);
+  });
+  it("the same name in two countries is two stops (Cartagena ES and CO)", () => {
+    const rows: TripStop[] = [{ day: 1, place: "Cartagena", cc: "ES" }, { day: 2, place: "Cartagena", cc: "CO" }];
+    expect(distinctStopNames(rows).map((n) => n.cc)).toEqual(["ES", "CO"]);
+    const r = assignStops(rows, new Map([
+      [stopKey("Cartagena", "ES"), ok("Cartagena", { lat: 37.6, lon: -0.99, geoId: 1 })],
+      [stopKey("Cartagena", "CO"), ok("Cartagena", { lat: 10.4, lon: -75.5, geoId: 2 })],
+    ]), null);
+    expect(r.map((s) => [s.id, s.days])).toEqual([["s1", [1]], ["s2", [2]]]);
+    expect(stopOfRow(rows[1], r)?.id).toBe("s2");
   });
   it("namesToGeocode stops at MAX_GEOCODED_NAMES", () => {
     const many: TripStop[] = Array.from({ length: 30 }, (_, i) => ({ day: i + 1, place: `Ort${i}` }));

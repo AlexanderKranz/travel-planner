@@ -120,6 +120,8 @@ export type ResolvedStop = {
   role: "stop" | "destination";
   point?: { lat: number; lon: number; geoId: number };
   status: "ok" | "not_found" | "error" | "cap";
+  /** Country of the geocoded place (ISO alpha-2); the stop's local-cuisine filter uses it, not the destination's. */
+  countryCode?: string;
   /** Folded names as typed in the trip stops that resolved to this stop (they match `trip.stops` rows). */
   keys?: string[];
 };
