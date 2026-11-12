@@ -1,7 +1,7 @@
 # City tour: places in, tour out (issue #172)
 
-Status: draft (2026-11-12). All decisions **[T#]** in section 15 are open for Alex. An ADR (`docs/adr/0012-city-tours.md`)
-follows once they are decided.
+Status: decided (Alex, 2026-11-12: all recommendations T1–T19 accepted; T5 with the note below). ADR:
+`docs/adr/0012-city-tours.md`.
 
 Alex's request (#172): "Plan a city tour from a few places the user names. The tool orders them into a sensible tour
 and plans the legs between them." Wanted: route choice per tour or per leg (fastest, most scenic, ...), verified
@@ -191,8 +191,8 @@ labelled by what they do ("Grüner", "Ruhiger", "Ohne Autobahn"), never "schöne
   share of its geometry within 50 m of `waterway=river|canal` or `natural=water` (one Overpass corridor query per
   tour, cached). Cost: up to 1 Directions request per leg plus Overpass load, against the 200/day ORS cap.
 - **Coverage is unknown.** The ORS green and noise indices may exist only for some regions (originally Germany).
-  The spike (section 14) checks Wien and Passau. An option the spike shows as unsupported or without effect is
-  hidden.
+  The spike (section 14) checks Wien and Passau. An option ORS rejects is hidden ([T5] note); one with a small
+  effect stays.
 
 ### 5.3 Requests
 
@@ -415,7 +415,7 @@ No LLM, so no evals. CI needs no network: ORS and Geoapify answers are recorded 
 | 1 MVP | sections 2–13: standalone tours, 4 modes, route options that pass the spike, per-leg overrides, order optimize/keep, start/end, dwell, min/max/end-by, drop proposals, sunset warning, sights near the route, MapLibre map, trip-day link with `fixed` slot and duplicate guard, trip share page and PDF block. PRs: migration first (alone), then server, then UI. |
 | 2 | `tour_shares` and a public tour link, standalone tour PDF; per-stop time windows; opening hours parsed for checks; waterfront option via alternative routes; paste a list of places (code split + autocomplete each); weather forecast for the tour date (Open-Meteo, within 16 days); e-bike profile; "use my location" as start. |
 
-## 15. Decisions (all open for Alex)
+## 15. Decisions (accepted by Alex, 2026-11-12)
 
 - **[T1] Own resource `city_tours`, points and settings as jsonb, optional link `(trip_id, trip_day)` to an own trip
   (composite FK, `on delete set null (trip_id)`).** *Recommended:* a tour lives on its own and keeps the user's work
@@ -433,6 +433,11 @@ No LLM, so no evals. CI needs no network: ORS and Geoapify answers are recorded 
   no "scenic" label; waterfront only in phase 2 by scored alternatives.** *Recommended:* honest and one request per
   run. Alternatives: label `green` as "scenic" (overpromises); build waterfront scoring now (≈ 1 request per leg plus
   Overpass).
+  **Alex (2026-11-12):** accepted, and the six options are offered in the app under exactly these honest labels
+  (de "Schnellste", "Kürzeste", "Grüner", "Ruhiger", "Ohne Treppen", "Ohne Autobahn"; en "Fastest", "Shortest",
+  "Greener", "Quieter", "No steps", "No motorways"), each with its help text from 5.2. The spike only hides an option
+  that ORS rejects for a profile; an accepted option stays even where its effect is small, and the help text says
+  that the effect depends on the OpenStreetMap data of the area.
 - **[T6] Exact Held–Karp TSP in code over one ORS matrix, optional fixed start/end, "Meine Reihenfolge" option.**
   *Recommended:* deterministic, testable, no extra endpoint. Alternative: ORS `/optimization` (VROOM), worth it only
   with per-stop time windows.
