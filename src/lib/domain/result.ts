@@ -36,6 +36,10 @@ export type ActionError =
   | "already_claimed" // group entry: the viewer already claimed another entry of this group
   | "same_password" // new password equals the current one
   | "reauth_required" // "secure password change": sign in again, then retry
+  | "unknown_point" // city tour: a point key the server did not hand out (or its reference expired)
+  | "unreachable" // city tour: places the mode cannot reach (keys in `points`); nothing computed
+  | "ors_unavailable" // city tour: routing quota nearly used, key missing or ORS down; stored result kept
+  | "daily_limit" // city tour: daily computations used up (resetAt = next Berlin midnight)
   | "failed";
 
 export type ActionResult<T = void> =

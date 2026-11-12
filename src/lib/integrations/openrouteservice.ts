@@ -9,8 +9,15 @@
  */
 import "server-only";
 import { z } from "zod";
+import {
+  ORS_PROFILE,
+  ROUTE_OPTIONS_BY_MODE,
+  TOUR_MODES,
+  type OrsTourProfile,
+  type RouteOption,
+} from "@/lib/domain/tour";
+import { splitPolyline } from "@/lib/tour/polyline";
 import { HttpError, postJson } from "./http";
-import { splitPolyline } from "./polyline";
 
 export const ORS_MATRIX_URL = "https://api.heigit.org/openrouteservice/v2/matrix/driving-car";
 export const ORS_DIRECTIONS_URL = "https://api.heigit.org/openrouteservice/v2/directions/driving-car/json";
@@ -167,19 +174,17 @@ export async function fetchDriveRoute(
 // quotas (500 / 2000 per 24 h), each shared by all profiles. Recorded bodies: __fixtures__/ors-tour/.
 // ---------------------------------------------------------------------------------------------------------------
 
-/** ORS profiles of the four tour modes (spec 5.1). The server PR maps the domain modes onto these. */
-export const ORS_TOUR_PROFILES = ["foot-walking", "wheelchair", "cycling-regular", "driving-car"] as const;
-export type OrsTourProfile = (typeof ORS_TOUR_PROFILES)[number];
-/** Same values as the domain's route option (spec 5.2); defined here so the client has no domain import. */
-export type TourRouteOption = "fastest" | "shortest" | "green" | "quiet" | "no_steps" | "no_highways";
+/** ORS profiles of the four tour modes (spec 5.1); the domain (`ORS_PROFILE`) is the single source. */
+export type { OrsTourProfile };
+export const ORS_TOUR_PROFILES: readonly OrsTourProfile[] = TOUR_MODES.map((m) => ORS_PROFILE[m]);
 
-/** Options ORS accepted per profile in the spike (section 14); anything else is a bug and is refused before a call. */
-export const TOUR_OPTIONS_BY_PROFILE: Record<OrsTourProfile, readonly TourRouteOption[]> = {
-  "foot-walking": ["fastest", "shortest", "green", "quiet", "no_steps"],
-  wheelchair: ["fastest", "shortest"],
-  "cycling-regular": ["fastest", "shortest", "quiet"],
-  "driving-car": ["fastest", "shortest", "no_highways"],
-};
+/**
+ * Options ORS accepted per profile in the spike (section 14), from the domain's `ROUTE_OPTIONS_BY_MODE`; anything
+ * else is a bug and is refused before a call.
+ */
+export const TOUR_OPTIONS_BY_PROFILE = Object.fromEntries(
+  TOUR_MODES.map((m) => [ORS_PROFILE[m], ROUTE_OPTIONS_BY_MODE[m]]),
+) as Record<OrsTourProfile, readonly RouteOption[]>;
 
 /** 10 places + start + end (spec 3.1). ORS itself allows 50 waypoints and 3500 matrix elements. */
 export const ORS_TOUR_MAX_POINTS = 12;
@@ -242,7 +247,7 @@ export async function fetchMatrixFull(
  * Directions body, exactly as the spike's table: the common part plus the option's preference and options.
  * `instructions: true` because ORS sends `segments` only with instructions; the parser drops the steps.
  */
-export function tourRouteBody(points: readonly LonLat[], option: TourRouteOption) {
+export function tourRouteBody(points: readonly LonLat[], option: RouteOption) {
   const common = { coordinates: points.map(lonLat), geometry: true, instructions: true, elevation: false, units: "km" };
   switch (option) {
     case "fastest":
@@ -263,10 +268,10 @@ export function tourRouteBody(points: readonly LonLat[], option: TourRouteOption
 }
 
 /** One leg between two consecutive points: whole minutes, km (2 decimals), encoded polyline (precision 5). */
-export type TourLeg = { min: number; km: number; poly: string };
+export type OrsTourLeg = { min: number; km: number; poly: string };
 /** A run's answer. `no_route` (2009) and `not_routable` (2010, 0-based point index) are facts, not failures. */
 export type TourRoute =
-  | { result: "ok"; legs: TourLeg[] }
+  | { result: "ok"; legs: OrsTourLeg[] }
   | { result: "no_route" }
   | { result: "not_routable"; point: number };
 
@@ -286,7 +291,7 @@ const TourDirectionsResponse = z.object({
  * Segments → legs; the polyline is cut at `way_points` (inclusive), so each leg starts and ends at the snapped
  * waypoints. Only `distance`/`duration` of a segment are read: its `steps` never reach the result or the cache.
  */
-export function parseTourRoute(body: unknown, n: number): TourLeg[] {
+export function parseTourRoute(body: unknown, n: number): OrsTourLeg[] {
   const route = TourDirectionsResponse.parse(body).routes[0];
   if (route.segments.length !== n - 1 || route.way_points.length !== n) throw new z.ZodError([]);
   let polys: string[];
@@ -320,7 +325,7 @@ export function notRoutablePoint(err: unknown, n: number): number | null {
 export async function fetchRoute(
   profile: OrsTourProfile,
   points: readonly LonLat[],
-  option: TourRouteOption,
+  option: RouteOption,
   opts: { timeoutMs?: number } = {},
 ): Promise<{ route: TourRoute; status: number; latencyMs: number }> {
   const key = process.env.OPENROUTESERVICE_API_KEY?.trim();

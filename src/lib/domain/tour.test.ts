@@ -7,6 +7,7 @@ import {
   ROUTE_OPTIONS_BY_MODE,
   routeAllowed,
   TOUR_MODES,
+  TourDraft,
   TourInput,
   TourResult,
 } from "./tour";
@@ -77,5 +78,19 @@ describe("tour constants", () => {
     };
     expect(TourResult.safeParse(r).success).toBe(true);
     expect(TourResult.safeParse({ ...r, v: 2 }).success).toBe(false);
+  });
+});
+
+describe("TourDraft (what the browser sends)", () => {
+  const d = (key: string) => ({ key, ref: "r" });
+  it("carries keys and references only; coordinates are not part of it", () => {
+    const parsed = TourDraft.parse({ places: [{ ...d("osm:n1"), lat: 1, lon: 2, name: "x" }, d("osm:n2")] });
+    expect(parsed.places[0]).toEqual({ key: "osm:n1", ref: "r" });
+  });
+  it("applies the same refines as TourInput", () => {
+    expect(TourDraft.safeParse({ places: [d("osm:n1"), d("osm:n1")] }).success).toBe(false);
+    expect(TourDraft.safeParse({ places: [d("osm:n1"), d("osm:n2")], mode: "car", route: "green" }).success).toBe(false);
+    expect(TourDraft.safeParse({ places: [d("osm:n1"), d("osm:n2")], end: "start" }).success).toBe(false);
+    expect(TourDraft.safeParse({ places: [d("osm:n1"), d("osm:n2")], start: { key: "geo:1" }, end: "start" }).success).toBe(true);
   });
 });

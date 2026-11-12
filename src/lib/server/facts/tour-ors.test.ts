@@ -6,6 +6,7 @@ vi.mock("server-only", () => ({}));
 const h = vi.hoisted(() => ({
   store: new Map<string, unknown>(),
   calls: [] as Record<string, unknown>[],
+  peeks: [] as string[],
   buckets: [] as string[],
   quotaOk: true,
   postJson: vi.fn(),
@@ -15,6 +16,10 @@ vi.mock("../api-cache", async (orig) => {
   const m = await orig<typeof import("../api-cache")>();
   return {
     ...m,
+    peekCache: async (o: { key: string; schema: { parse: (v: unknown) => unknown } }) => {
+      h.peeks.push(o.key);
+      return h.store.has(o.key) ? { data: o.schema.parse(h.store.get(o.key)), fetchedAt: "f0" } : undefined;
+    },
     cached: async (o: { key: string; schema: { parse: (v: unknown) => unknown }; fetcher: () => Promise<{ data: unknown }> }) => {
       h.calls.push(o);
       if (h.store.has(o.key)) return { ok: true, data: h.store.get(o.key), fetchedAt: "f0", stale: false, cache: "hit" };
@@ -37,7 +42,7 @@ vi.mock("./ors-quota", () => ({
 vi.mock("@/lib/integrations/http", async (orig) => ({ ...(await orig<typeof import("@/lib/integrations/http")>()), postJson: h.postJson }));
 
 import { HttpError } from "@/lib/integrations/http";
-import { getTourMatrix, getTourRoute, TOUR_ORS_TTL_SECONDS, tourMatrixKey, tourRouteKey } from "./tour-ors";
+import { getTourMatrix, getTourRoute, peekTourMatrix, TOUR_ORS_TTL_SECONDS, tourMatrixKey, tourRouteKey } from "./tour-ors";
 
 const fx = (name: string) =>
   JSON.parse(readFileSync(join(__dirname, "../../integrations/__fixtures__/ors-tour", `${name}.json`), "utf8"));
@@ -54,6 +59,7 @@ const ctx = { userId: "u1" };
 beforeEach(() => {
   h.store.clear();
   h.calls.length = 0;
+  h.peeks.length = 0;
   h.buckets.length = 0;
   h.quotaOk = true;
   h.postJson.mockReset();
@@ -103,6 +109,19 @@ describe("getTourMatrix", () => {
     expect(h.postJson).toHaveBeenCalledTimes(1);
     expect(r?.durations[5][4]).toBe(551.46);
     expect(r?.fetchedAt).toBe("f0");
+  });
+
+  it("reports how the cache answered; peekTourMatrix reads the cache only (no request, no quota check)", async () => {
+    h.postJson.mockResolvedValue({ status: 200, latencyMs: 1, body: { durations: [[0, 60], [70, 0]] } });
+    expect(await peekTourMatrix("foot-walking", wien.slice(0, 2))).toBeNull();
+    expect((await getTourMatrix("foot-walking", wien.slice(0, 2), ctx))?.cache).toBe("miss");
+    expect((await getTourMatrix("foot-walking", wien.slice(0, 2), ctx))?.cache).toBe("hit");
+    h.buckets.length = 0;
+    const peeked = await peekTourMatrix("foot-walking", [wien[0], wien[1]]); // canonical order is [w1, w212496461]
+    expect(peeked?.durations).toEqual([[0, 70], [60, 0]]);
+    expect(h.peeks).toEqual([tourMatrixKey("foot-walking", wien.slice(0, 2)), tourMatrixKey("foot-walking", wien.slice(0, 2))]);
+    expect(h.postJson).toHaveBeenCalledTimes(1);
+    expect(h.buckets).toEqual([]);
   });
 
   it("start = end (a round trip) shares one row", async () => {

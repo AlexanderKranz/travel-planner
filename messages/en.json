@@ -1376,7 +1376,9 @@
       "readWrite": "{read} read-only, {write} can edit",
       "groupShares": "Group shares",
       "groupsShared": "Groups shared",
-      "entryLinks": "Linked entries"
+      "entryLinks": "Linked entries",
+      "toursCreated": "City tours created (7 days)",
+      "toursComputed": "City tours computed (7 days)"
     },
     "ai": {
       "title": "AI cost",
@@ -2016,6 +2018,21 @@
       "remove": "Remove link",
       "removeFor": "Remove link: {name}",
       "confirmRemove": "{name} is no longer marked as this entry. The entry stays."
+    }
+  },
+  "tours": {
+    "errors": {
+      "ors_unavailable": "Route planning is not available right now. The previous tour stays shown; please try again later.",
+      "rate_limited": "Too many requests in a short time. Wait a moment, then try again.",
+      "daily_limit": "You have used all tour computations for today. You can continue tomorrow.",
+      "limit_reached": "You have reached the maximum of 50 city tours. Delete a tour to create a new one.",
+      "not_found": "This city tour does not exist (any more).",
+      "forbidden": "You can only view this city tour.",
+      "unknown_point": "A place is no longer valid. Please search for it again and add it anew.",
+      "unreachable": "At least one place cannot be reached with this mode of travel. Remove it or choose another mode.",
+      "conflict": "The tour was changed in the meantime. Reload the page and try again.",
+      "invalid": "Please check your entries.",
+      "failed": "That did not work. Please try again."
     }
   }
 }

@@ -20,9 +20,9 @@ import {
   parseTourRoute,
   tourMatrixBody,
   tourRouteBody,
-  type TourRouteOption,
 } from "./openrouteservice";
-import { decodePolyline } from "./polyline";
+import type { RouteOption } from "@/lib/domain/tour";
+import { decodePolyline } from "@/lib/tour/polyline";
 
 /** Recorded live 2026-11-12 (city tour spike), bodies only. */
 const fx = (name: string) => JSON.parse(readFileSync(join(__dirname, "__fixtures__/ors-tour", `${name}.json`), "utf8"));
@@ -89,7 +89,7 @@ describe("tour matrix (foot-walking, Wien)", () => {
 
 describe("tour directions: request bodies (exactly the spike's table)", () => {
   const common = { coordinates: coords, geometry: true, instructions: true, elevation: false, units: "km" };
-  const cases: [TourRouteOption, object][] = [
+  const cases: [RouteOption, object][] = [
     ["fastest", { ...common, preference: "fastest", options: { avoid_features: ["ferries"] } }],
     ["shortest", { ...common, preference: "shortest", options: { avoid_features: ["ferries"] } }],
     ["green", { ...common, preference: "recommended", options: { avoid_features: ["ferries"], profile_params: { weightings: { green: 1 } } } }],

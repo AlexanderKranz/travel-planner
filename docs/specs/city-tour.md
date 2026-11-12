@@ -72,7 +72,7 @@ St. Stephan, Veste Oberhaus, Ortspitze, Rathaus).
 ```ts
 // src/lib/domain/tour.ts
 export const TourPoint = z.object({
-  key: z.string().max(40),          // "osm:n123", "osm:w456", "geo:2761369" (GeoNames), "gfy:<place_id>"
+  key: z.string().max(160),         // MAX_POINT_KEY; "osm:n123", "osm:w456", "geo:2761369" (GeoNames), "gfy:<place_id>"
   name: z.string().min(1).max(120),
   lat: z.number().min(-90).max(90),
   lon: z.number().min(-180).max(180),
@@ -535,6 +535,54 @@ Consequences for the build:
   `directionsLeft >= 8`. `ORS_DAILY_REQUESTS` is retired; the admin settings `ors_matrix_daily` and
   `ors_directions_daily` replace `ors_daily_requests`. Rows the guard itself refused (`error_code = quota_guard`) are
   not counted, or a rolling window would stay closed while refused attempts keep coming.
+
+### Implementation notes (server PR, 2026-11-12)
+
+**Point resolution (3.1): signed point references.** The browser sends points as `TourPointDraft`
+(`{ key, ref?, dwellMin? }`, `TourDraft` in `src/lib/domain/tour.ts`), never coordinates. The server resolves each
+key in this order (`src/lib/server/tour/resolve.ts`):
+1. **A signed `ref`** (`src/lib/server/tour/point-ref.ts`). Every point the server offers (a cached city place from
+   `tourSuggestions`, a result of `/api/places/search`) goes out with `ref` = base64url JSON of the point (key, name,
+   coordinates, source, category; for a search result also the Geoapify `place_id` and whether it is an OSM result)
+   plus an HMAC-SHA256, valid 24 h. The HMAC key is derived from `SUPABASE_SECRET_KEY` with a fixed label (no new
+   secret to provision). The ref must be authentic, unexpired and name exactly that key; every stored value comes
+   from the signed payload. An OSM search result is then resolved once to its `osm:` key and category through place
+   details (1 credit, cached 90 d); when details fail, or for Who's On First / GeoNames results, the point stays
+   `gfy:` with its signed coordinates. Leg overrides are re-keyed when a key changes this way.
+2. **A point already stored in the tour** (its input, or a sight of its server-written result), for updates and for
+   "+ hinzufügen" on a sight chip.
+3. **`geo:<GeoNames id>`** (city, start, end towns): Open-Meteo place by id (cached 365 d), like a trip destination.
+
+Anything else is `unknown_point` (the issues list the keys). Why not a cache lookup by key: the place caches are
+keyed by area or query, not by point, and a per-suggestion cache row would cost a write per search. Limit: `input`
+stays user-writable over PostgREST (grant), so the owner can store other coordinates on their own tour; the route
+computed for them is still real ORS output, and the result itself is server-written only [T14].
+
+**Limits.** Computations: 10/min in memory plus 10/min and 20 per Berlin day per user in `ai_call_slots` (task
+`tour_compute`, `reserveAiCall`: atomic across instances; the table holds user, task and time only). The place search
+uses the same table with task `place_search` (30/min, 200/day). An unchanged input takes no slot; a slot refused by
+the ORS gate is released.
+
+**Deviations and details.**
+- A Directions 2010 (`not_routable`) is handled like an unreachable matrix pair (section 4): `unreachable` with the
+  point keys, nothing stored. The leg status `not_routable` is therefore not written by the MVP server; `no_route`
+  (2009) marks the legs of that run.
+- Dropped leg overrides are reported (`droppedOverrides`) but not removed from the stored input; the result hash is
+  that of the stored input, so an unchanged recompute does not report them again.
+- Drop/dwell/optimize proposals are returned with each computation, not stored in `TourResult`. With "keep" the
+  matrix is read from the cache only (`peekTourMatrix`), never fetched.
+- An unchanged tour whose stored result has no sights reads the city places from the cache only (0 calls) and adds
+  sights that have arrived since (the retry job), with the same hash.
+- The secret-key write is scoped to `id`, `owner_id` and the `updated_at` read through RLS; a tour changed meanwhile
+  gives `conflict`. The write moves `updated_at` (trigger), so the response carries the new `updatedAt`.
+- Sights use `general` around the city (or the first place without a city); suggestions add the linked trip's purpose
+  interests. Both use a `city` destination (standard city radius), so they share cache keys with a city trip there.
+- Admin "Usage" shows tours created and computed in the last 7 days (`app_events` counts).
+- The sunset check needs the city's time zone (Open-Meteo place of the `geo:` city). A tour without a city gets no
+  sunset warning even with date and start time: no verified zone, and a guessed local time would be wrong. The UI may
+  say the check needs a city.
+- A stored result with a `failed` leg is recomputed even when the input is unchanged (an outage is not kept).
+- `updateTour` with `expectedUpdatedAt` is a conditional update; a concurrent save in between gives `conflict`.
 
 ## 15. Decisions (accepted by Alex, 2026-11-12)
 

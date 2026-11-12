@@ -10,6 +10,7 @@ import { requireAdmin } from "./gate";
 import { adminPeriods } from "./periods";
 import { ApiStatsRaw, AiStatsRaw, RecentEventsRaw, ShareStatsRaw, UsageStatsRaw, UserStatsRaw } from "./schema";
 import { shapeDashboard } from "./shape";
+import { getTourStats } from "./tour-stats";
 import { getEffectiveEnv } from "../settings";
 
 type Env = Record<string, string | undefined>;
@@ -42,7 +43,7 @@ export async function getAdminDashboard(now: Date = new Date()) {
   const p = adminPeriods(now);
   const day = p.dayStart.toISOString();
   const month = p.monthStart.toISOString();
-  const [users, usage, ai, api, events, shares, orsUsage] = await Promise.all([
+  const [users, usage, ai, api, events, shares, orsUsage, tours] = await Promise.all([
     rpc("admin_user_stats", { p_now: now.toISOString(), p_month_start: month }, UserStatsRaw),
     rpc("admin_usage_stats", { p_month_start: month, p_days: 14 }, UsageStatsRaw),
     rpc("admin_ai_stats", { p_day_start: day, p_month_start: month }, AiStatsRaw),
@@ -52,8 +53,10 @@ export async function getAdminDashboard(now: Date = new Date()) {
     rpc("admin_share_stats", { p_month_start: month }, ShareStatsRaw).catch(() => undefined),
     // ORS buckets over the last 24 h, as the guard counts them; a failed count shows "no data", not 0.
     orsUsage24h(now).catch(() => undefined),
+    // City tours created and computed in the last 7 days (two event counts); a failure only hides the row.
+    getTourStats(now).catch(() => undefined),
   ]);
-  return shapeDashboard({ users, usage, ai, api, events, shares, orsUsage }, readBudgetConfig(await getEffectiveEnv()));
+  return shapeDashboard({ users, usage, ai, api, events, shares, orsUsage, tours }, readBudgetConfig(await getEffectiveEnv()));
 }
 
 /** DB reachability, feature switches, key presence and the last cron run (timestamp only). Admin only. */

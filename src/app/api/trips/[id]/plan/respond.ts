@@ -41,6 +41,10 @@ export const STATUS: Record<ActionError, number> = {
   weak_password: 422,
   same_password: 422,
   reauth_required: 401,
+  unknown_point: 422,
+  unreachable: 422,
+  ors_unavailable: 503,
+  daily_limit: 429,
   failed: 500,
 };
 
