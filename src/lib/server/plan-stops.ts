@@ -6,14 +6,17 @@ import type { TripPurpose } from "@/lib/domain/purpose";
 import type { Trip } from "@/lib/domain/trip";
 import type { CuisineWish } from "@/lib/facts/cuisine";
 import type { PlanInputStored } from "@/lib/plan/input";
-import { extendInputWithStops, resolvedFromInput, stopPointsOf, stopRows, stopsToRetry } from "@/lib/plan/stops-input";
+import type { StopPoints } from "@/lib/plan/stops-input";
+import { extendInputWithStops, resolvedFromInput, stopPointsOf, stopRows, stopsToGeocode, stopsToRetry } from "@/lib/plan/stops-input";
 import { jobsForStops } from "@/lib/places-retry";
 import { enqueuePlaceRetries } from "./place-retries";
-import { getStopFacts, lookupStops, stopDriveTimes } from "./facts/stops";
+import { getStopFacts, lookupStops, resolveStopPlaces, stopDriveTimes } from "./facts/stops";
 import { resolveTripStops, type DeriveStopsFromNotes } from "./trip-stops";
 
 /** The upgrade of an old input and the retry of failed stops share this much time, cache and Geoapify only (port-places [P8]). */
 export const STOP_PREP_MAX_MS = 30_000;
+/** Stops whose failed geocoding is tried again per patch (each is one cached Open-Meteo search, up to 3 languages). */
+export const MAX_GEOCODE_RETRIES = 3;
 /** Time that stays for the existing needPlaces deadline (60 s places + second call) of an iterate request. */
 export const STOP_PREP_RESERVE_MS = 240_000;
 
@@ -76,6 +79,14 @@ export async function prepareStopsForPatch(a: {
 
     let retried = 0;
     if (!upgraded && a.budgetMs > 0) {
+      // A stop whose geocoding failed has no point, so the retry below would never see it: geocode it again first.
+      const points: StopPoints = {};
+      for (const g of stopsToGeocode(stored, a.scopeDays).slice(0, MAX_GEOCODE_RETRIES)) {
+        if (left() <= 0) break;
+        const [r] = await resolveStopPlaces(a.trip, [{ day: g.day, place: g.place }], ctx);
+        if (r?.role === "stop" && r.status === "ok" && r.point) points[g.id] = { ...r.point };
+      }
+      if (Object.keys(points).length) stored = { ...stored, stopPoints: { ...stored.stopPoints, ...points } };
       const ids = stopsToRetry(stored, a.scopeDays);
       if (ids.length) {
         const resolved = resolvedFromInput(stored).filter((r) => ids.includes(r.id));
