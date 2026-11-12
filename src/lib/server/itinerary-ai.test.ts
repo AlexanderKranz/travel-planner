@@ -4,22 +4,27 @@ vi.mock("server-only", () => ({}));
 const h = vi.hoisted(() => ({
   aiOn: true,
   budgetOk: true,
-  usageCount: 0 as number | null,
+  slot: { ok: true, id: "slot-1", pending: 0 } as Record<string, unknown> | null,
+  reserve: vi.fn(),
+  settle: vi.fn(),
+  releaseSlot: vi.fn(),
   cached: null as unknown,
   upserts: [] as Record<string, unknown>[],
   usage: vi.fn(),
   event: vi.fn(),
   budget: vi.fn(),
+  allows: vi.fn(),
   profile: { role: "user", is_demo: false } as Record<string, unknown>,
 }));
 vi.mock("./ai-usage", () => ({
   isAiEnabled: () => h.aiOn,
   getBudgetStatus: h.budget,
-  budgetAllows: () => h.budgetOk,
+  budgetAllows: (...a: unknown[]) => (h.allows(...a), h.budgetOk),
   logAiUsage: h.usage,
   berlinMidnight: () => new Date("2026-11-10T23:00:00Z"),
 }));
 vi.mock("./events", () => ({ logEvent: h.event }));
+vi.mock("./ai-slots", () => ({ reserveAiCall: h.reserve, settleAiCall: h.settle, releaseAiCall: h.releaseSlot }));
 vi.mock("./settings", () => ({ getEffectiveEnv: async () => ({}) }));
 vi.mock("./supabase/admin", () => ({
   createSupabaseAdminClient: () => ({
@@ -27,7 +32,6 @@ vi.mock("./supabase/admin", () => ({
       const q: Record<string, unknown> = {};
       q.select = () => q;
       q.eq = () => q;
-      q.gte = async () => ({ count: h.usageCount, error: h.usageCount === null ? { code: "x" } : null });
       q.maybeSingle = async () => ({ data: table === "itinerary_extracts" ? h.cached : null, error: null });
       q.upsert = async (row: Record<string, unknown>) => (h.upserts.push(row), { error: null });
       return q;
@@ -36,7 +40,6 @@ vi.mock("./supabase/admin", () => ({
 }));
 
 import { checkImages, DAILY_EXTRACTS, runItineraryAi } from "./itinerary-ai";
-import { resetRateLimits } from "./rate-limit";
 
 const session = {
   userId: "actor",
@@ -49,18 +52,24 @@ const ok = vi.fn();
 beforeEach(() => {
   h.aiOn = true;
   h.budgetOk = true;
-  h.usageCount = 0;
+  h.slot = { ok: true, id: "slot-1", pending: 0 };
+  h.reserve.mockReset().mockImplementation(async () => {
+    if (!h.slot) throw new Error("db");
+    return h.slot;
+  });
+  h.settle.mockReset();
+  h.releaseSlot.mockReset();
   h.cached = null;
   h.upserts.length = 0;
   h.profile = { role: "user", is_demo: false };
   h.usage.mockReset();
   h.event.mockReset();
+  h.allows.mockReset();
   h.budget.mockReset().mockResolvedValue({});
   ok.mockReset().mockImplementation(async (_p: unknown, ctx: { onUsage: (u: unknown) => Promise<void> }) => {
     await ctx.onUsage({ task: "itinerary_extract", costMicroUsd: 240 });
     return { ok: true, data: extract, usage: {} };
   });
-  resetRateLimits();
 });
 
 const run = () => runItineraryAi(session, "owner", payload, { extract: ok });
@@ -89,8 +98,8 @@ describe("runItineraryAi", () => {
   it.each([
     ["ai_off", () => void (h.aiOn = false)],
     ["demo", () => void (h.profile = { role: "user", is_demo: true })],
-    ["rate_limited", () => void (h.usageCount = DAILY_EXTRACTS.user)],
-    ["failed", () => void (h.usageCount = null)],
+    ["rate_limited", () => void (h.slot = { ok: false, reason: "day" })],
+    ["failed", () => void (h.slot = null)],
     ["budget", () => void (h.budgetOk = false)],
   ])("refuses with %s before any call", async (error, arrange) => {
     arrange();
@@ -99,39 +108,51 @@ describe("runItineraryAi", () => {
     expect(h.event).toHaveBeenCalledWith(expect.objectContaining({ event: "itinerary.extract_failed", props: expect.objectContaining({ reason: error }) }));
   });
 
-  it("allows admins 30 per day", async () => {
-    h.profile = { role: "admin", is_demo: false };
-    h.usageCount = DAILY_EXTRACTS.user;
+  it("reserves a slot with the role's day limit since Berlin midnight and settles it after the call", async () => {
     expect((await run()).ok).toBe(true);
-    h.usageCount = DAILY_EXTRACTS.admin;
+    expect(h.reserve).toHaveBeenCalledWith({
+      userId: "actor",
+      task: "itinerary_extract",
+      perMinute: 3,
+      perDay: DAILY_EXTRACTS.user,
+      dayStart: new Date("2026-11-10T23:00:00Z"),
+    });
+    expect(h.settle).toHaveBeenCalledWith("slot-1");
+    h.profile = { role: "admin", is_demo: false };
+    await run();
+    expect(h.reserve).toHaveBeenLastCalledWith(expect.objectContaining({ perDay: DAILY_EXTRACTS.admin }));
+  });
+
+  it("refuses when the minute limit is used up", async () => {
+    h.slot = { ok: false, reason: "minute" };
     expect(await run()).toEqual({ ok: false, error: "rate_limited" });
+    expect(h.settle).not.toHaveBeenCalled();
   });
 
-  it("allows 3 calls per minute and user", async () => {
-    for (let i = 0; i < 3; i++) expect((await runItineraryAi(session, "owner", { kind: "text", text: `t${i}` }, { extract: ok })).ok).toBe(true);
-    expect(await runItineraryAi(session, "owner", { kind: "text", text: "t4" }, { extract: ok })).toEqual({ ok: false, error: "rate_limited" });
+  it("reserves budget for the pending slots of other requests", async () => {
+    h.slot = { ok: true, id: "slot-2", pending: 2 };
+    await run();
+    expect(h.allows).toHaveBeenCalledWith(expect.anything(), 3 * 3_000);
   });
 
-  it("does not call the model when the atomic minute limit is already used up by an overlapping request", async () => {
-    const { rateLimit } = await import("./rate-limit");
-    for (let i = 0; i < 3; i++) rateLimit("itinerary:actor", 3, 60_000);
-    // simulate the window where the read-only check passed but the slots were taken meanwhile
-    const rl = await import("./rate-limit");
-    const spy = vi.spyOn(rl, "rateLimitAvailable").mockReturnValue({ ok: true, retryAfterSeconds: 0 });
-    expect(await run()).toEqual({ ok: false, error: "rate_limited" });
-    expect(ok).not.toHaveBeenCalled();
-    spy.mockRestore();
+  it("gives the slot back when the budget refuses", async () => {
+    h.budgetOk = false;
+    expect(await run()).toEqual({ ok: false, error: "budget" });
+    expect(h.releaseSlot).toHaveBeenCalledWith("slot-1");
+    expect(h.settle).not.toHaveBeenCalled();
   });
 
-  it("counts in-flight extractions against the daily limit", async () => {
-    h.usageCount = DAILY_EXTRACTS.user - 1;
-    let release!: () => void;
-    ok.mockImplementationOnce(() => new Promise((r) => (release = () => r({ ok: true, data: extract, usage: {} }))));
-    const first = runItineraryAi(session, "owner", { kind: "text", text: "a" }, { extract: ok });
-    await vi.waitFor(() => expect(ok).toHaveBeenCalledOnce());
-    expect(await runItineraryAi(session, "owner", { kind: "text", text: "b" }, { extract: ok })).toEqual({ ok: false, error: "rate_limited" });
-    release();
-    expect((await first).ok).toBe(true);
+  it("gives the slot back when the budget read throws", async () => {
+    h.budget.mockRejectedValueOnce(new Error("db"));
+    expect(await run()).toEqual({ ok: false, error: "failed" });
+    expect(h.releaseSlot).toHaveBeenCalledWith("slot-1");
+    expect(h.settle).not.toHaveBeenCalled();
+  });
+
+  it("settles the slot also when the model call fails", async () => {
+    ok.mockResolvedValueOnce({ ok: false, error: "invalid_output" });
+    await run();
+    expect(h.settle).toHaveBeenCalledWith("slot-1");
   });
 
   it("maps a failed model call to failed, logs the AI error class, caches nothing", async () => {

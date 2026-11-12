@@ -246,10 +246,13 @@ In short:
     `trip-documents`, path `<owner_id>/<trip_id>/<hash>.<ext>`, policies owner plus trip grantees through
     `private.shared_trip_ids()`, removed with the trip and in `deleteAccount` (Storage objects do not cascade).
 - **Rate limits [D9]:**
-  - In memory: `itinerary:<userId>`, 3 per minute.
-  - Durable: 10 AI extractions per Berlin day per user, counted from `ai_usage` rows with
-    `task = 'itinerary_extract'` since `berlinMidnight()` (find-destinations [D14] pattern; admin 30). A notes
-    derivation counts too; it runs at most once per notes change.
+  - 3 per minute and 10 AI extractions per Berlin day per user (admin 30), held in `ai_call_slots`
+    (migration 20261115120040). `ai_reserve_call` takes a per-user advisory lock, counts the slots since one
+    minute ago and since `berlinMidnight()`, and inserts a slot only when both limits allow it, so overlapping
+    requests on different server instances cannot pass together. The budget check reserves `RESERVE_ITINERARY`
+    for every slot still pending. The slot is settled after the call and released when the budget refuses. A
+    notes derivation counts too; it runs at most once per notes change. (Until 2026-11-12 the limits were an
+    in-memory counter plus `ai_usage` rows, which raced across instances.)
   - Parser path: no limit.
   - Demo users: parser path only; the AI path answers `demo_forbidden` (the demo budget is shared) and notes
     derivation stays parser-only.
