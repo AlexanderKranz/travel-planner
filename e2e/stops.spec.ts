@@ -261,8 +261,8 @@ test.describe("trip stops: read-only list on the trip page (issues #185, #186)",
       await expect(items.nth(1)).toContainText("Seetag");
       await expect(items.nth(2)).toContainText("Wien");
       await expect(items.nth(2)).toContainText("07:00–18:30");
-      // The strip: "3 Stopps" jumps to the list on the same page.
-      const count = p.getByRole("link", { name: "3 Stopps", exact: true });
+      // The strip: "Kreuzfahrt / Rundreise · 3 Stopps" jumps to the list on the same page.
+      const count = p.getByRole("link", { name: "Kreuzfahrt / Rundreise · 3 Stopps", exact: true });
       await expect(count).toHaveAttribute("href", "#stops");
       await count.click();
       await expect(p).toHaveURL(/#stops$/);

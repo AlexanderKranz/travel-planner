@@ -293,6 +293,11 @@ describe("access mapping (sharing spec 3.1)", () => {
     expect(incoming).toMatchObject({ access: "read", sharedBy: by, shareCount: 0 });
     expect(rowToSummary({ ...row, travel_groups: null, trip_purposes: null }, "u1").shareCount).toBe(0);
   });
+  it("multiStop: confirmed stops in the selected stops column, none = false", () => {
+    const base = { ...row, travel_groups: null, trip_purposes: null };
+    expect(rowToSummary({ ...base, stops: null }, "u1").multiStop).toBe(false);
+    expect(rowToSummary({ ...base, stops: [{ day: 1, place: "Passau" }, { day: 2, sea: true }] }, "u1").multiStop).toBe(true);
+  });
 });
 
 describe("one-off trip purpose (spec trip-purpose-text)", () => {

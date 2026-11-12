@@ -66,4 +66,17 @@ describe("TripCard", () => {
     expect(link).toContain("Opening trip…");
     expect(link).toContain("pr-7");
   });
+
+  it("a trip with stops shows the cruise / round trip badge (de + en); others do not", () => {
+    status.pending = false;
+    const html = (locale: "de" | "en", t: TripSummary) =>
+      renderToStaticMarkup(
+        <NextIntlClientProvider locale={locale} messages={locale === "de" ? de : en}>
+          <TripCard trip={t} />
+        </NextIntlClientProvider>,
+      );
+    expect(html("de", { ...trip, multiStop: true })).toContain("Kreuzfahrt / Rundreise");
+    expect(html("en", { ...trip, multiStop: true })).toContain("Cruise / round trip");
+    expect(html("en", { ...trip, multiStop: false })).not.toContain("Cruise / round trip");
+  });
 });

@@ -543,6 +543,7 @@
       },
       "stopsPerDay": "Pro Tag sind höchstens {max} Orte möglich (Tag {days}).",
       "count": "{count, plural, one {# Stopp} other {# Stopps}}",
+      "badge": "Kreuzfahrt / Rundreise",
       "edit": "Stopps bearbeiten",
       "arriveAt": "Ankunft {time}",
       "departAt": "Abfahrt {time}"
