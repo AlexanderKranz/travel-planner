@@ -42,6 +42,8 @@ describe("GET /api/places/search", () => {
   it("needs at least 3 characters and a valid point; no slot is taken for a bad query", async () => {
     expect((await GET(req("q=st&lat=48.2&lon=16.3"))).status).toBe(400);
     expect((await GET(req("q=stephan&lat=91&lon=16.3"))).status).toBe(400);
+    expect((await GET(req("q=stephan&lat=&lon="))).status).toBe(400); // not coerced to 0,0
+    expect((await GET(req("q=stephan&lat=abc&lon=16.3"))).status).toBe(400);
     expect(h.reserve).not.toHaveBeenCalled();
   });
 

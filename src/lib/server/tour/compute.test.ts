@@ -143,10 +143,23 @@ describe("computeTour: access and short cuts", () => {
     expect(adminWrites()).toHaveLength(0);
   });
 
-  it("matrix unavailable (ORS down, no cached value) → ors_unavailable, nothing written", async () => {
+  it("matrix unavailable (ORS down, no cached value) → ors_unavailable, nothing written, slot released", async () => {
     h.matrix.mockResolvedValue(null);
     expect(await computeTour(TOUR)).toMatchObject({ ok: false, error: "ors_unavailable", notRecomputed: true });
     expect(adminWrites()).toHaveLength(0);
+    expect(h.release).toHaveBeenCalledWith("slot1");
+  });
+
+  it("a stored result with a failed leg is recomputed although the input is unchanged", async () => {
+    const legs = [{ from: "osm:w1", to: "osm:w2", mode: "foot", route: "fastest", min: null, km: null, poly: null, s: "failed" }];
+    h.stored = {
+      result: { v: 1, order: ["osm:w1", "osm:w2"], legs, totalMin: null, fit: "none", sights: [], source: { ors: "x" } },
+      result_hash: tourInputHash(h.input as TourInput),
+    };
+    const res = await computeTour(TOUR);
+    expect(res).toMatchObject({ ok: true, data: { unchanged: false } });
+    expect(h.route).toHaveBeenCalledTimes(1);
+    expect(adminWrites()).toHaveLength(1);
   });
 });
 

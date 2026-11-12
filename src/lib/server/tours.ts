@@ -155,15 +155,16 @@ export async function updateTour(id: string, draft: TourDraft, expectedUpdatedAt
   if (expectedUpdatedAt !== undefined && before.row.updated_at !== expectedUpdatedAt) return fail("conflict");
   const r = await resolve(session, parsed.data, rowToTour(before.row, session.userId));
   if (!r.ok) return r.result;
-  const { data, error } = await session.supabase
+  let q = session.supabase
     .from("city_tours")
     .update({ title: ownTitle(r.input), input: r.input })
     .eq("id", id)
-    .eq("owner_id", session.userId)
-    .select(TOUR_COLUMNS)
-    .maybeSingle<TourRow>();
+    .eq("owner_id", session.userId);
+  // Conditional on the version the form was loaded with: a concurrent save in between gives `conflict`.
+  if (expectedUpdatedAt !== undefined) q = q.eq("updated_at", expectedUpdatedAt);
+  const { data, error } = await q.select(TOUR_COLUMNS).maybeSingle<TourRow>();
   if (error) return fail("failed");
-  if (!data) return fail("not_found");
+  if (!data) return fail(expectedUpdatedAt !== undefined ? "conflict" : "not_found");
   return toResult(data, session.userId);
 }
 

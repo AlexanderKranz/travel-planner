@@ -15,8 +15,9 @@ const SEARCH_PER_DAY = 200;
 
 const querySchema = z.object({
   q: z.string().trim().min(AUTOCOMPLETE_MIN_CHARS).max(AUTOCOMPLETE_MAX_CHARS),
-  lat: z.coerce.number().min(-90).max(90),
-  lon: z.coerce.number().min(-180).max(180),
+  // Non-empty before coercion: `z.coerce.number()` would turn "" into 0 (a search around 0,0).
+  lat: z.string().trim().min(1).pipe(z.coerce.number<string>().min(-90).max(90)),
+  lon: z.string().trim().min(1).pipe(z.coerce.number<string>().min(-180).max(180)),
   lang: z.enum(["de", "en"]).default("de"),
 });
 

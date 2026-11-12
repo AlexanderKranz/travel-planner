@@ -201,7 +201,8 @@ async function run(id: string): Promise<ComputeTourResult> {
 
   // 2. Unchanged input → the stored result, no ORS call and no slot.
   const hash = tourInputHash(input);
-  if (tour.result && row.result_hash === hash) {
+  // A stored result with a failed leg (ORS down then) is recomputed, so a transient outage is not kept forever.
+  if (tour.result && row.result_hash === hash && !tour.result.legs.some((l) => l.s === "failed")) {
     let result = tour.result;
     let updatedAt = row.updated_at;
     let sightsPending = false;
@@ -276,7 +277,10 @@ async function run(id: string): Promise<ComputeTourResult> {
     order = keepOrder(tp.points.length, { start: tp.start, end: tp.end });
   } else {
     const m = await getTourMatrix(ORS_PROFILE[input.mode], tp.points, ctx);
-    if (!m) return unavailable();
+    if (!m) {
+      await releaseAiCall(slotId); // no matrix (key missing, quota, ORS down): nothing computed, the slot does not count
+      return unavailable();
+    }
     matrix = m.durations;
     cacheHits += m.cache === "hit" ? 1 : 0;
     stale ||= m.stale;

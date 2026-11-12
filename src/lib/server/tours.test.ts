@@ -46,6 +46,8 @@ beforeEach(() => {
   h.session = true;
   h.logEvent.mockReset();
   h.getPlaceById.mockReset();
+  h.cityPlaces.mockReset();
+  h.getPurpose.mockReset();
   h.reply = (o) => {
     if (o.table === "profiles") return { data: { locale: "de" } };
     if (o.table === "city_tours" && o.head) return { count: 0 };
@@ -129,13 +131,20 @@ describe("updateTour / deleteTour / linkTourToTrip: owner only", () => {
     const upd = writes()[0];
     expect(Object.keys(upd.payload as object).sort()).toEqual(["input", "title"]);
     expect(upd.payload).toMatchObject({ title: "Domrunde", input: { places: [{ ...osm(1), dwellMin: 5 }, osm(2)] } });
-    expect(upd.eqs).toEqual([["id", TOUR], ["owner_id", "u1"]]);
+    expect(upd.eqs).toEqual([["id", TOUR], ["owner_id", "u1"], ["updated_at", "2026-11-12T00:00:00Z"]]);
   });
 
   it("update: conflict on a stale form, unknown new point rejected", async () => {
     expect(await updateTour(TOUR, draft(), "2020-01-01T00:00:00Z")).toEqual({ ok: false, error: "conflict" });
     expect(await updateTour(TOUR, { places: [{ key: "osm:n1" }, { key: "osm:n77" }] })).toMatchObject({ ok: false, error: "unknown_point" });
     expect(writes()).toHaveLength(0);
+  });
+
+  it("the update is conditional on the loaded version: a concurrent save in between → conflict", async () => {
+    const base = h.reply;
+    h.reply = (o) => (o.op === "update" ? { data: null } : base(o));
+    expect(await updateTour(TOUR, draft(), "2026-11-12T00:00:00Z")).toEqual({ ok: false, error: "conflict" });
+    expect(writes()[0].eqs).toContainEqual(["updated_at", "2026-11-12T00:00:00Z"]);
   });
 
   it("a returned 0-row update or delete is not_found", async () => {
