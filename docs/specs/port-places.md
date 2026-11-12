@@ -359,3 +359,7 @@ What the implementation found that the text above gets wrong or leaves open. The
 - **Geocoding is bounded at 16 names per trip** (`MAX_GEOCODED_NAMES`), not 10: names that are the destination or not found do not count as looked-up stops, so the cap of 10 looked-up stops needs a few more names. Names beyond the 16th are `cap` without a call. 4 calls per cold name still apply, so at most about 64 Open-Meteo calls per cold trip.
 - **Stop restaurants and cafés carry no `ask` and no `kids` flag** (as specified), but `k` (kids-tagged) is still set on list entries when the trip's cuisine wish has `kids`.
 - **Eval status.** The stop lookups (geocoding and Overpass) are recorded keyless (`npm run evals:port-places`). The Sonnet recordings (`stops`, `stopsnotes`, `stopsfail`, `portpatch`, run with `npm run evals:live`) need an Anthropic key and cost about $0.2 together; their checks (`evals/stop-checks.ts`) run on a hand-made synthetic plan until then. The notes variant uses the fixture schedule as the derived result until the extraction parser lands.
+- 2026-11-12 (#188, Alex): a stop with a country hint (`cc`) but no match in that country still runs the
+  any-country pass, but a namesake counts only within 500 km (`COUNTRY_MISS_MAX_KM`) of the previous stop or the
+  trip anchor, with no out-of-range fallback; otherwise the stop is `not_found`. Stops without `cc` keep the
+  2,500 km rule with fallback.

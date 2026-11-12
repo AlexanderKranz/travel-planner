@@ -55,6 +55,11 @@ export function pickNamedPlace(results: GeoPlace[], name: string): GeoPlace | nu
 export type RoutePoint = { lat: number; lon: number };
 /** Candidates farther than this from the previous stop and from the anchor are namesakes on another continent. */
 export const NEAR_ROUTE_MAX_KM = 2500;
+/**
+ * A stop whose given country has no match (#188, Alex 2026-11-12): the any-country pass accepts only a namesake this
+ * close to the previous stop or the anchor, with no out-of-range fallback. Guards against a wrong country hint.
+ */
+export const COUNTRY_MISS_MAX_KM = 500;
 /** Distances this close count as equal, so population decides. */
 const NEAR_TIE_KM = 10;
 
@@ -65,16 +70,24 @@ const NEAR_TIE_KM = 10;
  * NEAR_TIE_KM the larger population wins. With no reference point at all, the largest population wins (same as
  * `pickNamedPlace`). null = not found.
  */
-export function pickNearestNamed(results: GeoPlace[], name: string, refs: { prev?: RoutePoint | null; anchor?: RoutePoint | null }): GeoPlace | null {
+export function pickNearestNamed(
+  results: GeoPlace[],
+  name: string,
+  refs: { prev?: RoutePoint | null; anchor?: RoutePoint | null },
+  /** `strict`: only candidates within `maxKm` count, and without a reference point nothing does. */
+  opts: { maxKm?: number; strict?: boolean } = {},
+): GeoPlace | null {
   const wanted = foldName(name);
   if (!wanted) return null;
   const exact = results.filter((p) => p.featureCode.startsWith("PPL") && foldName(p.name) === wanted);
   if (exact.length === 0) return null;
   const from = refs.prev ?? refs.anchor ?? null;
   const pop = (p: GeoPlace) => p.population ?? 0;
-  if (!from) return exact.reduce((best, p) => (pop(p) > pop(best) ? p : best));
-  const near = (p: GeoPlace) => [refs.prev, refs.anchor].some((r) => r && haversineKm(r, p) <= NEAR_ROUTE_MAX_KM);
+  if (!from) return opts.strict ? null : exact.reduce((best, p) => (pop(p) > pop(best) ? p : best));
+  const maxKm = opts.maxKm ?? NEAR_ROUTE_MAX_KM;
+  const near = (p: GeoPlace) => [refs.prev, refs.anchor].some((r) => r && haversineKm(r, p) <= maxKm);
   const inRange = exact.filter(near);
+  if (inRange.length === 0 && opts.strict) return null;
   const pool = inRange.length > 0 ? inRange : exact;
   const dist = (p: GeoPlace) => haversineKm(from, p);
   return pool.reduce((best, p) => {
