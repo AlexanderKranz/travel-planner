@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_TOUR_PLACES,
   CORRIDOR_M,
   legKey,
   ORS_PROFILE,
@@ -20,7 +21,8 @@ describe("TourInput", () => {
   it("needs only two places and applies defaults", () => {
     expect(TourInput.parse(base)).toMatchObject({ order: "optimize", mode: "foot", route: "fastest", dwellDefaultMin: 30 });
     expect(TourInput.safeParse({ places: [p("osm:n1")] }).success).toBe(false);
-    expect(TourInput.safeParse({ places: Array.from({ length: 11 }, (_, i) => p(`osm:n${i}`)) }).success).toBe(false);
+    expect(TourInput.safeParse({ places: Array.from({ length: MAX_TOUR_PLACES }, (_, i) => p(`osm:n${i}`)) }).success).toBe(true);
+    expect(TourInput.safeParse({ places: Array.from({ length: MAX_TOUR_PLACES + 1 }, (_, i) => p(`osm:n${i}`)) }).success).toBe(false);
   });
 
   it("allows a route only for its modes, also per leg", () => {

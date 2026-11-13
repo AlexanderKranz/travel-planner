@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TourDraft, TourInput, type TourResult } from "@/lib/domain/tour";
+import { MAX_TOUR_PLACES, TourDraft, TourInput, type TourResult } from "@/lib/domain/tour";
 import { BELVEDERE, HOFBURG, NASCHMARKT, STEPHANSDOM, WIEN_CITY } from "./fixtures.test-data";
 import {
   applyLegSheet,
@@ -162,8 +162,9 @@ describe("form helpers", () => {
     expect(canAddPlace(form(), STEPHANSDOM.key)).toBe(false);
     expect(canAddPlace(form({ start: fp(BELVEDERE) }), BELVEDERE.key)).toBe(false);
     expect(canAddPlace(form(), NASCHMARKT.key)).toBe(true);
-    const ten = Array.from({ length: 10 }, (_, i) => fp({ key: `osm:n${i}`, name: `P${i}`, lat: 48, lon: 16 }));
-    expect(canAddPlace(form({ places: ten }), NASCHMARKT.key)).toBe(false);
+    const full = Array.from({ length: MAX_TOUR_PLACES }, (_, i) => fp({ key: `osm:n${i}`, name: `P${i}`, lat: 48, lon: 16 }));
+    expect(canAddPlace(form({ places: full.slice(1) }), NASCHMARKT.key)).toBe(true);
+    expect(canAddPlace(form({ places: full }), NASCHMARKT.key)).toBe(false);
   });
 
   it("keeps a stored value among the choices", () => {

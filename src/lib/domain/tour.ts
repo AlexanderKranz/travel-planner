@@ -20,8 +20,8 @@ export const TourPoint = z.object({
 });
 export type TourPoint = z.infer<typeof TourPoint>;
 
-/** Places of one tour; plus an optional start and end = at most 12 points (the Held–Karp limit). */
-export const MAX_TOUR_PLACES = 10;
+/** Places of one tour; plus an optional start and end = at most 27 points (spec 17.1 [P1]; exact order up to 16). */
+export const MAX_TOUR_PLACES = 25;
 export const MAX_TOUR_POINTS = MAX_TOUR_PLACES + 2;
 
 export const TOUR_MODES = ["foot", "wheelchair", "cycling", "car"] as const;
@@ -200,6 +200,7 @@ export const TourResult = z.object({
   sights: z.array(TourSight).max(MAX_TOUR_SIGHTS),
   source: z.object({ ors: z.string(), osm: z.string().optional() }), // oldest fetchedAt ISO per provider
   stale: z.boolean().optional(),
+  orderApprox: z.literal(true).optional(), // order from the heuristic (more than 16 points, spec 17.1 [P1])
 });
 export type TourResult = z.infer<typeof TourResult>;
 

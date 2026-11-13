@@ -55,7 +55,7 @@ describe("orderTour", () => {
         // Alternate wide ranges (unique optimum) and narrow ranges (many ties).
         const m = randomMatrix(8, rnd, t % 2 ? 4 : 900);
         const r = orderTour(m, { start: c.start, end: c.end });
-        expect(r).toEqual({ order: bruteForce(m, c.start, c.end) });
+        expect(r).toMatchObject({ order: bruteForce(m, c.start, c.end) });
       }
     });
   }
@@ -76,28 +76,28 @@ describe("orderTour", () => {
       const m = randomMatrix(7, rnd, 50, 0.2);
       const want = bruteForce(m, 0);
       const r = orderTour(m, { start: 0 });
-      if (want) expect(r).toEqual({ order: want });
+      if (want) expect(r).toMatchObject({ order: want });
       else expect("error" in r).toBe(true);
     }
   });
 
   it("breaks full ties by input order", () => {
     const m = Array.from({ length: 5 }, (_, i) => Array.from({ length: 5 }, (_, j) => (i === j ? 0 : 60)));
-    expect(orderTour(m, {})).toEqual({ order: [0, 1, 2, 3, 4] });
-    expect(orderTour(m, { start: 3 })).toEqual({ order: [3, 0, 1, 2, 4] });
-    expect(orderTour(m, { end: 0 })).toEqual({ order: [1, 2, 3, 4, 0] });
-    expect(orderTour(m, { start: 2, end: 2 })).toEqual({ order: [2, 0, 1, 3, 4, 2] });
+    expect(orderTour(m, {})).toMatchObject({ order: [0, 1, 2, 3, 4] });
+    expect(orderTour(m, { start: 3 })).toMatchObject({ order: [3, 0, 1, 2, 4] });
+    expect(orderTour(m, { end: 0 })).toMatchObject({ order: [1, 2, 3, 4, 0] });
+    expect(orderTour(m, { start: 2, end: 2 })).toMatchObject({ order: [2, 0, 1, 3, 4, 2] });
   });
 
   it("reconstructs with an absolute tolerance on large durations", () => {
-    expect(orderTour([[0, 10000.009, 10000], [10000, 0, 0], [10000, 0, 0]], { start: 0 })).toEqual({ order: [0, 2, 1] });
+    expect(orderTour([[0, 10000.009, 10000], [10000, 0, 0], [10000, 0, 0]], { start: 0 })).toMatchObject({ order: [0, 2, 1] });
   });
 
   it("keep returns the input order with start first and end last", () => {
     const m = randomMatrix(5, seededRandom(1), 100);
-    expect(orderTour(m, { keep: true })).toEqual({ order: [0, 1, 2, 3, 4] });
-    expect(orderTour(m, { keep: true, start: 4, end: 0 })).toEqual({ order: [4, 1, 2, 3, 0] });
-    expect(orderTour(m, { keep: true, start: 2, end: 2 })).toEqual({ order: [2, 0, 1, 3, 4, 2] });
+    expect(orderTour(m, { keep: true })).toMatchObject({ order: [0, 1, 2, 3, 4] });
+    expect(orderTour(m, { keep: true, start: 4, end: 0 })).toMatchObject({ order: [4, 1, 2, 3, 0] });
+    expect(orderTour(m, { keep: true, start: 2, end: 2 })).toMatchObject({ order: [2, 0, 1, 3, 4, 2] });
     expect(keepOrder(3, { end: 0 })).toEqual([1, 2, 0]);
   });
 
@@ -121,12 +121,17 @@ describe("orderTour", () => {
   });
 
   it("handles tiny inputs and rejects too many points", () => {
-    expect(orderTour([[0]], {})).toEqual({ order: [0] });
-    expect(orderTour([[0]], { start: 0, end: 0 })).toEqual({ order: [0, 0] });
-    expect(orderTour([[0, 3], [9, 0]], {})).toEqual({ order: [0, 1] });
-    expect(orderTour([[0, 9], [3, 0]], {})).toEqual({ order: [1, 0] });
-    const big = Array.from({ length: 13 }, () => Array(13).fill(1));
+    expect(orderTour([[0]], {})).toMatchObject({ order: [0] });
+    expect(orderTour([[0]], { start: 0, end: 0 })).toMatchObject({ order: [0, 0] });
+    expect(orderTour([[0, 3], [9, 0]], {})).toMatchObject({ order: [0, 1] });
+    expect(orderTour([[0, 9], [3, 0]], {})).toMatchObject({ order: [1, 0] });
+    const big = Array.from({ length: 28 }, () => Array(28).fill(1));
     expect(() => orderTour(big, {})).toThrow();
+  });
+
+  it("reports exact up to 16 points", () => {
+    const r = orderTour(randomMatrix(16, seededRandom(16), 1800), { start: 0 });
+    expect("order" in r && r.exact).toBe(true);
   });
 
   it("solves 12 points quickly", () => {

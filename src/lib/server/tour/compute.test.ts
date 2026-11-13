@@ -217,6 +217,31 @@ describe("computeTour: pipeline", () => {
     });
   });
 
+  it("25 places: heuristic order over the matrix, flagged as approximate; 16 points stay exact", async () => {
+    const many = Array.from({ length: 25 }, (_, i) => ({
+      key: `osm:n${100 + i}`, name: `Ort ${i + 1}`, lat: 48.19 + (i % 5) * 0.006, lon: 16.35 + Math.floor(i / 5) * 0.008, source: "osm" as const,
+    }));
+    const grid = (n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        Array.from({ length: n }, (_, j) => (i === j ? 0 : 60 + Math.round(Math.hypot((i % 5) - (j % 5), Math.floor(i / 5) - Math.floor(j / 5)) * 400))),
+      );
+    h.input = TourInput.parse({ places: many });
+    h.matrix.mockResolvedValue({ durations: grid(25), snappedM: [], fetchedAt: "2026-11-01T00:00:00.000Z", stale: false, cache: "hit" });
+    const res = await computeTour(TOUR);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(new Set(res.data.result.order)).toEqual(new Set(many.map((p) => p.key)));
+    expect(res.data.result.orderApprox).toBe(true);
+    expect(res.data.result.legs).toHaveLength(24);
+    expect(res.data.result.legs.every((l) => l.poly !== null)).toBe(true); // short legs stay within the shared budget
+
+    resetRateLimits();
+    h.input = TourInput.parse({ places: many.slice(0, 16) });
+    h.matrix.mockResolvedValue({ durations: grid(16), snappedM: [], fetchedAt: "2026-11-01T00:00:00.000Z", stale: false, cache: "hit" });
+    const exact = await computeTour(TOUR);
+    expect(exact.ok && exact.data.result.orderApprox).toBeUndefined();
+  });
+
   it("keep order: no matrix, overrides split runs (one request each), dropped overrides are counted", async () => {
     h.input = TourInput.parse({
       places: P.slice(0, 4),

@@ -77,6 +77,9 @@ export type ComputeTourResult =
     };
 
 const Id = z.string().uuid();
+/** Per-leg line limit of `TourLeg.poly`, and the share of the 256 kB result check that all lines together may use. */
+const MAX_LEG_POLY = 20000;
+const POLY_BUDGET = 200_000;
 
 type Fail = Extract<ComputeTourResult, { ok: false }>;
 const err = (error: ActionError, extra: Omit<Fail, "ok" | "error"> = {}): Fail => ({ ok: false, error, ...extra });
@@ -274,6 +277,7 @@ async function run(id: string): Promise<ComputeTourResult> {
   const orsDates: string[] = [];
   let matrix: (number | null)[][] | null = null;
   let order: number[];
+  let orderApprox = false;
   if (keep) {
     order = keepOrder(tp.points.length, { start: tp.start, end: tp.end });
   } else {
@@ -289,6 +293,7 @@ async function run(id: string): Promise<ComputeTourResult> {
     const o = orderTour(m.durations, { start: tp.start, end: tp.end });
     if ("error" in o) return err("unreachable", { points: flaggedKeys(tp.points, o.pairs) });
     order = o.order;
+    orderApprox = !o.exact;
   }
   const keys = order.map((i) => tp.points[i].key);
   const byKey = new Map(tp.points.map((p) => [p.key, p]));
@@ -302,6 +307,8 @@ async function run(id: string): Promise<ComputeTourResult> {
   );
   const legs: TourLeg[] = planned.map((l) => ({ ...l, min: null, km: null, poly: null, s: "failed" }));
   const notRoutable: string[] = [];
+  // Leg lines share one budget, so 26 long legs keep the snapshot under the 256 kB result check (spec 17.1 [P1]).
+  const polyCap = Math.min(MAX_LEG_POLY, Math.floor(POLY_BUDGET / Math.max(1, planned.length)));
   runs.forEach((run, ri) => {
     const a = answers[ri];
     if (a.result === "not_routable") notRoutable.push(run.points[a.point]);
@@ -314,7 +321,7 @@ async function run(id: string): Promise<ComputeTourResult> {
       if (a.result === "ok") {
         const leg = a.legs[j];
         // A leg geometry above the snapshot limit keeps its time and distance, without the line.
-        legs[li] = { ...legs[li], min: leg.min, km: leg.km, poly: leg.poly.length <= 20000 ? leg.poly : null, s: "ok" };
+        legs[li] = { ...legs[li], min: leg.min, km: leg.km, poly: leg.poly.length <= polyCap ? leg.poly : null, s: "ok" };
       } else if (a.result === "no_route") legs[li] = { ...legs[li], s: "no_route" };
     });
   });
@@ -347,6 +354,7 @@ async function run(id: string): Promise<ComputeTourResult> {
     sights: s.sights,
     source: { ors: orsDates.length ? [...orsDates].sort()[0] : now.toISOString(), ...(s.fetchedAt ? { osm: s.fetchedAt } : {}) },
     ...(stale ? { stale: true } : {}),
+    ...(orderApprox ? { orderApprox: true } : {}),
   });
 
   // 6. Snapshot with the secret key, then the event (no names, no coordinates).

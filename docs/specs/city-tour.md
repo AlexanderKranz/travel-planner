@@ -80,7 +80,7 @@ export const TourPoint = z.object({
   cat: z.string().max(40).optional(), // OSM category for the icon, e.g. "place_of_worship"
   dwellMin: z.number().int().min(0).max(480).optional(),  // absent = tour default
 });
-export const MAX_TOUR_PLACES = 10;   // + start + end = at most 12 points
+export const MAX_TOUR_PLACES = 25;   // + start + end = at most 27 points (was 10 in the MVP, section 17.1 [P1])
 ```
 
 Sources, cheapest first:
