@@ -2045,7 +2045,6 @@
   "tours": {
     "title": "Stadttouren",
     "newTour": "Neue Stadttour",
-    "listTitle": "Deine Stadttouren",
     "allTours": "Alle Stadttouren",
     "empty": "Noch keine Stadttouren. Nenne ein paar Orte in einer Stadt, und die Tour ordnet sie und plant die Wege dazwischen.",
     "defaultTitle": "{hasCity, select, yes {{city}} other {Stadttour ab {first}}}",

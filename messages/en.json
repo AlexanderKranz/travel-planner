@@ -2045,7 +2045,6 @@
   "tours": {
     "title": "City tours",
     "newTour": "New city tour",
-    "listTitle": "Your city tours",
     "allTours": "All city tours",
     "empty": "No city tours yet. Name a few places in a city, and the tour puts them in order and plans the ways between them.",
     "defaultTitle": "{hasCity, select, yes {{city}} other {City tour from {first}}}",
