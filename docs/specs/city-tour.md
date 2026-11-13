@@ -264,7 +264,7 @@ Migration `supabase/migrations/<date>120039_city_tours.sql` (next free number), 
 | `id` | uuid | no | `gen_random_uuid()` | PK; `unique (id, owner_id)` |
 | `owner_id` | uuid | no | `auth.uid()` | FK `auth.users` on delete cascade |
 | `title` | text | yes | | `<= 120` |
-| `input` | jsonb | no | | `TourInput` (3.2), validated by Zod; `pg_column_size(input) <= 16384` |
+| `input` | jsonb | no | | `TourInput` (3.2), validated by Zod; `pg_column_size(input) <= 32768` (16384 in the MVP; raised for 25 places, 17.1 [P1]) |
 | `trip_id` | uuid | yes | | composite FK `(trip_id, owner_id) → trips (id, owner_id) on delete set null (trip_id)` (column list, PG 15+) |
 | `trip_day` | smallint | yes | | `between 1 and 60`; ignored by code when `trip_id` is null |
 | `result` | jsonb | yes | | `TourResult` (9.2), written by the server only |
