@@ -78,12 +78,20 @@ describe("tour matrix (foot-walking, Wien)", () => {
     expect(r.matrix.durations[1][2]).toBe(875.77);
   });
 
-  it("refuses a missing key, one point or more than 12 points without a call", async () => {
+  it("refuses a missing key, one point or more than 27 points without a call", async () => {
     await expect(fetchMatrixFull("foot-walking", wien.slice(0, 1))).rejects.toThrow(RangeError);
-    await expect(fetchMatrixFull("foot-walking", Array(13).fill(wien[0]))).rejects.toThrow(RangeError);
+    await expect(fetchMatrixFull("foot-walking", Array(28).fill(wien[0]))).rejects.toThrow(RangeError);
+    await expect(fetchRoute("foot-walking", Array(28).fill(wien[0]), "fastest")).rejects.toThrow(RangeError);
     vi.stubEnv("OPENROUTESERVICE_API_KEY", "");
     await expect(fetchMatrixFull("foot-walking", wien)).rejects.toMatchObject({ name: "MissingKeyError" });
     expect(h.postJson).not.toHaveBeenCalled();
+  });
+
+  it("27 points (25 places + start + end, spec 17.1 [P1]) pass the guard and reach ORS", async () => {
+    h.postJson.mockRejectedValue(new HttpError(503));
+    await expect(fetchMatrixFull("foot-walking", Array(27).fill(wien[0]))).rejects.toMatchObject({ status: 503 });
+    await expect(fetchRoute("foot-walking", Array(27).fill(wien[0]), "fastest")).rejects.toMatchObject({ status: 503 });
+    expect(h.postJson).toHaveBeenCalledTimes(2);
   });
 });
 
