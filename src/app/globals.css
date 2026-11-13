@@ -196,6 +196,20 @@ a {
   text-underline-offset: 2px;
 }
 
+/* iOS Safari: native date/time inputs keep an intrinsic min width and overflow `w-full` at 360 px (issue #214).
+   Without the native look they shrink like text inputs; the picker still opens. iOS then centres the value and
+   collapses an empty field's line, so the value is start-aligned and keeps one line of height. */
+input:is([type="date"], [type="time"], [type="datetime-local"], [type="month"]) {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+}
+
+::-webkit-date-and-time-value {
+  text-align: start;
+  min-height: 1.5em;
+}
+
 /* Dark feature card (best day): re-points the tokens so every child renders correctly on night blue. */
 .on-feature {
   --ink: var(--feature-fg);
