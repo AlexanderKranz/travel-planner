@@ -187,6 +187,7 @@ export async function getTourSteps(
   option: RouteOption,
   points: readonly TourPointRef[],
   ctx: CacheCtx,
+  opts: { refresh?: boolean } = {},
 ): Promise<TourStepsAnswer> {
   if (points.length < 2 || !process.env.OPENROUTESERVICE_API_KEY?.trim()) return { result: "failed" };
   try {
@@ -197,6 +198,7 @@ export async function getTourSteps(
       ttlSeconds: TOUR_ORS_TTL_SECONDS,
       schema: StepsPayload,
       ctx,
+      refresh: opts.refresh,
       fetcher: async () => {
         await assertOrsQuota("directions");
         const r = await fetchRouteSteps(profile, points, option);

@@ -5,7 +5,7 @@ import type { ActionError } from "@/lib/domain/result";
 import { ORS_PROFILE } from "@/lib/domain/tour";
 import type { OrsStep } from "@/lib/integrations/openrouteservice";
 import { groupRuns } from "@/lib/tour/runs";
-import { legChanged } from "@/lib/tour/steps";
+import { legChanged, resultVersion } from "@/lib/tour/steps";
 import { tourPointsOf } from "@/lib/tour/points";
 import { logEvent } from "../events";
 import { orsTourGate } from "../facts/ors-quota";
@@ -37,15 +37,19 @@ const fail = (error: ActionError | "not_computed", retryAfter?: number): TourDir
   ...(retryAfter ? { retryAfter } : {}),
 });
 
-export async function getTourDirections(id: string): Promise<TourDirectionsResult> {
+/**
+ * `version`: `resultVersion` of the result the page rendered. When the stored result differs (another tab edited or
+ * recomputed the tour meanwhile), the answer is refused with `conflict`, so steps and GPX never mix two versions.
+ */
+export async function getTourDirections(id: string, version: string): Promise<TourDirectionsResult> {
   try {
-    return await run(id);
+    return await run(id, version);
   } catch {
     return fail("failed");
   }
 }
 
-async function run(id: string): Promise<TourDirectionsResult> {
+async function run(id: string, version: string): Promise<TourDirectionsResult> {
   const session = await getUserSession();
   if (!session) return fail("unauthenticated");
   if (!Id.safeParse(id).success) return fail("invalid");
@@ -57,6 +61,7 @@ async function run(id: string): Promise<TourDirectionsResult> {
   if (!tour) return fail("invalid");
   const result = tour.result;
   if (!result || tour.outdated || result.legs.length === 0) return fail("not_computed");
+  if (resultVersion(result) !== version) return fail("conflict");
 
   const minute = rateLimit(`tour-directions:${session.userId}`, PER_MIN, 60_000);
   if (!minute.ok) return fail("rate_limited", minute.retryAfterSeconds);
@@ -69,8 +74,15 @@ async function run(id: string): Promise<TourDirectionsResult> {
   if (!(await orsTourGate(runs.length, { needsMatrix: false }))) return fail("ors_unavailable");
 
   const ctx = { userId: session.userId };
+  const fetchRun = (r: (typeof runs)[number], refresh: boolean) =>
+    getTourSteps(ORS_PROFILE[r.mode], r.route, r.points.map((k) => byKey.get(k)!), ctx, { refresh });
+  // Steps cached before the tour's last computation may describe an older route (spec 17.4): fetch them again.
   const answers = await Promise.all(
-    runs.map((r) => getTourSteps(ORS_PROFILE[r.mode], r.route, r.points.map((k) => byKey.get(k)!), ctx)),
+    runs.map(async (r) => {
+      const a = await fetchRun(r, false);
+      const older = a.result !== "failed" && tour.computedAt !== null && a.fetchedAt < tour.computedAt;
+      return older ? fetchRun(r, true) : a;
+    }),
   );
   const legs: DirectionsLeg[] = result.legs.map(() => null);
   const dates: string[] = [];

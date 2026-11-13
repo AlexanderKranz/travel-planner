@@ -8,6 +8,7 @@ import { formatDuration } from "./format";
 import { GoogleLinks } from "./google-links";
 import { TourDirectionsPanel } from "./tour-directions";
 import { TourForecastLine } from "./tour-forecast";
+import { resultVersion } from "@/lib/tour/steps";
 import { ModeIcon } from "./mode-icon";
 import { TourMapPanel } from "./tour-map-panel";
 
@@ -207,7 +208,10 @@ export function TourResultView(p: TourResultProps) {
           {checked(result.source.ors) ? ` · ${t("checked", { date: checked(result.source.ors)! })}` : ""}
         </p>
         <p>{t("walkNote")}</p>
-        {p.tourId && !p.outdated && <TourDirectionsPanel tourId={p.tourId} title={p.title ?? ""} input={input} result={result} onRecompute={p.onRecomputeForce} />}
+        {/* Keyed by the result: a new computation resets loaded steps, so they never describe an older route. */}
+        {p.tourId && !p.outdated && (
+          <TourDirectionsPanel key={resultVersion(result)} tourId={p.tourId} title={p.title ?? ""} input={input} result={result} onRecompute={p.onRecomputeForce} />
+        )}
         <GoogleLinks points={coords} mode={input.mode} />
       </footer>
     </section>

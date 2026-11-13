@@ -190,6 +190,10 @@ describe("getTourSteps (on request, spec 17.1 [P2])", () => {
     expect(r.result === "ok" && r.legs).toHaveLength(5);
     expect(r.result === "ok" && r.legs[0].steps[1]).toEqual([1, "Stephansplatz", 85, 3]);
     expect(JSON.stringify([...h.store.values()])).not.toMatch(/instruction/);
+    // Only the steps entry is written: the route cache gets no steps.
+    expect(h.calls.map((c) => c.endpoint)).toEqual(["tour_steps"]);
+    expect([...h.store.keys()]).toEqual([tourStepsKey("foot-walking", "fastest", wien)]);
+    expect(h.store.has(tourRouteKey("foot-walking", "fastest", wien))).toBe(false);
     await getTourSteps("foot-walking", "fastest", wien, ctx);
     expect(h.postJson).toHaveBeenCalledTimes(1);
   });

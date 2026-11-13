@@ -10,6 +10,7 @@ import { HOFBURG, NASCHMARKT, STEPHANSDOM, WIEN_CITY } from "@/lib/tour/fixtures
 import de from "../../../messages/de.json";
 import en from "../../../messages/en.json";
 import { RouteSketch } from "./route-sketch";
+import { getTourDirections } from "@/lib/server/tour/directions";
 import { TourResultView, type TourResultProps } from "./tour-result";
 
 const input = TourInput.parse({ city: WIEN_CITY, places: [STEPHANSDOM, HOFBURG, NASCHMARKT], startTime: "10:00", maxMin: 100 });
@@ -94,6 +95,7 @@ describe("TourResultView", () => {
     expect(render("de", de as Messages, { tourId: id, title: "Wien" })).toContain("Wegbeschreibung");
     expect(render("de", de as Messages)).not.toContain("tour-directions-button");
     expect(render("de", de as Messages, { tourId: id, outdated: true })).not.toContain("tour-directions-button");
+    expect(vi.mocked(getTourDirections)).not.toHaveBeenCalled(); // only the button press fetches
   });
 
   it("shows owner controls, the fit badge and the outdated notice", () => {
