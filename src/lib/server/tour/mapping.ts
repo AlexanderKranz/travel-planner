@@ -51,6 +51,7 @@ export function tourToSummary(t: Tour): TourSummary {
     access: t.access,
     title: t.title,
     city: t.input.city?.name ?? null,
+    firstPlace: t.input.places[0]?.name ?? null,
     placeCount: t.input.places.length,
     mode: t.input.mode,
     tripId: t.tripId,

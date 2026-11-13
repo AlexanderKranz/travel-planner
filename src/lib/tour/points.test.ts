@@ -35,8 +35,9 @@ describe("tourCentre and title", () => {
   });
 
   it("default title parts and own title", () => {
-    expect(defaultTitleParts({ city: WIEN_CITY, places })).toEqual({ city: "Wien", count: 2 });
-    expect(defaultTitleParts({ places })).toEqual({ city: null, count: 2 });
+    expect(defaultTitleParts({ city: WIEN_CITY, places })).toEqual({ city: "Wien", firstPlace: HOFBURG.name });
+    expect(defaultTitleParts({ places })).toEqual({ city: null, firstPlace: HOFBURG.name });
+    expect(defaultTitleParts({ places: [] })).toEqual({ city: null, firstPlace: null });
     expect(ownTitle({ title: "  " })).toBeNull();
     expect(ownTitle({ title: "Altstadt" })).toBe("Altstadt");
   });

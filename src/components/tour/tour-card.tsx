@@ -8,7 +8,7 @@ import { ModeIcon } from "./mode-icon";
 /** One tour in a list (/app/tours, the /app section). */
 export function TourCard({ tour }: { tour: TourSummary }) {
   const t = useTranslations("tours");
-  const title = tourTitle(t, tour.title, tour.city, tour.placeCount);
+  const title = tourTitle(t, tour.title, tour.city, tour.firstPlace);
   return (
     <Link href={`/app/tours/${tour.id}`} className={`${cardCls} block hover:bg-hover ${focusCls}`}>
       <span className="block break-words font-serif text-xl font-bold text-heading">{title}</span>
