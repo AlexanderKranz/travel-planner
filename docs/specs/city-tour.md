@@ -975,29 +975,42 @@ Each point below is binding for the implementation and wins over a shorter sente
 - **One cache entry for the view [P2].** The `tour-steps` entry stores, per leg, the steps **and** the polyline of
   that answer, so a later cache hit still yields a GPX that matches its steps.
 - **"Changed" means distance or geometry [P2].** A leg is `changed` when its distance differs by more than 5 % or
-  50 m, **or** when any point of the on-request polyline lies more than 50 m from the stored polyline (point to
-  segment, the sights corridor helper). The notice shows for any changed leg.
+  50 m, **or** when any point of either polyline lies more than 50 m from the other one (both directions, point to
+  segment, the sights corridor helper), so an added or a removed detour both count. The notice shows for any
+  changed leg.
 - **"Tour neu berechnen" from that notice [P2]** forces a recomputation: it skips the unchanged-input shortcut and
-  refreshes the `tour-route` entries of its runs (a fetch that replaces the row), then stores the new result. It
-  counts against the computation limits like any computation.
-- **Large results [P1].** All leg polylines of one result share a 200 kB budget (at most 20 kB per leg); a leg over
-  its share keeps minutes and km without the line. The result stays under the 256 kB check, so no migration.
-- **Transitous quota [P3].** Each `/plan` request first reserves a slot (a row in `api_calls` with status `pending`,
-  inserted in the same statement that counts the last 24 h, as `ai_call_slots` does for Claude); the row is updated
-  with the outcome. If the reservation cannot be written, the request is not sent (fail closed). The count
-  includes pending rows, so concurrent requests cannot pass the cap together.
+  refreshes the `tour-route` entries of its runs (`cached({ refresh: true })`, a fetch that replaces the row), then
+  stores the new result. It counts against the computation limits like any computation. The directions request
+  refreshes a `tour-steps` row whose `fetchedAt` is older than the tour's `computed_at`, so steps and GPX follow the
+  recomputed route.
+- **Large results [P1].** All stored geometry of one result (ORS leg polylines and transit `legGeometry`) shares a
+  200 kB budget (at most 20 kB per leg); a leg over its share keeps minutes and km without the line. The same cap is
+  applied before a route is cached. The result stays under the 256 kB check, so no migration.
+- **Transitous quota [P3].** A new table `provider_slots` (provider, cache key, `reserved_at`, `expires_at` = +2 min,
+  `done`), not `api_calls` (its `status` is the HTTP code). A security-definer function reserves a slot under a
+  transaction-level advisory lock per provider: it counts the last 24 h of `api_calls` rows plus unexpired, not yet
+  done slots, refuses at `TRANSITOUS_DAILY`, and refuses a second live slot for the same cache key (that caller
+  waits for the cache instead: in-flight dedupe). The caller marks the slot done after logging the call. An expired
+  slot (process died) stops counting by itself. No slot, no request (fail closed). Migration with the transit PR.
 - **Transit time zone [P3].** Transit needs a tour city with a known IANA time zone (GeoNames via Open-Meteo, as the
   city point carries). Requests send the departure as local time with that zone's offset on the tour date; UTC
   answers are shown in that zone. Without a city time zone the ÖPNV option is not offered.
 - **Transit legs in the tour [P3].** A transit leg is computed during the computation, after the ORS runs, in
-  sequence (departure = previous arrival + dwell). Its minutes come from the chosen itinerary and replace the leg's
-  minutes everywhere: totals, stop times, fit check, proposals ("ca." as now). Its km and line come from the
-  itinerary's `legGeometry` (walking parts included). It is stored in `result` like any leg, with `transit` parts.
+  sequence (departure = previous arrival + dwell). The chosen itinerary is the first that departs at or after that
+  time; the leg's minutes are its **arrival minus the requested departure**, so the wait at the stop counts. They
+  replace the leg's minutes everywhere: totals, stop times, fit check, proposals ("ca." as now). Its km and line come
+  from the itinerary's `legGeometry` (walking parts included). It is stored in `result` like any leg: `TourLeg.mode`
+  gains `"transit"` (an override only, never a tour mode) and an optional `transit` part list, both in the Zod
+  schema. The result stores the oldest transit `fetchedAt`; when it is older than 7 days, the unchanged-input
+  shortcut recomputes instead of returning the stored result.
 - **Transit legs in the directions view and GPX [P3].** No ORS call for them: the view lists the stored parts
   (walk to stop, line and headsign, departure/arrival, stops count, walk to the place) with "Fahrplan, keine
   Echtzeit" and its source; the GPX uses the stored line.
 - **Time windows [P6].** Type `TourPoint.window?: { after?: HHMM; before?: HHMM }` with the existing `HHMM`
-  validator from `domain/common.ts`. Windows are wall-clock times of the tour day, like `startTime`, so arrivals
+  validator from `domain/common.ts`, added to `TourPoint`, `TourPointDraft` and `resolveDraft`, and to
+  `tourInputHash` (hash version bump, so stored results recompute). `after` must be before `before` (field error). Windows are wall-clock times of the tour day, like `startTime`, so arrivals
   (`startTime` + minutes) and windows compare without a time zone. A window needs `startTime` (schema refine with a
   form message); without it the window fields are disabled. Opening hours are checked only with a date and a city
   time zone (holidays and DST); otherwise the raw tag is shown as today.
+- **Standalone tour share links [P4].** `share_links.trip_id` becomes nullable in the sharing migration, with a check
+  that exactly one of `trip_id` and `tour_id` is set.
