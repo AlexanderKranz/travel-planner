@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/server/tour/directions", () => ({ getTourDirections: vi.fn() }));
+vi.mock("@/lib/server/tour/forecast", () => ({ getTourForecast: vi.fn(async () => null) }));
 import { TourInput, type TourResult } from "@/lib/domain/tour";
 import { encodePolyline } from "@/lib/tour/polyline";
 import { HOFBURG, NASCHMARKT, STEPHANSDOM, WIEN_CITY } from "@/lib/tour/fixtures.test-data";
