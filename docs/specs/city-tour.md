@@ -22,7 +22,7 @@ St. Stephan, Veste Oberhaus, Ortspitze, Rathaus).
   cache) and code. Nothing in a tour is written by a model.
 - **Ground rule 2.** Ordering is a small exact TSP in code over one ORS matrix. Timing is arithmetic. **No LLM step
   [T2]**: there is no judgment or prose the user needs that code cannot give. The title defaults to code text
-  ("Wien · 5 Orte").
+  ("Wien", or "Stadttour ab Hofburg" without a city; the stop count is on the line below, issue #212).
 - **Ground rule 3.** A tour needs only places (at least 2). City, start, end, date, start time, limits, dwell times
   and the trip link are optional.
 - **Ground rule 8.** Every ORS and Geoapify call goes through `cached()` and the existing quota guards.

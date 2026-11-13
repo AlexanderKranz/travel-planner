@@ -222,12 +222,13 @@ export type Tour = {
   updatedAt: string;
 };
 
-/** List row. `city` and `placeCount` feed the default title (`tours.defaultTitle`) when `title` is null. */
+/** List row. `city` and `firstPlace` feed the default title (`tours.defaultTitle`) when `title` is null. */
 export type TourSummary = {
   id: string;
   access: TourAccess;
   title: string | null;
   city: string | null;
+  firstPlace: string | null;
   placeCount: number;
   mode: TourMode;
   tripId: string | null;

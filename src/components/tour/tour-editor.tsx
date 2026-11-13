@@ -118,7 +118,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
   const centre = form.city ?? form.places[0] ?? null;
   const taken = (key: string) => isTaken(form, key);
   const full = form.places.length >= MAX_TOUR_PLACES;
-  const title = tourTitle(t, form.title || null, form.city?.name ?? null, form.places.length);
+  const title = tourTitle(t, form.title || null, form.city?.name ?? null, form.places[0]?.name ?? null);
 
   // Edits outside the form (leg sheet, nearby sights, proposals) wait for a running save or computation too.
   function edit(next: TourForm) {
@@ -246,7 +246,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
             {t("back")}
           </Link>
         )}
-        <h1 className="break-words text-3xl font-bold sm:text-4xl">{saved || form.places.length ? title : t("newTitle")}</h1>
+        <h1 className="break-words text-3xl font-bold sm:text-4xl">{form.title.trim() || form.city || form.places.length ? title : t("newTitle")}</h1>
         {prefill && <p className={`text-sm ${mutedCls}`}>{t("fromTrip", { day: prefill.day, trip: prefill.tripTitle })}</p>}
         {saved?.tripId && !prefill && (
           <Link href={`/app/trips/${saved.tripId}`} className="inline-flex min-h-11 items-center self-start text-sm underline underline-offset-2">

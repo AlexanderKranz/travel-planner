@@ -25,11 +25,12 @@ export function TourSideList({ tours, max, className = "" }: { tours: TourSummar
           {shown.map((tour) => (
             <li key={tour.id} className="flex flex-col py-1">
               <Link href={`/app/tours/${tour.id}`} className={`${linkCls} inline-flex min-h-11 items-center break-words`}>
-                {tourTitle(t, tour.title, tour.city, tour.placeCount)}
+                {tourTitle(t, tour.title, tour.city, tour.firstPlace)}
               </Link>
               <span className={`flex flex-wrap items-center gap-x-2 text-sm ${mutedCls}`}>
                 <ModeIcon mode={tour.mode} className="size-4 shrink-0" />
                 <span>{t(`modes.${tour.mode}`)}</span>
+                <span>· {t("placeCount", { count: tour.placeCount })}</span>
                 {tour.totalMin !== null && <span>· {formatDuration(t, tour.totalMin)}</span>}
                 {tour.startTime && <span>· {tour.startTime}</span>}
                 {(tour.outdated || tour.computedAt === null) && (

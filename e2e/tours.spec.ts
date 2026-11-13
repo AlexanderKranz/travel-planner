@@ -191,7 +191,11 @@ test.describe("city tours (docs/specs/city-tour.md)", () => {
 
     // The tour is listed on /app/tours and in the /app section.
     await page.goto("/de/app/tours");
-    await expect(page.getByRole("link", { name: /Passau · 3 Orte/ })).toBeVisible();
+    // Title is the city only; the stop count is on the line below (issue #212). The nav links the page too.
+    await expect(page.getByRole("navigation", { name: "Hauptnavigation" }).getByRole("link", { name: "Stadttouren" })).toHaveAttribute("aria-current", "page");
+    const card = page.getByRole("main").getByRole("link", { name: /^Passau/ });
+    await expect(card).toContainText("3 Orte");
+    await expect(card).not.toContainText("Passau · 3 Orte");
     await page.goto("/de/app");
     await expect(page.getByRole("heading", { name: "Stadttouren" })).toBeVisible();
     // Desktop: the tours are their own column between the trips and the groups/purposes, and all three columns start

@@ -8,7 +8,10 @@ export function formatDuration(t: T, min: number): string {
   return t(p.key, p.values);
 }
 
-/** Tour title: the user's own, else "Wien · 5 Orte" (`tours.defaultTitle`). */
-export function tourTitle(t: T, title: string | null, city: string | null, count: number): string {
-  return title?.trim() || t("defaultTitle", { hasCity: city ? "yes" : "no", city: city ?? "", count });
+/**
+ * Tour title: the user's own, else the city ("Wien"), else "Stadttour ab Hofburg" (`tours.defaultTitle`). No stop count:
+ * the line below the title shows it (issue #212).
+ */
+export function tourTitle(t: T, title: string | null, city: string | null, firstPlace: string | null): string {
+  return title?.trim() || t("defaultTitle", { hasCity: city ? "yes" : "no", city: city ?? "", first: firstPlace ?? "" });
 }

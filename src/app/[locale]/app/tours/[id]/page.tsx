@@ -36,7 +36,7 @@ async function ReadOnlyTour({ tour, view, mapStyleUrl }: { tour: Tour; view: Ret
   const t = await getTranslations("tours");
   const trip = tour.tripId ? await getTrip(tour.tripId) : null;
   const tripTitle = trip?.ok ? (trip.data.title ?? trip.data.destination.name) : null;
-  const title = tourTitle(t, tour.title, tour.input.city?.name ?? null, tour.input.places.length);
+  const title = tourTitle(t, tour.title, tour.input.city?.name ?? null, tour.input.places[0]?.name ?? null);
   return (
     <main className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
