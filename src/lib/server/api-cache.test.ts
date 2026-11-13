@@ -76,6 +76,15 @@ describe("cached", () => {
     expect(state.calls[0]).toMatchObject({ cache: "hit", ok: true, provider: "overpass", user_id: "u1" });
   });
 
+  it("refresh: a fresh row is fetched again", async () => {
+    state.row = { payload: { v: { n: 1 } }, fetched_at: "2026-01-01T00:00:00Z", expires_at: future() };
+    const fetcher = vi.fn(async () => ({ data: { n: 2 }, status: 200, latencyMs: 5 }));
+    const res = await cached({ provider: "overpass", endpoint: "interpreter", key: "secret-key", ttlSeconds: 60, schema, fetcher, ctx, refresh: true });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(res).toMatchObject({ ok: true, data: { n: 2 }, cache: "miss" });
+    expect(state.upserts).toHaveLength(1);
+  });
+
   it("miss: fetches, upserts with ttl, logs status/latency/units", async () => {
     const res = await run(async () => ({ data: { n: 2 }, status: 200, latencyMs: 42, units: 105 }));
     expect(res).toMatchObject({ ok: true, data: { n: 2 }, cache: "miss", stale: false });

@@ -2264,6 +2264,7 @@
       "gpx": "GPX herunterladen",
       "gpxHint": "Für OsmAnd, Organic Maps, Komoot und andere Apps, die GPX-Routen öffnen. Sie folgen genau dieser Route.",
       "notComputed": "Berechne die Tour zuerst (oder neu), dann gibt es die Wegbeschreibung.",
+      "recompute": "Tour neu berechnen",
       "backToTop": "Zurück zur Übersicht"
     },
     "steps": {

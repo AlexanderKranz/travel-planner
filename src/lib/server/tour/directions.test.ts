@@ -21,6 +21,7 @@ vi.mock("../events", () => ({ logEvent: h.logEvent }));
 
 import { legKey, TourInput, type TourResult } from "@/lib/domain/tour";
 import { tourInputHash } from "@/lib/tour/hash";
+import { encodePolyline } from "@/lib/tour/polyline";
 import { resetRateLimits } from "../rate-limit";
 import { getTourDirections } from "./directions";
 
@@ -30,7 +31,8 @@ const P = [
   { key: "osm:w2", name: "Hofburg", lat: 48.2065, lon: 16.3655, source: "osm" as const },
   { key: "osm:w3", name: "Naschmarkt", lat: 48.199, lon: 16.363, source: "osm" as const },
 ];
-const leg = (from: string, to: string, mode: "foot" | "car", km: number) => ({ from, to, mode, route: mode === "car" ? "no_highways" : "fastest", min: 10, km, poly: "abc", s: "ok" }) as const;
+const LINE = encodePolyline([[48.2085, 16.3731], [48.2065, 16.3655]]);
+const leg = (from: string, to: string, mode: "foot" | "car", km: number) => ({ from, to, mode, route: mode === "car" ? "no_highways" : "fastest", min: 10, km, poly: LINE, s: "ok" }) as const;
 
 function setup(opts: { overrides?: boolean; hash?: string | null; result?: TourResult | null } = {}) {
   const input = TourInput.parse({
@@ -56,7 +58,7 @@ function setup(opts: { overrides?: boolean; hash?: string | null; result?: TourR
 }
 const ok = (legs: { km: number }[]) => ({
   result: "ok",
-  legs: legs.map((l) => ({ min: 10, km: l.km, poly: "xyz", steps: [[11, "", 10, 0], [10, "", 0, 3]] })),
+  legs: legs.map((l) => ({ min: 10, km: l.km, poly: LINE, steps: [[11, "", 10, 0], [10, "", 0, 3]] })),
   fetchedAt: "2026-11-13T09:00:00.000Z",
   stale: false,
   cache: "miss",

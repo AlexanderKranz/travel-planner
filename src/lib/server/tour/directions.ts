@@ -85,7 +85,7 @@ async function run(id: string): Promise<TourDirectionsResult> {
     if (a.result !== "ok") continue;
     for (const [j, li] of runOf.legs.entries()) {
       const leg = a.legs[j];
-      legs[li] = { steps: leg.steps, poly: leg.poly, km: leg.km, changed: legChanged(result.legs[li].km, leg.km) };
+      legs[li] = { steps: leg.steps, poly: leg.poly, km: leg.km, changed: legChanged(result.legs[li], leg) };
     }
   }
   if (legs.every((l) => l === null)) return fail("ors_unavailable");
