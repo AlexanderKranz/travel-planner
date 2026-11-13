@@ -34,14 +34,17 @@ tracking, user-written notes per stop.
 Per stop key, cheapest first:
 1. **`osm:` key in the cached city places or landmarks** (both carry `wikidata` and `wikipedia` tags,
    `facts/places.ts`, `facts/landmarks.ts`): read by key, 0 calls.
-2. **Other `osm:` keys:** one Overpass query by element ids for the tour (`node(id:…);way(id:…);relation(id:…);
-   out tags;`), only the `wikidata`/`wikipedia`/`website`/`opening_hours` tags, cached
+2. **Other `osm:` keys:** one Overpass query by element ids for the tour, as a union so no selector replaces the
+   others' results: `[out:json];(node(id:…);way(id:…);relation(id:…););out tags;`. Only the `wikidata`,
+   `wikipedia`, `website`, `contact:website` and `opening_hours` tags are kept, cached
    `cacheKey("osm-tags", 1, { ids: hash })` 30 d.
 3. **`geo:` (a town) or `gfy:` (an address) keys:** no info card ([Q3], decided). A town start or end is not a sight;
    an address has no stable identity.
 
-A `wikidata` id wins over a `wikipedia` tag (the tag's title is used only when there is no id). Ids are checked with
-`^Q\d{1,12}$`.
+A `wikidata` id wins over a `wikipedia` tag. Without an id, the `wikipedia` tag is parsed as `<lang>:<title>`
+(OSM convention, e.g. `de:Passauer Dom`): used only for `de` or `en`, the title URL-decoded and `_` read as a space;
+a tag without a language prefix is ignored. Ids are checked with `^Q\d{1,12}$`. A title-only match (no id) gets
+text but no Wikidata facts or picture.
 
 ## 3. Data sources and calls [S2]
 
@@ -56,15 +59,21 @@ Per tour, all batched (at most 27 stops):
 
 - A cold 25-stop tour costs about 4–5 requests (plus one Overpass query when stops are outside the cached places).
   A recomputed tour with the same stops costs 0.
-- Providers `wikidata`, `wikipedia`, `wikimedia` exist (picture, sitelinks, destination summary); calls are logged in
-  `api_calls` as `stop_entities`, `stop_labels`, `stop_extracts`, `stop_images`.
+- Providers: `wikidata` (entities, labels, and Commons image info, as the destination picture in
+  `facts/picture.ts` already logs Commons), `wikipedia` (extracts), `overpass` (tags); all in `CacheProvider` today.
+  Endpoints in `api_calls`: `stop_entities`, `stop_labels`, `stop_extracts`, `stop_images`, `stop_osm_tags`.
 - Text: the intro clipped on a sentence boundary to at most 700 characters (`clipParagraphs` of `wikivoyage.ts`),
   marked "gekürzt" when clipped. Disambiguation pages and pages without an extract are dropped.
 - Images: only free licences (CC0, public domain, CC BY, CC BY-SA in their versions; same rule as the destination
   picture in `facts/picture.ts`), a standard thumbnail width (330 px). `Artist` is HTML from Commons: reduced to
   plain text, never rendered as HTML. Unknown or non-free licence = no picture.
 - Facts: inception as a year ("Erbaut 1147", "Eröffnet 1891" for a station or museum by `cat`), at most two
-  architects, one heritage designation, website (also from the OSM tag), OSM `opening_hours` raw as today.
+  architects, one heritage designation (all Wikidata); website (OSM `website`/`contact:website` first, else Wikidata
+  P856) and opening hours (OSM `opening_hours`, raw, "laut OpenStreetMap") with their own source.
+- **Website values** are stored only as absolute `https:` or `http:` URLs (parsed with `new URL`, at most 300
+  characters, no credentials). A bare OSM domain (`example.org`, `www.example.org/x`) gets `https://` before parsing;
+  anything else (other schemes, unparsable, whitespace inside) is dropped, never stored. Links render with
+  `rel="noopener noreferrer nofollow"` and `target="_blank"`.
 
 ## 4. Data model [S3]
 
@@ -76,20 +85,22 @@ change; the route does not). Alternative: inside `result` with a smaller polylin
 ```ts
 export const StopInfo = z.object({
   key: z.string(),                          // tour point key
-  qid: z.string().regex(/^Q\d{1,12}$/),
+  qid: z.string().regex(/^Q\d{1,12}$/).optional(), // absent for a title-only match (section 2)
   lang: z.enum(["de", "en"]),               // language of title and text: the owner's locale, or "en" as fallback ([Q1])
-  title: z.string().max(200),               // Wikipedia article title (link)
-  text: z.string().max(700),
-  clipped: z.boolean(),
+  title: z.string().max(200).optional(),    // Wikipedia article title (link); absent = facts or picture only
+  text: z.string().max(700).optional(),
+  clipped: z.boolean().optional(),
   image: z.object({ url: z.string().url(), w: z.number(), h: z.number(), licence: z.string().max(60),
-    licenceUrl: z.string().url().optional(), artist: z.string().max(200), file: z.string().max(240) }).optional(),
+    licenceUrl: z.string().url().optional(), artist: z.string().max(200).optional(), file: z.string().max(240) }).optional(),
   facts: z.object({ year: z.number().int().optional(), architects: z.array(z.string().max(80)).max(2).optional(),
-    heritage: z.string().max(120).optional(), website: z.string().url().optional() }),
+    heritage: z.string().max(120).optional(), website: z.string().url().max(300).optional(),
+    websiteFrom: z.enum(["osm", "wikidata"]).optional(), openingHours: z.string().max(255).optional() }),
 });
+// A stop gets an entry only when it has at least one of text, image or a fact; an entry with none is not stored.
 export const TourStopInfo = z.object({
   v: z.literal(1),
   locale: z.enum(["de", "en"]),             // the owner's locale when fetched
-  stops: z.array(StopInfo).max(27),
+  stops: z.array(StopInfo).max(MAX_TOUR_POINTS), // 12 on main today, 27 after #221 (city-tour.md 17.1 [P1])
   fetchedAt: z.string(),                    // oldest source date, shown as "abgerufen am"
 });
 ```
@@ -106,11 +117,11 @@ remaining stops and fetches only the new ones.
   answers instantly. Budget 4 s; stops not done in time are fetched on their own expand.
 - **Who can trigger it:** the owner and read grantees (session, RLS read), and share-link viewers through the share
   route by token. All of them write only `stop_info`, through the server with the secret key; nobody else's input
-  changes. Share-link fetches are rate limited per token (10 per hour) on top of the per-user limits.
+  changes. Share-link fetches have their own durable limit per link (section 12).
 - **Stops added later** have no entry; their first expand fetches them (and any other missing stops) in one batch.
 - Refresh: an entry older than 30 days is fetched again on its next expand, and so is the whole `stop_info` when its
   `locale` differs from the owner's current locale (the owner switched language, [Q1]). No background job.
-- Rate limit: 10 per minute and 60 per day per user (the calls are cheap, the limit guards against loops).
+- Rate limits and the cache-only mode when they are used up: section 12.
 
 ## 6. UI [S5]
 
@@ -201,3 +212,37 @@ readOut.{play, pause, resume, next, stop, tour, reading, unsupported, voiceNote}
 - **[Q2] PDF:** an opt-in checkbox "Ortsinfos aufnehmen" when exporting; when ticked, one line per stop of at most
   140 characters; no pictures and no fact lines (section 6).
 - **[Q3] Towns as start or end:** a `geo:` start or end gets no info card (section 2).
+
+## 12. Implementation rules (review of this spec, 2026-11-13)
+
+- **Writes of `stop_info` are atomic merges per stop.** The server writes through one SQL function
+  `private.merge_stop_info(tour_id uuid, entries jsonb, locale text)` (security definer, called with the secret
+  key): in a single `update … where id = tour_id`, it keeps the stored entries, replaces or adds the fetched ones by
+  `key`, and drops every entry whose `key` is no longer a point of the row's **current** `input` (read in the same
+  statement). Overlapping fetches therefore never lose each other's entries, and a late fetch cannot restore removed
+  stops. A locale change replaces the whole value.
+- **`stop_info` writes do not move `updated_at`.** The `city_tours_set_updated_at` trigger skips rows where only
+  `stop_info` changed (`when (old.input is distinct from new.input or old.title is distinct from new.title or …)`,
+  the migration of PR 1), so `saveResult` and versioned edits see no conflict.
+- **Rate limits are durable.** Per user: 60 batches per Berlin day, counted from `app_events` (`tour.stop_info`);
+  per share link: 30 per day, counted the same way by link id; app-wide: 2,000 batches per day. In-memory
+  `rateLimit` (10 per minute) stays only as a burst guard. When a limit is used up the view is **cache-only**: stored
+  info and cached API answers are shown, no request is sent, and the card says "Infos gerade nicht abrufbar".
+- **Share-link viewers** may trigger a batch through the share route within those limits (decision 4); they never
+  write anything but `stop_info`, and only through `merge_stop_info`.
+- **Concurrent cache misses** for the same key are not coalesced: two near-simultaneous fetches of the same public
+  article give the same text, and the later upsert only renews the TTL. Accepted.
+- **Image credit.** CC BY and CC BY-SA need an artist: without `Artist` metadata such an image is not used. CC0 and
+  public domain: the artist is optional; the credit then reads "Foto: Wikimedia Commons, {licence}" with the link to
+  the file page.
+- **Sources per fact.** The card's source line lists every source it uses with its check date: "Text: Wikipedia …",
+  "Fakten: Wikidata", "Website/Öffnungszeiten: OpenStreetMap" (for OSM-derived values).
+- **PDF attribution.** With "Ortsinfos aufnehmen", the tour block's source line names each article used:
+  "Ortsinfos: Wikipedia-Artikel „Stephansdom“, „Hofburg“ … (CC BY-SA 4.0, creativecommons.org/licenses/by-sa/4.0),
+  gekürzt; Fakten: Wikidata", English fallbacks marked "(en)".
+- **iOS speech activation.** The first `speechSynthesis.speak()` must run inside the tap. Per-stop play exists only
+  inside a loaded card, so it speaks in the tap. "Tour vorlesen" is enabled only once the batch is loaded; when it is
+  not, the first tap loads it and the button changes to "Jetzt vorlesen", which speaks on the next tap.
+- **Voices load late.** The read-out controls listen to `speechSynthesis.onvoiceschanged` and re-check the voices
+  for the text's language; the "nicht unterstützt" line disappears when a matching voice arrives.
+- **Stop limit.** All bounds use `MAX_TOUR_POINTS`; capacity numbers in this spec assume the 27 points of #221.
