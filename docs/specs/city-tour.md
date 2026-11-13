@@ -383,7 +383,7 @@ sources line adds "Routen: © openrouteservice.org". A standalone tour has no PD
 
 ## 12. i18n (namespace `tours`, de + en, same keys)
 
-`tours.{title, newTour, listTitle, empty, defaultTitle, city, cityHint, places, placesSearch, placesHint,
+`tours.{title, newTour, empty, defaultTitle, city, cityHint, places, placesSearch, placesHint,
 suggestions, suggestionsLoading, addPlace, removePlace, maxPlaces, moreOptions, start, startNone, end, endSame,
 endOther, endNone, mode, modes.{foot,wheelchair,cycling,car}, route, routes.{fastest,shortest,green,quiet,no_steps,
 no_highways}, routeHelp.{fastest,shortest,green,quiet,no_steps,no_highways}, orderLabel, order.{optimize,keep},
