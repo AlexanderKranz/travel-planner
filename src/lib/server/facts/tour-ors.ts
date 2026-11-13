@@ -9,7 +9,7 @@ import {
   type TourRoute,
   type TourRouteSteps,
 } from "@/lib/integrations/openrouteservice";
-import type { OrsTourProfile, RouteOption } from "@/lib/domain/tour";
+import { legPolyCap, type OrsTourProfile, type RouteOption } from "@/lib/domain/tour";
 import { cacheKey, cached, peekCache, type CacheCtx } from "../api-cache";
 import { assertOrsQuota } from "./ors-quota";
 
@@ -123,6 +123,16 @@ export async function peekTourMatrix(profile: OrsTourProfile, points: readonly T
   return hit ? reindexMatrix(hit.data, points) : null;
 }
 
+/**
+ * Lines over their share of the budget are emptied before caching (the leg keeps minutes and km), so a very long
+ * route still fits the 256 kB cache row and is not fetched again on every computation.
+ */
+export function withinPolyBudget(route: TourRoute): TourRoute {
+  if (route.result !== "ok") return route;
+  const cap = legPolyCap(route.legs.length);
+  return { ...route, legs: route.legs.map((l) => (l.poly.length <= cap ? l : { ...l, poly: "" })) };
+}
+
 /** A run's route, or `failed` (ORS down, 429, bucket used up, key missing): never a guessed time. */
 export type TourRouteAnswer = (TourRoute & Fetched) | { result: "failed" };
 
@@ -150,7 +160,7 @@ export async function getTourRoute(
       fetcher: async () => {
         await assertOrsQuota("directions");
         const r = await fetchRoute(profile, points, option);
-        return { data: r.route, status: r.status, latencyMs: r.latencyMs };
+        return { data: withinPolyBudget(r.route), status: r.status, latencyMs: r.latencyMs };
       },
     });
     if (!res.ok) return { result: "failed" };

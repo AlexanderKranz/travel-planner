@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Locale } from "@/lib/domain/profile";
 import type { ActionError } from "@/lib/domain/result";
 import {
+  legPolyCap,
   ORS_PROFILE,
   TOUR_COMPUTES_PER_DAY,
   TOUR_COMPUTES_PER_MIN,
@@ -278,6 +279,7 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
   const orsDates: string[] = [];
   let matrix: (number | null)[][] | null = null;
   let order: number[];
+  let orderApprox = false;
   if (keep) {
     order = keepOrder(tp.points.length, { start: tp.start, end: tp.end });
   } else {
@@ -291,8 +293,12 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
     stale ||= m.stale;
     orsDates.push(m.fetchedAt);
     const o = orderTour(m.durations, { start: tp.start, end: tp.end });
-    if ("error" in o) return err("unreachable", { points: flaggedKeys(tp.points, o.pairs) });
+    if ("error" in o) {
+      await releaseAiCall(slotId); // nothing computed or stored: the slot does not count (review of #221)
+      return err("unreachable", { points: flaggedKeys(tp.points, o.pairs) });
+    }
     order = o.order;
+    orderApprox = !o.exact;
   }
   const keys = order.map((i) => tp.points[i].key);
   const byKey = new Map(tp.points.map((p) => [p.key, p]));
@@ -311,6 +317,8 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
   }
   const legs: TourLeg[] = planned.map((l) => ({ ...l, min: null, km: null, poly: null, s: "failed" }));
   const notRoutable: string[] = [];
+  // Leg lines share one budget, so 26 long legs keep the snapshot under the 256 kB result check (spec 17.1 [P1]).
+  const polyCap = legPolyCap(planned.length);
   runs.forEach((run, ri) => {
     const a = answers[ri];
     if (a.result === "not_routable") notRoutable.push(run.points[a.point]);
@@ -323,12 +331,15 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
       if (a.result === "ok") {
         const leg = a.legs[j];
         // A leg geometry above the snapshot limit keeps its time and distance, without the line.
-        legs[li] = { ...legs[li], min: leg.min, km: leg.km, poly: leg.poly.length <= 20000 ? leg.poly : null, s: "ok" };
+        legs[li] = { ...legs[li], min: leg.min, km: leg.km, poly: leg.poly && leg.poly.length <= polyCap ? leg.poly : null, s: "ok" };
       } else if (a.result === "no_route") legs[li] = { ...legs[li], s: "no_route" };
     });
   });
   // A place ORS cannot route (2010) is flagged like an unreachable matrix pair: nothing is computed or stored.
-  if (notRoutable.length) return err("unreachable", { points: [...new Set(notRoutable)] });
+  if (notRoutable.length) {
+    await releaseAiCall(slotId); // nothing stored: the slot does not count (repeats hit the route cache)
+    return err("unreachable", { points: [...new Set(notRoutable)] });
+  }
 
   // 5c. Timing.
   const dwellByKey = dwellMap(tp);
@@ -356,6 +367,7 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
     sights: s.sights,
     source: { ors: orsDates.length ? [...orsDates].sort()[0] : now.toISOString(), ...(s.fetchedAt ? { osm: s.fetchedAt } : {}) },
     ...(stale ? { stale: true } : {}),
+    ...(orderApprox ? { orderApprox: true } : {}),
   });
 
   // 6. Snapshot with the secret key, then the event (no names, no coordinates).

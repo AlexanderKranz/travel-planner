@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TourDraft, TourInput, type TourResult } from "@/lib/domain/tour";
+import { MAX_TOUR_PLACES, TourDraft, TourInput, type TourResult } from "@/lib/domain/tour";
 import { BELVEDERE, HOFBURG, NASCHMARKT, STEPHANSDOM, WIEN_CITY } from "./fixtures.test-data";
 import {
   applyLegSheet,
@@ -162,8 +162,9 @@ describe("form helpers", () => {
     expect(canAddPlace(form(), STEPHANSDOM.key)).toBe(false);
     expect(canAddPlace(form({ start: fp(BELVEDERE) }), BELVEDERE.key)).toBe(false);
     expect(canAddPlace(form(), NASCHMARKT.key)).toBe(true);
-    const ten = Array.from({ length: 10 }, (_, i) => fp({ key: `osm:n${i}`, name: `P${i}`, lat: 48, lon: 16 }));
-    expect(canAddPlace(form({ places: ten }), NASCHMARKT.key)).toBe(false);
+    const full = Array.from({ length: MAX_TOUR_PLACES }, (_, i) => fp({ key: `osm:n${i}`, name: `P${i}`, lat: 48, lon: 16 }));
+    expect(canAddPlace(form({ places: full.slice(1) }), NASCHMARKT.key)).toBe(true);
+    expect(canAddPlace(form({ places: full }), NASCHMARKT.key)).toBe(false);
   });
 
   it("keeps a stored value among the choices", () => {
@@ -223,6 +224,13 @@ describe("leg sheet", () => {
     const set = applyLegSheet({}, { ...s, mode: "car", route: "no_highways" }, f);
     expect(set).toEqual({ [key]: { mode: "car", route: "no_highways" } });
     expect(applyLegSheet(set, s, f)).toEqual({});
+  });
+
+  it("an edited override becomes the newest entry (kept when the draft trims to the cap)", () => {
+    const s = openLegSheet(STEPHANSDOM.key, HOFBURG.key, f);
+    const before = { [key]: { mode: "car" as const, route: "fastest" as const }, "osm:x>osm:y": { mode: "car" as const, route: "fastest" as const } };
+    const after = applyLegSheet(before, { ...s, mode: "car", route: "no_highways" }, f);
+    expect(Object.keys(after)).toEqual(["osm:x>osm:y", key]);
   });
 });
 

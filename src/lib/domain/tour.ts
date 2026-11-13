@@ -20,8 +20,8 @@ export const TourPoint = z.object({
 });
 export type TourPoint = z.infer<typeof TourPoint>;
 
-/** Places of one tour; plus an optional start and end = at most 12 points (the Held–Karp limit). */
-export const MAX_TOUR_PLACES = 10;
+/** Places of one tour; plus an optional start and end = at most 27 points (spec 17.1 [P1]; exact order up to 16). */
+export const MAX_TOUR_PLACES = 25;
 export const MAX_TOUR_POINTS = MAX_TOUR_PLACES + 2;
 
 export const TOUR_MODES = ["foot", "wheelchair", "cycling", "ebike", "car"] as const;
@@ -131,7 +131,8 @@ export const TourDraft = z
     start: TourPointDraft.optional(),
     end: z.union([z.literal("start"), TourPointDraft]).optional(),
   })
-  .superRefine(refineTour);
+  .superRefine(refineTour)
+  .superRefine(refineDraftOverrides);
 /** Form value (defaults optional). */
 export type TourDraft = z.input<typeof TourDraft>;
 export type TourDraftParsed = z.output<typeof TourDraft>;
@@ -158,8 +159,28 @@ function refineTour(v: RefineInput, ctx: z.RefinementCtx): void {
   if (ends.some((k) => k !== undefined && keys.includes(k))) bad(["places"], "A place equals the start or end");
 }
 
+/**
+ * Writes only (review of #221): at most `MAX_LEG_OVERRIDES` overrides (two per possible leg: a pair may be travelled
+ * either way after a re-order). `resolveDraft` drops overrides naming points outside the tour, so a worst-case
+ * stored input (maximum key lengths) stays under the 32 kB `city_tours.input` check (about 31 kB). Stored rows are
+ * not re-checked, so an older input still reads.
+ */
+export const MAX_LEG_OVERRIDES = 2 * MAX_TOUR_POINTS;
+function refineDraftOverrides(v: Pick<RefineInput, "legOverrides">, ctx: z.RefinementCtx): void {
+  const entries = Object.keys(v.legOverrides ?? {});
+  if (entries.length === 0) return;
+  const bad = (message: string) => ctx.addIssue({ code: "custom", path: ["legOverrides"], message });
+  if (entries.length > MAX_LEG_OVERRIDES) bad("Too many leg overrides");
+}
+
 export const LEG_STATUS = ["ok", "no_route", "not_routable", "failed"] as const;
 export type LegStatus = (typeof LEG_STATUS)[number];
+
+/** Per-leg line limit of `TourLeg.poly`; all lines of one route share `POLY_BUDGET` (spec 17.4, large results). */
+export const MAX_LEG_POLY = 20000;
+export const POLY_BUDGET = 200_000;
+/** Line length one leg may keep in a route of `legs` legs: the result and the route cache stay under 256 kB. */
+export const legPolyCap = (legs: number): number => Math.min(MAX_LEG_POLY, Math.floor(POLY_BUDGET / Math.max(1, legs)));
 
 export const TourLeg = z.object({
   from: z.string(),
@@ -202,6 +223,7 @@ export const TourResult = z.object({
   sights: z.array(TourSight).max(MAX_TOUR_SIGHTS),
   source: z.object({ ors: z.string(), osm: z.string().optional() }), // oldest fetchedAt ISO per provider
   stale: z.boolean().optional(),
+  orderApprox: z.literal(true).optional(), // order from the heuristic (more than 16 points, spec 17.1 [P1])
 });
 export type TourResult = z.infer<typeof TourResult>;
 

@@ -1,5 +1,6 @@
 /**
- * Tour order (docs/specs/city-tour.md section 4 [T6]): exact Held–Karp over one duration matrix, pure.
+ * Tour order (docs/specs/city-tour.md section 4 [T6], 17.1 [P1]): exact Held–Karp over one duration matrix up to
+ * `EXACT_MAX_POINTS`, above that the deterministic local search of `order-heuristic.ts` (`exact: false`). Pure.
  *
  * Result `order` lists every point index once, start first. A round trip (`end === start`) ends with the start index
  * again, so the legs are always the consecutive pairs of `order`.
@@ -13,11 +14,19 @@
  * in them (a point ORS cannot route has a full null row and column).
  */
 
-export type Matrix = readonly (readonly (number | null)[])[];
-export type OrderOpts = { start?: number; end?: number; keep?: boolean };
-export type OrderResult = { order: number[] } | { error: "unreachable"; pairs: [number, number][] };
+import { MAX_TOUR_POINTS } from "@/lib/domain/tour";
+import { heuristicOrder } from "./order-heuristic";
 
-export const MAX_ORDER_POINTS = 12;
+export type Matrix = readonly (readonly (number | null)[])[];
+export type OrderOpts = { start?: number; end?: number; keep?: boolean; quick?: boolean };
+export type OrderResult = { order: number[]; exact: boolean } | { error: "unreachable"; pairs: [number, number][] };
+
+/** Held–Karp needs 2^n·n states: 16 points stay well under a second even for the drop proposals (n calls). */
+export const EXACT_MAX_POINTS = 16;
+/** `quick` (drop proposals, one order per place, labelled "ca."): exact only up to 12 points, so n proposals at the
+ * 16-point boundary do not repeat n full Held–Karp runs. */
+export const QUICK_EXACT_MAX_POINTS = 12;
+export const MAX_ORDER_POINTS = MAX_TOUR_POINTS;
 const EPS = 1e-6;
 
 function nullPairs(m: Matrix, seq?: number[]): [number, number][] {
@@ -49,10 +58,14 @@ export function orderTour(m: Matrix, opts: OrderOpts): OrderResult {
   if (keep) {
     const seq = keepOrder(n, { start, end });
     const pairs = nullPairs(m, seq);
-    return pairs.length ? { error: "unreachable", pairs } : { order: seq };
+    return pairs.length ? { error: "unreachable", pairs } : { order: seq, exact: true };
   }
-  if (n === 0) return { order: [] };
-  if (n === 1) return { order: round ? [0, 0] : [0] };
+  if (n === 0) return { order: [], exact: true };
+  if (n === 1) return { order: round ? [0, 0] : [0], exact: true };
+  if (n > (opts.quick ? QUICK_EXACT_MAX_POINTS : EXACT_MAX_POINTS)) {
+    const seq = heuristicOrder(m, { start, end, quick: opts.quick });
+    return seq ? { order: seq, exact: false } : { error: "unreachable", pairs: nullPairs(m) };
+  }
 
   const full = (1 << n) - 1;
   const edge = (i: number, j: number) => m[i][j] ?? Infinity;
@@ -103,7 +116,7 @@ export function orderTour(m: Matrix, opts: OrderOpts): OrderResult {
     }
   }
   if (round) order.push(start);
-  return { order };
+  return { order, exact: true };
 }
 
 /** Sum of the matrix durations along `seq` (null when a leg is missing). */

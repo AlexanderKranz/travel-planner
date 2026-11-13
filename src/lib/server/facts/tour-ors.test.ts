@@ -42,7 +42,7 @@ vi.mock("./ors-quota", () => ({
 vi.mock("@/lib/integrations/http", async (orig) => ({ ...(await orig<typeof import("@/lib/integrations/http")>()), postJson: h.postJson }));
 
 import { HttpError } from "@/lib/integrations/http";
-import { getTourMatrix, getTourRoute, getTourSteps, peekTourMatrix, TOUR_ORS_TTL_SECONDS, tourMatrixKey, tourRouteKey, tourStepsKey } from "./tour-ors";
+import { getTourMatrix, getTourRoute, getTourSteps, peekTourMatrix, TOUR_ORS_TTL_SECONDS, tourMatrixKey, tourRouteKey, tourStepsKey, withinPolyBudget } from "./tour-ors";
 
 const fx = (name: string) =>
   JSON.parse(readFileSync(join(__dirname, "../../integrations/__fixtures__/ors-tour", `${name}.json`), "utf8"));
@@ -204,5 +204,15 @@ describe("getTourSteps (on request, spec 17.1 [P2])", () => {
     h.quotaOk = false;
     expect(await getTourSteps("foot-walking", "fastest", wien, ctx)).toEqual({ result: "failed" });
     expect(h.store.size).toBe(0);
+  });
+});
+
+describe("withinPolyBudget (cache rows stay under 256 kB)", () => {
+  it("empties lines over their share; minutes and km stay", () => {
+    const leg = (len: number) => ({ min: 5, km: 1, poly: "a".repeat(len) });
+    const r = withinPolyBudget({ result: "ok", legs: Array.from({ length: 26 }, (_, i) => leg(i === 3 ? 9000 : 500)) });
+    expect(r.result === "ok" && r.legs[3]).toEqual({ min: 5, km: 1, poly: "" }); // share = 200000 / 26 = 7692
+    expect(r.result === "ok" && r.legs[0].poly).toHaveLength(500);
+    expect(withinPolyBudget({ result: "no_route" })).toEqual({ result: "no_route" });
   });
 });

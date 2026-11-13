@@ -104,6 +104,11 @@ export function TourResultView(p: TourResultProps) {
         )}
         {p.tourId && input.date && !p.outdated && <TourForecastLine tourId={p.tourId} date={input.date} />}
         {result.sunset && <p className={warnBox}>{t("sunset", { time: result.sunset })}</p>}
+        {result.orderApprox && (
+          <p className={`text-sm ${mutedCls}`} data-testid="tour-order-approx">
+            {t("orderApprox")}
+          </p>
+        )}
         {!result.sunset && input.date && input.startTime && !input.city && <p className={`text-sm ${mutedCls}`}>{t("sunsetNeedsCity")}</p>}
         {(p.droppedOverrides ?? 0) > 0 && <p className={warnBox}>{t("overridesDropped", { count: p.droppedOverrides ?? 0 })}</p>}
       </div>

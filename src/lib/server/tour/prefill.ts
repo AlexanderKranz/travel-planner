@@ -40,7 +40,7 @@ export function tourKeyOfPlanRef(ref: string): string | null {
   return m ? `osm:${OSM_SHORT[m[1] as keyof typeof OSM_SHORT]}${m[2]}` : null;
 }
 
-/** Places of plan day `day` in the order the plan mentions them (refs only, no alternatives), at most 10. Pure. */
+/** Places of plan day `day` in the order the plan mentions them (refs only, no alternatives), at most MAX_TOUR_PLACES. Pure. */
 export function dayPlaces(plan: Pick<Plan, "days" | "places">, day: number): { key: string; name: string; lat: number; lon: number; cat: string }[] {
   const d = plan.days.find((x) => x.n === day);
   if (!d) return [];

@@ -236,6 +236,36 @@ describe("computeTour: pipeline", () => {
     });
   });
 
+  it("25 places: heuristic order over the matrix, flagged as approximate; 16 points stay exact", async () => {
+    const many = Array.from({ length: 25 }, (_, i) => ({
+      key: `osm:n${100 + i}`, name: `Ort ${i + 1}`, lat: 48.19 + (i % 5) * 0.006, lon: 16.35 + Math.floor(i / 5) * 0.008, source: "osm" as const,
+    }));
+    const grid = (n: number) =>
+      Array.from({ length: n }, (_, i) =>
+        Array.from({ length: n }, (_, j) => (i === j ? 0 : 60 + Math.round(Math.hypot((i % 5) - (j % 5), Math.floor(i / 5) - Math.floor(j / 5)) * 400))),
+      );
+    h.input = TourInput.parse({ places: many });
+    h.matrix.mockResolvedValue({ durations: grid(25), snappedM: [], fetchedAt: "2026-11-01T00:00:00.000Z", stale: false, cache: "hit" });
+    const res = await computeTour(TOUR);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(new Set(res.data.result.order)).toEqual(new Set(many.map((p) => p.key)));
+    // The matrix decided the order: clearly cheaper than the input order (row by row with jumps back).
+    const g = grid(25);
+    const idx = res.data.result.order.map((k) => Number(k.slice(5)) - 100);
+    const cost = (seq: number[]) => seq.slice(1).reduce((s, j, i) => s + g[seq[i]][j], 0);
+    expect(cost(idx)).toBeLessThan(cost([...Array(25).keys()]) * 0.9);
+    expect(res.data.result.orderApprox).toBe(true);
+    expect(res.data.result.legs).toHaveLength(24);
+    expect(res.data.result.legs.every((l) => l.poly !== null)).toBe(true); // short legs stay within the shared budget
+
+    resetRateLimits();
+    h.input = TourInput.parse({ places: many.slice(0, 16) });
+    h.matrix.mockResolvedValue({ durations: grid(16), snappedM: [], fetchedAt: "2026-11-01T00:00:00.000Z", stale: false, cache: "hit" });
+    const exact = await computeTour(TOUR);
+    expect(exact.ok && exact.data.result.orderApprox).toBeUndefined();
+  });
+
   it("keep order: no matrix, overrides split runs (one request each), dropped overrides are counted", async () => {
     h.input = TourInput.parse({
       places: P.slice(0, 4),
@@ -264,6 +294,7 @@ describe("computeTour: pipeline", () => {
     expect(await computeTour(TOUR)).toEqual({ ok: false, error: "unreachable", points: ["osm:w3"] });
     expect(h.route).not.toHaveBeenCalled();
     expect(adminWrites()).toHaveLength(0);
+    expect(h.release).toHaveBeenCalledWith("slot1"); // nothing computed: the daily slot does not count
   });
 
   it("a place ORS cannot route (2010) is flagged too; nothing is stored", async () => {
@@ -271,6 +302,7 @@ describe("computeTour: pipeline", () => {
     h.route.mockResolvedValue({ result: "not_routable", point: 1, fetchedAt: "f", stale: false, cache: "miss" });
     expect(await computeTour(TOUR)).toEqual({ ok: false, error: "unreachable", points: ["osm:w2"] });
     expect(adminWrites()).toHaveLength(0);
+    expect(h.release).toHaveBeenCalledWith("slot1");
   });
 
   it("a failed run: its legs are failed, no total, no fit; never a guessed time", async () => {
