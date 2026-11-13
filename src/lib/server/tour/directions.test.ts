@@ -23,8 +23,11 @@ import { legKey, TourInput, type TourResult } from "@/lib/domain/tour";
 import { tourInputHash } from "@/lib/tour/hash";
 import { encodePolyline } from "@/lib/tour/polyline";
 import { resetRateLimits } from "../rate-limit";
+import { resultVersion } from "@/lib/tour/steps";
 import { getTourDirections } from "./directions";
 
+/** Version of the stored result (what the page rendered). */
+const V = () => (h.row?.result ? resultVersion(h.row.result as TourResult) : "none");
 const TOUR = "22222222-2222-4222-8222-222222222222";
 const P = [
   { key: "osm:w1", name: "Stephansdom", lat: 48.2085, lon: 16.3731, source: "osm" as const },
@@ -78,7 +81,7 @@ describe("getTourDirections", () => {
   it("one steps request per run of the stored result (any reader), per-leg steps, changed legs flagged", async () => {
     setup({ overrides: true });
     h.steps.mockResolvedValueOnce(ok([{ km: 0.6 }])).mockResolvedValueOnce(ok([{ km: 1.2 }]));
-    const res = await getTourDirections(TOUR);
+    const res = await getTourDirections(TOUR, V());
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(h.gate).toHaveBeenCalledWith(2, { needsMatrix: false });
@@ -96,33 +99,46 @@ describe("getTourDirections", () => {
   it("a failed run leaves its legs null; all failed → ors_unavailable", async () => {
     setup({ overrides: true });
     h.steps.mockResolvedValueOnce(ok([{ km: 0.6 }])).mockResolvedValueOnce({ result: "failed" });
-    const res = await getTourDirections(TOUR);
+    const res = await getTourDirections(TOUR, V());
     expect(res.ok && res.data.legs.map((l) => l === null)).toEqual([false, true]);
     h.steps.mockResolvedValue({ result: "failed" });
-    expect(await getTourDirections(TOUR)).toEqual({ ok: false, error: "ors_unavailable" });
+    expect(await getTourDirections(TOUR, V())).toEqual({ ok: false, error: "ors_unavailable" });
   });
 
   it("no result or an outdated one → not_computed, no ORS call", async () => {
     setup({ result: null, hash: null });
-    expect(await getTourDirections(TOUR)).toEqual({ ok: false, error: "not_computed" });
+    expect(await getTourDirections(TOUR, V())).toEqual({ ok: false, error: "not_computed" });
     setup({ hash: "0".repeat(64) });
-    expect(await getTourDirections(TOUR)).toEqual({ ok: false, error: "not_computed" });
+    expect(await getTourDirections(TOUR, V())).toEqual({ ok: false, error: "not_computed" });
     expect(h.steps).not.toHaveBeenCalled();
     expect(h.gate).not.toHaveBeenCalled();
   });
 
   it("gate closed → ors_unavailable; bad id → invalid; missing row → not_found", async () => {
     h.gate.mockResolvedValue(false);
-    expect(await getTourDirections(TOUR)).toEqual({ ok: false, error: "ors_unavailable" });
-    expect(await getTourDirections("nope")).toEqual({ ok: false, error: "invalid" });
+    expect(await getTourDirections(TOUR, V())).toEqual({ ok: false, error: "ors_unavailable" });
+    expect(await getTourDirections("nope", "x")).toEqual({ ok: false, error: "invalid" });
     h.row = null;
-    expect(await getTourDirections(TOUR)).toEqual({ ok: false, error: "not_found" });
+    expect(await getTourDirections(TOUR, V())).toEqual({ ok: false, error: "not_found" });
     expect(h.steps).not.toHaveBeenCalled();
+  });
+
+  it("refuses an answer for another version of the result (edited or recomputed elsewhere)", async () => {
+    expect(await getTourDirections(TOUR, "stale-version")).toEqual({ ok: false, error: "conflict" });
+    expect(h.steps).not.toHaveBeenCalled();
+  });
+
+  it("steps cached before the last computation are fetched again (refresh)", async () => {
+    h.steps.mockResolvedValueOnce({ ...ok([{ km: 0.6 }, { km: 1.0 }]), fetchedAt: "2026-11-01T00:00:00.000Z", cache: "hit" }).mockResolvedValueOnce(ok([{ km: 0.6 }, { km: 1.0 }]));
+    const res = await getTourDirections(TOUR, V());
+    expect(res.ok).toBe(true);
+    expect(h.steps).toHaveBeenCalledTimes(2);
+    expect(h.steps.mock.calls[1][4]).toEqual({ refresh: true });
   });
 
   it("rate limited after 6 per minute", async () => {
     h.steps.mockResolvedValue(ok([{ km: 0.6 }, { km: 1.0 }]));
-    for (let i = 0; i < 6; i++) expect((await getTourDirections(TOUR)).ok).toBe(true);
-    expect(await getTourDirections(TOUR)).toMatchObject({ ok: false, error: "rate_limited" });
+    for (let i = 0; i < 6; i++) expect((await getTourDirections(TOUR, V())).ok).toBe(true);
+    expect(await getTourDirections(TOUR, V())).toMatchObject({ ok: false, error: "rate_limited" });
   });
 });

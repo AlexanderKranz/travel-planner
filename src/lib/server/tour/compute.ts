@@ -304,6 +304,11 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
   const answers: TourRouteAnswer[] = await Promise.all(
     runs.map((r) => getTourRoute(ORS_PROFILE[r.mode], r.route, r.points.map((k) => byKey.get(k)!), ctx, { refresh: force })),
   );
+  // A forced recompute exists to replace the route; a failed refresh (served stale or failed) must not be saved as new.
+  if (force && answers.some((a) => a.result === "failed" || a.stale)) {
+    await releaseAiCall(slotId);
+    return unavailable();
+  }
   const legs: TourLeg[] = planned.map((l) => ({ ...l, min: null, km: null, poly: null, s: "failed" }));
   const notRoutable: string[] = [];
   runs.forEach((run, ri) => {

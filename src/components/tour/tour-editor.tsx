@@ -149,6 +149,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
   }
 
   async function plan(force = false) {
+    if (busy !== null) return; // one save or computation at a time (a second click must not start another)
     const blocked = formProblem(form);
     setProblem(blocked);
     if (blocked) return;

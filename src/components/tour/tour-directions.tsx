@@ -7,7 +7,7 @@ import type { TourInput, TourResult } from "@/lib/domain/tour";
 import { getTourDirections, type TourDirections } from "@/lib/server/tour/directions";
 import { buildGpx, gpxFileName } from "@/lib/tour/gpx";
 import { tourPointsOf } from "@/lib/tour/points";
-import { stepLines } from "@/lib/tour/steps";
+import { resultVersion, stepLines } from "@/lib/tour/steps";
 
 /**
  * "Wegbeschreibung" (spec 17.1 [P2]): nothing is fetched until the button is pressed. Shows turn-by-turn steps per
@@ -32,6 +32,7 @@ export function TourDirectionsPanel({
   const [busy, setBusy] = useState(false);
   const [data, setData] = useState<TourDirections | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recomputing, setRecomputing] = useState(false);
 
   const byKey = new Map(tourPointsOf(input).points.map((p) => [p.key, p]));
   const name = (key: string) => byKey.get(key)?.name ?? key;
@@ -39,10 +40,16 @@ export function TourDirectionsPanel({
   async function load() {
     setBusy(true);
     setError(null);
-    const res = await getTourDirections(tourId);
-    setBusy(false);
-    if (res.ok) setData(res.data);
-    else setError(res.error === "not_computed" ? t("directions.notComputed") : t(`errors.${res.error === "rate_limited" || res.error === "ors_unavailable" ? res.error : "failed"}`));
+    try {
+      const res = await getTourDirections(tourId, resultVersion(result));
+      if (res.ok) setData(res.data);
+      else if (res.error === "not_computed") setError(t("directions.notComputed"));
+      else setError(t(`errors.${res.error === "rate_limited" || res.error === "ors_unavailable" || res.error === "conflict" ? res.error : "failed"}`));
+    } catch {
+      setError(t("errors.failed"));
+    } finally {
+      setBusy(false);
+    }
   }
 
   function downloadGpx(d: TourDirections) {
@@ -53,7 +60,8 @@ export function TourDirectionsPanel({
     a.href = url;
     a.download = gpxFileName(title);
     a.click();
-    URL.revokeObjectURL(url);
+    // Revoked later: some browsers read the blob after the click handler has returned.
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   if (!data) {
@@ -81,14 +89,32 @@ export function TourDirectionsPanel({
       </h3>
       {changed && <p className={warnBox}>{t("directions.changed")}</p>}
       {changed && onRecompute && (
-        <button type="button" className={`${btnSecondary} self-start`} onClick={onRecompute} data-testid="tour-directions-recompute">
+        <button
+          type="button"
+          className={`${btnSecondary} self-start`}
+          disabled={recomputing}
+          onClick={() => {
+            setRecomputing(true); // one forced computation per answer; the panel resets with the new result
+            onRecompute();
+          }}
+          data-testid="tour-directions-recompute"
+        >
           {t("directions.recompute")}
         </button>
       )}
-      <button type="button" className={`${btnSecondary} self-start`} onClick={() => downloadGpx(data)} data-testid="tour-gpx">
-        {t("directions.gpx")}
-      </button>
-      <p className={`text-sm ${mutedCls}`}>{t("directions.gpxHint")}</p>
+      {data.legs.every((l) => l !== null) ? (
+        <>
+          <button type="button" className={`${btnSecondary} self-start`} onClick={() => downloadGpx(data)} data-testid="tour-gpx">
+            {t("directions.gpx")}
+          </button>
+          <p className={`text-sm ${mutedCls}`}>{t("directions.gpxHint")}</p>
+        </>
+      ) : (
+        // A GPX with a missing leg would look complete in a navigation app: offered only when every leg has a line.
+        <p className={`text-sm ${mutedCls}`} data-testid="tour-gpx-incomplete">
+          {t("directions.gpxIncomplete")}
+        </p>
+      )}
       <ol className="flex flex-col gap-3">
         {result.legs.map((leg, i) => {
           const d = data.legs[i];

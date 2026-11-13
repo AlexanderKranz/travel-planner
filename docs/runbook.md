@@ -246,7 +246,7 @@ The guard (`src/lib/server/facts/ors-quota.ts`) has one bucket per endpoint and 
 | Bucket | `api_calls.endpoint` | Cap (admin page / env) | Callers |
 |---|---|---|---|
 | matrix | `matrix`, `tour_matrix` | `ORS_MATRIX_DAILY`, default 450 | plan drive times (one request per plan, `drive-times.ts`, cached 90 days); city tour order (one per computation unless "keep my order"; tours stop 50 short of the cap so plans keep a reserve, `ORS_PLAN_RESERVE`) |
-| directions | `route`, `tour_route` | `ORS_DIRECTIONS_DAILY`, default 1800 | destination searches by driving time (refused below 8 left); city tour legs (one per run of legs, cached 90 days) |
+| directions | `route`, `tour_route`, `tour_steps` | `ORS_DIRECTIONS_DAILY`, default 1800 | destination searches by driving time (refused below 8 left); city tour legs (one per run of legs, cached 90 days); "Wegbeschreibung" on request (one per run, cached 90 days, 6/min and 30/h per user) |
 
 Each request asserts its bucket first; the count fails closed. When a bucket is full or ORS is down, plans generate without drive times, drive searches answer `drive_unavailable`, and tours are not recomputed. `ORS_DAILY_REQUESTS` (the old shared cap) is retired: remove it from Vercel; it has no effect. Check usage with `select endpoint, count(*) from api_calls where provider='openrouteservice' and cache <> 'hit' and coalesce(error_code,'') <> 'quota_guard' and created_at >= now() - interval '24 hours' group by endpoint`.
 

@@ -63,3 +63,8 @@ export function legChanged(stored: { km: number | null; poly: string | null }, f
   const off = (pts: typeof old, line: typeof old) => pts.some(([lat, lon]) => pointToPolylineM({ lat, lon }, line) > CHANGED_OFF_ROUTE_M);
   return off(now, old) || off(old, now);
 }
+
+/** Identity of a stored result for the directions view: order and each leg's mode, option and km. */
+export function resultVersion(r: { order: readonly string[]; legs: readonly { mode: string; route: string; km: number | null }[] }): string {
+  return `${r.order.join("|")}#${r.legs.map((l) => `${l.mode}:${l.route}:${l.km ?? "-"}`).join("|")}`;
+}
