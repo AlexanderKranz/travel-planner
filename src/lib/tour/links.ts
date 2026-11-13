@@ -16,6 +16,7 @@ const TRAVELMODE: Record<TourMode, string> = {
   foot: "walking",
   wheelchair: "walking",
   cycling: "bicycling",
+  ebike: "bicycling",
   car: "driving",
 };
 

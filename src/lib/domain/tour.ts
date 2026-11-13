@@ -24,7 +24,7 @@ export type TourPoint = z.infer<typeof TourPoint>;
 export const MAX_TOUR_PLACES = 10;
 export const MAX_TOUR_POINTS = MAX_TOUR_PLACES + 2;
 
-export const TOUR_MODES = ["foot", "wheelchair", "cycling", "car"] as const;
+export const TOUR_MODES = ["foot", "wheelchair", "cycling", "ebike", "car"] as const;
 export type TourMode = (typeof TOUR_MODES)[number];
 
 export const ROUTE_OPTIONS = ["fastest", "shortest", "green", "quiet", "no_steps", "no_highways"] as const;
@@ -38,6 +38,7 @@ export const ROUTE_OPTIONS_BY_MODE: Record<TourMode, readonly RouteOption[]> = {
   foot: ["fastest", "shortest", "green", "quiet", "no_steps"],
   wheelchair: ["fastest", "shortest"],
   cycling: ["fastest", "shortest", "quiet"],
+  ebike: ["fastest", "shortest"], // spike 17.2: both checked on cycling-electric
   car: ["fastest", "shortest", "no_highways"],
 };
 
@@ -50,12 +51,13 @@ export const ORS_PROFILE = {
   foot: "foot-walking",
   wheelchair: "wheelchair",
   cycling: "cycling-regular",
+  ebike: "cycling-electric",
   car: "driving-car",
 } as const satisfies Record<TourMode, string>;
 export type OrsTourProfile = (typeof ORS_PROFILE)[TourMode];
 
 /** Corridor around a leg in metres for sights near the route (spec 6 [T12]). */
-export const CORRIDOR_M: Record<TourMode, number> = { foot: 150, wheelchair: 150, cycling: 300, car: 1000 };
+export const CORRIDOR_M: Record<TourMode, number> = { foot: 150, wheelchair: 150, cycling: 300, ebike: 300, car: 1000 };
 
 /** Key of a per-leg override: the place pair `"<fromKey>><toKey>"` ([T7]). */
 export const legKey = (from: string, to: string): string => `${from}>${to}`;

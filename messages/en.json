@@ -1346,6 +1346,7 @@
         "foot": "on foot",
         "wheelchair": "by wheelchair",
         "cycling": "by bike",
+        "ebike": "by e-bike",
         "car": "by car"
       },
       "sources": "Routes: © openrouteservice.org, map data © OpenStreetMap contributors"
@@ -2110,12 +2111,14 @@
       "foot": "On foot",
       "wheelchair": "Wheelchair",
       "cycling": "Bike",
+      "ebike": "E-bike",
       "car": "Car"
     },
     "modesShort": {
       "foot": "on foot",
       "wheelchair": "by wheelchair",
       "cycling": "by bike",
+      "ebike": "by e-bike",
       "car": "by car"
     },
     "route": "Route",
@@ -2226,7 +2229,7 @@
     "linkSave": "Save",
     "linkSaved": "Saved.",
     "linkNeedsSave": "Save the tour first.",
-    "dayBlock": "City tour{time, select, none {} other { · {time}}} · {count, plural, one {# place} other {# places}}{km, select, none {} other { · {km} km {mode, select, foot {on foot} wheelchair {by wheelchair} cycling {by bike} other {by car}}}}",
+    "dayBlock": "City tour{time, select, none {} other { · {time}}} · {count, plural, one {# place} other {# places}}{km, select, none {} other { · {km} km {mode, select, foot {on foot} wheelchair {by wheelchair} cycling {by bike} ebike {by e-bike} other {by car}}}}",
     "dayBlockNoTime": "Set a start time so the plan keeps this time free.",
     "openTour": "Open tour",
     "dayAction": "City tour for this day",
@@ -2252,6 +2255,18 @@
     "dayBlockStops": "Stops of the tour",
     "noDayTitle": "City tours without a day",
     "noDayHint": "These tours belong to no day of the trip and are not part of the plan.",
+    "paste": {
+      "open": "Paste a list",
+      "label": "Places, one per line (or separated by commas or semicolons)",
+      "placeholder": "St. Stephen's Cathedral\nHofburg\nNaschmarkt",
+      "hint": "Each name is searched; you confirm every match. At most {max} more places fit into the tour.",
+      "search": "Search places",
+      "none": "No names found. Write one place per line.",
+      "query": "“{query}”",
+      "notFound": "Not found. Search for this place on its own.",
+      "choose": "Choose the match for “{query}”",
+      "add": "{count, plural, one {Add # place} other {Add # places}}"
+    },
     "routeCredit": "Routes: © openrouteservice.org"
   }
 }

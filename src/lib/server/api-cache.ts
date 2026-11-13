@@ -6,6 +6,7 @@ import { createSupabaseAdminClient } from "./supabase/admin";
 export const CacheProvider = z.enum([
   "open_meteo_geocoding",
   "open_meteo_archive",
+  "open_meteo_forecast",
   "overpass",
   "wikivoyage",
   "wikipedia",

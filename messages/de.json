@@ -1346,6 +1346,7 @@
         "foot": "zu Fuß",
         "wheelchair": "im Rollstuhl",
         "cycling": "mit dem Fahrrad",
+        "ebike": "mit dem E-Bike",
         "car": "mit dem Auto"
       },
       "sources": "Routen: © openrouteservice.org, Kartendaten © OpenStreetMap-Mitwirkende"
@@ -2110,12 +2111,14 @@
       "foot": "Zu Fuß",
       "wheelchair": "Rollstuhl",
       "cycling": "Fahrrad",
+      "ebike": "E-Bike",
       "car": "Auto"
     },
     "modesShort": {
       "foot": "zu Fuß",
       "wheelchair": "im Rollstuhl",
       "cycling": "mit dem Fahrrad",
+      "ebike": "mit dem E-Bike",
       "car": "mit dem Auto"
     },
     "route": "Route",
@@ -2226,7 +2229,7 @@
     "linkSave": "Speichern",
     "linkSaved": "Gespeichert.",
     "linkNeedsSave": "Speichere die Tour zuerst.",
-    "dayBlock": "Stadttour{time, select, none {} other { · {time}}} · {count, plural, one {# Ort} other {# Orte}}{km, select, none {} other { · {km} km {mode, select, foot {zu Fuß} wheelchair {im Rollstuhl} cycling {mit dem Fahrrad} other {mit dem Auto}}}}",
+    "dayBlock": "Stadttour{time, select, none {} other { · {time}}} · {count, plural, one {# Ort} other {# Orte}}{km, select, none {} other { · {km} km {mode, select, foot {zu Fuß} wheelchair {im Rollstuhl} cycling {mit dem Fahrrad} ebike {mit dem E-Bike} other {mit dem Auto}}}}",
     "dayBlockNoTime": "Startzeit setzen, damit der Plan diese Zeit freihält.",
     "openTour": "Tour öffnen",
     "dayAction": "Stadttour für diesen Tag",
@@ -2252,6 +2255,18 @@
     "dayBlockStops": "Stationen der Tour",
     "noDayTitle": "Stadttouren ohne Tag",
     "noDayHint": "Diese Touren gehören zu keinem Tag der Reise und fließen nicht in den Plan ein.",
+    "paste": {
+      "open": "Liste einfügen",
+      "label": "Orte, einer pro Zeile (oder durch Komma oder Semikolon getrennt)",
+      "placeholder": "Stephansdom\nHofburg\nNaschmarkt",
+      "hint": "Jeder Name wird gesucht; du bestätigst jeden Treffer. Höchstens {max} Orte passen noch in die Tour.",
+      "search": "Orte suchen",
+      "none": "Keine Namen gefunden. Schreib einen Ort pro Zeile.",
+      "query": "„{query}“",
+      "notFound": "Nicht gefunden. Such diesen Ort einzeln.",
+      "choose": "Treffer für „{query}“ wählen",
+      "add": "{count, plural, one {# Ort hinzufügen} other {# Orte hinzufügen}}"
+    },
     "routeCredit": "Routen: © openrouteservice.org"
   }
 }
