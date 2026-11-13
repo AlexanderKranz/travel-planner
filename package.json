@@ -2,6 +2,7 @@
   "name": "travel-planner",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "predev": "node scripts/maplibre/copy-worker.mjs",
     "dev": "next dev",
