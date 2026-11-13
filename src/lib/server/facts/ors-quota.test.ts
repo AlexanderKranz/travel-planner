@@ -62,7 +62,7 @@ describe("ORS buckets", () => {
   });
 
   it("endpoints: plans + tour orders in matrix, drive searches + tour legs in Directions", () => {
-    expect(ORS_BUCKET_ENDPOINTS).toEqual({ matrix: ["matrix", "tour_matrix"], directions: ["route", "tour_route"] });
+    expect(ORS_BUCKET_ENDPOINTS).toEqual({ matrix: ["matrix", "tour_matrix"], directions: ["route", "tour_route", "tour_steps"] });
   });
 
   it("counts each bucket over the last 24 h (not since Berlin midnight), network calls only, guard refusals excluded", async () => {
@@ -81,7 +81,7 @@ describe("ORS buckets", () => {
     const inArgs = h.queries.map((calls) => calls.find((c) => c.method === "in")!.args);
     expect(inArgs).toEqual([
       ["endpoint", ["matrix", "tour_matrix"]],
-      ["endpoint", ["route", "tour_route"]],
+      ["endpoint", ["route", "tour_route", "tour_steps"]],
     ]);
   });
 

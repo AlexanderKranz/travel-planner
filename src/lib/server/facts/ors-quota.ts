@@ -9,14 +9,14 @@ import { getEffectiveEnv } from "../settings";
  * endpoint, a margin below each limit, so tours, plans and drive searches cannot use up each other's endpoint.
  *
  * - matrix bucket: plan drive times (`matrix`) and tour orders (`tour_matrix`)
- * - directions bucket: drive-search routes (`route`) and tour legs (`tour_route`)
+ * - directions bucket: drive-search routes (`route`), tour legs (`tour_route`) and tour directions (`tour_steps`)
  */
 export type OrsBucket = "matrix" | "directions";
 
 /** `api_calls.endpoint` values (provider `openrouteservice`) per bucket. */
 export const ORS_BUCKET_ENDPOINTS: Record<OrsBucket, readonly string[]> = {
   matrix: ["matrix", "tour_matrix"],
-  directions: ["route", "tour_route"],
+  directions: ["route", "tour_route", "tour_steps"],
 };
 
 export const ORS_MATRIX_DAILY_DEFAULT = 450;

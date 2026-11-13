@@ -1,6 +1,8 @@
 import { NextIntlClientProvider } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/server/tour/directions", () => ({ getTourDirections: vi.fn() }));
 import { TourInput, type TourResult } from "@/lib/domain/tour";
 import { encodePolyline } from "@/lib/tour/polyline";
 import { HOFBURG, NASCHMARKT, STEPHANSDOM, WIEN_CITY } from "@/lib/tour/fixtures.test-data";
@@ -83,6 +85,14 @@ describe("TourResultView", () => {
     expect(html).toContain("abweichend"); // the cycling leg differs from the tour mode
     expect(html).not.toContain("Ändern");
     expect(html).not.toContain("+ hinzufügen");
+  });
+
+  it("offers directions only for a saved, current tour; nothing is fetched on render", () => {
+    const id = "33333333-3333-4333-8333-333333333333";
+    expect(render("de", de as Messages, { tourId: id, title: "Wien" })).toContain('data-testid="tour-directions-button"');
+    expect(render("de", de as Messages, { tourId: id, title: "Wien" })).toContain("Wegbeschreibung");
+    expect(render("de", de as Messages)).not.toContain("tour-directions-button");
+    expect(render("de", de as Messages, { tourId: id, outdated: true })).not.toContain("tour-directions-button");
   });
 
   it("shows owner controls, the fit badge and the outdated notice", () => {
