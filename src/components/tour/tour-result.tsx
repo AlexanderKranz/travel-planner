@@ -7,6 +7,7 @@ import { formatKm, orderedCoords, resultRows, roundMetres, type LegRow, type Pro
 import { formatDuration } from "./format";
 import { GoogleLinks } from "./google-links";
 import { TourDirectionsPanel } from "./tour-directions";
+import { TourForecastLine } from "./tour-forecast";
 import { ModeIcon } from "./mode-icon";
 import { TourMapPanel } from "./tour-map-panel";
 
