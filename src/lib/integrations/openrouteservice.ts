@@ -10,6 +10,7 @@
 import "server-only";
 import { z } from "zod";
 import {
+  MAX_TOUR_POINTS,
   ORS_PROFILE,
   ROUTE_OPTIONS_BY_MODE,
   TOUR_MODES,
@@ -186,8 +187,8 @@ export const TOUR_OPTIONS_BY_PROFILE = Object.fromEntries(
   TOUR_MODES.map((m) => [ORS_PROFILE[m], ROUTE_OPTIONS_BY_MODE[m]]),
 ) as Record<OrsTourProfile, readonly RouteOption[]>;
 
-/** 10 places + start + end (spec 3.1). ORS itself allows 50 waypoints and 3500 matrix elements. */
-export const ORS_TOUR_MAX_POINTS = 12;
+/** 25 places + start + end (spec 17.1 [P1]). ORS allows 50 waypoints and 3500 matrix elements (27 × 27 = 729). */
+export const ORS_TOUR_MAX_POINTS = MAX_TOUR_POINTS;
 /** ORS "could not find routable point" (HTTP 404); the message names the 0-based coordinate index. */
 export const ORS_NOT_ROUTABLE_CODE = 2010;
 

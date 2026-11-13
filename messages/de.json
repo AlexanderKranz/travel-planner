@@ -2141,6 +2141,7 @@
       "keep": "Meine Reihenfolge"
     },
     "orderHelp": "Die beste Reihenfolge wird mit der Standard-Route des gewählten Verkehrsmittels bestimmt, nicht mit der Routenoption oder abweichenden Abschnitten.",
+    "orderApprox": "Sehr gute Reihenfolge, nicht garantiert die beste: Bei mehr als 16 Punkten wird sie angenähert.",
     "date": "Datum",
     "startTime": "Startzeit",
     "endBy": "Fertig bis",
