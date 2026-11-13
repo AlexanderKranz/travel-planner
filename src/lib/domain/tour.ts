@@ -129,7 +129,8 @@ export const TourDraft = z
     start: TourPointDraft.optional(),
     end: z.union([z.literal("start"), TourPointDraft]).optional(),
   })
-  .superRefine(refineTour);
+  .superRefine(refineTour)
+  .superRefine(refineDraftOverrides);
 /** Form value (defaults optional). */
 export type TourDraft = z.input<typeof TourDraft>;
 export type TourDraftParsed = z.output<typeof TourDraft>;
@@ -156,8 +157,28 @@ function refineTour(v: RefineInput, ctx: z.RefinementCtx): void {
   if (ends.some((k) => k !== undefined && keys.includes(k))) bad(["places"], "A place equals the start or end");
 }
 
+/**
+ * Writes only (review of #221): at most `MAX_LEG_OVERRIDES` overrides (two per possible leg: a pair may be travelled
+ * either way after a re-order). `resolveDraft` drops overrides naming points outside the tour, so a worst-case
+ * stored input (maximum key lengths) stays under the 32 kB `city_tours.input` check (about 31 kB). Stored rows are
+ * not re-checked, so an older input still reads.
+ */
+export const MAX_LEG_OVERRIDES = 2 * MAX_TOUR_POINTS;
+function refineDraftOverrides(v: Pick<RefineInput, "legOverrides">, ctx: z.RefinementCtx): void {
+  const entries = Object.keys(v.legOverrides ?? {});
+  if (entries.length === 0) return;
+  const bad = (message: string) => ctx.addIssue({ code: "custom", path: ["legOverrides"], message });
+  if (entries.length > MAX_LEG_OVERRIDES) bad("Too many leg overrides");
+}
+
 export const LEG_STATUS = ["ok", "no_route", "not_routable", "failed"] as const;
 export type LegStatus = (typeof LEG_STATUS)[number];
+
+/** Per-leg line limit of `TourLeg.poly`; all lines of one route share `POLY_BUDGET` (spec 17.4, large results). */
+export const MAX_LEG_POLY = 20000;
+export const POLY_BUDGET = 200_000;
+/** Line length one leg may keep in a route of `legs` legs: the result and the route cache stay under 256 kB. */
+export const legPolyCap = (legs: number): number => Math.min(MAX_LEG_POLY, Math.floor(POLY_BUDGET / Math.max(1, legs)));
 
 export const TourLeg = z.object({
   from: z.string(),

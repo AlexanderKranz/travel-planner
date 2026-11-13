@@ -4,6 +4,7 @@
  */
 import {
   legKey,
+  MAX_LEG_OVERRIDES,
   MAX_TOUR_PLACES,
   ROUTE_OPTIONS_BY_MODE,
   routeAllowed,
@@ -126,11 +127,14 @@ const intOrUndefined = (s: string): number | undefined => {
  */
 export function toDraft(f: TourForm): TourDraft {
   const keys = new Set([...f.places.map((p) => p.key), f.start?.key, f.end?.key].filter(Boolean) as string[]);
+  // Only pairs of this tour, and at most MAX_LEG_OVERRIDES (the newest win; the schema refuses more).
   const overrides = Object.fromEntries(
-    Object.entries(f.legOverrides).filter(([k]) => {
-      const [a, b] = k.split(">");
-      return keys.has(a) && keys.has(b);
-    }),
+    Object.entries(f.legOverrides)
+      .filter(([k]) => {
+        const [a, b] = k.split(">");
+        return keys.has(a) && keys.has(b);
+      })
+      .slice(-MAX_LEG_OVERRIDES),
   );
   const draft: TourDraft = {
     places: f.places.map((p) => draftPoint(p, true)),

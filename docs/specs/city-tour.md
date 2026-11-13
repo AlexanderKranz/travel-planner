@@ -8,7 +8,7 @@ and plans the legs between them." Wanted: route choice per tour or per leg (fast
 sights on or near the way, time limits (tour and per stop), standalone or part of a trip (for example one day of the
 plan).
 
-Scope: one tour = one city, up to 10 places plus an optional start and end, one day, walking, wheelchair, bike or
+Scope: one tour = one city, up to 25 places (10 in the MVP, 17.1 [P1]) plus an optional start and end, one day, walking, wheelchair, bike or
 car. Not in scope: public transport (ORS has none), multi-day tours, booking, live navigation.
 
 Examples use the fixture towns only: Wien (Stephansdom, Hofburg, Naschmarkt, Belvedere, Riesenrad) and Passau (Dom
@@ -135,13 +135,15 @@ export const TourInput = z.object({
 export function orderTour(
   m: (number | null)[][],              // seconds, n × n, index = point index
   opts: { start?: number; end?: number; keep?: boolean },
-): { order: number[] } | { error: "unreachable"; pairs: [number, number][] };
+): { order: number[]; exact: boolean } | { error: "unreachable"; pairs: [number, number][] };   // opts also take quick?: boolean
 ```
 
 - **Matrix**: one ORS matrix request over all points, profile of the tour mode, durations only
   (`src/lib/server/tour/matrix.ts`). Matrix calls take no `preference` or weightings, so the order is optimal for the
   mode's default routing, not for the chosen route option or per-leg modes. The UI help text says so.
-- **Algorithm**: exact Held–Karp DP for an open path, at most 12 points (≈ 600k steps, < 50 ms). Cases:
+- **Algorithm**: exact Held–Karp DP for an open path up to 16 points (`EXACT_MAX_POINTS`); above that the deterministic
+  local search of `order-heuristic.ts` with `exact: false` (17.1 [P1]); `quick` (drop proposals) is exact only up to
+  12 points. Cases:
   - start and end set: fixed path start → end; end = start: round trip;
   - only start: open end; only end: free start;
   - neither: best open path over all starts.
@@ -155,7 +157,7 @@ export function orderTour(
   the tag, the stop row shows it raw with "laut OpenStreetMap, geprüft am …". Phase 2 can add per-stop time windows
   (DP with earliest finish time, which stays exact when waiting is allowed).
 - Alternative considered: ORS `/optimization` (VROOM) solves TSP with time windows in one call, but adds an endpoint,
-  a quota and a black box; code is enough for 12 points.
+  a quota and a black box; code is enough for 27 points (17.1 [P1]).
 
 ## 5. Routes per leg [T4] [T5] [T8]
 
@@ -846,7 +848,7 @@ landmarks answer costs nothing.
 - **[T17] ORS gate with the 50-request plan reserve, 20 computations per user per day, 90-day caches; split the ORS
   cap by endpoint.** *Recommended.* Alternative: keep the one shared 200 counter (tours and drive searches compete
   for Directions).
-- **[T18] Caps: 10 places + start + end, 50 tours per user; standalone tours purged 18 months after the later of
+- **[T18] Caps: 10 places + start + end (25 since phase 2, 17.1 [P1]), 50 tours per user; standalone tours purged 18 months after the later of
   date and last change.** *Recommended.* Alternatives: 8 places (shorter lists on phones), no retention.
 - **[T19] Spike first, then MVP as section 14, phase 2 after use.** *Recommended.*
 

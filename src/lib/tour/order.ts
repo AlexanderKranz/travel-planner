@@ -23,6 +23,9 @@ export type OrderResult = { order: number[]; exact: boolean } | { error: "unreac
 
 /** Held–Karp needs 2^n·n states: 16 points stay well under a second even for the drop proposals (n calls). */
 export const EXACT_MAX_POINTS = 16;
+/** `quick` (drop proposals, one order per place, labelled "ca."): exact only up to 12 points, so n proposals at the
+ * 16-point boundary do not repeat n full Held–Karp runs. */
+export const QUICK_EXACT_MAX_POINTS = 12;
 export const MAX_ORDER_POINTS = MAX_TOUR_POINTS;
 const EPS = 1e-6;
 
@@ -59,7 +62,7 @@ export function orderTour(m: Matrix, opts: OrderOpts): OrderResult {
   }
   if (n === 0) return { order: [], exact: true };
   if (n === 1) return { order: round ? [0, 0] : [0], exact: true };
-  if (n > EXACT_MAX_POINTS) {
+  if (n > (opts.quick ? QUICK_EXACT_MAX_POINTS : EXACT_MAX_POINTS)) {
     const seq = heuristicOrder(m, { start, end, quick: opts.quick });
     return seq ? { order: seq, exact: false } : { error: "unreachable", pairs: nullPairs(m) };
   }

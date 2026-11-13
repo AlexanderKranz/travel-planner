@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  MAX_LEG_OVERRIDES,
   MAX_TOUR_PLACES,
   CORRIDOR_M,
   legKey,
@@ -21,6 +22,7 @@ describe("TourInput", () => {
   it("needs only two places and applies defaults", () => {
     expect(TourInput.parse(base)).toMatchObject({ order: "optimize", mode: "foot", route: "fastest", dwellDefaultMin: 30 });
     expect(TourInput.safeParse({ places: [p("osm:n1")] }).success).toBe(false);
+    expect(MAX_TOUR_PLACES).toBe(25); // spec 17.1 [P1]; the cases below derive from it
     expect(TourInput.safeParse({ places: Array.from({ length: MAX_TOUR_PLACES }, (_, i) => p(`osm:n${i}`)) }).success).toBe(true);
     expect(TourInput.safeParse({ places: Array.from({ length: MAX_TOUR_PLACES + 1 }, (_, i) => p(`osm:n${i}`)) }).success).toBe(false);
   });
@@ -94,5 +96,22 @@ describe("TourDraft (what the browser sends)", () => {
     expect(TourDraft.safeParse({ places: [d("osm:n1"), d("osm:n2")], mode: "car", route: "green" }).success).toBe(false);
     expect(TourDraft.safeParse({ places: [d("osm:n1"), d("osm:n2")], end: "start" }).success).toBe(false);
     expect(TourDraft.safeParse({ places: [d("osm:n1"), d("osm:n2")], start: { key: "geo:1" }, end: "start" }).success).toBe(true);
+  });
+});
+
+describe("TourDraft leg overrides (writes)", () => {
+  const places = Array.from({ length: 25 }, (_, i) => ({ key: `osm:n${i}` }));
+  const car = { mode: "car" as const, route: "fastest" as const };
+  const pairs = (n: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`osm:n${i % 25}>osm:n${(i + 1 + Math.floor(i / 25)) % 25}`, car]));
+
+  it("accepts up to MAX_LEG_OVERRIDES overrides between the tour's own points", () => {
+    expect(MAX_LEG_OVERRIDES).toBe(54);
+    expect(TourDraft.safeParse({ places, legOverrides: pairs(48) }).success).toBe(true);
+  });
+
+  it("refuses more on write; stored inputs are not re-checked", () => {
+    const many = Object.fromEntries(Array.from({ length: 55 }, (_, i) => [`osm:n${i % 25}>osm:x${i}`, car]));
+    expect(TourDraft.safeParse({ places, legOverrides: many }).success).toBe(false);
+    expect(TourInput.safeParse({ places: places.map((x) => p(x.key)), legOverrides: many }).success).toBe(true);
   });
 });

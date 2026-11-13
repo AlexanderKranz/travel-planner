@@ -231,6 +231,11 @@ describe("computeTour: pipeline", () => {
     expect(res.ok).toBe(true);
     if (!res.ok) return;
     expect(new Set(res.data.result.order)).toEqual(new Set(many.map((p) => p.key)));
+    // The matrix decided the order: clearly cheaper than the input order (row by row with jumps back).
+    const g = grid(25);
+    const idx = res.data.result.order.map((k) => Number(k.slice(5)) - 100);
+    const cost = (seq: number[]) => seq.slice(1).reduce((s, j, i) => s + g[seq[i]][j], 0);
+    expect(cost(idx)).toBeLessThan(cost([...Array(25).keys()]) * 0.9);
     expect(res.data.result.orderApprox).toBe(true);
     expect(res.data.result.legs).toHaveLength(24);
     expect(res.data.result.legs.every((l) => l.poly !== null)).toBe(true); // short legs stay within the shared budget

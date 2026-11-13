@@ -4,6 +4,7 @@ import { z } from "zod";
 import type { Locale } from "@/lib/domain/profile";
 import type { ActionError } from "@/lib/domain/result";
 import {
+  legPolyCap,
   ORS_PROFILE,
   TOUR_COMPUTES_PER_DAY,
   TOUR_COMPUTES_PER_MIN,
@@ -77,9 +78,6 @@ export type ComputeTourResult =
     };
 
 const Id = z.string().uuid();
-/** Per-leg line limit of `TourLeg.poly`, and the share of the 256 kB result check that all lines together may use. */
-const MAX_LEG_POLY = 20000;
-const POLY_BUDGET = 200_000;
 
 type Fail = Extract<ComputeTourResult, { ok: false }>;
 const err = (error: ActionError, extra: Omit<Fail, "ok" | "error"> = {}): Fail => ({ ok: false, error, ...extra });
@@ -308,7 +306,7 @@ async function run(id: string): Promise<ComputeTourResult> {
   const legs: TourLeg[] = planned.map((l) => ({ ...l, min: null, km: null, poly: null, s: "failed" }));
   const notRoutable: string[] = [];
   // Leg lines share one budget, so 26 long legs keep the snapshot under the 256 kB result check (spec 17.1 [P1]).
-  const polyCap = Math.min(MAX_LEG_POLY, Math.floor(POLY_BUDGET / Math.max(1, planned.length)));
+  const polyCap = legPolyCap(planned.length);
   runs.forEach((run, ri) => {
     const a = answers[ri];
     if (a.result === "not_routable") notRoutable.push(run.points[a.point]);
@@ -321,7 +319,7 @@ async function run(id: string): Promise<ComputeTourResult> {
       if (a.result === "ok") {
         const leg = a.legs[j];
         // A leg geometry above the snapshot limit keeps its time and distance, without the line.
-        legs[li] = { ...legs[li], min: leg.min, km: leg.km, poly: leg.poly.length <= polyCap ? leg.poly : null, s: "ok" };
+        legs[li] = { ...legs[li], min: leg.min, km: leg.km, poly: leg.poly && leg.poly.length <= polyCap ? leg.poly : null, s: "ok" };
       } else if (a.result === "no_route") legs[li] = { ...legs[li], s: "no_route" };
     });
   });
