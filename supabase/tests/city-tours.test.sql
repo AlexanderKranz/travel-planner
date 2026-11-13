@@ -55,8 +55,9 @@ select ok(has_table_privilege('service_role', 'public.city_tours', 'select') and
 
 -- ---------- checks (as postgres) ----------
 select throws_ok($$insert into public.city_tours (owner_id, input) values ('7c000000-0000-4000-8000-0000000000a1', '[]')$$, '23514', null, 'input must be an object');
-select throws_ok($$insert into public.city_tours (owner_id, input) values ('7c000000-0000-4000-8000-0000000000a1', jsonb_build_object('x', repeat('x', 17000)))$$, '23514', null, 'input above 16384 bytes is refused');
-select lives_ok($$insert into public.city_tours (owner_id, input) values ('7c000000-0000-4000-8000-0000000000a1', jsonb_build_object('x', repeat('x', 16000)))$$, 'input below 16384 bytes is accepted');
+select throws_ok($$insert into public.city_tours (owner_id, input) values ('7c000000-0000-4000-8000-0000000000a1', jsonb_build_object('x', repeat('x', 33000)))$$, '23514', null, 'input above 32768 bytes is refused');
+select lives_ok($$insert into public.city_tours (owner_id, input) values ('7c000000-0000-4000-8000-0000000000a1', jsonb_build_object('x', repeat('x', 32000)))$$, 'input below 32768 bytes is accepted (migration 20261118120043)');
+select is((select count(*)::int from pg_constraint where conrelid = 'public.city_tours'::regclass and contype = 'c' and pg_get_constraintdef(oid) like '%pg_column_size(input)%'), 1, 'exactly one input size check');
 select throws_ok($$insert into public.city_tours (owner_id, input, title) values ('7c000000-0000-4000-8000-0000000000a1', '{}', repeat('t', 121))$$, '23514', null, 'title above 120 characters is refused');
 select throws_ok($$insert into public.city_tours (owner_id, input, trip_id, trip_day) values ('7c000000-0000-4000-8000-0000000000a1', '{}', '7c000000-0000-4000-8000-00000000a201', 0)$$, '23514', null, 'trip_day 0 is refused');
 select throws_ok($$insert into public.city_tours (owner_id, input, trip_id, trip_day) values ('7c000000-0000-4000-8000-0000000000a1', '{}', '7c000000-0000-4000-8000-00000000a201', 61)$$, '23514', null, 'trip_day 61 is refused');
