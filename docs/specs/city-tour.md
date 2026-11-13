@@ -875,12 +875,21 @@ public transport. No item adds an LLM call (rule 2): the pasted list is a code s
   when the heuristic ran. ORS `/optimization` (VROOM) is rejected again: also heuristic, plus an endpoint and quota.
 - **[P2] Directions only on request.** Nothing directions-related is computed with the tour. A "Wegbeschreibung"
   button on a computed tour calls ORS Directions per run again **with steps kept** and shows turn-by-turn steps per
-  leg; the same view offers a GPX download of the stored route (built by code from the leg polylines, 0 calls).
-  - Steps are stored compactly (`[type, name, metres, wayPointIndex]`, about 10 kB for 26 legs, spike 17.2) under
+  leg; the same view offers a GPX download.
+  - **One route source for the view.** Steps and GPX both come from that on-request response (its geometry and
+    steps), so they always describe the same path. The stored `result` stays the source for times, checks, map and
+    PDF. If any leg of the response differs from the stored leg by more than 5 % or 50 m in distance, the view shows
+    "Die Route hat sich seit der Berechnung geändert" with "Tour neu berechnen"; steps and GPX are still the
+    response's.
+  - Steps are stored compactly (`[type, name, metres, wayPointIndex, exit?]`, `exit` = ORS `exit_number`, only on
+    type 7 "enter roundabout"; about 10 kB for 26 legs, spike 17.2) under
     their own cache key `cacheKey("tour-steps", 1, { profile, route, h })` (90 d), never in `city_tours.result`.
   - Sentences are built by code from the ORS step `type` (0–13) and street `name` with `tours.steps.*` messages
     (de + en), so one request serves both locales and ORS's English `instruction` text is not shown. `name` "-" =
     unnamed way.
+  - Roundabout: type 7 with `exit` uses `tours.steps.roundabout` ("Im Kreisverkehr die {exit, selectordinal, …}
+    Ausfahrt nehmen{name}"); without `exit`, `tours.steps.roundaboutNoExit`. Type 8 (exit roundabout) is merged
+    into the type 7 sentence.
   - Same ORS gate as a computation (Directions bucket `>= runs`); rate limit shared with computations.
   - Google Maps links stay as they are (label: Google may route differently).
 - **[P3] Public transport only per leg, from timetable data, if the spike passes.** Candidate: Transitous (MOTIS,
@@ -888,9 +897,23 @@ public transport. No item adds an LLM call (rule 2): the pasted list is a code s
   "ÖPNV" as a leg override, or the whole tour with "Meine Reihenfolge". Needs date and start time; legs are timed in
   sequence (departure = previous arrival + dwell), one request per transit leg. The leg shows line, departure,
   arrival and walking parts, "Fahrplan, keine Echtzeit", source and check date; no connection = failed leg. Short
-  cache (7 d). **Spike pending:** usage terms, coverage (Wien, Passau, one Spanish city), latency and response fields
-  were not checked yet (the first call to a new provider needs Alex's go). If the spike fails, public transport stays
-  out and this section says why.
+  cache (7 d). **Spike passed technically (17.2, 2026-11-13); the terms set conditions** that must hold before the
+  build (transitous.org/api, read 2026-11-13):
+  - only for **open-source, non-commercial** projects that are "light on resources". The repo is public but has
+    **no licence yet**: adding one (Alex's choice) comes first.
+  - every request sends a `User-Agent` with app name, version and a contact (the repo URL).
+  - attribution: a visible link to `https://transitous.org/sources/` (source line of a transit leg) plus the OSM
+    attribution the app already shows.
+  - more than 720 `/plan` requests per 24 h need coordination with Transitous: a guard `TRANSITOUS_DAILY` (default
+    500) counted over `api_calls`, as for ORS.
+  - best effort, no SLA, can be withdrawn: a transit leg that fails shows why and offers walking; never a guess.
+  - Request: `GET /api/v6/plan?fromPlace=lat,lon&toPlace=lat,lon&time=<ISO with offset>` (MOTIS 2). Times come back
+    in UTC (`Z`) and are shown in the tour's local time. A leg carries `mode`, `displayName`/`routeShortName`,
+    `headsign`, `agencyName`, `startTime`/`endTime`, `scheduledStartTime`, `realTime`, `scheduled`, `from.name`.
+  - Store compactly: responses are 25–380 kB (geometry, intermediate stops); keep the first itinerary that departs
+    at or after the leg's departure: per part mode, line, headsign, from/to stop names, times, polyline.
+  - The response's `direct` walk is compared: when walking is not slower than the best connection, the leg says so
+    and stays walking (Passau and Frankfurt cases).
 - **[P4] Tour sharing exactly like trip sharing.** `tour_shares` (`share_resource` gains `'tour'`,
   `private.shared_tour_ids()`, `writable_tour_ids()`), public link via `share_links.tour_id` (exactly one of
   `trip_id`/`tour_id`). Needs the CLAUDE.md rule 6 table list extended first (own PR).
@@ -904,6 +927,7 @@ public transport. No item adds an LLM call (rule 2): the pasted list is a code s
 - **[P7] Waterfront option: dropped.** Up to one Directions request per leg (26 with 25 stops) plus Overpass, for an
   effect that cannot be checked well.
 - **[P8] Weather: daily forecast only.** Open-Meteo `/v1/forecast` daily values for the tour date at the tour centre,
+  with `timezone=auto` (day boundaries in the tour centre's local time zone; the default would be GMT),
   only when the date is within 16 days: weather code, max/min temperature, precipitation sum and probability. Cache
   key `forecast:v1:{lat2,lon2,date}`, TTL 3 h. Shown with source and check date; outside the 16 days nothing is
   shown.
@@ -913,7 +937,7 @@ public transport. No item adds an LLM call (rule 2): the pasted list is a code s
 
 ### 17.2 Spike results (2026-11-13)
 
-7 ORS calls (heigit), 27 points on a 3 km grid around Wien Stephansplatz, plus one Open-Meteo call.
+7 ORS calls (heigit), 27 points on a 3 km grid around Wien Stephansplatz, one Open-Meteo call and 4 Transitous calls (User-Agent with the repo URL as contact).
 
 | # | Call | Result |
 |---|---|---|
@@ -925,6 +949,10 @@ public transport. No item adds an LLM call (rule 2): the pasted list is a code s
 | 6 | Directions `driving-car`, fastest | 200, 2.19 km, 7.4 min, no warnings. |
 | 7 | Directions `driving-car`, shortest | 200, 2.19 km, 7.5 min. |
 | 8 | Open-Meteo forecast, daily, 16 days, Wien | 200, 0.06 s. Fields as P8; the 16th day had `precipitation_probability_max: null`, so every daily value is nullable. |
+| 9 | Transitous `/api/v6/plan`, Wien Stephansdom → Schönbrunn, weekday 10:00 | 200, 0.21 s, 267 kB. Several itineraries (U1+U4 32 min, U4 36 min, U3+tram 60 33 min); `numItineraries: 2` was not honoured (window-based). Wiener Linien, `scheduled: true`, `realTime: false` for a future day. |
+| 10 | Transitous, Passau Dom → Veste Oberhaus | 200, 0.06 s. Bus K2 (Stadtwerke Passau) 14 min; `direct` walk 16 min. |
+| 11 | Transitous, Barcelona Sagrada Família → Park Güell | 200, 0.12 s, 376 kB. L5 + bus H6 (TMB) 26 min, several alternatives. |
+| 12 | Transitous, Frankfurt Römer → Städel | 200, 0.08 s. Tram 11/12/14 (VGF) 18 min; `direct` walk 18 min, so walking is as fast. |
 
 Each ORS call decremented its own endpoint counter by 1 (matrix 500, Directions 2000), as in the 2026-11-12 spike.
 
@@ -935,4 +963,4 @@ Each ORS call decremented its own endpoint counter by 1 (matrix 500, Directions 
 3. Directions on request: steps client + cache, step sentences, GPX, "Wegbeschreibung" view.
 4. E-bike mode. 5. Paste a list. 6. Daily forecast. 7. Standalone PDF.
 8. CLAUDE.md rule 6 → migration `tour_shares` + `share_links.tour_id` → server → UI.
-9. Public transport (only after a passed spike). 10. Time windows + opening hours.
+9. Public transport (after a licence is added, see [P3]). 10. Time windows + opening hours.
