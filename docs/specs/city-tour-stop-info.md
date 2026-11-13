@@ -108,7 +108,8 @@ remaining stops and fetches only the new ones.
   route by token. All of them write only `stop_info`, through the server with the secret key; nobody else's input
   changes. Share-link fetches are rate limited per token (10 per hour) on top of the per-user limits.
 - **Stops added later** have no entry; their first expand fetches them (and any other missing stops) in one batch.
-- Refresh: an entry older than 30 days is fetched again on its next expand. No background job.
+- Refresh: an entry older than 30 days is fetched again on its next expand, and so is the whole `stop_info` when its
+  `locale` differs from the owner's current locale (the owner switched language, [Q1]). No background job.
 - Rate limit: 10 per minute and 60 per day per user (the calls are cheap, the limit guards against loops).
 
 ## 6. UI [S5]
