@@ -10,6 +10,7 @@ no server text-to-speech; (2) the info shows in the **tour result, the trip PDF 
 view**: each stop gets a collapsed toggle "Infos zum Ort" / "About this place" that reveals its card and its
 play/pause control, nothing is expanded by default, and the info is fetched only when a stop is first expanded
 (section 5). The share page works the same way; the PDF follows a compact rule (section 6, [Q2]).
+The open questions were decided the same day (section 11).
 
 Not in scope: a narrated or rewritten guide (would need a new rule 2 use), recorded audio, offline packs, location
 tracking, user-written notes per stop.
@@ -21,8 +22,8 @@ tracking, user-written notes per stop.
   guessed: a stop without a match shows its name and the facts that exist, or nothing.
 - **Rule 2.** No LLM. The read-out speaks the stored text as it is.
 - **Rule 3.** Optional: a tour works without any info; the cards load after the tour.
-- **Rule 5.** Labels, fact sentences and controls in `messages/*.json` (de + en). The fetched text is in the tour
-  owner's locale (de or en Wikipedia); en is the fallback when the owner's language has no article.
+- **Rule 5.** Labels, fact sentences and controls in `messages/*.json` (de + en). The fetched text is only in the
+  tour owner's locale (de or en Wikipedia, [Q1]); a stop without an article in that language shows its facts only.
 - **Rule 6.** Stored on the tour row (owner RLS as `city_tours`; share link read by token through the server route).
 - **Rule 7.** Cards and controls work at 360 px (section 6).
 - **Rule 8.** Every call cached in `api_cache`; Wikimedia etiquette (serial batches, the app's User-Agent).
@@ -35,8 +36,8 @@ Per stop key, cheapest first:
 2. **Other `osm:` keys:** one Overpass query by element ids for the tour (`node(id:…);way(id:…);relation(id:…);
    out tags;`), only the `wikidata`/`wikipedia`/`website`/`opening_hours` tags, cached
    `cacheKey("osm-tags", 1, { ids: hash })` 30 d.
-3. **`geo:` (a town) or `gfy:` (an address) keys:** no info card. A town start or end is not a sight; an address has
-   no stable identity. *Recommended*; the alternative (geosearch on Wikipedia by coordinates) mismatches easily.
+3. **`geo:` (a town) or `gfy:` (an address) keys:** no info card ([Q3], decided). A town start or end is not a sight;
+   an address has no stable identity.
 
 A `wikidata` id wins over a `wikipedia` tag (the tag's title is used only when there is no id). Ids are checked with
 `^Q\d{1,12}$`.
@@ -138,12 +139,12 @@ answers, then the card (or "Für diesen Ort gibt es keine Infos"):
 **Share page.** The same collapsed toggles, cards and read-out. Stored info is read by token through the server
 route; a first expand with nothing stored triggers the batch fetch through the share route (section 5).
 
-**Trip PDF.** Nothing can be toggled on paper, so the PDF stays compact by default ([Q2], *Recommended*): an
+**Trip PDF.** Nothing can be toggled on paper, so the PDF stays compact by default ([Q2], decided): an
 **opt-in "Ortsinfos aufnehmen"** checkbox next to the PDF download (off by default). Off: the PDF is as today. On:
 **one line per stop** under its name, the first sentence of the text (at most 140 characters, cut on a word with
 "…"), plus the sources line in the tour block ("Ortsinfos: Wikipedia (CC BY-SA 4.0), Wikidata"). Missing info is
 fetched for the export in the batch (same budget); stops still missing get no line. No pictures and no facts lines
-in the PDF. Alternative: always one line per stop when info is stored, without a checkbox.
+in the PDF.
 
 ## 7. i18n (namespace `tours.stopInfo`, de + en)
 
@@ -183,11 +184,11 @@ readOut.{play, pause, resume, next, stop, tour, reading, unsupported, voiceNote}
 - Commons licence metadata can be incomplete: the picture is then left out.
 - Wikimedia APIs have no SLA; without them the tour shows no cards, nothing else changes.
 
-## 11. Open questions for Alex
+## 11. Decisions on the open questions (Alex, 2026-11-13)
 
-- **[Q1] Language of the text on the share page and PDF:** the owner's locale only (*Recommended*: one fetch, the
-  share viewer sees the owner's language), or both de and en stored (double calls and size).
-- **[Q2] Stop info in the PDF:** opt-in checkbox "Ortsinfos aufnehmen" with one line per stop (*Recommended*), or
-  always one line per stop when info is stored (no checkbox). Either way no pictures and no facts in the PDF.
-- **[Q3] Start and end that are towns (`geo:`):** no card (*Recommended*) or the town's Wikipedia intro as for the
-  destination summary.
+- **[Q1] Language:** stop info is fetched and stored only in the tour owner's locale (one fetch); the share page and
+  the PDF show that language, whatever the viewer's UI language. No fallback to the other language: without an
+  article in the owner's language the card shows the facts only.
+- **[Q2] PDF:** an opt-in checkbox "Ortsinfos aufnehmen" when exporting; when ticked, one line per stop of at most
+  140 characters; no pictures and no fact lines (section 6).
+- **[Q3] Towns as start or end:** a `geo:` start or end gets no info card (section 2).
