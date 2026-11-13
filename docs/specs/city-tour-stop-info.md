@@ -22,8 +22,9 @@ tracking, user-written notes per stop.
   guessed: a stop without a match shows its name and the facts that exist, or nothing.
 - **Rule 2.** No LLM. The read-out speaks the stored text as it is.
 - **Rule 3.** Optional: a tour works without any info; the cards load after the tour.
-- **Rule 5.** Labels, fact sentences and controls in `messages/*.json` (de + en). The fetched text is only in the
-  tour owner's locale (de or en Wikipedia, [Q1]); a stop without an article in that language shows its facts only.
+- **Rule 5.** Labels, fact sentences and controls in `messages/*.json` (de + en). The fetched text is in the tour
+  owner's locale (de or en Wikipedia, [Q1]); a stop without an article in that language falls back to the English
+  article, labelled as English.
 - **Rule 6.** Stored on the tour row (owner RLS as `city_tours`; share link read by token through the server route).
 - **Rule 7.** Cards and controls work at 360 px (section 6).
 - **Rule 8.** Every call cached in `api_cache`; Wikimedia etiquette (serial batches, the app's User-Agent).
@@ -76,7 +77,7 @@ change; the route does not). Alternative: inside `result` with a smaller polylin
 export const StopInfo = z.object({
   key: z.string(),                          // tour point key
   qid: z.string().regex(/^Q\d{1,12}$/),
-  lang: z.enum(["de", "en"]),               // language of title and text
+  lang: z.enum(["de", "en"]),               // language of title and text: the owner's locale, or "en" as fallback ([Q1])
   title: z.string().max(200),               // Wikipedia article title (link)
   text: z.string().max(700),
   clipped: z.boolean(),
@@ -119,7 +120,9 @@ answers, then the card (or "Für diesen Ort gibt es keine Infos"):
   fetches it, not the viewer's browser), with credit "Foto: {artist}, {licence}" linking to the Commons file;
 - text, then "Weiter auf Wikipedia" (link to the article);
 - facts as short lines: "Erbaut 1147", "Architekt: …", "Denkmalschutz: …", website link;
-- source line: "Text: Wikipedia, CC BY-SA 4.0 (gekürzt) · Fakten: Wikidata · abgerufen am {date}".
+- source line: "Text: Wikipedia, CC BY-SA 4.0 (gekürzt) · Fakten: Wikidata · abgerufen am {date}". A fallback text
+  ([Q1]) is marked "Englischer Text" before it, carries `lang="en"` on its element and its own source line naming the
+  English article ("Text: English Wikipedia, CC BY-SA 4.0 …", linking to it).
 
 **Read-out (Web Speech API).**
 - Shown only when `window.speechSynthesis` exists and a voice for the text's language exists; otherwise one muted
@@ -129,6 +132,8 @@ answers, then the card (or "Für diesen Ort gibt es keine Infos"):
   info batch if needed), pause/resume, "Nächster Ort" (expands the next stop's card while reading it), stop. Only one
   utterance at a time; starting another stop stops the current one.
 - Spoken text: "{n}. {name}." then the card text, then the fact lines as sentences. No picture credits, no links.
+  Each utterance gets the language of its text: the name and fact sentences the owner's locale, a fallback text an
+  English voice (`lang = "en"`); without an English voice that text is skipped in the read-out and the card says so.
 - Long texts are split into sentence chunks (Chrome cuts long utterances; iOS needs the first `speak` inside the tap).
 - Accessibility: buttons at least 44 × 44 px with text labels (`aria-pressed` for play/pause), an `aria-live="polite"`
   status "Liest: {name}" (not repeating the text), keyboard operable, no autoplay. Reading stops when the page is
@@ -186,9 +191,12 @@ readOut.{play, pause, resume, next, stop, tour, reading, unsupported, voiceNote}
 
 ## 11. Decisions on the open questions (Alex, 2026-11-13)
 
-- **[Q1] Language:** stop info is fetched and stored only in the tour owner's locale (one fetch); the share page and
-  the PDF show that language, whatever the viewer's UI language. No fallback to the other language: without an
-  article in the owner's language the card shows the facts only.
+- **[Q1] Language** (changed by Alex the same day): stop info is stored in the tour owner's locale only; the share
+  page and the PDF show that language, whatever the viewer's UI language. **Fallback:** when a stop has no
+  Wikipedia article in the owner's language, the English article is used instead, labelled as English, with its own
+  source line and CC BY-SA credit; the read-out uses an English voice for that text. One text per stop is stored,
+  with its language (`StopInfo.lang`); the Wikidata call already returns both sitelinks (`sitefilter=dewiki|enwiki`),
+  so the fallback costs at most one more extracts request per tour.
 - **[Q2] PDF:** an opt-in checkbox "Ortsinfos aufnehmen" when exporting; when ticked, one line per stop of at most
   140 characters; no pictures and no fact lines (section 6).
 - **[Q3] Towns as start or end:** a `geo:` start or end gets no info card (section 2).
