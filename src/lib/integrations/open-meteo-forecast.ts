@@ -1,19 +1,13 @@
 import { z } from "zod";
 import { fetchJson } from "./http";
 
+export { FORECAST_DAYS, inForecastRange } from "@/lib/facts/forecast-range";
+
 /**
  * Open-Meteo daily forecast for one day (spec 17.1 [P8]): weather code, max/min temperature, precipitation sum and
  * probability, with `timezone=auto` so the day is the tour centre's local day. Every value is nullable (spike 17.2:
  * the 16th day had no probability). Free, no key; up to 16 days ahead.
  */
-export const FORECAST_DAYS = 16;
-
-/** Today and the next 15 days (Open-Meteo's 16), compared as ISO dates; one day of slack for time zones. */
-export function inForecastRange(date: string, now: Date = new Date()): boolean {
-  const day = (offset: number) => new Date(now.getTime() + offset * 86_400_000).toISOString().slice(0, 10);
-  return date >= day(-1) && date <= day(FORECAST_DAYS - 1);
-}
-
 export type DailyForecast = {
   date: string;
   code: number | null;

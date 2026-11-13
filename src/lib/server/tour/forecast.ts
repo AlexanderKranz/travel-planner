@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import { fetchDailyForecast, inForecastRange, type DailyForecast } from "@/lib/integrations/open-meteo-forecast";
+import { inForecastRange } from "@/lib/facts/forecast-range";
+import { fetchDailyForecast, type DailyForecast } from "@/lib/integrations/open-meteo-forecast";
 import { tourCentre, tourPointsOf } from "@/lib/tour/points";
 import { cacheKey, cached } from "../api-cache";
 import { rateLimit } from "../rate-limit";

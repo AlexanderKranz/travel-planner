@@ -4,7 +4,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 import { mutedCls } from "@/components/ui/styles";
 import { wmoGroup } from "@/lib/facts/wmo";
-import { inForecastRange } from "@/lib/integrations/open-meteo-forecast";
+import { inForecastRange } from "@/lib/facts/forecast-range";
 import { getTourForecast, type TourForecast } from "@/lib/server/tour/forecast";
 
 /**
