@@ -1,11 +1,12 @@
 "use client";
 
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { btnSecondary, cardCls, labelCls, mutedCls, pillAccentCls, pillCls } from "@/components/ui/styles";
+import { btnSecondary, cardCls, labelCls, mutedCls, pillAccentCls, pillCls, warnBox } from "@/components/ui/styles";
 import type { TourInput, TourResult, TourSight } from "@/lib/domain/tour";
 import { formatKm, orderedCoords, resultRows, roundMetres, type LegRow, type Proposal } from "@/lib/tour/ui";
 import { formatDuration } from "./format";
 import { GoogleLinks } from "./google-links";
+import { TourDirectionsPanel } from "./tour-directions";
 import { ModeIcon } from "./mode-icon";
 import { TourMapPanel } from "./tour-map-panel";
 
@@ -29,6 +30,9 @@ export type TourResultProps = {
   sightInTour?: (key: string) => boolean;
   canAddMore?: boolean;
   onApplyProposal?: (p: Proposal) => void;
+  /** Saved tour: "Wegbeschreibung" on request (spec 17.1 [P2]); absent for an unsaved draft. */
+  tourId?: string;
+  title?: string;
 };
 
 /** Remount key of the map: changes with any of its inputs (route geometry, modes, stops, sights). */
@@ -39,7 +43,6 @@ function mapKey(result: TourResult, mode: string, coords: { lat: number; lon: nu
   return `${text.length}-${h >>> 0}`;
 }
 
-const warnBox = "rounded-lg border border-warn-line bg-warn-bg p-3 text-sm text-warn-fg";
 
 /** Result of a tour (spec 2.1 step 3, sections 6 and 7): summary, map, stops and legs, nearby sights, sources. */
 export function TourResultView(p: TourResultProps) {
@@ -201,6 +204,7 @@ export function TourResultView(p: TourResultProps) {
           {checked(result.source.ors) ? ` · ${t("checked", { date: checked(result.source.ors)! })}` : ""}
         </p>
         <p>{t("walkNote")}</p>
+        {p.tourId && !p.outdated && <TourDirectionsPanel tourId={p.tourId} title={p.title ?? ""} input={input} result={result} />}
         <GoogleLinks points={coords} mode={input.mode} />
       </footer>
     </section>

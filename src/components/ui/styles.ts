@@ -28,3 +28,5 @@ export const eyebrowCls = "text-xs font-semibold uppercase tracking-[0.16em] tex
 export const pillCls = "inline-flex items-center rounded-full border border-heading/60 px-3 py-0.5 text-xs font-medium text-heading";
 export const pillSolidCls = "inline-flex items-center rounded-full bg-heading px-3 py-0.5 text-xs font-semibold text-page";
 export const pillAccentCls = "inline-flex items-center rounded-full bg-accent-soft px-3 py-0.5 text-xs font-semibold text-accent-soft-fg";
+/** Warning notice box (tour outdated, sunset, changed route). */
+export const warnBox = "rounded-lg border border-warn-line bg-warn-bg p-3 text-sm text-warn-fg";

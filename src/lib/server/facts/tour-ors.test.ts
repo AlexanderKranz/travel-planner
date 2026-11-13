@@ -42,7 +42,7 @@ vi.mock("./ors-quota", () => ({
 vi.mock("@/lib/integrations/http", async (orig) => ({ ...(await orig<typeof import("@/lib/integrations/http")>()), postJson: h.postJson }));
 
 import { HttpError } from "@/lib/integrations/http";
-import { getTourMatrix, getTourRoute, peekTourMatrix, TOUR_ORS_TTL_SECONDS, tourMatrixKey, tourRouteKey } from "./tour-ors";
+import { getTourMatrix, getTourRoute, getTourSteps, peekTourMatrix, TOUR_ORS_TTL_SECONDS, tourMatrixKey, tourRouteKey, tourStepsKey } from "./tour-ors";
 
 const fx = (name: string) =>
   JSON.parse(readFileSync(join(__dirname, "../../integrations/__fixtures__/ors-tour", `${name}.json`), "utf8"));
@@ -176,6 +176,29 @@ describe("getTourRoute", () => {
     expect(await getTourRoute("foot-walking", "green", wien, ctx)).toEqual({ result: "failed" });
     vi.stubEnv("OPENROUTESERVICE_API_KEY", "");
     expect(await getTourRoute("foot-walking", "green", wien, ctx)).toEqual({ result: "failed" });
+    expect(h.store.size).toBe(0);
+  });
+});
+
+describe("getTourSteps (on request, spec 17.1 [P2])", () => {
+  it("own key and endpoint (tour_steps, Directions bucket), steps kept; the route cache stays without steps", async () => {
+    h.postJson.mockResolvedValue({ status: 200, latencyMs: 1, body: fx("directions-foot-wien-fastest") });
+    expect(tourStepsKey("foot-walking", "fastest", wien)).not.toBe(tourRouteKey("foot-walking", "fastest", wien));
+    const r = await getTourSteps("foot-walking", "fastest", wien, ctx);
+    expect(h.calls[0]).toMatchObject({ provider: "openrouteservice", endpoint: "tour_steps", key: tourStepsKey("foot-walking", "fastest", wien), ttlSeconds: 90 * 86400 });
+    expect(h.buckets).toEqual(["directions"]);
+    expect(r.result === "ok" && r.legs).toHaveLength(5);
+    expect(r.result === "ok" && r.legs[0].steps[1]).toEqual([1, "Stephansplatz", 85, 3]);
+    expect(JSON.stringify([...h.store.values()])).not.toMatch(/instruction/);
+    await getTourSteps("foot-walking", "fastest", wien, ctx);
+    expect(h.postJson).toHaveBeenCalledTimes(1);
+  });
+
+  it("failures → failed, not cached", async () => {
+    h.postJson.mockRejectedValueOnce(new HttpError(429));
+    expect(await getTourSteps("foot-walking", "fastest", wien, ctx)).toEqual({ result: "failed" });
+    h.quotaOk = false;
+    expect(await getTourSteps("foot-walking", "fastest", wien, ctx)).toEqual({ result: "failed" });
     expect(h.store.size).toBe(0);
   });
 });

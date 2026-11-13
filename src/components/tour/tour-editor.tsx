@@ -359,6 +359,8 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
           sightInTour={(key) => form.places.some((p) => p.key === key)}
           canAddMore={!full}
           onApplyProposal={(p) => edit(applyProposal(form, p))}
+          tourId={saved?.id}
+          title={title}
         />
       ) : (
         saved && <p className={`text-sm ${mutedCls}`}>{t("notComputed")}</p>
