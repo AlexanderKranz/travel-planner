@@ -372,8 +372,9 @@ export function applyLegSheet(
   tour: Pick<TourForm, "mode" | "route">,
 ): Record<string, LegSetting> {
   const out = { ...overrides };
-  if (s.mode === tour.mode && s.route === tour.route) delete out[s.key];
-  else out[s.key] = { mode: s.mode, route: s.route };
+  // Re-inserted, so an edited override counts as the newest when `toDraft` keeps the last MAX_LEG_OVERRIDES.
+  delete out[s.key];
+  if (s.mode !== tour.mode || s.route !== tour.route) out[s.key] = { mode: s.mode, route: s.route };
   return out;
 }
 

@@ -225,6 +225,13 @@ describe("leg sheet", () => {
     expect(set).toEqual({ [key]: { mode: "car", route: "no_highways" } });
     expect(applyLegSheet(set, s, f)).toEqual({});
   });
+
+  it("an edited override becomes the newest entry (kept when the draft trims to the cap)", () => {
+    const s = openLegSheet(STEPHANSDOM.key, HOFBURG.key, f);
+    const before = { [key]: { mode: "car" as const, route: "fastest" as const }, "osm:x>osm:y": { mode: "car" as const, route: "fastest" as const } };
+    const after = applyLegSheet(before, { ...s, mode: "car", route: "no_highways" }, f);
+    expect(Object.keys(after)).toEqual(["osm:x>osm:y", key]);
+  });
 });
 
 describe("proposals", () => {

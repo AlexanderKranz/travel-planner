@@ -202,7 +202,7 @@ labelled by what they do ("Grüner", "Ruhiger", "Ohne Autobahn"), never "schöne
 ### 5.3 Requests
 
 - Legs are grouped into **runs** of consecutive legs with the same mode and option. One Directions request per run,
-  with all its waypoints (ORS allows up to 50, so at most 12 here). A tour without overrides costs **one** request.
+  with all its waypoints (ORS allows up to 50, so at most 27 here). A tour without overrides costs **one** request.
   The response's `segments[i]` give each leg's `duration`/`distance`; `way_points` split the encoded polyline per
   leg.
 - New client functions in `src/lib/integrations/openrouteservice.ts`, next to the unchanged car functions:

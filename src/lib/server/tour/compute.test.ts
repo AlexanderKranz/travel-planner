@@ -275,6 +275,7 @@ describe("computeTour: pipeline", () => {
     expect(await computeTour(TOUR)).toEqual({ ok: false, error: "unreachable", points: ["osm:w3"] });
     expect(h.route).not.toHaveBeenCalled();
     expect(adminWrites()).toHaveLength(0);
+    expect(h.release).toHaveBeenCalledWith("slot1"); // nothing computed: the daily slot does not count
   });
 
   it("a place ORS cannot route (2010) is flagged too; nothing is stored", async () => {
@@ -282,6 +283,7 @@ describe("computeTour: pipeline", () => {
     h.route.mockResolvedValue({ result: "not_routable", point: 1, fetchedAt: "f", stale: false, cache: "miss" });
     expect(await computeTour(TOUR)).toEqual({ ok: false, error: "unreachable", points: ["osm:w2"] });
     expect(adminWrites()).toHaveLength(0);
+    expect(h.release).toHaveBeenCalledWith("slot1");
   });
 
   it("a failed run: its legs are failed, no total, no fit; never a guessed time", async () => {

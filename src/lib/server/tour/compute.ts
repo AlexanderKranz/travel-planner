@@ -289,7 +289,10 @@ async function run(id: string): Promise<ComputeTourResult> {
     stale ||= m.stale;
     orsDates.push(m.fetchedAt);
     const o = orderTour(m.durations, { start: tp.start, end: tp.end });
-    if ("error" in o) return err("unreachable", { points: flaggedKeys(tp.points, o.pairs) });
+    if ("error" in o) {
+      await releaseAiCall(slotId); // nothing computed or stored: the slot does not count (review of #221)
+      return err("unreachable", { points: flaggedKeys(tp.points, o.pairs) });
+    }
     order = o.order;
     orderApprox = !o.exact;
   }
@@ -324,7 +327,10 @@ async function run(id: string): Promise<ComputeTourResult> {
     });
   });
   // A place ORS cannot route (2010) is flagged like an unreachable matrix pair: nothing is computed or stored.
-  if (notRoutable.length) return err("unreachable", { points: [...new Set(notRoutable)] });
+  if (notRoutable.length) {
+    await releaseAiCall(slotId); // nothing stored: the slot does not count (repeats hit the route cache)
+    return err("unreachable", { points: [...new Set(notRoutable)] });
+  }
 
   // 5c. Timing.
   const dwellByKey = dwellMap(tp);
