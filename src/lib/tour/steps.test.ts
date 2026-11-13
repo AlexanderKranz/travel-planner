@@ -46,5 +46,7 @@ describe("legChanged", () => {
     const detour = encodePolyline([[48.2085, 16.3731], [48.2085, 16.3655], [48.2065, 16.3655]]); // via a corner ~200 m off
     expect(legChanged({ km: 0.6, poly: line }, { km: 0.6, poly: same })).toBe(false);
     expect(legChanged({ km: 0.6, poly: line }, { km: 0.6, poly: detour })).toBe(true);
+    // The other direction: the stored line had the detour, the new one is direct.
+    expect(legChanged({ km: 0.6, poly: detour }, { km: 0.6, poly: line })).toBe(true);
   });
 });

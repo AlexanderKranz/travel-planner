@@ -51,13 +51,15 @@ export const CHANGED_OFF_ROUTE_M = 50;
 
 /**
  * The on-request route differs from the stored leg (spec 17.4): distance by more than 5 % or 50 m (whichever is
- * larger), or any point of the new line more than 50 m from the stored line. Without a stored line only the
- * distance is compared.
+ * larger), or the lines are more than 50 m apart in either direction (a new point far from the stored line, or a
+ * stored point far from the new line: a dropped detour counts too). Without a stored line only the distance counts.
  */
 export function legChanged(stored: { km: number | null; poly: string | null }, fresh: { km: number; poly: string }): boolean {
   if (stored.km !== null && Math.abs(stored.km - fresh.km) > Math.max(0.05 * stored.km, 0.05)) return true;
   if (!stored.poly) return false;
-  const line = decodePolyline(stored.poly);
-  if (line.length < 2) return false;
-  return decodePolyline(fresh.poly).some(([lat, lon]) => pointToPolylineM({ lat, lon }, line) > CHANGED_OFF_ROUTE_M);
+  const old = decodePolyline(stored.poly);
+  const now = decodePolyline(fresh.poly);
+  if (old.length < 2 || now.length < 2) return false;
+  const off = (pts: typeof old, line: typeof old) => pts.some(([lat, lon]) => pointToPolylineM({ lat, lon }, line) > CHANGED_OFF_ROUTE_M);
+  return off(now, old) || off(old, now);
 }
