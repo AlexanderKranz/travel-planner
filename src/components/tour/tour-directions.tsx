@@ -13,7 +13,20 @@ import { stepLines } from "@/lib/tour/steps";
  * "Wegbeschreibung" (spec 17.1 [P2]): nothing is fetched until the button is pressed. Shows turn-by-turn steps per
  * leg and offers a GPX download, both from the same on-request answer; a changed leg says so.
  */
-export function TourDirectionsPanel({ tourId, title, input, result }: { tourId: string; title: string; input: TourInput; result: TourResult }) {
+export function TourDirectionsPanel({
+  tourId,
+  title,
+  input,
+  result,
+  onRecompute,
+}: {
+  tourId: string;
+  title: string;
+  input: TourInput;
+  result: TourResult;
+  /** Owner only: forced recomputation when the route changed (spec 17.4). */
+  onRecompute?: () => void;
+}) {
   const t = useTranslations("tours");
   const format = useFormatter();
   const [busy, setBusy] = useState(false);
@@ -67,6 +80,11 @@ export function TourDirectionsPanel({ tourId, title, input, result }: { tourId: 
         {t("directions.title")}
       </h3>
       {changed && <p className={warnBox}>{t("directions.changed")}</p>}
+      {changed && onRecompute && (
+        <button type="button" className={`${btnSecondary} self-start`} onClick={onRecompute} data-testid="tour-directions-recompute">
+          {t("directions.recompute")}
+        </button>
+      )}
       <button type="button" className={`${btnSecondary} self-start`} onClick={() => downloadGpx(data)} data-testid="tour-gpx">
         {t("directions.gpx")}
       </button>

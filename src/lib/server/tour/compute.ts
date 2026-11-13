@@ -171,15 +171,19 @@ async function proposalsFor(
   });
 }
 
-export async function computeTour(id: string): Promise<ComputeTourResult> {
+/**
+ * `force` ("Tour neu berechnen" after the directions view found a changed route, spec 17.4): skips the
+ * unchanged-input shortcut and refreshes the `tour-route` rows of the runs. Limits apply as for any computation.
+ */
+export async function computeTour(id: string, opts: { force?: boolean } = {}): Promise<ComputeTourResult> {
   try {
-    return await run(id);
+    return await run(id, opts.force === true);
   } catch {
     return err("failed"); // an unexpected error (all clients and caches return errors as data)
   }
 }
 
-async function run(id: string): Promise<ComputeTourResult> {
+async function run(id: string, force: boolean): Promise<ComputeTourResult> {
   const session = await getUserSession();
   if (!session) return err("unauthenticated");
   if (!Id.safeParse(id).success) return err("invalid");
@@ -203,7 +207,7 @@ async function run(id: string): Promise<ComputeTourResult> {
   // 2. Unchanged input → the stored result, no ORS call and no slot.
   const hash = tourInputHash(input);
   // A stored result with a failed leg (ORS down then) is recomputed, so a transient outage is not kept forever.
-  if (tour.result && row.result_hash === hash && !tour.result.legs.some((l) => l.s === "failed")) {
+  if (!force && tour.result && row.result_hash === hash && !tour.result.legs.some((l) => l.s === "failed")) {
     let result = tour.result;
     let updatedAt = row.updated_at;
     let sightsPending = false;
@@ -298,7 +302,7 @@ async function run(id: string): Promise<ComputeTourResult> {
   const planned = plannedLegs(keys, { mode: input.mode, route: input.route }, kept);
   const runs = groupRuns(planned);
   const answers: TourRouteAnswer[] = await Promise.all(
-    runs.map((r) => getTourRoute(ORS_PROFILE[r.mode], r.route, r.points.map((k) => byKey.get(k)!), ctx)),
+    runs.map((r) => getTourRoute(ORS_PROFILE[r.mode], r.route, r.points.map((k) => byKey.get(k)!), ctx, { refresh: force })),
   );
   const legs: TourLeg[] = planned.map((l) => ({ ...l, min: null, km: null, poly: null, s: "failed" }));
   const notRoutable: string[] = [];

@@ -7,6 +7,8 @@
  * Type 8 is merged into the type 7 sentence (it adds nothing the exit number does not say).
  */
 import type { OrsStep } from "@/lib/integrations/openrouteservice";
+import { pointToPolylineM } from "./geo";
+import { decodePolyline } from "./polyline";
 
 const KEYS: Record<number, string> = {
   0: "left",
@@ -44,8 +46,18 @@ export function stepLines(steps: readonly OrsStep[]): StepLine[] {
   return out;
 }
 
-/** The on-request route differs from the stored leg: more than 5 % or 50 m in distance (whichever is larger). */
-export function legChanged(storedKm: number | null, freshKm: number): boolean {
-  if (storedKm === null) return false;
-  return Math.abs(storedKm - freshKm) > Math.max(0.05 * storedKm, 0.05);
+/** Geometry tolerance: an on-request point farther than this from the stored line means another path. */
+export const CHANGED_OFF_ROUTE_M = 50;
+
+/**
+ * The on-request route differs from the stored leg (spec 17.4): distance by more than 5 % or 50 m (whichever is
+ * larger), or any point of the new line more than 50 m from the stored line. Without a stored line only the
+ * distance is compared.
+ */
+export function legChanged(stored: { km: number | null; poly: string | null }, fresh: { km: number; poly: string }): boolean {
+  if (stored.km !== null && Math.abs(stored.km - fresh.km) > Math.max(0.05 * stored.km, 0.05)) return true;
+  if (!stored.poly) return false;
+  const line = decodePolyline(stored.poly);
+  if (line.length < 2) return false;
+  return decodePolyline(fresh.poly).some(([lat, lon]) => pointToPolylineM({ lat, lon }, line) > CHANGED_OFF_ROUTE_M);
 }

@@ -34,6 +34,8 @@ export type TourResultProps = {
   /** Saved tour: "Wegbeschreibung" on request (spec 17.1 [P2]); absent for an unsaved draft. */
   tourId?: string;
   title?: string;
+  /** Owner only: "Tour neu berechnen" from the changed-route notice, forced (spec 17.4). */
+  onRecomputeForce?: () => void;
 };
 
 /** Remount key of the map: changes with any of its inputs (route geometry, modes, stops, sights). */
@@ -205,7 +207,7 @@ export function TourResultView(p: TourResultProps) {
           {checked(result.source.ors) ? ` · ${t("checked", { date: checked(result.source.ors)! })}` : ""}
         </p>
         <p>{t("walkNote")}</p>
-        {p.tourId && !p.outdated && <TourDirectionsPanel tourId={p.tourId} title={p.title ?? ""} input={input} result={result} />}
+        {p.tourId && !p.outdated && <TourDirectionsPanel tourId={p.tourId} title={p.title ?? ""} input={input} result={result} onRecompute={p.onRecomputeForce} />}
         <GoogleLinks points={coords} mode={input.mode} />
       </footer>
     </section>

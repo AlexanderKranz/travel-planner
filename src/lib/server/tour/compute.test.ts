@@ -120,6 +120,15 @@ describe("computeTour: access and short cuts", () => {
     expect(adminWrites()).toHaveLength(0);
   });
 
+  it("force: skips the unchanged-input shortcut and refreshes the route rows", async () => {
+    const stored: TourResult = { v: 1, order: ["osm:w1"], legs: [], totalMin: 10, fit: "none", sights: [{ key: "osm:n9", name: "x", lat: 1, lon: 1, leg: 0, m: 5, cat: "c" }], source: { ors: "x" } };
+    h.stored = { result: stored, result_hash: tourInputHash(h.input as TourInput) };
+    const res = await computeTour(TOUR, { force: true });
+    expect(res).toMatchObject({ ok: true, data: { unchanged: false } });
+    expect(h.route).toHaveBeenCalled();
+    expect(h.route.mock.calls.every((c) => (c as unknown[])[4] && ((c as unknown[])[4] as { refresh?: boolean }).refresh === true)).toBe(true);
+  });
+
   it("unchanged input without sights: sights from the cache only (network off), no ORS call", async () => {
     const legs = [{ from: "osm:w1", to: "osm:w2", mode: "foot", route: "fastest", min: 9, km: 0.7, poly: LEGS[0].poly, s: "ok" }];
     const stored = { v: 1, order: ["osm:w1", "osm:w2"], legs, totalMin: 9, fit: "none", sights: [], source: { ors: "x" } };

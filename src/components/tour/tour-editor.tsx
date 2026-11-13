@@ -158,7 +158,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
     }
   }
 
-  async function plan() {
+  async function plan(force = false) {
     const blocked = formProblem(form);
     setProblem(blocked);
     if (blocked) return;
@@ -199,7 +199,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
     }
 
     setBusy("computing");
-    const c = await computeTour(current.id).catch((): ComputeTourResult => ({ ok: false, error: "failed" }));
+    const c = await computeTour(current.id, force ? { force: true } : {}).catch((): ComputeTourResult => ({ ok: false, error: "failed" }));
     setBusy(null);
     if (!c.ok) {
       onComputeError(c);
@@ -361,6 +361,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
           onApplyProposal={(p) => edit(applyProposal(form, p))}
           tourId={saved?.id}
           title={title}
+          onRecomputeForce={() => void plan(true)}
         />
       ) : (
         saved && <p className={`text-sm ${mutedCls}`}>{t("notComputed")}</p>

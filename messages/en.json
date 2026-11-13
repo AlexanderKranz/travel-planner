@@ -2279,6 +2279,7 @@
       "gpx": "Download GPX",
       "gpxHint": "For OsmAnd, Organic Maps, Komoot and other apps that open GPX routes. They follow exactly this route.",
       "notComputed": "Compute the tour first (or again) to get directions.",
+      "recompute": "Compute the tour again",
       "backToTop": "Back to the summary"
     },
     "steps": {
