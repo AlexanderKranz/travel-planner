@@ -899,8 +899,9 @@ public transport. No item adds an LLM call (rule 2): the pasted list is a code s
   arrival and walking parts, "Fahrplan, keine Echtzeit", source and check date; no connection = failed leg. Short
   cache (7 d). **Spike passed technically (17.2, 2026-11-13); the terms set conditions** that must hold before the
   build (transitous.org/api, read 2026-11-13):
-  - only for **open-source, non-commercial** projects that are "light on resources". The repo is public but has
-    **no licence yet**: adding one (Alex's choice) comes first.
+  - only for **open-source, non-commercial** projects that are "light on resources". The repo is public and
+    MIT-licensed since #219 (Alex's choice, 2026-11-13), so this condition holds; non-commercial use stays a
+    condition for as long as Transitous is used.
   - every request sends a `User-Agent` with app name, version and a contact (the repo URL).
   - attribution: a visible link to `https://transitous.org/sources/` (source line of a transit leg) plus the OSM
     attribution the app already shows.
@@ -963,4 +964,40 @@ Each ORS call decremented its own endpoint counter by 1 (matrix 500, Directions 
 3. Directions on request: steps client + cache, step sentences, GPX, "Wegbeschreibung" view.
 4. E-bike mode. 5. Paste a list. 6. Daily forecast. 7. Standalone PDF.
 8. CLAUDE.md rule 6 → migration `tour_shares` + `share_links.tour_id` → server → UI.
-9. Public transport (after a licence is added, see [P3]). 10. Time windows + opening hours.
+9. Public transport (licence condition met by #219, see [P3]). 10. Time windows + opening hours.
+
+### 17.4 Clarifications (review of this section, 2026-11-13)
+
+Each point below is binding for the implementation and wins over a shorter sentence above.
+
+- **Computation vs. directions [P2].** The computation still requests ORS Directions per run and stores each leg's
+  minutes, km and polyline in `result` (map, PDF, times, checks). Only turn-by-turn steps and the GPX are on request.
+- **One cache entry for the view [P2].** The `tour-steps` entry stores, per leg, the steps **and** the polyline of
+  that answer, so a later cache hit still yields a GPX that matches its steps.
+- **"Changed" means distance or geometry [P2].** A leg is `changed` when its distance differs by more than 5 % or
+  50 m, **or** when any point of the on-request polyline lies more than 50 m from the stored polyline (point to
+  segment, the sights corridor helper). The notice shows for any changed leg.
+- **"Tour neu berechnen" from that notice [P2]** forces a recomputation: it skips the unchanged-input shortcut and
+  refreshes the `tour-route` entries of its runs (a fetch that replaces the row), then stores the new result. It
+  counts against the computation limits like any computation.
+- **Large results [P1].** All leg polylines of one result share a 200 kB budget (at most 20 kB per leg); a leg over
+  its share keeps minutes and km without the line. The result stays under the 256 kB check, so no migration.
+- **Transitous quota [P3].** Each `/plan` request first reserves a slot (a row in `api_calls` with status `pending`,
+  inserted in the same statement that counts the last 24 h, as `ai_call_slots` does for Claude); the row is updated
+  with the outcome. If the reservation cannot be written, the request is not sent (fail closed). The count
+  includes pending rows, so concurrent requests cannot pass the cap together.
+- **Transit time zone [P3].** Transit needs a tour city with a known IANA time zone (GeoNames via Open-Meteo, as the
+  city point carries). Requests send the departure as local time with that zone's offset on the tour date; UTC
+  answers are shown in that zone. Without a city time zone the ÖPNV option is not offered.
+- **Transit legs in the tour [P3].** A transit leg is computed during the computation, after the ORS runs, in
+  sequence (departure = previous arrival + dwell). Its minutes come from the chosen itinerary and replace the leg's
+  minutes everywhere: totals, stop times, fit check, proposals ("ca." as now). Its km and line come from the
+  itinerary's `legGeometry` (walking parts included). It is stored in `result` like any leg, with `transit` parts.
+- **Transit legs in the directions view and GPX [P3].** No ORS call for them: the view lists the stored parts
+  (walk to stop, line and headsign, departure/arrival, stops count, walk to the place) with "Fahrplan, keine
+  Echtzeit" and its source; the GPX uses the stored line.
+- **Time windows [P6].** Type `TourPoint.window?: { after?: HHMM; before?: HHMM }` with the existing `HHMM`
+  validator from `domain/common.ts`. Windows are wall-clock times of the tour day, like `startTime`, so arrivals
+  (`startTime` + minutes) and windows compare without a time zone. A window needs `startTime` (schema refine with a
+  form message); without it the window fields are disabled. Opening hours are checked only with a date and a city
+  time zone (holidays and DST); otherwise the raw tag is shown as today.
