@@ -51,7 +51,7 @@ function orderWithout(a: ProposalInput, m: Matrix, drop: number): number[] | nul
   const keepIdx = a.keys.map((_, i) => i).filter((i) => i !== drop);
   const sub = keepIdx.map((i) => keepIdx.map((j) => m[i][j]));
   const at = (i?: number) => (i === undefined ? undefined : keepIdx.indexOf(i));
-  const r = orderTour(sub, { start: at(a.start), end: at(a.end) });
+  const r = orderTour(sub, { start: at(a.start), end: at(a.end), quick: true });
   return "order" in r ? r.order.map((i) => keepIdx[i]) : null;
 }
 
