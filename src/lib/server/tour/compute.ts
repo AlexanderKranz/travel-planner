@@ -216,6 +216,7 @@ async function openingChecks(
       stops: a.keys.map((key, i) => ({ key: places.has(key) ? key : "", time: times[i], dwellMin: a.stopDwell[i] ?? 0 })),
       hours,
       place: { lat: input.city.lat, lon: input.city.lon, countryCode: place?.countryCode ?? null },
+      timeZone: tz!,
     });
   } catch {
     return [];
