@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache, Suspense } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { SharedPicture } from "@/components/picture/shared-picture";
@@ -60,6 +60,8 @@ export default async function SharedPlanPage({ params }: Props) {
     );
   }
   if (res.status === "tour") {
+    // The tour is shown in its owner's language (city-tour 9.3): a URL with another locale is sent there.
+    if (res.tour.locale !== locale) redirect(`/${res.tour.locale}/s/${token}`);
     return (
       <main>
         <SharedTourView shared={res.tour} token={token} mapStyleUrl={tourMapStyleUrl()} />
