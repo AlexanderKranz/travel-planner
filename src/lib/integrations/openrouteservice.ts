@@ -308,6 +308,56 @@ export function parseTourRoute(body: unknown, n: number): OrsTourLeg[] {
   }));
 }
 
+/**
+ * One turn-by-turn step, compact (spec 17.1 [P2]): ORS `type` (0–13), street `name` ("-" = unnamed, kept as ""),
+ * metres after the manoeuvre, the step's first polyline index relative to its leg, and `exit_number` on type 7.
+ */
+export type OrsStep = [type: number, name: string, metres: number, wp: number, exit?: number];
+/** `cut`: steps were shortened to fit the cache row (the view says the list is incomplete). */
+export type OrsTourLegSteps = OrsTourLeg & { steps: OrsStep[]; cut?: true };
+export type TourRouteSteps =
+  | { result: "ok"; legs: OrsTourLegSteps[] }
+  | { result: "no_route" }
+  | { result: "not_routable"; point: number };
+
+const StepsSegments = z.object({
+  routes: z
+    .array(
+      z.object({
+        way_points: z.array(z.number().int().min(0)),
+        segments: z.array(
+          z.object({
+            steps: z.array(
+              z.object({
+                type: z.number().int().min(0).max(13),
+                name: z.string().optional(),
+                distance: z.number().min(0),
+                way_points: z.array(z.number().int().min(0)).min(1),
+                exit_number: z.number().int().min(1).optional(),
+              }),
+            ),
+          }),
+        ),
+      }),
+    )
+    .min(1),
+});
+
+/** Legs as `parseTourRoute` plus each segment's steps (ORS's English `instruction` text is dropped). */
+export function parseTourRouteSteps(body: unknown, n: number): OrsTourLegSteps[] {
+  const legs = parseTourRoute(body, n);
+  const route = StepsSegments.parse(body).routes[0];
+  return legs.map((leg, i) => ({
+    ...leg,
+    steps: route.segments[i].steps.map((st): OrsStep => {
+      const name = !st.name || st.name === "-" ? "" : st.name.slice(0, 120);
+      const metres = Math.round(st.distance * 1000);
+      const wp = Math.max(0, st.way_points[0] - route.way_points[i]);
+      return st.type === 7 && st.exit_number ? [st.type, name, metres, wp, st.exit_number] : [st.type, name, metres, wp];
+    }),
+  }));
+}
+
 /** 0-based coordinate index from a 2010 answer ("... of specified coordinate 1: 13.46 48.57 ..."), or null. */
 export function notRoutablePoint(err: unknown, n: number): number | null {
   if (!(err instanceof HttpError) || err.status !== 404) return null;
@@ -329,6 +379,26 @@ export async function fetchRoute(
   option: RouteOption,
   opts: { timeoutMs?: number } = {},
 ): Promise<{ route: TourRoute; status: number; latencyMs: number }> {
+  return requestRoute(profile, points, option, opts, parseTourRoute);
+}
+
+/** As `fetchRoute`, keeping the steps: only for "Wegbeschreibung" on request (spec 17.1 [P2]). */
+export async function fetchRouteSteps(
+  profile: OrsTourProfile,
+  points: readonly LonLat[],
+  option: RouteOption,
+  opts: { timeoutMs?: number } = {},
+): Promise<{ route: TourRouteSteps; status: number; latencyMs: number }> {
+  return requestRoute(profile, points, option, opts, parseTourRouteSteps);
+}
+
+async function requestRoute<L extends OrsTourLeg>(
+  profile: OrsTourProfile,
+  points: readonly LonLat[],
+  option: RouteOption,
+  opts: { timeoutMs?: number },
+  parse: (body: unknown, n: number) => L[],
+): Promise<{ route: { result: "ok"; legs: L[] } | { result: "no_route" } | { result: "not_routable"; point: number }; status: number; latencyMs: number }> {
   const key = process.env.OPENROUTESERVICE_API_KEY?.trim();
   if (!key) throw new MissingKeyError();
   assertTourPoints(points);
@@ -339,7 +409,7 @@ export async function fetchRoute(
       timeoutMs: opts.timeoutMs ?? ORS_DIRECTIONS_TIMEOUT_MS,
       headers: { Authorization: key },
     });
-    return { route: { result: "ok", legs: parseTourRoute(r.body, points.length) }, status: r.status, latencyMs: r.latencyMs };
+    return { route: { result: "ok", legs: parse(r.body, points.length) }, status: r.status, latencyMs: r.latencyMs };
   } catch (err) {
     const latencyMs = Date.now() - started;
     if (isNoRouteError(err)) return { route: { result: "no_route" }, status: 404, latencyMs };

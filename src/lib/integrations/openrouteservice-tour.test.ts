@@ -13,11 +13,13 @@ import {
   TOUR_OPTIONS_BY_PROFILE,
   fetchMatrixFull,
   fetchRoute,
+  fetchRouteSteps,
   notRoutablePoint,
   orsDirectionsUrl,
   orsMatrixUrl,
   parseTourMatrix,
   parseTourRoute,
+  parseTourRouteSteps,
   tourMatrixBody,
   tourRouteBody,
 } from "./openrouteservice";
@@ -231,5 +233,61 @@ describe("fetchRoute", () => {
     await expect(fetchRoute("driving-car", wien, "green")).rejects.toThrow(RangeError);
     await expect(fetchRoute("wheelchair", wien, "quiet")).rejects.toThrow(RangeError);
     expect(h.postJson).not.toHaveBeenCalled();
+  });
+});
+
+describe("tour directions with steps (on request, spec 17.1 [P2])", () => {
+  it("keeps each segment's steps, compact and relative to its leg; unnamed ways become empty", () => {
+    const body = fx("directions-foot-wien-fastest");
+    const legs = parseTourRouteSteps(body, 6);
+    const plain = parseTourRoute(body, 6);
+    expect(legs.map((l) => ({ min: l.min, km: l.km, poly: l.poly }))).toEqual(plain);
+    const route = body.routes[0];
+    legs.forEach((leg, i) => {
+      expect(leg.steps).toHaveLength(route.segments[i].steps.length);
+      const span = route.way_points[i + 1] - route.way_points[i];
+      for (const [type, name, metres, wp] of leg.steps) {
+        expect(type).toBeGreaterThanOrEqual(0);
+        expect(name).not.toBe("-");
+        expect(metres).toBeGreaterThanOrEqual(0);
+        expect(wp).toBeGreaterThanOrEqual(0);
+        expect(wp).toBeLessThanOrEqual(span);
+      }
+    });
+    expect(legs[0].steps[0]).toEqual([11, "", 32, 0]);
+    expect(legs[0].steps[1]).toEqual([1, "Stephansplatz", 85, 3]);
+  });
+
+  it("keeps the exit number on a roundabout entry (type 7) only", () => {
+    const body = {
+      routes: [
+        {
+          geometry: "_p~iF~ps|U_ulLnnqC",
+          way_points: [0, 1],
+          segments: [
+            {
+              distance: 1,
+              duration: 60,
+              steps: [
+                { type: 7, name: "Ring", distance: 0.2, way_points: [0, 1], exit_number: 2 },
+                { type: 8, name: "Ring", distance: 0.1, way_points: [1, 1], exit_number: 2 },
+                { type: 10, name: "-", distance: 0, way_points: [1, 1] },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    expect(parseTourRouteSteps(body, 2)[0].steps).toEqual([[7, "Ring", 200, 0, 2], [8, "Ring", 100, 1], [10, "", 0, 1]]);
+  });
+
+  it("fetchRouteSteps posts the same body as fetchRoute", async () => {
+    h.postJson.mockResolvedValue({ status: 200, latencyMs: 120, body: fx("directions-foot-wien-fastest") });
+    const r = await fetchRouteSteps("foot-walking", wien, "fastest");
+    expect(h.postJson).toHaveBeenCalledWith(orsDirectionsUrl("foot-walking"), tourRouteBody(wien, "fastest"), {
+      timeoutMs: ORS_DIRECTIONS_TIMEOUT_MS,
+      headers: { Authorization: "test-key" },
+    });
+    expect(r.route.result === "ok" && r.route.legs[0].steps.length).toBeGreaterThan(0);
   });
 });

@@ -113,8 +113,10 @@ export async function cached<T>(opts: {
    * an expired row is served as stale, otherwise `timeout`. Nothing is logged then (no call was made).
    */
   fetchAllowed?: () => boolean;
+  /** Treat a fresh row as expired and fetch again (a forced refresh); a failed fetch still serves the row as stale. */
+  refresh?: boolean;
 }): Promise<CachedResult<T>> {
-  const { provider, endpoint, key, ttlSeconds, schema, fetcher, ctx, fetchAllowed } = opts;
+  const { provider, endpoint, key, ttlSeconds, schema, fetcher, ctx, fetchAllowed, refresh } = opts;
   const storeKey = `${key}${ENVELOPE_KEY_SUFFIX}`;
   const base = { provider, endpoint, userId: ctx.userId };
   const log = (row: Omit<ApiCallRow, "provider" | "endpoint" | "userId">) =>
@@ -148,7 +150,7 @@ export async function cached<T>(opts: {
       console.error("api_cache read failed", error instanceof Error ? error.name : "unknown");
     }
 
-    if (existing && existing.expiresAt > Date.now()) {
+    if (existing && existing.expiresAt > Date.now() && !refresh) {
       await log({ cache: "hit", ok: true });
       return { ok: true, data: existing.data, fetchedAt: existing.fetchedAt, stale: false, cache: "hit" };
     }

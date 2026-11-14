@@ -4,8 +4,10 @@ import { z } from "zod";
 import {
   fetchMatrixFull,
   fetchRoute,
+  fetchRouteSteps,
   type TourMatrix,
   type TourRoute,
+  type TourRouteSteps,
 } from "@/lib/integrations/openrouteservice";
 import { legPolyCap, type OrsTourProfile, type RouteOption } from "@/lib/domain/tour";
 import { cacheKey, cached, peekCache, type CacheCtx } from "../api-cache";
@@ -39,6 +41,11 @@ export function tourMatrixKey(profile: OrsTourProfile, points: readonly TourPoin
 /** `tour-route` key: profile + option + hash of the ordered points (the order is the route). */
 export function tourRouteKey(profile: OrsTourProfile, option: RouteOption, points: readonly TourPointRef[]): string {
   return cacheKey("tour-route", 1, { profile, route: option, h: sha(points.map(pointId).join("|")) });
+}
+
+/** `tour-steps` key: as `tour-route`, separate so the steps never enter the route cache or the tour result. */
+export function tourStepsKey(profile: OrsTourProfile, option: RouteOption, points: readonly TourPointRef[]): string {
+  return cacheKey("tour-steps", 1, { profile, route: option, h: sha(points.map(pointId).join("|")) });
 }
 
 /** Stored matrix: in canonical order, with the point ids, so a cached matrix can be re-indexed for any input order. */
@@ -138,6 +145,7 @@ export async function getTourRoute(
   option: RouteOption,
   points: readonly TourPointRef[],
   ctx: CacheCtx,
+  opts: { refresh?: boolean } = {},
 ): Promise<TourRouteAnswer> {
   if (points.length < 2 || !process.env.OPENROUTESERVICE_API_KEY?.trim()) return { result: "failed" };
   try {
@@ -148,10 +156,91 @@ export async function getTourRoute(
       ttlSeconds: TOUR_ORS_TTL_SECONDS,
       schema: RoutePayload,
       ctx,
+      refresh: opts.refresh,
       fetcher: async () => {
         await assertOrsQuota("directions");
         const r = await fetchRoute(profile, points, option);
         return { data: withinPolyBudget(r.route), status: r.status, latencyMs: r.latencyMs };
+      },
+    });
+    if (!res.ok) return { result: "failed" };
+    if (res.data.result === "ok" && res.data.legs.length !== points.length - 1) return { result: "failed" };
+    return { ...res.data, fetchedAt: res.fetchedAt, stale: res.stale, cache: res.cache };
+  } catch {
+    return { result: "failed" };
+  }
+}
+
+const Step = z.union([
+  z.tuple([z.number().int().min(0).max(13), z.string().max(120), z.number().int().min(0), z.number().int().min(0)]),
+  z.tuple([z.literal(7), z.string().max(120), z.number().int().min(0), z.number().int().min(0), z.number().int().min(1)]),
+]);
+const StepsPayload: z.ZodType<TourRouteSteps> = z.discriminatedUnion("result", [
+  z.object({
+    result: z.literal("ok"),
+    legs: z
+      .array(z.object({ min: z.number().int().min(0), km: z.number().min(0), poly: z.string(), steps: z.array(Step).max(400), cut: z.literal(true).optional() }))
+      .min(1),
+  }),
+  z.object({ result: z.literal("no_route") }),
+  z.object({ result: z.literal("not_routable"), point: z.number().int().min(0) }),
+]);
+
+export type TourStepsAnswer = (TourRouteSteps & Fetched) | { result: "failed" };
+
+const STEPS_PER_LEG = 400;
+/** Bytes (UTF-8 JSON) a steps entry may reach; the api_cache check is 256 kB. */
+export const STEPS_ENTRY_BUDGET = 250_000;
+
+/**
+ * A steps entry that fits its cache row (Sourcery on #222): lines get the same per-leg share as routes, steps are cut
+ * to `STEPS_PER_LEG` (the arrival kept), and while the entry is still too large the longest line is dropped (the leg
+ * keeps its steps; the GPX then says it is incomplete) and, last, the steps are halved. Never grows the answer.
+ */
+export function withinStepsBudget(route: TourRouteSteps, budget = STEPS_ENTRY_BUDGET): TourRouteSteps {
+  if (route.result !== "ok") return route;
+  const cap = legPolyCap(route.legs.length);
+  type Leg = (typeof route.legs)[number];
+  const cut = (l: Leg, max: number): Leg =>
+    l.steps.length <= max ? l : { ...l, steps: [...l.steps.slice(0, Math.max(0, max - 1)), l.steps[l.steps.length - 1]], cut: true };
+  let legs = route.legs.map((l) => cut({ ...l, poly: l.poly.length <= cap ? l.poly : "" }, STEPS_PER_LEG));
+  // UTF-8 bytes of the JSON text: street names with umlauts count twice, close to the jsonb storage size.
+  const size = () => Buffer.byteLength(JSON.stringify({ result: "ok", legs }), "utf8");
+  while (size() > budget && legs.some((l) => l.poly)) {
+    const longest = legs.reduce((a, l, i) => (l.poly.length > legs[a].poly.length ? i : a), 0);
+    legs = legs.map((l, i) => (i === longest ? { ...l, poly: "" } : l));
+  }
+  for (let max = STEPS_PER_LEG; size() > budget && max > 2; max = Math.floor(max / 2)) {
+    legs = legs.map((l) => cut(l, Math.floor(max / 2)));
+  }
+  return { result: "ok", legs };
+}
+
+/**
+ * A run's route with turn-by-turn steps, fetched only on request ("Wegbeschreibung", spec 17.1 [P2]), cached 90 days
+ * under its own key and logged as `tour_steps` (Directions bucket). Never throws.
+ */
+export async function getTourSteps(
+  profile: OrsTourProfile,
+  option: RouteOption,
+  points: readonly TourPointRef[],
+  ctx: CacheCtx,
+  opts: { refresh?: boolean } = {},
+): Promise<TourStepsAnswer> {
+  if (points.length < 2 || !process.env.OPENROUTESERVICE_API_KEY?.trim()) return { result: "failed" };
+  try {
+    const res = await cached<TourRouteSteps>({
+      provider: "openrouteservice",
+      endpoint: "tour_steps",
+      key: tourStepsKey(profile, option, points),
+      ttlSeconds: TOUR_ORS_TTL_SECONDS,
+      schema: StepsPayload,
+      ctx,
+      refresh: opts.refresh,
+      fetcher: async () => {
+        await assertOrsQuota("directions");
+        const r = await fetchRouteSteps(profile, points, option);
+        return { data: withinStepsBudget(r.route), status: r.status, latencyMs: r.latencyMs };
       },
     });
     if (!res.ok) return { result: "failed" };
