@@ -1,3 +1,4 @@
+import { StopInfoProvider } from "@/components/tour/stop-info/context";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { linkCls } from "@/components/ui/styles";
@@ -71,6 +72,7 @@ export function PlanView({
   };
   const hasDrive = Object.values(plan.places).some((p) => p.drive);
   return (
+    <StopInfoProvider source={{ kind: "session" }}>
     <DriveTimesScope hasDrive={hasDrive} className="flex min-w-0 flex-col gap-4" header={<PlanHeader plan={plan} uiLocale={locale} />}>
       {!state.isLatest && (
         <p role="note" className="rounded-lg border border-info-line bg-info-bg p-3 text-sm text-info-fg">
@@ -133,5 +135,6 @@ export function PlanView({
         <PlanFlights flights={plan.flights} renderAction={flightAction} />
       )}
     </DriveTimesScope>
+    </StopInfoProvider>
   );
 }

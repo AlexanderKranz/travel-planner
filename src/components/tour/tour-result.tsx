@@ -8,6 +8,8 @@ import { formatDuration } from "./format";
 import { GoogleLinks } from "./google-links";
 import { TourDirectionsPanel } from "./tour-directions";
 import { TourForecastLine } from "./tour-forecast";
+import { StopInfoProvider } from "./stop-info/context";
+import { StopInfoToggle, TourReadOutBar } from "./stop-info/stop-info";
 import { resultVersion } from "@/lib/tour/steps";
 import { ModeIcon } from "./mode-icon";
 import { TourMapPanel } from "./tour-map-panel";
@@ -49,12 +51,20 @@ function mapKey(result: TourResult, mode: string, coords: { lat: number; lon: nu
 
 
 /** Result of a tour (spec 2.1 step 3, sections 6 and 7): summary, map, stops and legs, nearby sights, sources. */
+/** With a saved tour, stop info loads for the signed-in reader (owner or grantee) through one page-local provider. */
 export function TourResultView(p: TourResultProps) {
+  const inner = <TourResultInner {...p} />;
+  return p.tourId ? <StopInfoProvider source={{ kind: "session" }}>{inner}</StopInfoProvider> : inner;
+}
+
+function TourResultInner(p: TourResultProps) {
   const t = useTranslations("tours");
   const locale = useLocale();
   const format = useFormatter();
   const { input, result } = p;
   const { stops, legs } = resultRows(input, result, p.stopTimes);
+  // Stop info (city-tour-stop-info 6): each stop once; a round trip's closing stop repeats the start.
+  const infoStops = stops.filter((s, i) => !(i > 0 && s.key === stops[0].key)).map((s) => ({ key: s.key, name: s.name, n: s.n }));
   const names = new Map(stops.map((s) => [s.key, s.name]));
   const allLegsKm = legs.every((l) => l.km !== null);
   const km = allLegsKm ? legs.reduce((s, l) => s + (l.km ?? 0), 0) : null;
@@ -156,6 +166,7 @@ export function TourResultView(p: TourResultProps) {
 
         <div className="flex min-w-0 flex-col gap-2">
           <h3 className="font-semibold">{t("stops")}</h3>
+          {p.tourId && !p.outdated && <TourReadOutBar tourId={p.tourId} stops={infoStops} />}
           <ol className="flex flex-col" data-testid="tour-stops">
             {stops.map((s, i) => {
               const leg = legs[i];
@@ -184,6 +195,9 @@ export function TourResultView(p: TourResultProps) {
                           </>
                         )}
                       </p>
+                      {p.tourId && !p.outdated && infoStops.some((x) => x.n === s.n && x.key === s.key) && (
+                        <StopInfoToggle tourId={p.tourId} stop={{ key: s.key, name: s.name, n: s.n }} />
+                      )}
                     </div>
                   </div>
                   {leg && (

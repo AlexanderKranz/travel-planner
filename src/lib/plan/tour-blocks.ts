@@ -39,6 +39,8 @@ export type TourBlock = {
   title: string | null;
   /** Stop names in visiting order (start first; a round trip ends with the start again). */
   stops: string[];
+  /** Point keys parallel to `stops` (stop info toggles, city-tour-stop-info 6); absent in documents stored before. */
+  stopKeys?: string[];
   /** Number of places (without start and end), "5 Orte". */
   placeCount: number;
   /** Total distance in km over all legs; null when a leg has none or there is no result. */
@@ -132,7 +134,10 @@ function blockOf(t: LinkedTour, day: number): TourBlock {
     from,
     to: from && total !== null && total > 0 ? addMinutes(from, total) : null,
     title: t.title,
-    stops: visitOrder(t.input, t.result).map((p) => p.name),
+    ...(() => {
+      const order = visitOrder(t.input, t.result);
+      return { stops: order.map((p) => p.name), stopKeys: order.map((p) => p.key) };
+    })(),
     placeCount: t.input.places.length,
     km: tourKm(t.result),
     mode: t.input.mode,

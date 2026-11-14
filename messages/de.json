@@ -2338,6 +2338,47 @@
         "thunder": "Gewitter"
       }
     },
+    "stopInfo": {
+      "toggle": "Infos zum Ort",
+      "loading": "Wird geladen…",
+      "none": "Für diesen Ort gibt es keine Infos.",
+      "limited": "Infos gerade nicht abrufbar.",
+      "error": "Die Infos konnten nicht geladen werden.",
+      "more": "Weiter auf Wikipedia",
+      "englishText": "Englischer Text",
+      "imageCredit": "Foto: {artist}, {licence}",
+      "imageCreditNoArtist": "Foto: Wikimedia Commons, {licence}",
+      "facts": {
+        "built": "Erbaut {year}",
+        "opened": "Eröffnet {year}",
+        "since": "Seit {year}",
+        "architect": "Architekt: {names}",
+        "heritage": "Denkmalschutz: {value}",
+        "website": "Website",
+        "openingHours": "Öffnungszeiten laut OpenStreetMap: {value}"
+      },
+      "source": {
+        "text": "Text: Wikipedia, CC BY-SA 4.0",
+        "textEn": "Text: Englische Wikipedia, CC BY-SA 4.0",
+        "clipped": "gekürzt",
+        "facts": "Fakten: Wikidata",
+        "osm": "Website/Öffnungszeiten: OpenStreetMap",
+        "checked": "abgerufen am {date}"
+      },
+      "readOut": {
+        "play": "Vorlesen",
+        "pause": "Pause",
+        "resume": "Weiter",
+        "next": "Nächster Ort",
+        "stop": "Stopp",
+        "tour": "Tour vorlesen",
+        "reading": "Liest: {name}",
+        "unsupported": "Vorlesen wird von diesem Browser nicht unterstützt.",
+        "noVoiceEn": "Für den englischen Text gibt es auf diesem Gerät keine Stimme; er wird nicht vorgelesen.",
+        "voiceNote": "Die Stimme kommt von deinem Gerät.",
+        "intro": "{n}. {name}."
+      }
+    },
     "routeCredit": "Routen: © openrouteservice.org"
   }
 }

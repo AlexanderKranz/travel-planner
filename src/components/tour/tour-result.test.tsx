@@ -2,6 +2,8 @@ import { NextIntlClientProvider } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
+vi.mock("@/lib/server/stop-info/actions", () => ({ getTourStopInfo: vi.fn(), getSharedTourStopInfo: vi.fn() }));
+
 vi.mock("@/lib/server/tour/directions", () => ({ getTourDirections: vi.fn() }));
 vi.mock("@/lib/server/tour/forecast", () => ({ getTourForecast: vi.fn(async () => null) }));
 import { TourInput, type TourResult } from "@/lib/domain/tour";
@@ -96,6 +98,15 @@ describe("TourResultView", () => {
     expect(render("de", de as Messages)).not.toContain("tour-directions-button");
     expect(render("de", de as Messages, { tourId: id, outdated: true })).not.toContain("tour-directions-button");
     expect(vi.mocked(getTourDirections)).not.toHaveBeenCalled(); // only the button press fetches
+  });
+
+  it("stop info toggles only for a saved, current tour, collapsed (city-tour-stop-info 6)", () => {
+    const id = "33333333-3333-4333-8333-333333333333";
+    const html = render("de", de as Messages, { tourId: id, title: "Wien" });
+    expect(html.match(/Infos zum Ort/g)).toHaveLength(3);
+    expect(html).toContain('aria-expanded="false"');
+    expect(render("de", de as Messages)).not.toContain("Infos zum Ort");
+    expect(render("de", de as Messages, { tourId: id, outdated: true })).not.toContain("Infos zum Ort");
   });
 
   it("shows owner controls, the fit badge and the outdated notice", () => {
