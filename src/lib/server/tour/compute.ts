@@ -25,7 +25,7 @@ import { overProposals, type TourProposal } from "@/lib/tour/proposals";
 import { groupRuns, isOrsRun, plannedLegs, pruneOverrides } from "@/lib/tour/runs";
 import { sightsNearRoute } from "@/lib/tour/sights";
 import { effectiveMaxMin, stopTimes, sunsetWarning, tourFit, tourTotalMin, type StopTime } from "@/lib/tour/timing";
-import { knownTimeZone, zonedInstant } from "@/lib/tour/zoned";
+import { isoWithOffset, knownTimeZone, zonedInstant } from "@/lib/tour/zoned";
 import { berlinMidnight } from "../ai-usage";
 import { releaseAiCall, reserveAiCall } from "../ai-slots";
 import { logEvent } from "../events";
@@ -113,6 +113,8 @@ function runsBound(tp: TourPoints, overrides: number): number {
 
 /** Characters of stored transit parts per result (polylines have their own 200 kB budget; the check is 256 kB). */
 const TRANSIT_PARTS_BUDGET = 30_000;
+/** All timetable requests of one computation together; later transit legs fail as unavailable (8 s per request). */
+const TRANSIT_DEADLINE_MS = 30_000;
 
 /** Stored timetable answers older than the transit cache (7 days) are recomputed, not served (spec 17.4). */
 function transitExpired(result: Pick<TourResult, "source">, now: Date): boolean {
@@ -134,6 +136,7 @@ async function timeTransitLegs(
   const base = input.date && input.startTime && knownTimeZone(tz) ? zonedInstant(input.date, input.startTime, tz) : null;
   let elapsed: number | null = 0;
   let partsChars = 0;
+  const deadline = Date.now() + TRANSIT_DEADLINE_MS;
   for (let i = 0; i < legs.length; i++) {
     // Leg i leaves stop i after its dwell, the first stop included (as stopTimes counts it).
     if (elapsed !== null) elapsed += stopDwell[i] ?? 0;
@@ -143,13 +146,18 @@ async function timeTransitLegs(
       else if (!base || elapsed === null) legs[i] = { ...l, s: "failed", note: "no_departure" };
       else {
         const utcMs = base.utcMs + elapsed * 60000;
-        const a = await getTransitLeg(o.byKey.get(l.from)!, o.byKey.get(l.to)!, { utcMs, iso: new Date(utcMs).toISOString() }, tz, o.ctx);
+        if (Date.now() > deadline) {
+          legs[i] = { ...l, s: "failed", note: "unavailable" }; // the computation's time budget is used up
+          elapsed = null;
+          continue;
+        }
+        const a = await getTransitLeg(o.byKey.get(l.from)!, o.byKey.get(l.to)!, { utcMs, iso: isoWithOffset(utcMs, tz) }, tz, o.ctx);
         if (a.kind !== "failed") o.dates.push(a.fetchedAt);
         const poly = (p: string) => (p && p.length <= o.polyCap ? p : null);
         if (a.kind === "ok") {
           // Parts share a budget next to the polylines, so many transit legs keep the result under its size check.
           const size = JSON.stringify(a.parts).length;
-          const fits = partsChars + size <= TRANSIT_PARTS_BUDGET;
+          const fits = a.parts.length > 0 && partsChars + size <= TRANSIT_PARTS_BUDGET;
           if (fits) partsChars += size;
           legs[i] = { ...l, min: a.min, km: a.km, poly: poly(a.poly), s: "ok", ...(fits ? { transit: a.parts } : {}) };
         }

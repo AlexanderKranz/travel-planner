@@ -13,7 +13,7 @@ vi.mock("../api-cache", async (orig) => {
   const m = await orig<typeof import("../api-cache")>();
   return {
     ...m,
-    peekCache: async (o: { key: string }) => (h.store.has(o.key) ? { data: h.store.get(o.key), fetchedAt: "f0" } : undefined),
+    peekCache: async (o: { key: string }) => (h.store.has(o.key) ? { data: h.store.get(o.key), fetchedAt: new Date(Date.now()).toISOString() } : undefined),
     cached: async (o: { key: string; schema: { parse: (v: unknown) => unknown }; fetcher: () => Promise<{ data: unknown }> }) => {
       h.calls.push(o);
       if (h.store.has(o.key)) return { ok: true, data: h.store.get(o.key), fetchedAt: "f0", stale: h.stale, cache: h.stale ? "stale" : "hit" };
@@ -62,6 +62,8 @@ describe("getTransitLeg", () => {
     expect(h.rpc).toHaveBeenLastCalledWith("provider_settle_slot", { p_id: "s1" });
     expect(h.plan).toHaveBeenCalledTimes(1);
     expect(h.plan.mock.calls[0][3]).toBe("Europe/Vienna");
+    // The slot is reserved before the request starts.
+    expect(h.rpc.mock.invocationCallOrder[0]).toBeLessThan(h.plan.mock.invocationCallOrder[0]);
     // A cache hit needs no slot and no request.
     h.rpc.mockClear();
     expect(await getTransitLeg(A, B, DEP, "Europe/Vienna", ctx)).toMatchObject({ cache: "hit" });

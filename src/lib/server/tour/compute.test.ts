@@ -42,6 +42,7 @@ vi.mock("@/lib/integrations/open-meteo-geocoding", () => ({ getPlaceById: h.getP
 import { legKey, TourInput, type TourResult } from "@/lib/domain/tour";
 import { parseTourMatrix, parseTourRoute } from "@/lib/integrations/openrouteservice";
 import { tourInputHash } from "@/lib/tour/hash";
+import { isoWithOffset } from "@/lib/tour/zoned";
 import { resetRateLimits } from "../rate-limit";
 import { computeTour } from "./compute";
 
@@ -313,7 +314,8 @@ describe("computeTour: pipeline", () => {
       const footMin = res.data.result.legs[0].min!;
       // 10:00 Wien = 09:00Z, plus 30 min at Stephansdom, the foot leg and 30 min at Hofburg
       expect(dep.utcMs).toBe(Date.UTC(2026, 10, 17, 9, 0) + (30 + footMin + 30) * 60000);
-      expect(dep.iso).toBe(new Date(dep.utcMs).toISOString());
+      expect(dep.iso).toBe(isoWithOffset(dep.utcMs, "Europe/Vienna")); // local time with the offset, e.g. 11:09+01:00
+      expect(dep.iso.endsWith("+01:00")).toBe(true);
       const t = res.data.result.legs[1];
       expect(t).toMatchObject({ mode: "transit", min: 19, km: 2.4, s: "ok", transit: ok.parts });
       expect(res.data.result.totalMin).toBe(footMin + 19 + 3 * 30);

@@ -18,12 +18,13 @@ export const TRANSITOUS_TIMEOUT_MS = 8000;
 export const TRANSITOUS_USER_AGENT = "travel-planner/0.1.0 (+https://github.com/AlexanderKranz/travel-planner)";
 
 const Place = z.object({ name: z.string().optional() });
+const Time = z.string().datetime({ offset: true });
 const Leg = z.object({
   mode: z.string(),
   from: Place,
   to: Place,
-  startTime: z.string(),
-  endTime: z.string(),
+  startTime: Time,
+  endTime: Time,
   displayName: z.string().optional(),
   routeShortName: z.string().optional(),
   headsign: z.string().optional(),
@@ -31,12 +32,12 @@ const Leg = z.object({
   intermediateStops: z.array(z.unknown()).optional(),
   legGeometry: z.object({ points: z.string(), precision: z.number().int().min(1).max(7).optional() }).optional(),
 });
-const Itinerary = z.object({ startTime: z.string(), endTime: z.string(), legs: z.array(Leg).min(1) });
+const Itinerary = z.object({ startTime: Time, endTime: Time, legs: z.array(Leg).min(1) });
 const PlanResponse = z.object({ itineraries: z.array(Itinerary), direct: z.array(Itinerary).optional() });
 
 /** One leg's answer, compact (no intermediate stops, no raw geometry): what the tour result stores. */
 export type TransitAnswer =
-  | { kind: "ok"; min: number; km: number; poly: string; parts: TransitPart[] }
+  | { kind: "ok"; min: number; km: number; poly: string; parts: TransitPart[] } // parts empty when over the cap
   | { kind: "walk_not_slower"; min: number; km: number; poly: string }
   | { kind: "no_connection" };
 
@@ -86,7 +87,8 @@ export function pickConnection(body: unknown, departUtcMs: number, timeZone: str
   }
   if (!best || bestMin === null) return { kind: "no_connection" };
 
-  const parts: TransitPart[] = best.legs.slice(0, TRANSIT_MAX_PARTS).map((l) => {
+  // More parts than we store: keep minutes, km and line, but no part list (a cut list would mislead).
+  const parts: TransitPart[] = best.legs.length > TRANSIT_MAX_PARTS ? [] : best.legs.map((l) => {
     const walking = l.mode === "WALK";
     return {
       m: walking ? "walk" : l.mode.slice(0, 20),
