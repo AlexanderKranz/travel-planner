@@ -9,6 +9,19 @@ import { HHMM, IsoDate } from "./common";
 /** Spec 3.1 said 40; Geoapify place ids are longer, so `gfy:<place_id>` needs more room. */
 export const MAX_POINT_KEY = 160;
 
+/**
+ * A per-stop time window (spec 17.1 [P6], 17.4): wall-clock times of the tour day, like `startTime`. The visit starts
+ * not before `after` (waiting allowed) and at the latest at `before`. Needs the tour's `startTime`.
+ */
+export const TourWindow = z
+  .object({ after: HHMM.optional(), before: HHMM.optional() })
+  .refine((w) => w.after !== undefined || w.before !== undefined, { message: "Empty window" })
+  .refine((w) => w.after === undefined || w.before === undefined || w.after < w.before, {
+    message: "after must be before before",
+    path: ["before"],
+  });
+export type TourWindow = z.infer<typeof TourWindow>;
+
 export const TourPoint = z.object({
   key: z.string().min(1).max(MAX_POINT_KEY), // "osm:n123", "osm:w456", "geo:2761369" (GeoNames), "gfy:<place_id>"
   name: z.string().min(1).max(120),
@@ -17,6 +30,7 @@ export const TourPoint = z.object({
   source: z.enum(["osm", "geonames", "geoapify"]),
   cat: z.string().max(40).optional(), // OSM category for the icon, e.g. "place_of_worship"
   dwellMin: z.number().int().min(0).max(480).optional(), // absent = tour default
+  window: TourWindow.optional(), // places only (spec 17.4)
 });
 export type TourPoint = z.infer<typeof TourPoint>;
 
@@ -89,7 +103,7 @@ const tourSettings = {
 
 type RefineInput = {
   date?: string;
-  city?: { key: string };
+  city?: { key: string; window?: TourWindow };
   mode: TourMode;
   route: RouteOption;
   legOverrides?: Record<string, LegSetting>;
@@ -97,9 +111,9 @@ type RefineInput = {
   maxMin?: number;
   startTime?: string;
   endBy?: string;
-  places: { key: string }[];
-  start?: { key: string };
-  end?: "start" | { key: string };
+  places: { key: string; window?: TourWindow }[];
+  start?: { key: string; window?: TourWindow };
+  end?: "start" | { key: string; window?: TourWindow };
 };
 
 export const TourInput = z
@@ -126,6 +140,7 @@ export const TourPointDraft = z.object({
   key: z.string().min(1).max(MAX_POINT_KEY),
   ref: z.string().min(1).max(MAX_POINT_REF).optional(),
   dwellMin: z.number().int().min(0).max(480).optional(),
+  window: TourWindow.optional(),
 });
 export type TourPointDraft = z.infer<typeof TourPointDraft>;
 
@@ -163,6 +178,13 @@ function refineTour(v: RefineInput, ctx: z.RefinementCtx): void {
     }
   }
   if (v.end === "start" && !v.start) bad(["end"], "A round trip needs a start");
+  // Time windows: places only, and only with a start time (arrivals are startTime + minutes; spec 17.4).
+  v.places.forEach((p, i) => {
+    if (p.window && v.startTime === undefined) bad(["places", i, "window"], "A time window needs startTime");
+  });
+  if (v.start?.window) bad(["start", "window"], "Time windows are for places only");
+  if (v.city?.window) bad(["city", "window"], "Time windows are for places only");
+  if (typeof v.end === "object" && v.end.window) bad(["end", "window"], "Time windows are for places only");
   // Leg keys and override keys need distinct points. `end` may share the start key (a round trip written out).
   const keys = v.places.map((p) => p.key);
   if (new Set(keys).size !== keys.length) bad(["places"], "Duplicate place");
@@ -245,6 +267,15 @@ export const TOUR_FIT = ["none", "ok", "over", "under"] as const;
 export type TourFit = (typeof TOUR_FIT)[number];
 
 /** Snapshot written by the server only (spec 9.2 [T14]). */
+/** An opening-hours check of one stop (spec 17.4): closed at the visit start, or closing during the visit. */
+export const TourOpeningIssue = z.object({
+  key: z.string(),
+  kind: z.enum(["closed", "closes"]),
+  at: HHMM, // visit start ("closed") or closing time ("closes"), local
+  checkedAt: z.string(), // when the OSM tag was read (stop info)
+});
+export type TourOpeningIssue = z.infer<typeof TourOpeningIssue>;
+
 export const TourResult = z.object({
   v: z.literal(1),
   order: z.array(z.string()), // point keys, start first; a round trip ends with the start key again
@@ -256,6 +287,8 @@ export const TourResult = z.object({
   source: z.object({ ors: z.string(), osm: z.string().optional(), transit: z.string().optional() }), // oldest fetchedAt ISO per provider
   stale: z.boolean().optional(),
   orderApprox: z.literal(true).optional(), // order from the heuristic (more than 16 points, spec 17.1 [P1])
+  /** Opening-hours checks against OSM tags stored with the stop info (spec 17.4); only stops with an issue. */
+  hours: z.array(TourOpeningIssue).max(MAX_TOUR_POINTS).optional(),
 });
 export type TourResult = z.infer<typeof TourResult>;
 

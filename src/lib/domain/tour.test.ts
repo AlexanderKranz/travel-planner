@@ -19,6 +19,22 @@ const p = (key: string) => ({ key, name: key, lat: 48.2, lon: 16.37, source: "os
 const base = { places: [p("osm:n1"), p("osm:n2")] };
 const ok = (v: object) => TourInput.safeParse({ ...base, ...v }).success;
 
+describe("TourInput time windows (spec 17.4)", () => {
+  const win = (w: object, extra: object = { startTime: "10:00" }) =>
+    TourInput.safeParse({ ...extra, places: [{ ...p("osm:n1"), window: w }, p("osm:n2")] }).success;
+  it("accepts a window on a place with a start time; after must be before before", () => {
+    expect(win({ after: "11:00" })).toBe(true);
+    expect(win({ after: "11:00", before: "12:00" })).toBe(true);
+    expect(win({ after: "12:00", before: "11:00" })).toBe(false);
+    expect(win({})).toBe(false);
+  });
+  it("needs startTime and is for places only", () => {
+    expect(win({ after: "11:00" }, {})).toBe(false);
+    expect(TourInput.safeParse({ ...base, startTime: "10:00", start: { ...p("osm:s"), window: { after: "11:00" } } }).success).toBe(false);
+    expect(TourInput.safeParse({ ...base, startTime: "10:00", city: { ...p("geo:1"), source: "geonames", window: { after: "11:00" } } }).success).toBe(false);
+  });
+});
+
 describe("TourInput", () => {
   it("needs only two places and applies defaults", () => {
     expect(TourInput.parse(base)).toMatchObject({ order: "optimize", mode: "foot", route: "fastest", dwellDefaultMin: 30 });

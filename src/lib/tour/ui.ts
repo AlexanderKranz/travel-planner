@@ -32,6 +32,8 @@ export type FormPoint = {
   cat?: string;
   /** Own dwell estimate in minutes; absent = tour default. */
   dwellMin?: number;
+  /** Time window (places only, spec 17.4): `HH:MM` strings, empty = not set. */
+  window?: { after?: string; before?: string };
 };
 
 export type EndKind = "none" | "start" | "other";
@@ -84,6 +86,7 @@ const fromPoint = (p: TourPoint): FormPoint => {
   const out: FormPoint = { key: p.key, name: p.name, lat: p.lat, lon: p.lon, source: p.source };
   if (p.cat) out.cat = p.cat;
   if (p.dwellMin !== undefined) out.dwellMin = p.dwellMin;
+  if (p.window) out.window = { ...p.window };
   return out;
 };
 
@@ -110,11 +113,23 @@ export function formFromInput(input: TourInput, title: string | null): TourForm 
   };
 }
 
-const draftPoint = (p: FormPoint, withDwell: boolean) => ({
-  key: p.key,
-  ...(p.ref ? { ref: p.ref } : {}),
-  ...(withDwell && p.dwellMin !== undefined ? { dwellMin: p.dwellMin } : {}),
-});
+/** A window with at least one time set, or undefined (empty fields = no window). */
+export function cleanWindow(w: FormPoint["window"]): { after?: string; before?: string } | undefined {
+  const after = w?.after?.trim() || undefined;
+  const before = w?.before?.trim() || undefined;
+  return after || before ? { ...(after ? { after } : {}), ...(before ? { before } : {}) } : undefined;
+}
+
+/** Places carry dwell and, with a start time, their window (window fields are disabled without one; spec 17.4). */
+const draftPoint = (p: FormPoint, place: boolean, withWindow = false) => {
+  const window = place && withWindow ? cleanWindow(p.window) : undefined;
+  return {
+    key: p.key,
+    ...(p.ref ? { ref: p.ref } : {}),
+    ...(place && p.dwellMin !== undefined ? { dwellMin: p.dwellMin } : {}),
+    ...(window ? { window } : {}),
+  };
+};
 
 const intOrUndefined = (s: string): number | undefined => {
   if (!s.trim()) return undefined;
@@ -138,7 +153,7 @@ export function toDraft(f: TourForm): TourDraft {
       .slice(-MAX_LEG_OVERRIDES),
   );
   const draft: TourDraft = {
-    places: f.places.map((p) => draftPoint(p, true)),
+    places: f.places.map((p) => draftPoint(p, true, !!f.startTime)),
     order: f.order,
     mode: f.mode,
     route: routeAllowed(f.mode, f.route) ? f.route : "fastest",
@@ -187,7 +202,7 @@ export function isOutdated(a: { hasResult: boolean; serverOutdated: boolean; sav
   return a.savedSignature !== a.signature;
 }
 
-export type FormProblem = "places" | "end" | "durations";
+export type FormProblem = "places" | "end" | "durations" | "windows";
 
 /**
  * What blocks sending the form, or null: at least 2 places (at most MAX_TOUR_PLACES), an end place when "other" is
@@ -199,6 +214,7 @@ export function formProblem(f: TourForm): FormProblem | null {
   const minMin = intOrUndefined(f.minMin);
   const maxMin = intOrUndefined(f.maxMin);
   if (minMin !== undefined && maxMin !== undefined && minMin > maxMin) return "durations";
+  if (f.startTime && f.places.some((p) => { const w = cleanWindow(p.window); return !!w?.after && !!w.before && w.after >= w.before; })) return "windows";
   return null;
 }
 
@@ -299,6 +315,11 @@ export type StopRow = {
   dwellMin: number;
   arrive?: string;
   leave?: string;
+  /** Minutes waited for the window's `after` / minutes the visit starts after its `before` (spec 17.4). */
+  waitMin?: number;
+  lateMin?: number;
+  /** The place's window, shown next to the times. */
+  window?: { after?: string; before?: string };
 };
 
 export type LegRow = TourLeg & {
@@ -315,8 +336,9 @@ export type LegRow = TourLeg & {
 export function resultRows(
   input: Pick<TourInput, "city" | "places" | "start" | "end" | "mode" | "route" | "dwellDefaultMin">,
   result: Pick<TourResult, "order" | "legs" | "sights">,
-  times: readonly { arrive: string; leave: string }[] | null,
+  times: readonly { arrive: string; leave: string; waitMin?: number; lateMin?: number }[] | null,
 ): { stops: StopRow[]; legs: LegRow[] } {
+  const windows = new Map(input.places.map((p) => [p.key, p.window]));
   const names = pointNames(input, result.sights);
   const dwell = new Map(input.places.map((p) => [p.key, p.dwellMin ?? input.dwellDefaultMin]));
   const stops = result.order.map((key, i): StopRow => {
@@ -326,7 +348,11 @@ export function resultRows(
     if (t) {
       row.arrive = t.arrive;
       row.leave = t.leave;
+      if (t.waitMin) row.waitMin = t.waitMin;
+      if (t.lateMin) row.lateMin = t.lateMin;
     }
+    const w = role === "place" ? windows.get(key) : undefined;
+    if (w) row.window = w;
     return row;
   });
   const legs = result.legs.map((l, index): LegRow => ({

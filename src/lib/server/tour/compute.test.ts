@@ -468,6 +468,34 @@ describe("computeTour: pipeline", () => {
     expect(h.matrix).not.toHaveBeenCalled();
   });
 
+  it("time windows and opening hours (spec 17.4): the wait counts, a closed stop is flagged from the stored OSM tag", async () => {
+    h.input = TourInput.parse({
+      city: { key: "geo:2761369", name: "Wien", lat: 48.20849, lon: 16.37208, source: "geonames" },
+      places: [P[0], { ...P[1], window: { after: "12:00" } }, P[2]],
+      order: "keep",
+      date: "2026-11-16", // a Monday
+      startTime: "10:00",
+    });
+    const stopInfo = {
+      v: 1,
+      locale: "de",
+      stops: [{ key: P[2].key, status: "ok", checkedAt: "2026-11-14T09:00:00Z", facts: { openingHours: "Tu-Su 10:00-18:00" } }],
+    };
+    const base = h.reply;
+    h.reply = (o) => (o.table === "city_tours" && o.client === "user" ? { data: { ...row(), stop_info: stopInfo } } : base(o));
+    h.route.mockResolvedValue(okRoute(3));
+    const res = await computeTour(TOUR);
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    const arrive2 = 10 * 60 + 30 + LEGS[0].min; // after the first stop's dwell and the first leg
+    const wait = 12 * 60 - arrive2;
+    expect(res.data.stopTimes?.[1]).toMatchObject({ waitMin: wait, leave: "12:30" });
+    expect(res.data.result.totalMin).toBe(LEGS[0].min + LEGS[1].min + 3 * 30 + wait);
+    const arrive3 = 12 * 60 + 30 + LEGS[1].min; // leaves P[1] at 12:30 after the wait and its dwell
+    const at = `${String(Math.floor(arrive3 / 60)).padStart(2, "0")}:${String(arrive3 % 60).padStart(2, "0")}`;
+    expect(res.data.result.hours).toEqual([{ key: P[2].key, kind: "closed", at, checkedAt: "2026-11-14T09:00:00Z" }]);
+  });
+
   it("over the limit with the matrix at hand: drop proposals without extra calls", async () => {
     h.input = TourInput.parse({ places: P, maxMin: 120 });
     const res = await computeTour(TOUR);

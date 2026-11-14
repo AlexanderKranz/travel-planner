@@ -19,7 +19,7 @@ export type TourResultProps = {
   /** The input the result was computed for (names, coordinates, dwell). */
   input: TourInput;
   result: TourResult;
-  stopTimes: { arrive: string; leave: string }[] | null;
+  stopTimes: { arrive: string; leave: string; waitMin?: number; lateMin?: number }[] | null;
   byMin: number | null;
   mapStyleUrl: string | null;
   /** The form changed since (or the stored result belongs to another input): "Tour neu berechnen". */
@@ -70,6 +70,7 @@ function TourResultInner(p: TourResultProps) {
   const format = useFormatter();
   const { input, result } = p;
   const { stops, legs } = resultRows(input, result, p.stopTimes);
+  const hoursByKey = new Map((result.hours ?? []).map((h) => [h.key, h]));
   // Stop info (city-tour-stop-info 6): each stop once; a round trip's closing stop repeats the start.
   const infoStops = stops.filter((s, i) => !(i > 0 && s.key === stops[0].key)).map((s) => ({ key: s.key, name: s.name, n: s.n }));
   const names = new Map(stops.map((s) => [s.key, s.name]));
@@ -203,6 +204,24 @@ function TourResultInner(p: TourResultProps) {
                           </>
                         )}
                       </p>
+                      {s.window && (
+                        <p className={`text-sm ${mutedCls}`} data-testid="tour-window">
+                          {t("window.label")}: {[s.window.after ? t("window.afterShort", { time: s.window.after }) : null, s.window.before ? t("window.beforeShort", { time: s.window.before }) : null].filter(Boolean).join(" · ")}
+                          {s.waitMin ? ` · ${t("window.wait", { duration: formatDuration(t, s.waitMin) })}` : ""}
+                        </p>
+                      )}
+                      {s.lateMin ? (
+                        <p className={warnBox} data-testid="tour-window-late">
+                          {t("window.late", { duration: formatDuration(t, s.lateMin), before: s.window?.before ?? "" })}
+                        </p>
+                      ) : null}
+                      {hoursByKey.get(s.key) && (
+                        <p className={warnBox} data-testid="tour-hours">
+                          {hoursByKey.get(s.key)!.kind === "closed"
+                            ? t("hours.closed", { time: hoursByKey.get(s.key)!.at, date: checked(hoursByKey.get(s.key)!.checkedAt) ?? "" })
+                            : t("hours.closes", { time: hoursByKey.get(s.key)!.at, date: checked(hoursByKey.get(s.key)!.checkedAt) ?? "" })}
+                        </p>
+                      )}
                       {p.tourId && !p.outdated && infoStops.some((x) => x.n === s.n && x.key === s.key) && (
                         <StopInfoToggle tourId={p.tourId} stop={{ key: s.key, name: s.name, n: s.n }} />
                       )}

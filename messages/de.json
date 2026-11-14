@@ -2426,6 +2426,23 @@
       "source": "Fahrplandaten: Transitous",
       "checked": "abgerufen am {date}"
     },
+    "window": {
+      "label": "Zeitfenster",
+      "none": "keins",
+      "after": "Nicht vor",
+      "before": "Spätestens bis",
+      "afterShort": "ab {time}",
+      "beforeShort": "bis {time}",
+      "needsStart": "Setz zuerst eine Startzeit für die Tour; Zeitfenster sind Uhrzeiten des Tourtags.",
+      "clear": "Zeitfenster entfernen",
+      "order": "Bei einem Zeitfenster muss „Nicht vor“ vor „Spätestens bis“ liegen.",
+      "wait": "{duration} Wartezeit",
+      "late": "Zeitfenster verpasst: Ankunft {duration} nach {before}. Passe das Zeitfenster, die Reihenfolge oder die Orte an."
+    },
+    "hours": {
+      "closed": "Laut OpenStreetMap um {time} geschlossen (geprüft am {date}).",
+      "closes": "Laut OpenStreetMap schließt dieser Ort um {time}, vor dem Ende deines Besuchs (geprüft am {date})."
+    },
     "routeCredit": "Routen: © openrouteservice.org"
   }
 }

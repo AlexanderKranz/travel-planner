@@ -13,18 +13,21 @@ import {
   TourResult,
   type TourInput,
   type TourLeg,
+  type TourOpeningIssue,
   type TourPoint,
 } from "@/lib/domain/tour";
+import { TourStopInfo } from "@/lib/domain/stop-info";
 import { MAX_LANDMARKS } from "@/lib/facts/landmarks";
 import { getPlaceById } from "@/lib/integrations/open-meteo-geocoding";
 import { tourInputHash } from "@/lib/tour/hash";
-import { keepOrder, orderTour } from "@/lib/tour/order";
+import { keepOrder, orderTour, orderTourWithWindows } from "@/lib/tour/order";
+import type { WindowTiming } from "@/lib/tour/order-windows";
 import { tourCentre, tourPointsOf, type TourPoints } from "@/lib/tour/points";
 import { decodePolyline } from "@/lib/tour/polyline";
 import { overProposals, type TourProposal } from "@/lib/tour/proposals";
 import { groupRuns, isOrsRun, plannedLegs, pruneOverrides } from "@/lib/tour/runs";
 import { sightsNearRoute } from "@/lib/tour/sights";
-import { effectiveMaxMin, stopTimes, sunsetWarning, tourFit, tourTotalMin, type StopTime } from "@/lib/tour/timing";
+import { effectiveMaxMin, hhmmToMin, stopTimes, sunsetWarning, totalWaitMin, tourFit, tourTotalMin, waitFor, type StopTime, type StopWindow } from "@/lib/tour/timing";
 import { isoWithOffset, knownTimeZone, zonedInstant } from "@/lib/tour/zoned";
 import { berlinMidnight } from "../ai-usage";
 import { releaseAiCall, reserveAiCall } from "../ai-slots";
@@ -37,6 +40,7 @@ import { getUserSession } from "../session";
 import { createSupabaseAdminClient } from "../supabase/admin";
 import { rowToTour, TOUR_COLUMNS, tourAccess, type TourRow } from "./mapping";
 import { cityDestination, cityPlaces } from "./places";
+import { openingIssues, type OpeningInput } from "./opening-check";
 import { GEO_KEY } from "./resolve";
 
 /**
@@ -130,7 +134,16 @@ function transitExpired(result: Pick<TourResult, "source">, now: Date): boolean 
 async function timeTransitLegs(
   legs: TourLeg[],
   stopDwell: number[],
-  o: { input: TourInput; tz: string | null; byKey: Map<string, TourPoint>; polyCap: number; ctx: { userId: string }; dates: string[] },
+  o: {
+    input: TourInput;
+    tz: string | null;
+    byKey: Map<string, TourPoint>;
+    polyCap: number;
+    ctx: { userId: string };
+    dates: string[];
+    /** Window per stop of the sequence: a wait before a stop's `after` delays the next departure (spec 17.4). */
+    windows: readonly StopWindow[];
+  },
 ): Promise<void> {
   const { input, tz } = o;
   const base = input.date && input.startTime && knownTimeZone(tz) ? zonedInstant(input.date, input.startTime, tz) : null;
@@ -138,8 +151,11 @@ async function timeTransitLegs(
   let partsChars = 0;
   const deadline = Date.now() + TRANSIT_DEADLINE_MS;
   for (let i = 0; i < legs.length; i++) {
-    // Leg i leaves stop i after its dwell, the first stop included (as stopTimes counts it).
-    if (elapsed !== null) elapsed += stopDwell[i] ?? 0;
+    // Leg i leaves stop i after any window wait and its dwell, the first stop included (as stopTimes counts it).
+    if (elapsed !== null) {
+      if (input.startTime) elapsed += waitFor(hhmmToMin(input.startTime) + elapsed, o.windows[i]);
+      elapsed += stopDwell[i] ?? 0;
+    }
     const l = legs[i];
     if (isTransit(l.mode)) {
       if (!knownTimeZone(tz)) legs[i] = { ...l, s: "failed", note: "no_time_zone" };
@@ -168,6 +184,42 @@ async function timeTransitLegs(
     }
     const min = legs[i].min;
     elapsed = elapsed === null || min === null ? null : elapsed + min;
+  }
+}
+
+/**
+ * Opening-hours checks (spec 17.4) from the OSM tags stored with the stop info (never fetched here): only with a tour
+ * date, stop times and a known city time zone. A missing or unreadable stop info gives no checks.
+ */
+async function openingChecks(
+  a: { input: TourInput; keys: string[]; times: StopTime[] | null; stopDwell: number[]; tourId: string; locale: Locale },
+  supabase: NonNullable<Awaited<ReturnType<typeof getUserSession>>>["supabase"],
+): Promise<TourOpeningIssue[]> {
+  const { input, times } = a;
+  if (!input.date || !times || !input.city) return [];
+  const tz = await cityTimeZone(input, a.locale);
+  if (!knownTimeZone(tz)) return [];
+  try {
+    const { data } = await supabase.from("city_tours").select("stop_info").eq("id", a.tourId).maybeSingle<{ stop_info: unknown }>();
+    const info = TourStopInfo.safeParse(data?.stop_info);
+    if (!info.success) return [];
+    const hours = new Map<string, OpeningInput>();
+    for (const s of info.data.stops) {
+      if (s.facts?.openingHours) hours.set(s.key, { key: s.key, tag: s.facts.openingHours, checkedAt: s.checkedAt });
+    }
+    if (!hours.size) return [];
+    const geo = GEO_KEY.exec(input.city.key);
+    const place = geo ? await getPlaceById(Number(geo[1]), a.locale).catch(() => null) : null;
+    const places = new Set(input.places.map((p) => p.key));
+    return openingIssues({
+      date: input.date,
+      stops: a.keys.map((key, i) => ({ key: places.has(key) ? key : "", time: times[i], dwellMin: a.stopDwell[i] ?? 0 })),
+      hours,
+      place: { lat: input.city.lat, lon: input.city.lon, countryCode: place?.countryCode ?? null },
+      timeZone: tz!,
+    });
+  } catch {
+    return [];
   }
 }
 
@@ -203,7 +255,24 @@ const maxFrom = (input: TourInput) => effectiveMaxMin(input);
 function timesOf(input: TourInput, result: TourResult, dwellByKey: Map<string, number>): StopTime[] | null {
   if (!input.startTime) return null;
   const dwell = result.order.map((k, i) => (i === result.order.length - 1 && i > 0 && k === result.order[0] ? 0 : (dwellByKey.get(k) ?? 0)));
-  return stopTimes(input.startTime, result.legs.map((l) => l.min), dwell);
+  return stopTimes(input.startTime, result.legs.map((l) => l.min), dwell, stopWindowsOf(input, result.order));
+}
+
+/** Window per stop of an ordered sequence (places only; a round trip's return to the start has none). */
+function stopWindowsOf(input: TourInput, order: readonly string[]): StopWindow[] {
+  const w = new Map(input.places.map((p) => [p.key, p.window]));
+  return order.map((k, i) => (i > 0 && i === order.length - 1 && k === order[0] ? undefined : w.get(k)));
+}
+
+/** Seconds-based timing for the window-aware order, or null without windows or a start time. */
+function windowTiming(input: TourInput, tp: TourPoints): WindowTiming | null {
+  if (!input.startTime || !tp.points.some((p) => p.window)) return null;
+  const sec = (t: string | undefined) => (t ? hhmmToMin(t) * 60 : undefined);
+  return {
+    startSec: hhmmToMin(input.startTime) * 60,
+    dwellSec: tp.dwell.map((d) => d * 60),
+    win: tp.points.map((p) => (p.window ? { after: sec(p.window.after), before: sec(p.window.before) } : undefined)),
+  };
 }
 
 function dwellMap(tp: TourPoints): Map<string, number> {
@@ -357,7 +426,10 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
     cacheHits += m.cache === "hit" ? 1 : 0;
     stale ||= m.stale;
     orsDates.push(m.fetchedAt);
-    const o = orderTour(m.durations, { start: tp.start, end: tp.end });
+    const timing = windowTiming(input, tp);
+    const o = timing
+      ? orderTourWithWindows(m.durations, { start: tp.start, end: tp.end }, timing)
+      : orderTour(m.durations, { start: tp.start, end: tp.end });
     if ("error" in o) {
       await releaseAiCall(slotId); // nothing computed or stored: the slot does not count (review of #221)
       return err("unreachable", { points: flaggedKeys(tp.points, o.pairs) });
@@ -411,11 +483,15 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
   const dwellByKey = dwellMap(tp);
   const stopDwell = keys.map((k, i) => (i > 0 && i === keys.length - 1 && k === keys[0] ? 0 : (dwellByKey.get(k) ?? 0)));
   const transitDates: string[] = [];
+  const stopWindows = stopWindowsOf(input, keys);
   if (legs.some((l) => isTransit(l.mode))) {
     const tz = await cityTimeZone(input, locale);
-    await timeTransitLegs(legs, stopDwell, { input, tz, byKey, polyCap, ctx, dates: transitDates });
+    await timeTransitLegs(legs, stopDwell, { input, tz, byKey, polyCap, ctx, dates: transitDates, windows: stopWindows });
   }
-  const totalMin = tourTotalMin(legs.map((l) => l.min), stopDwell);
+  // Waiting for a window's `after` belongs to the tour's length (spec 17.4).
+  const times = input.startTime ? stopTimes(input.startTime, legs.map((l) => l.min), stopDwell, stopWindows) : null;
+  const legTotal = tourTotalMin(legs.map((l) => l.min), stopDwell);
+  const totalMin = legTotal === null ? null : legTotal + totalWaitMin(times);
   const fit = tourFit(totalMin, input.minMin, maxFrom(input));
   const sunset = sunsetWarning({
     date: input.date,
@@ -424,6 +500,8 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
     centre: tourCentre(input, tp.points),
     timeZone: input.date && input.startTime ? await cityTimeZone(input, locale) : null,
   });
+
+  const hours = await openingChecks({ input, keys, times, stopDwell, tourId: row.id, locale }, session.supabase);
 
   // 5d. Sights: cached city places only (Geoapify fast path allowed, never Overpass).
   const s = await sightsFor(input, tp, legs, locale, session.userId, true);
@@ -443,6 +521,7 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
     },
     ...(stale ? { stale: true } : {}),
     ...(orderApprox ? { orderApprox: true } : {}),
+    ...(hours.length ? { hours } : {}),
   });
 
   // 6. Snapshot with the secret key, then the event (no names, no coordinates).

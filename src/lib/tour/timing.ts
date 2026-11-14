@@ -29,25 +29,45 @@ export function tourTotalMin(legMin: readonly (number | null)[], dwell: readonly
   return (legMin as number[]).reduce((s, m) => s + m, 0) + dwell.reduce((s, d) => s + d, 0);
 }
 
-export type StopTime = { arrive: string; leave: string };
+/**
+ * One stop's times. With a time window (spec 17.4): `waitMin` minutes waited before the visit starts (arrival before
+ * `after`), `lateMin` minutes the visit starts after `before` (the window is missed; never dropped silently).
+ */
+export type StopTime = { arrive: string; leave: string; waitMin?: number; lateMin?: number };
+/** A stop's window as wall-clock `HH:MM` of the tour day; undefined = no window. */
+export type StopWindow = { after?: string; before?: string } | undefined;
 
-/** Arrive and leave time of each stop from a start time; null when a leg has no time. */
+/** Minutes waited when arriving at minute-of-day `arrive` (0 without an `after`). */
+export const waitFor = (arrive: number, w: StopWindow): number => (w?.after ? Math.max(0, hhmmToMin(w.after) - arrive) : 0);
+
+/**
+ * Arrive and leave time of each stop from a start time; null when a leg has no time. With windows, a stop reached
+ * before its `after` waits (the wait shifts everything after it) and a visit starting after its `before` is late.
+ */
 export function stopTimes(
   startTime: string,
   legMin: readonly (number | null)[],
   dwell: readonly number[],
+  windows: readonly StopWindow[] = [],
 ): StopTime[] | null {
   if (legMin.some((m) => m === null)) return null;
   const out: StopTime[] = [];
   let t = hhmmToMin(startTime);
   for (let i = 0; i < dwell.length; i++) {
     const arrive = t;
-    t += dwell[i];
-    out.push({ arrive: minToHhmm(arrive), leave: minToHhmm(t) });
+    const w = windows[i];
+    const wait = waitFor(arrive, w);
+    const begin = arrive + wait;
+    const late = w?.before ? Math.max(0, begin - hhmmToMin(w.before)) : 0;
+    t = begin + dwell[i];
+    out.push({ arrive: minToHhmm(arrive), leave: minToHhmm(t), ...(wait > 0 ? { waitMin: wait } : {}), ...(late > 0 ? { lateMin: late } : {}) });
     if (i < legMin.length) t += legMin[i]!;
   }
   return out;
 }
+
+/** Σ waits of `stopTimes` (0 without windows); added to the total so the tour's length includes waiting. */
+export const totalWaitMin = (times: readonly StopTime[] | null): number => (times ?? []).reduce((s, x) => s + (x.waitMin ?? 0), 0);
 
 export type FitCheck = { fit: TourFit; /** minutes over the max or free below the min */ byMin?: number };
 

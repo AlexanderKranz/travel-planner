@@ -6,13 +6,13 @@ import type { TourInput, TourPoint } from "@/lib/domain/tour";
 import { canonicalJson } from "@/lib/plan/hash";
 
 /** Bump when the computation changes so stored results count as outdated. */
-export const TOUR_HASH_VERSION = 1;
+export const TOUR_HASH_VERSION = 2; // 2: per-stop time windows (spec 17.4)
 
 const sha256 = (s: string) => createHash("sha256").update(s).digest("hex");
 const r5 = (n: number) => Math.round(n * 1e5) / 1e5;
 
-/** What of a point affects the result: identity, position (5 dp) and dwell. Name, source and category do not. */
-const pt = (p: TourPoint) => ({ key: p.key, lat: r5(p.lat), lon: r5(p.lon), dwell: p.dwellMin });
+/** What of a point affects the result: identity, position (5 dp), dwell and window. Name, source, category do not. */
+const pt = (p: TourPoint) => ({ key: p.key, lat: r5(p.lat), lon: r5(p.lon), dwell: p.dwellMin, window: p.window ?? null });
 
 /**
  * sha256 hex of the normalized input that produces a `TourResult` (`city_tours.result_hash`). The title is left out

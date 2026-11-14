@@ -51,6 +51,24 @@ const input = TourInput.parse({
   startTime: "10:00",
 });
 
+describe("time windows in the form (spec 17.4)", () => {
+  const withWindow = (w: { after?: string; before?: string }, startTime = "10:00") =>
+    form({ startTime, places: [fp(STEPHANSDOM, { ref: "r1", window: w }), fp(HOFBURG, { ref: "r2" })] });
+  it("sends a window only with a start time, and only the times that are set", () => {
+    expect(toDraft(withWindow({ after: "11:00", before: "" })).places[0]).toMatchObject({ window: { after: "11:00" } });
+    expect(toDraft(withWindow({ after: "11:00" }, "")).places[0]).not.toHaveProperty("window");
+    expect(toDraft(withWindow({ after: "", before: "" })).places[0]).not.toHaveProperty("window");
+  });
+  it("blocks a window whose start is not before its end", () => {
+    expect(formProblem(withWindow({ after: "12:00", before: "11:00" }))).toBe("windows");
+    expect(formProblem(withWindow({ after: "11:00", before: "12:00" }))).toBeNull();
+  });
+  it("round-trips a stored window", () => {
+    const stored = TourInput.parse({ startTime: "10:00", places: [{ ...STEPHANSDOM, window: { before: "12:00" } }, HOFBURG] });
+    expect(formFromInput(stored, null).places[0].window).toEqual({ before: "12:00" });
+  });
+});
+
 describe("toDraft", () => {
   it("sends keys and refs only, with the settings that are set", () => {
     const d = toDraft(form({ city: fp(WIEN_CITY), startTime: "09:30", endBy: "13:00", maxMin: "180", title: "  Altstadt " }));

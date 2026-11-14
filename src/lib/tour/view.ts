@@ -15,7 +15,9 @@ export function tourView(input: TourInput, result: TourResult | null): TourView 
   const dwellByKey = new Map(tp.points.map((p, i) => [p.key, tp.dwell[i]]));
   const last = result.order.length - 1;
   const dwell = result.order.map((k, i) => (i > 0 && i === last && k === result.order[0] ? 0 : (dwellByKey.get(k) ?? 0)));
-  const times = input.startTime && dwell.length ? stopTimes(input.startTime, result.legs.map((l) => l.min), dwell) : null;
+  const win = new Map(input.places.map((p) => [p.key, p.window]));
+  const windows = result.order.map((k, i) => (i > 0 && i === last && k === result.order[0] ? undefined : win.get(k)));
+  const times = input.startTime && dwell.length ? stopTimes(input.startTime, result.legs.map((l) => l.min), dwell, windows) : null;
   const fit = tourFit(result.totalMin, input.minMin, effectiveMaxMin(input));
   return { stopTimes: times, byMin: fit.byMin ?? null };
 }
