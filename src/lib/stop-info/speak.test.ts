@@ -22,6 +22,6 @@ describe("read-out text (spec 6)", () => {
       { text: "St. Stephen's is a church.", lang: "en" },
       { text: "Erbaut 1147", lang: "de" },
     ]);
-    expect(stopSpeech({ ...base, textVoice: false }).map((p) => p.lang)).toEqual(["de", "de"]);
+    expect(stopSpeech({ ...base, textVoice: false })).toEqual([{ text: "1. Dom.", lang: "de" }, { text: "Erbaut 1147", lang: "de" }]);
   });
 });

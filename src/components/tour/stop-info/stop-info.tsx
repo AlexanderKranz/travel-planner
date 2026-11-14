@@ -3,7 +3,12 @@
 import Image from "next/image";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useId } from "react";
-import { btnIcon, btnSecondary, linkCls, mutedCls } from "@/components/ui/styles";
+import {
+  btnIcon,
+  btnSecondary,
+  linkCls,
+  mutedCls,
+} from "@/components/ui/styles";
 import type { StopInfo, StopInfoView } from "@/lib/domain/stop-info";
 import { osmRefOf } from "@/lib/stop-info/match";
 import { stopSpeech, type SpeechPart } from "@/lib/stop-info/speak";
@@ -16,8 +21,10 @@ import { useStopInfoCtx } from "./context";
  */
 export type StopRef = { key: string; name: string; n: number };
 
-const wikiUrl = (lang: string, title: string) => `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`;
-const commonsUrl = (file: string) => `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(file.replace(/ /g, "_"))}`;
+const wikiUrl = (lang: string, title: string) =>
+  `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, "_"))}`;
+const commonsUrl = (file: string) =>
+  `https://commons.wikimedia.org/wiki/File:${encodeURIComponent(file.replace(/ /g, "_"))}`;
 
 /** Fact lines in the viewer's language (also spoken as sentences). */
 function useFactLines() {
@@ -27,9 +34,11 @@ function useFactLines() {
     if (!f) return [];
     const out: string[] = [];
     if (f.year) out.push(t(`facts.${f.yearKind ?? "since"}`, { year: f.year }));
-    if (f.architects?.length) out.push(t("facts.architect", { names: f.architects.join(", ") }));
+    if (f.architects?.length)
+      out.push(t("facts.architect", { names: f.architects.join(", ") }));
     if (f.heritage) out.push(t("facts.heritage", { value: f.heritage }));
-    if (f.openingHours) out.push(t("facts.openingHours", { value: f.openingHours }));
+    if (f.openingHours)
+      out.push(t("facts.openingHours", { value: f.openingHours }));
     return out;
   };
 }
@@ -51,7 +60,17 @@ function useSpeechParts() {
     });
 }
 
-function StopCard({ info, stop, tourId, view }: { info: StopInfo; stop: StopRef; tourId: string; view: StopInfoView }) {
+function StopCard({
+  info,
+  stop,
+  tourId,
+  view,
+}: {
+  info: StopInfo;
+  stop: StopRef;
+  tourId: string;
+  view: StopInfoView;
+}) {
   const t = useTranslations("tours.stopInfo");
   const format = useFormatter();
   const facts = useFactLines()(info);
@@ -60,29 +79,58 @@ function StopCard({ info, stop, tourId, view }: { info: StopInfo; stop: StopRef;
   const id = `${tourId}:${stop.key}`;
   const reading = speech?.reading?.id === id;
   const fallback = info.lang && info.lang !== view.locale;
-  const osmUsed = info.facts?.websiteFrom === "osm" || !!info.facts?.openingHours;
-  const checked = Number.isFinite(Date.parse(info.checkedAt)) ? format.dateTime(new Date(info.checkedAt), { dateStyle: "medium" }) : null;
+  const osmUsed =
+    info.facts?.websiteFrom === "osm" || !!info.facts?.openingHours;
+  const checked = Number.isFinite(Date.parse(info.checkedAt))
+    ? format.dateTime(new Date(info.checkedAt), { dateStyle: "medium" })
+    : null;
 
   return (
     <div className="flex flex-col gap-2 text-sm" data-testid="stop-info-card">
       {info.image && (
         <figure className="flex flex-col gap-1">
-          <Image src={info.image.url} alt="" width={info.image.w} height={info.image.h} sizes="(max-width: 640px) 100vw, 330px" className="h-auto w-full max-w-[330px] rounded-md" />
+          <Image
+            src={info.image.url}
+            alt=""
+            width={info.image.w}
+            height={info.image.h}
+            sizes="(max-width: 640px) 100vw, 330px"
+            className="h-auto w-full max-w-[330px] rounded-md"
+          />
           <figcaption className={`text-xs ${mutedCls}`}>
-            <a href={commonsUrl(info.image.file)} target="_blank" rel="noopener noreferrer nofollow" className="underline underline-offset-2">
-              {info.image.artist ? t("imageCredit", { artist: info.image.artist, licence: info.image.licence }) : t("imageCreditNoArtist", { licence: info.image.licence })}
+            <a
+              href={commonsUrl(info.image.file)}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className="underline underline-offset-2"
+            >
+              {info.image.artist
+                ? t("imageCredit", {
+                    artist: info.image.artist,
+                    licence: info.image.licence,
+                  })
+                : t("imageCreditNoArtist", { licence: info.image.licence })}
             </a>
           </figcaption>
         </figure>
       )}
       {info.text && info.lang && (
         <>
-          {fallback && <p className={`text-xs font-medium ${mutedCls}`}>{t("englishText")}</p>}
+          {fallback && (
+            <p className={`text-xs font-medium ${mutedCls}`}>
+              {t("englishText")}
+            </p>
+          )}
           <p lang={info.lang} className="whitespace-pre-line break-words">
             {info.text}
           </p>
           {info.title && (
-            <a href={wikiUrl(info.lang, info.title)} target="_blank" rel="noopener noreferrer nofollow" className={`${linkCls} self-start`}>
+            <a
+              href={wikiUrl(info.lang, info.title)}
+              target="_blank"
+              rel="noopener noreferrer nofollow"
+              className={`${linkCls} self-start`}
+            >
               {t("more")}
             </a>
           )}
@@ -97,7 +145,12 @@ function StopCard({ info, stop, tourId, view }: { info: StopInfo; stop: StopRef;
           ))}
           {info.facts?.website && (
             <li>
-              <a href={info.facts.website} target="_blank" rel="noopener noreferrer nofollow" className={linkCls}>
+              <a
+                href={info.facts.website}
+                target="_blank"
+                rel="noopener noreferrer nofollow"
+                className={linkCls}
+              >
                 {t("facts.website")}
               </a>
             </li>
@@ -107,20 +160,38 @@ function StopCard({ info, stop, tourId, view }: { info: StopInfo; stop: StopRef;
       {speech?.supported && (
         <div className="flex flex-wrap items-center gap-2">
           {reading ? (
-            <button type="button" className={btnSecondary} aria-pressed={!speech.reading?.paused} onClick={speech.reading?.paused ? speech.resume : speech.pause}>
-              {speech.reading?.paused ? t("readOut.resume") : t("readOut.pause")}
+            <button
+              type="button"
+              className={btnSecondary}
+              aria-pressed={!speech.reading?.paused}
+              onClick={speech.reading?.paused ? speech.resume : speech.pause}
+            >
+              {speech.reading?.paused
+                ? t("readOut.resume")
+                : t("readOut.pause")}
             </button>
           ) : (
-            <button type="button" className={btnSecondary} aria-pressed={false} onClick={() => speech.speak(id, tourId, parts(stop, info))}>
+            <button
+              type="button"
+              className={btnSecondary}
+              aria-pressed={false}
+              onClick={() => speech.speak(id, tourId, parts(stop, info))}
+            >
               {t("readOut.play")}
             </button>
           )}
-          {fallback && !speech.voiceFor("en") && <span className={`text-xs ${mutedCls}`}>{t("readOut.noVoiceEn")}</span>}
+          {fallback && !speech.voiceFor("en") && (
+            <span className={`text-xs ${mutedCls}`}>
+              {t("readOut.noVoiceEn")}
+            </span>
+          )}
         </div>
       )}
       <p className={`text-xs ${mutedCls}`}>
         {[
-          info.text ? `${fallback ? t("source.textEn") : t("source.text")}${info.clipped ? ` (${t("source.clipped")})` : ""}` : null,
+          info.text
+            ? `${fallback ? t("source.textEn") : t("source.text")}${info.clipped ? ` (${t("source.clipped")})` : ""}`
+            : null,
           info.qid ? t("source.facts") : null,
           osmUsed ? t("source.osm") : null,
           checked ? t("source.checked", { date: checked }) : null,
@@ -133,7 +204,13 @@ function StopCard({ info, stop, tourId, view }: { info: StopInfo; stop: StopRef;
 }
 
 /** The toggle and (when open) the card of one stop. Renders nothing outside a provider or for stops without a match. */
-export function StopInfoToggle({ tourId, stop }: { tourId: string; stop: StopRef }) {
+export function StopInfoToggle({
+  tourId,
+  stop,
+}: {
+  tourId: string;
+  stop: StopRef;
+}) {
   const t = useTranslations("tours.stopInfo");
   const ctx = useStopInfoCtx();
   const panelId = useId();
@@ -141,7 +218,9 @@ export function StopInfoToggle({ tourId, stop }: { tourId: string; stop: StopRef
   const isOpen = ctx.open[tourId]?.has(stop.key) ?? false;
   const load = ctx.loads[tourId] ?? { status: "idle" };
   const toggle = () => {
-    const known = load.status === "loaded" && load.view.stops.some((s) => s.key === stop.key);
+    const known =
+      load.status === "loaded" &&
+      load.view.stops.some((s) => s.key === stop.key);
     if (!isOpen && load.status !== "loading" && !known) {
       ctx.load(tourId);
     }
@@ -152,28 +231,38 @@ export function StopInfoToggle({ tourId, stop }: { tourId: string; stop: StopRef
 
   return (
     <div className="flex flex-col gap-1">
-      <button type="button" aria-expanded={isOpen} aria-controls={panelId} onClick={toggle} className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
+      <button
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls={panelId}
+        onClick={toggle}
+        className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}
+      >
         {t("toggle")}
       </button>
-      {isOpen && (
-        <div id={panelId} className="rounded-lg border border-line bg-sunken p-3">
-          {load.status === "loading" || load.status === "idle" ? (
-            <p className={`text-sm ${mutedCls}`} role="status">
-              {t("loading")}
-            </p>
-          ) : load.status === "error" ? (
-            <p className="text-sm" role="status">
-              {t("error")}
-            </p>
-          ) : info?.status === "ok" ? (
-            <StopCard info={info} stop={stop} tourId={tourId} view={view!} />
-          ) : !info && view?.pending.includes(stop.key) ? (
-            <p className="text-sm">{view.limited ? t("limited") : t("notYet")}</p>
-          ) : (
-            <p className={`text-sm ${mutedCls}`}>{t("none")}</p>
-          )}
-        </div>
-      )}
+      {/* Always rendered, so aria-controls points to an element; hidden while collapsed. */}
+      <div
+        id={panelId}
+        hidden={!isOpen}
+        className="rounded-lg border border-line bg-sunken p-3"
+      >
+        {!isOpen ? null : load.status === "loading" ||
+          load.status === "idle" ? (
+          <p className={`text-sm ${mutedCls}`} role="status">
+            {t("loading")}
+          </p>
+        ) : load.status === "error" ? (
+          <p className="text-sm" role="status">
+            {t("error")}
+          </p>
+        ) : info?.status === "ok" ? (
+          <StopCard info={info} stop={stop} tourId={tourId} view={view!} />
+        ) : !info && view?.pending.includes(stop.key) ? (
+          <p className="text-sm">{view.limited ? t("limited") : t("notYet")}</p>
+        ) : (
+          <p className={`text-sm ${mutedCls}`}>{t("none")}</p>
+        )}
+      </div>
     </div>
   );
 }
@@ -182,24 +271,43 @@ export function StopInfoToggle({ tourId, stop }: { tourId: string; stop: StopRef
  * Tour read-out bar above the stop list, shown once any card of the tour is open: "Tour vorlesen" from the first stop
  * with info, pause/resume, "Nächster Ort" (opens and reads the next stop), stop. Live status without the text.
  */
-export function TourReadOutBar({ tourId, stops }: { tourId: string; stops: StopRef[] }) {
+export function TourReadOutBar({
+  tourId,
+  stops,
+}: {
+  tourId: string;
+  stops: StopRef[];
+}) {
   const t = useTranslations("tours.stopInfo");
   const ctx = useStopInfoCtx();
   const parts = useSpeechParts();
   if (!ctx || (ctx.open[tourId]?.size ?? 0) === 0) return null;
   const { speech } = ctx;
-  if (!speech.supported) return <p className={`text-sm ${mutedCls}`}>{t("readOut.unsupported")}</p>;
+  if (!speech.supported)
+    return <p className={`text-sm ${mutedCls}`}>{t("readOut.unsupported")}</p>;
   const load = ctx.loads[tourId];
   const view = load?.status === "loaded" ? load.view : null;
-  const withInfo = stops.filter((s) => view?.stops.some((i) => i.key === s.key && i.status === "ok"));
+  const withInfo = stops.filter((s) =>
+    view?.stops.some((i) => i.key === s.key && i.status === "ok"),
+  );
   const reading = speech.reading?.tourId === tourId ? speech.reading : null;
-  const current = reading ? withInfo.findIndex((s) => `${tourId}:${s.key}` === reading.id) : -1;
+  const current = reading
+    ? withInfo.findIndex((s) => `${tourId}:${s.key}` === reading.id)
+    : -1;
 
   const readFrom = (i: number) => {
     const s = withInfo[i];
     if (!s || !view) return;
     ctx.setOpen(tourId, s.key, true);
-    speech.speak(`${tourId}:${s.key}`, tourId, parts(s, view.stops.find((x) => x.key === s.key)), () => readFrom(i + 1));
+    speech.speak(
+      `${tourId}:${s.key}`,
+      tourId,
+      parts(
+        s,
+        view.stops.find((x) => x.key === s.key),
+      ),
+      () => readFrom(i + 1),
+    );
   };
   const name = current >= 0 ? withInfo[current].name : null;
 
@@ -207,15 +315,30 @@ export function TourReadOutBar({ tourId, stops }: { tourId: string; stops: StopR
     <div className="flex flex-col gap-1 rounded-lg border border-line p-2">
       <div className="flex flex-wrap gap-2">
         {!reading ? (
-          <button type="button" className={btnSecondary} disabled={withInfo.length === 0} onClick={() => readFrom(0)}>
+          <button
+            type="button"
+            className={btnSecondary}
+            disabled={withInfo.length === 0}
+            onClick={() => readFrom(0)}
+          >
             {t("readOut.tour")}
           </button>
         ) : (
           <>
-            <button type="button" className={btnSecondary} aria-pressed={!reading.paused} onClick={reading.paused ? speech.resume : speech.pause}>
+            <button
+              type="button"
+              className={btnSecondary}
+              aria-pressed={!reading.paused}
+              onClick={reading.paused ? speech.resume : speech.pause}
+            >
               {reading.paused ? t("readOut.resume") : t("readOut.pause")}
             </button>
-            <button type="button" className={btnSecondary} disabled={current < 0 || current + 1 >= withInfo.length} onClick={() => readFrom(current + 1)}>
+            <button
+              type="button"
+              className={btnSecondary}
+              disabled={current < 0 || current + 1 >= withInfo.length}
+              onClick={() => readFrom(current + 1)}
+            >
               {t("readOut.next")}
             </button>
             <button type="button" className={btnIcon} onClick={speech.stop}>
