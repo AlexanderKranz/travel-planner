@@ -2342,6 +2342,7 @@
       "toggle": "About this place",
       "loading": "Loading…",
       "none": "There is no information for this place.",
+      "notYet": "The information for this place is not loaded yet. Open it again later.",
       "limited": "Information can't be fetched right now.",
       "error": "The information could not be loaded.",
       "more": "Read on Wikipedia",

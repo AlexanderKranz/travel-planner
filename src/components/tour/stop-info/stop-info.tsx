@@ -39,10 +39,11 @@ function useSpeechParts() {
   const t = useTranslations("tours.stopInfo");
   const facts = useFactLines();
   const ctx = useStopInfoCtx();
-  return (stop: StopRef, info: StopInfo | undefined, locale: string): SpeechPart[] =>
+  const uiLocale = useLocale();
+  return (stop: StopRef, info: StopInfo | undefined): SpeechPart[] =>
     stopSpeech({
       intro: t("readOut.intro", { n: stop.n, name: stop.name }),
-      introLang: locale,
+      introLang: uiLocale,
       text: info?.text,
       textLang: info?.lang,
       facts: info ? facts(info) : [],
@@ -110,7 +111,7 @@ function StopCard({ info, stop, tourId, view }: { info: StopInfo; stop: StopRef;
               {speech.reading?.paused ? t("readOut.resume") : t("readOut.pause")}
             </button>
           ) : (
-            <button type="button" className={btnSecondary} aria-pressed={false} onClick={() => speech.speak(id, tourId, parts(stop, info, view.locale))}>
+            <button type="button" className={btnSecondary} aria-pressed={false} onClick={() => speech.speak(id, tourId, parts(stop, info))}>
               {t("readOut.play")}
             </button>
           )}
@@ -140,7 +141,8 @@ export function StopInfoToggle({ tourId, stop }: { tourId: string; stop: StopRef
   const isOpen = ctx.open[tourId]?.has(stop.key) ?? false;
   const load = ctx.loads[tourId] ?? { status: "idle" };
   const toggle = () => {
-    if (!isOpen && (load.status === "idle" || load.status === "error" || (load.status === "loaded" && load.view.pending.includes(stop.key) && !load.view.limited))) {
+    const known = load.status === "loaded" && load.view.stops.some((s) => s.key === stop.key);
+    if (!isOpen && load.status !== "loading" && !known) {
       ctx.load(tourId);
     }
     ctx.setOpen(tourId, stop.key, !isOpen);
@@ -165,8 +167,8 @@ export function StopInfoToggle({ tourId, stop }: { tourId: string; stop: StopRef
             </p>
           ) : info?.status === "ok" ? (
             <StopCard info={info} stop={stop} tourId={tourId} view={view!} />
-          ) : view?.limited && !info ? (
-            <p className="text-sm">{t("limited")}</p>
+          ) : !info && view?.pending.includes(stop.key) ? (
+            <p className="text-sm">{view.limited ? t("limited") : t("notYet")}</p>
           ) : (
             <p className={`text-sm ${mutedCls}`}>{t("none")}</p>
           )}
@@ -182,7 +184,6 @@ export function StopInfoToggle({ tourId, stop }: { tourId: string; stop: StopRef
  */
 export function TourReadOutBar({ tourId, stops }: { tourId: string; stops: StopRef[] }) {
   const t = useTranslations("tours.stopInfo");
-  const locale = useLocale();
   const ctx = useStopInfoCtx();
   const parts = useSpeechParts();
   if (!ctx || (ctx.open[tourId]?.size ?? 0) === 0) return null;
@@ -198,7 +199,7 @@ export function TourReadOutBar({ tourId, stops }: { tourId: string; stops: StopR
     const s = withInfo[i];
     if (!s || !view) return;
     ctx.setOpen(tourId, s.key, true);
-    speech.speak(`${tourId}:${s.key}`, tourId, parts(s, view.stops.find((x) => x.key === s.key), view.locale ?? locale), () => readFrom(i + 1));
+    speech.speak(`${tourId}:${s.key}`, tourId, parts(s, view.stops.find((x) => x.key === s.key)), () => readFrom(i + 1));
   };
   const name = current >= 0 ? withInfo[current].name : null;
 

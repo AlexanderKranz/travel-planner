@@ -91,6 +91,12 @@ function useSpeech(): Speech {
           onDone?.();
         };
       }
+      u.onerror = () => {
+        if (run.current !== my) return;
+        run.current++;
+        synth.cancel();
+        setReading(null);
+      };
       synth.speak(u);
     });
   }, []);
@@ -128,8 +134,8 @@ export function StopInfoProvider({ source, children }: { source: StopInfoSource;
         .catch(() => ({ ok: false as const, error: "failed" as const }))
         .then((r) => {
           setLoads((l) => ({ ...l, [tourId]: r.ok ? { status: "loaded", view: r.data } : { status: "error" } }));
-          // A failed or partial load may be retried by the next expand.
-          if (!r.ok || r.data.pending.length > 0) busy.current.delete(tourId);
+          // Only a running request blocks another; whether a finished load is repeated is decided by the toggle.
+          busy.current.delete(tourId);
         });
     },
     [source],

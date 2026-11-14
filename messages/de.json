@@ -2342,6 +2342,7 @@
       "toggle": "Infos zum Ort",
       "loading": "Wird geladen…",
       "none": "Für diesen Ort gibt es keine Infos.",
+      "notYet": "Für diesen Ort sind die Infos noch nicht geladen. Öffne ihn später noch einmal.",
       "limited": "Infos gerade nicht abrufbar.",
       "error": "Die Infos konnten nicht geladen werden.",
       "more": "Weiter auf Wikipedia",
