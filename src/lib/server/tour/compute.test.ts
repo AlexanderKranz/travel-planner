@@ -491,7 +491,9 @@ describe("computeTour: pipeline", () => {
     const wait = 12 * 60 - arrive2;
     expect(res.data.stopTimes?.[1]).toMatchObject({ waitMin: wait, leave: "12:30" });
     expect(res.data.result.totalMin).toBe(LEGS[0].min + LEGS[1].min + 3 * 30 + wait);
-    expect(res.data.result.hours).toEqual([{ key: P[2].key, kind: "closed", at: expect.stringMatching(/^1\d:\d\d$/), checkedAt: "2026-11-14T09:00:00Z" }]);
+    const arrive3 = 12 * 60 + 30 + LEGS[1].min; // leaves P[1] at 12:30 after the wait and its dwell
+    const at = `${String(Math.floor(arrive3 / 60)).padStart(2, "0")}:${String(arrive3 % 60).padStart(2, "0")}`;
+    expect(res.data.result.hours).toEqual([{ key: P[2].key, kind: "closed", at, checkedAt: "2026-11-14T09:00:00Z" }]);
   });
 
   it("over the limit with the matrix at hand: drop proposals without extra calls", async () => {

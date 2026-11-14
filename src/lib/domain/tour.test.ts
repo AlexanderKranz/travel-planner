@@ -31,6 +31,7 @@ describe("TourInput time windows (spec 17.4)", () => {
   it("needs startTime and is for places only", () => {
     expect(win({ after: "11:00" }, {})).toBe(false);
     expect(TourInput.safeParse({ ...base, startTime: "10:00", start: { ...p("osm:s"), window: { after: "11:00" } } }).success).toBe(false);
+    expect(TourInput.safeParse({ ...base, startTime: "10:00", city: { ...p("geo:1"), source: "geonames", window: { after: "11:00" } } }).success).toBe(false);
   });
 });
 

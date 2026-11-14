@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { orderTourWithWindows } from "./order";
+import { orderTour, orderTourWithWindows } from "./order";
 import { evaluate, exactWindowOrder, type WindowTiming } from "./order-windows";
 import { seededRandom } from "./test-random";
 
@@ -71,6 +71,6 @@ describe("time windows (spec 17.4)", () => {
   it("without windows it is the plain order", () => {
     const m = matrix(6, seededRandom(3));
     const t: WindowTiming = { startSec: 9 * H, dwellSec: m.map(() => 0), win: m.map(() => undefined) };
-    expect(orderTourWithWindows(m, { start: 0 }, t)).toMatchObject({ exact: true });
+    expect(orderTourWithWindows(m, { start: 0 }, t)).toEqual(orderTour(m, { start: 0 }));
   });
 });

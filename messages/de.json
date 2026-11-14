@@ -2437,7 +2437,7 @@
       "clear": "Zeitfenster entfernen",
       "order": "Bei einem Zeitfenster muss „Nicht vor“ vor „Spätestens bis“ liegen.",
       "wait": "{duration} Wartezeit",
-      "late": "Zeitfenster verpasst: Ankunft {duration} nach {before}. Keine Reihenfolge erreicht alle Zeitfenster; passe sie oder die Orte an."
+      "late": "Zeitfenster verpasst: Ankunft {duration} nach {before}. Passe das Zeitfenster, die Reihenfolge oder die Orte an."
     },
     "hours": {
       "closed": "Laut OpenStreetMap um {time} geschlossen (geprüft am {date}).",

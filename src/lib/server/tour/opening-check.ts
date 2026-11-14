@@ -23,22 +23,30 @@ export function openingIssues(a: {
 }): TourOpeningIssue[] {
   const [y, mo, d] = a.date.split("-").map(Number);
   const at = (min: number) => new Date(y, mo - 1, d, Math.floor(min / 60), min % 60);
+  // The parser reads coordinates only as strings at runtime (its types say numbers): needed for sunrise/sunset tags.
   const nominatim = {
-    lat: a.place.lat,
-    lon: a.place.lon,
+    lat: String(a.place.lat),
+    lon: String(a.place.lon),
     address: { country_code: (a.place.countryCode ?? "").toLowerCase(), state: "" },
-  };
+  } as unknown as ConstructorParameters<typeof OpeningHours>[1];
   const out: TourOpeningIssue[] = [];
+  // Stop times wrap at midnight (`HH:MM`); visits are in tour order, so a smaller time than the last means a new day.
+  let prev = -1;
+  let day = 0;
   for (const s of a.stops) {
+    if (!s.time) continue;
+    const clock = hhmmToMin(s.time.arrive) + (s.time.waitMin ?? 0);
+    if (clock + day * 1440 < prev) day += 1;
+    const begin = clock + day * 1440;
+    prev = begin;
     const h = a.hours.get(s.key);
-    if (!h || !s.time) continue;
+    if (!h) continue;
     let oh: OpeningHours;
     try {
       oh = new OpeningHours(h.tag, nominatim);
     } catch {
       continue; // not a tag the parser understands: shown raw only
     }
-    const begin = hhmmToMin(s.time.arrive) + (s.time.waitMin ?? 0);
     const end = begin + s.dwellMin;
     try {
       const startDate = at(begin);
@@ -48,7 +56,8 @@ export function openingIssues(a: {
         continue;
       }
       const change = oh.getNextChange(startDate, at(end));
-      if (change && change.getTime() < at(end).getTime()) {
+      // A change can be a comment only: report a closing only when the place is closed from then on.
+      if (change && change.getTime() < at(end).getTime() && !oh.getState(change)) {
         out.push({ key: s.key, kind: "closes", at: minToHhmm(change.getHours() * 60 + change.getMinutes()), checkedAt: h.checkedAt });
       }
     } catch {

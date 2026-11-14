@@ -2437,7 +2437,7 @@
       "clear": "Remove time window",
       "order": "In a time window, “Not before” must come before “At the latest”.",
       "wait": "{duration} waiting",
-      "late": "Time window missed: arrival {duration} after {before}. No order meets every time window; adjust them or the places."
+      "late": "Time window missed: arrival {duration} after {before}. Adjust the time window, the order or the places."
     },
     "hours": {
       "closed": "According to OpenStreetMap closed at {time} (checked on {date}).",

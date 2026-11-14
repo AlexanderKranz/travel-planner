@@ -22,6 +22,23 @@ describe("openingIssues (spec 17.4)", () => {
   it("uses the visit start after a window wait", () => {
     expect(run("Mo-Fr 11:00-18:00", "10:40", 60, 20)).toEqual([]);
   });
+  it("uses the place's coordinates for sunrise/sunset tags (review of #237)", () => {
+    // Wien in mid-November: sunset about 16:20, so 17:00 is closed; the parser's default (18:00) would say open.
+    expect(run("sunrise-sunset", "17:00", 30)).toEqual([{ key: "osm:n1", kind: "closed", at: "17:00", checkedAt: "2026-11-14T09:00:00Z" }]);
+  });
+  it("checks a visit after midnight on the next day", () => {
+    // Monday 23:00, then 00:30 on Tuesday; the place opens Tuesday only.
+    const res = openingIssues({
+      date: "2026-11-16",
+      stops: [
+        { key: "osm:x", time: { arrive: "23:00", leave: "23:30" }, dwellMin: 30 },
+        { key: "osm:n1", time: { arrive: "00:30", leave: "01:00" }, dwellMin: 30 },
+      ],
+      hours: hours("Tu 00:00-02:00"),
+      place,
+    });
+    expect(res).toEqual([]);
+  });
   it("an unparsable tag gives no claim", () => {
     expect(run("ask the porter", "10:00")).toEqual([]);
   });

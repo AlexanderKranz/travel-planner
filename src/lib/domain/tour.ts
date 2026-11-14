@@ -103,7 +103,7 @@ const tourSettings = {
 
 type RefineInput = {
   date?: string;
-  city?: { key: string };
+  city?: { key: string; window?: TourWindow };
   mode: TourMode;
   route: RouteOption;
   legOverrides?: Record<string, LegSetting>;
@@ -183,6 +183,7 @@ function refineTour(v: RefineInput, ctx: z.RefinementCtx): void {
     if (p.window && v.startTime === undefined) bad(["places", i, "window"], "A time window needs startTime");
   });
   if (v.start?.window) bad(["start", "window"], "Time windows are for places only");
+  if (v.city?.window) bad(["city", "window"], "Time windows are for places only");
   if (typeof v.end === "object" && v.end.window) bad(["end", "window"], "Time windows are for places only");
   // Leg keys and override keys need distinct points. `end` may share the start key (a round trip written out).
   const keys = v.places.map((p) => p.key);
