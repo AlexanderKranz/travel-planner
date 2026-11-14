@@ -359,6 +359,9 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
           droppedOverrides={outdated ? 0 : extras?.droppedOverrides}
           sightsPending={extras?.sightsPending}
           onChangeLeg={(from, to) => setSheet(openLegSheet(from, to, form))}
+          onWalkLeg={(from, to) =>
+            edit({ ...form, legOverrides: applyLegSheet(form.legOverrides, { ...openLegSheet(from, to, form), mode: "foot", route: "fastest" }, form) })
+          }
           onAddSight={addSight}
           sightInTour={(key) => form.places.some((p) => p.key === key)}
           canAddMore={!full}
@@ -392,6 +395,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
 
       <LegSheet
         sheet={sheet}
+        transitOk={!!(form.date && form.startTime && form.city)}
         fromName={sheet ? (names.get(sheet.from) ?? "") : ""}
         toName={sheet ? (names.get(sheet.to) ?? "") : ""}
         onChange={setSheet}

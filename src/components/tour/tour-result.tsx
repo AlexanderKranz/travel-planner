@@ -2,11 +2,12 @@
 
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { btnSecondary, cardCls, labelCls, mutedCls, pillAccentCls, pillCls, warnBox } from "@/components/ui/styles";
-import type { TourInput, TourResult, TourSight } from "@/lib/domain/tour";
+import { isTransit, type TourInput, type TourResult, type TourSight } from "@/lib/domain/tour";
 import { formatKm, orderedCoords, resultRows, roundMetres, type LegRow, type Proposal } from "@/lib/tour/ui";
 import { formatDuration } from "./format";
 import { GoogleLinks } from "./google-links";
 import { TourDirectionsPanel } from "./tour-directions";
+import { TransitLegDetails } from "./transit-leg";
 import { TourForecastLine } from "./tour-forecast";
 import { StopInfoProvider } from "./stop-info/context";
 import { StopInfoToggle, TourReadOutBar } from "./stop-info/stop-info";
@@ -30,6 +31,8 @@ export type TourResultProps = {
   sightsPending?: boolean;
   /** Owner controls; absent in the read-only view. */
   onChangeLeg?: (from: string, to: string) => void;
+  /** A failed public transport leg: walk it instead (owner and write grantees). */
+  onWalkLeg?: (from: string, to: string) => void;
   onAddSight?: (s: TourSight) => void;
   sightInTour?: (key: string) => boolean;
   canAddMore?: boolean;
@@ -75,6 +78,7 @@ function TourResultInner(p: TourResultProps) {
   const coords = orderedCoords(input, result.order);
   const checked = (iso: string | undefined) => (iso ? format.dateTime(new Date(iso), { dateStyle: "medium" }) : null);
   const osmChecked = checked(result.source.osm);
+  const transitChecked = checked(result.source.transit);
   const sightsOpen = result.fit === "under";
   const mapPoints = coords.map((c, i) => ({ lat: c.lat, lon: c.lon, n: i + 1, name: names.get(c.key) ?? "" }));
   // A round trip ends at the start: one marker is enough there.
@@ -213,6 +217,8 @@ function TourResultInner(p: TourResultProps) {
                       sightsOpen={sightsOpen}
                       sightsPending={!!p.sightsPending && i === 0}
                       onChange={p.onChangeLeg}
+                      onWalk={p.onWalkLeg}
+                      transitChecked={transitChecked}
                       onAddSight={p.onAddSight}
                       sightInTour={p.sightInTour}
                       canAddMore={p.canAddMore ?? false}
@@ -249,11 +255,15 @@ function LegItem({
   sightsOpen,
   sightsPending,
   onChange,
+  onWalk,
+  transitChecked,
   onAddSight,
   sightInTour,
   canAddMore,
 }: {
   leg: LegRow;
+  onWalk?: (from: string, to: string) => void;
+  transitChecked: string | null;
   fromName: string;
   toName: string;
   osmChecked: string | null;
@@ -277,10 +287,10 @@ function LegItem({
             <span>
               <strong>{formatDuration(t, leg.min!)}</strong>
               {leg.km !== null && ` · ${t("km", { km: formatKm(leg.km, locale) })}`}
-              {` · ${t(`routes.${leg.route}`)}`}
+              {isTransit(leg.mode) ? ` · ${t("modes.transit")}` : ` · ${t(`routes.${leg.route}`)}`}
             </span>
           ) : (
-            <span className="text-danger">{leg.s === "no_route" || leg.s === "not_routable" ? t("noRoute") : t("legFailed")}</span>
+            <span className="text-danger">{isTransit(leg.mode) ? t("modes.transit") : leg.s === "no_route" || leg.s === "not_routable" ? t("noRoute") : t("legFailed")}</span>
           )}
         </span>
         {leg.overridden && <span className={pillCls}>{t("legOverride")}</span>}
@@ -295,6 +305,9 @@ function LegItem({
           </button>
         )}
       </div>
+      {isTransit(leg.mode) && (
+        <TransitLegDetails leg={leg} checked={transitChecked} onWalk={onWalk ? () => onWalk(leg.from, leg.to) : undefined} />
+      )}
       {sightsPending && <p className={`text-sm ${mutedCls}`}>{t("nearbyPending")}</p>}
       {leg.sights.length > 0 && (
         <details open={sightsOpen} className="flex flex-col gap-1">

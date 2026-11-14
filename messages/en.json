@@ -2400,6 +2400,32 @@
       "needsResult": "Compute the tour first, then you can create a link.",
       "linksHint": "Anyone with the link sees the computed tour with map and places, without signing in. Your name is not shown."
     },
+    "transit": {
+      "needs": "Public transport needs a date, a start time and a city for the tour.",
+      "sheetHint": "The connection comes from the timetable (Transitous) for this leg's departure. Waiting at the stop counts.",
+      "walkNotSlower": "Walking is not slower here than public transport, so this leg stays on foot.",
+      "walkInstead": "Walk this leg instead",
+      "why": {
+        "no_connection": "The timetable has no connection at this time.",
+        "no_time_zone": "The tour city has no known time zone, so no timetable was asked.",
+        "no_departure": "The departure time is not known because an earlier leg has no time.",
+        "unavailable": "The timetable service is not reachable right now."
+      },
+      "partWalk": "Walk to {to} · {dep}–{arr}",
+      "partRide": "{line}{head, select, none {} other { towards {head}}} · {from} {dep} → {to} {arr}{stops, plural, =0 {} one { · # stop} other { · # stops}}",
+      "destination": "the destination",
+      "vehicle": {
+        "bus": "Bus",
+        "tram": "Tram",
+        "subway": "Metro",
+        "rail": "Train",
+        "ferry": "Ferry",
+        "other": "Line"
+      },
+      "scheduled": "Timetable, not real time",
+      "source": "Timetable data: Transitous",
+      "checked": "retrieved {date}"
+    },
     "routeCredit": "Routes: © openrouteservice.org"
   }
 }

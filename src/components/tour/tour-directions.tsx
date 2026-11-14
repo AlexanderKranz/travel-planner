@@ -8,6 +8,7 @@ import { getTourDirections, type TourDirections } from "@/lib/server/tour/direct
 import { buildGpx, gpxFileName } from "@/lib/tour/gpx";
 import { tourPointsOf } from "@/lib/tour/points";
 import { resultVersion, stepLines } from "@/lib/tour/steps";
+import { TransitLegDetails } from "./transit-leg";
 
 /**
  * "Wegbeschreibung" (spec 17.1 [P2]): nothing is fetched until the button is pressed. Shows turn-by-turn steps per
@@ -134,6 +135,8 @@ export function TourDirectionsPanel({
               <p className="break-words font-medium">{t("directions.leg", { n: i + 1, from: name(leg.from), to: name(leg.to) })}</p>
               {d === null ? (
                 <p className={`text-sm ${mutedCls}`}>{t("directions.legFailed")}</p>
+              ) : d.transit ? (
+                <TransitLegDetails leg={leg} checked={null} />
               ) : (
                 <ol className="flex flex-col gap-1 pl-4">
                   {stepLines(d.steps).map((s, j) => (
