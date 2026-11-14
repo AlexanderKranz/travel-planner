@@ -9,10 +9,13 @@ import { btnPrimary, btnSecondary, inputCls, mutedCls } from "@/components/ui/st
 import { useRouter } from "@/i18n/navigation";
 import type { ActionError } from "@/lib/domain";
 import { SHARE_EXPIRY_DAYS } from "@/lib/domain/share";
-import { createShareLink } from "@/lib/server/shares";
+import { createShareLink, createTourShareLink } from "@/lib/server/shares";
 
-/** Create form. The URL comes back once: show it with copy (aria-live) and native share. */
-export function ShareCreate({ tripId, disabledReason }: { tripId: string; disabledReason: string | null }) {
+/**
+ * Create form. The URL comes back once: show it with copy (aria-live) and native share. With `tourId` it creates a
+ * link for a standalone city tour (no items to include, city-tour 9.3).
+ */
+export function ShareCreate({ tripId, tourId, disabledReason }: { tripId?: string; tourId?: string; disabledReason: string | null }) {
   const t = useTranslations("share");
   const router = useRouter();
   const urlId = useId();
@@ -32,12 +35,10 @@ export function ShareCreate({ tripId, disabledReason }: { tripId: string; disabl
     setError(null);
     setCopied(false);
     start(async () => {
-      const r = await createShareLink(tripId, {
-        label: label.trim() === "" ? null : label.trim(),
-        expiresInDays: expiry === "" ? null : Number(expiry),
-        includeItems,
-        includeItemNotes: includeItems && includeNotes,
-      });
+      const common = { label: label.trim() === "" ? null : label.trim(), expiresInDays: expiry === "" ? null : Number(expiry) };
+      const r = tourId
+        ? await createTourShareLink(tourId, common)
+        : await createShareLink(tripId ?? "", { ...common, includeItems, includeItemNotes: includeItems && includeNotes });
       if (r.ok) {
         setUrl(r.data.url);
         router.refresh();
@@ -68,6 +69,7 @@ export function ShareCreate({ tripId, disabledReason }: { tripId: string; disabl
             ))}
           </SelectField>
         </div>
+        {!tourId && (
         <div>
           <CheckboxField
             label={t("includeItems")}
@@ -86,6 +88,7 @@ export function ShareCreate({ tripId, disabledReason }: { tripId: string; disabl
           />
           <p className={`pl-8 text-sm ${mutedCls}`}>{t("includeNotesHint")}</p>
         </div>
+        )}
         {disabledReason && <p className={`text-sm ${mutedCls}`}>{disabledReason}</p>}
         <div>
           <button type="submit" className={`${btnPrimary} w-full sm:w-auto`} disabled={pending || !!disabledReason}>

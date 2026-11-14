@@ -221,6 +221,9 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
     if (prefill) {
       router.push(`/app/trips/${prefill.tripId}`);
       router.refresh();
+    } else if (!isNew && result === null) {
+      // The first result of a saved tour: the server-rendered sharing panel ("compute first") reloads (city-tour 9.3).
+      router.refresh();
     }
   }
 
@@ -368,7 +371,8 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
         saved && <p className={`text-sm ${mutedCls}`}>{t("notComputed")}</p>
       )}
 
-      {saved && (
+      {/* Trip link and delete are the owner's; a write grantee edits and computes only (city-tour 9.3). */}
+      {saved && saved.access === "owner" && (
         <div className="flex flex-col gap-4">
           <TourTripLink
             tourId={saved.id}

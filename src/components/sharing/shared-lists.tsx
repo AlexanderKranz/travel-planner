@@ -1,3 +1,4 @@
+import { TourCard } from "@/components/tour/tour-card";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { TripCard } from "@/components/trips/trip-card";
@@ -75,6 +76,30 @@ export function SharedGroups({ shares }: { shares: IncomingShare[] }) {
                 <ShareBadge owner={share.owner} access={share.access} />
               </span>
             </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** "Shared with me" city tours (city-tour 9.3) as tour cards with the owner/level badge. Hidden when empty. */
+export function SharedTours({ shares }: { shares: IncomingShare[] }) {
+  const t = useTranslations("sharing");
+  const items = shares.flatMap((s) => (s.resource === "tour" && s.tour ? [{ share: s, tour: s.tour }] : []));
+  if (items.length === 0) return null;
+  return (
+    <section aria-labelledby="shared-tours-title" className="flex flex-col gap-2" data-testid="shared-tours">
+      <h2 id="shared-tours-title" className="mt-2 font-serif text-xl font-bold text-heading">
+        {t("sharedWithMe")}
+      </h2>
+      <ul className="flex flex-col gap-2">
+        {items.map(({ share, tour }) => (
+          <li key={tour.id} className="flex flex-col gap-1">
+            <TourCard tour={tour} />
+            <span className="flex flex-wrap gap-1">
+              <ShareBadge owner={share.owner} access={share.access} />
+            </span>
           </li>
         ))}
       </ul>

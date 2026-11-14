@@ -190,7 +190,7 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
   if (!session) return err("unauthenticated");
   if (!Id.safeParse(id).success) return err("invalid");
 
-  // 1. Load through RLS; owner only (grantees of a linked trip can read, not compute).
+  // 1. Load through RLS; owner or write grantee of the tour (read grantees and trip grantees read, not compute).
   const { data: row, error: readError } = await session.supabase
     .from("city_tours")
     .select(TOUR_COLUMNS)

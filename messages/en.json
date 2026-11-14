@@ -1227,6 +1227,8 @@
     "notFoundTitle": "Link not found",
     "notFoundText": "This link is invalid, expired or was revoked. Ask the person who shared it for a new one.",
     "metaTitle": "Shared travel plan",
+    "tourBanner": "Shared city tour",
+    "tourMetaTitle": "Shared city tour",
     "home": "Go to the home page",
     "pdfBusy": "Creating PDF…",
     "pdfFailed": "The PDF could not be created. Please try again later."
@@ -2030,6 +2032,7 @@
     "conflictLoad": "Load latest version",
     "conflictOverwrite": "Save anyway",
     "groupShareNotice": "They will see every entry with names and birthdates, yours too if you are in the group. They can use the group for their own trips and mark an entry as themselves. People they share those trips with can see it there.",
+    "tourShareNotice": "They see the tour with all places, times and routes. With write access they can change places and settings and compute the tour again, but not delete it or link it to a trip.",
     "confirmLeaveGroup": "You lose access. Your own trips and searches that use this group lose it. {name} keeps the group.",
     "sharedGroupHint": "This group is shared with you. You can pick it for your own trips and destination searches.",
     "groupViaTripHint": "You see this group because it is used on a trip shared with you. You can view it, but not use or change it.",
@@ -2381,6 +2384,11 @@
         "voiceNote": "The voice comes from your device.",
         "intro": "{n}. {name}."
       }
+    },
+    "sharing": {
+      "title": "Share",
+      "needsResult": "Compute the tour first, then you can create a link.",
+      "linksHint": "Anyone with the link sees the computed tour with map and places, without signing in. Your name is not shown."
     },
     "routeCredit": "Routes: © openrouteservice.org"
   }

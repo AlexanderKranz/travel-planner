@@ -1227,6 +1227,8 @@
     "notFoundTitle": "Link nicht gefunden",
     "notFoundText": "Dieser Link ist ungültig, abgelaufen oder wurde widerrufen. Frag die Person, die ihn geteilt hat, nach einem neuen.",
     "metaTitle": "Geteilter Reiseplan",
+    "tourBanner": "Geteilte Stadttour",
+    "tourMetaTitle": "Geteilte Stadttour",
     "home": "Zur Startseite",
     "pdfBusy": "PDF wird erstellt …",
     "pdfFailed": "Das PDF konnte nicht erstellt werden. Bitte versuche es später noch einmal."
@@ -2030,6 +2032,7 @@
     "conflictLoad": "Neueste Version laden",
     "conflictOverwrite": "Trotzdem speichern",
     "groupShareNotice": "Die Person sieht alle Einträge mit Namen und Geburtsdaten, auch deins, wenn du in der Gruppe bist. Sie kann die Gruppe für eigene Reisen nutzen und einen Eintrag als sich selbst markieren. Wer diese Reisen von ihr geteilt bekommt, sieht die Gruppe dort.",
+    "tourShareNotice": "Die Person sieht die Tour mit allen Orten, Zeiten und Wegen. Mit Schreibrecht kann sie Orte und Einstellungen ändern und die Tour neu berechnen, aber nicht löschen oder mit einer Reise verknüpfen.",
     "confirmLeaveGroup": "Du verlierst den Zugriff. Deine eigenen Reisen und Suchen mit dieser Gruppe verlieren sie. {name} behält die Gruppe.",
     "sharedGroupHint": "Diese Gruppe ist mit dir geteilt. Du kannst sie für eigene Reisen und Zielsuchen auswählen.",
     "groupViaTripHint": "Du siehst diese Gruppe, weil sie auf einer mit dir geteilten Reise verwendet wird. Du kannst sie ansehen, aber nicht verwenden oder ändern.",
@@ -2381,6 +2384,11 @@
         "voiceNote": "Die Stimme kommt von deinem Gerät.",
         "intro": "{n}. {name}."
       }
+    },
+    "sharing": {
+      "title": "Teilen",
+      "needsResult": "Berechne die Tour zuerst, dann kannst du einen Link erstellen.",
+      "linksHint": "Wer den Link hat, sieht die berechnete Tour mit Karte und Orten, ohne Anmeldung. Dein Name wird nicht gezeigt."
     },
     "routeCredit": "Routen: © openrouteservice.org"
   }

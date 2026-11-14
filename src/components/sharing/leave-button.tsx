@@ -22,7 +22,7 @@ export function LeaveButton({ resource, shareId, ownerName }: { resource: ShareR
     start(async () => {
       const r = await leaveShare({ resource, shareId });
       if (r.ok) {
-        router.push(resource === "trip" ? "/app" : resource === "group" ? "/app/groups" : "/app/purposes");
+        router.push(resource === "trip" ? "/app" : resource === "group" ? "/app/groups" : resource === "tour" ? "/app/tours" : "/app/purposes");
         router.refresh();
       } else {
         setOpen(false);
