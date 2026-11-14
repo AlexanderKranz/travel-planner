@@ -39,6 +39,8 @@ export type TourResultProps = {
   title?: string;
   /** Owner only: "Tour neu berechnen" from the changed-route notice, forced (spec 17.4). */
   onRecomputeForce?: () => Promise<unknown> | void;
+  /** Public tour link (city-tour 9.3): stop info by token; no directions or forecast (they need a session). */
+  shareToken?: string;
 };
 
 /** Remount key of the map: changes with any of its inputs (route geometry, modes, stops, sights). */
@@ -54,7 +56,9 @@ function mapKey(result: TourResult, mode: string, coords: { lat: number; lon: nu
 /** With a saved tour, stop info loads for the signed-in reader (owner or grantee) through one page-local provider. */
 export function TourResultView(p: TourResultProps) {
   const inner = <TourResultInner {...p} />;
-  return p.tourId ? <StopInfoProvider source={{ kind: "session" }}>{inner}</StopInfoProvider> : inner;
+  if (!p.tourId) return inner;
+  const source = p.shareToken ? ({ kind: "share", token: p.shareToken } as const) : ({ kind: "session" } as const);
+  return <StopInfoProvider source={source}>{inner}</StopInfoProvider>;
 }
 
 function TourResultInner(p: TourResultProps) {
@@ -112,7 +116,7 @@ function TourResultInner(p: TourResultProps) {
             {t("outdated")}
           </p>
         )}
-        {p.tourId && input.date && !p.outdated && <TourForecastLine tourId={p.tourId} date={input.date} />}
+        {p.tourId && !p.shareToken && input.date && !p.outdated && <TourForecastLine tourId={p.tourId} date={input.date} />}
         {result.sunset && <p className={warnBox}>{t("sunset", { time: result.sunset })}</p>}
         {result.orderApprox && (
           <p className={`text-sm ${mutedCls}`} data-testid="tour-order-approx">
@@ -228,7 +232,7 @@ function TourResultInner(p: TourResultProps) {
         </p>
         <p>{t("walkNote")}</p>
         {/* Keyed by the result: a new computation resets loaded steps, so they never describe an older route. */}
-        {p.tourId && !p.outdated && (
+        {p.tourId && !p.shareToken && !p.outdated && (
           <TourDirectionsPanel key={resultVersion(result)} tourId={p.tourId} title={p.title ?? ""} input={input} result={result} onRecompute={p.onRecomputeForce} />
         )}
         <GoogleLinks points={coords} mode={input.mode} />

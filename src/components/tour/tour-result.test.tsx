@@ -100,6 +100,13 @@ describe("TourResultView", () => {
     expect(vi.mocked(getTourDirections)).not.toHaveBeenCalled(); // only the button press fetches
   });
 
+  it("on a public tour link (shareToken) shows no directions, which need a session (city-tour 9.3)", () => {
+    const id = "33333333-3333-4333-8333-333333333333";
+    const html = render("de", de as Messages, { tourId: id, title: "Wien", shareToken: "a".repeat(43) });
+    expect(html).not.toContain("tour-directions-button");
+    expect(html).toContain("Stephansdom"); // the stored tour itself is shown
+  });
+
   it("stop info toggles only for a saved, current tour, collapsed (city-tour-stop-info 6)", () => {
     const id = "33333333-3333-4333-8333-333333333333";
     const html = render("de", de as Messages, { tourId: id, title: "Wien" });
