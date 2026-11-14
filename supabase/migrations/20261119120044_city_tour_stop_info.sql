@@ -81,13 +81,17 @@ set search_path = ''
 as $$
 declare
   v_rows integer;
+  v_owner uuid;
 begin
   if p_tour is null or p_locale is null or p_locale not in ('de', 'en') or jsonb_typeof(p_entries) is distinct from 'array' then
     raise exception 'invalid arguments' using errcode = '22023';
   end if;
-  if not exists (select 1 from public.city_tours where id = p_tour) then
+  select owner_id into v_owner from public.city_tours where id = p_tour;
+  if v_owner is null then
     return 'not_found';
   end if;
+  -- Hold the owner's profile row until commit, so a locale change cannot slip between the check and the write.
+  perform 1 from public.profiles where id = v_owner for share;
 
   -- One UPDATE: under READ COMMITTED a concurrent merge on the same row is re-evaluated against the newer version.
   update public.city_tours t
@@ -102,7 +106,10 @@ begin
                         else '[]'::jsonb end) e
                   where not exists (select 1 from jsonb_array_elements(p_entries) n where n ->> 'key' = e ->> 'key')
                  union all
-                 select n from jsonb_array_elements(p_entries) n
+                 -- One entry per key from the batch (the last one wins).
+                 (select distinct on (n ->> 'key') n
+                    from jsonb_array_elements(p_entries) with ordinality as x(n, i)
+                   order by n ->> 'key', i desc)
                ) m(e)
               where e ->> 'key' = any (private.tour_point_keys(t.input))
            ), '[]'::jsonb))
@@ -120,7 +127,8 @@ $$;
 create table if not exists public.stop_info_slots (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid references auth.users (id) on delete cascade,
-  link_id     uuid references public.share_links (id) on delete cascade,
+  -- No foreign key: deleting a share link must not delete its settled slots (they keep counting app-wide today).
+  link_id     uuid,
   created_at  timestamptz not null default now(),
   settled_at  timestamptz,
   constraint stop_info_slots_one_scope check ((user_id is null) <> (link_id is null))

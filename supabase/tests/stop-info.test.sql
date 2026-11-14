@@ -99,7 +99,15 @@ update public.stop_info_slots set created_at = now() - interval '5 minutes' wher
 select is(public.stop_info_reserve('5100000a-0000-4000-8000-0000000000a1', null, 3, 100, now() - interval '1 hour') ->> 'reason',
   'scope', 'settled slots keep counting, however old within the day (3 settled, limit 3)');
 select throws_ok($$select public.stop_info_reserve(null, null, 1, 1, now())$$, '22023', null, 'exactly one scope is required');
-select lives_ok($$select public.stop_info_release(id) from public.stop_info_slots where settled_at is null$$, 'release removes pending slots');
+select lives_ok($$select public.stop_info_release(id) from public.stop_info_slots where settled_at is null$$, 'release runs');
+select is((select count(*)::int from public.stop_info_slots where settled_at is null), 0, 'release removed the pending slots');
+select is((select count(*)::int from public.stop_info_slots where settled_at is not null), 3, 'release keeps settled slots');
+
+-- A batch with the same key twice stores one entry (the last).
+select is(public.merge_stop_info('5100000a-0000-4000-8000-0000000071a1',
+  '[{"key":"osm:p1","status":"none","checkedAt":"first"},{"key":"osm:p1","status":"none","checkedAt":"last"}]', 'de'), 'ok', 'merge with a duplicate key');
+select is((select jsonb_path_query_array(stop_info, '$.stops[*].checkedAt') from public.city_tours where id = '5100000a-0000-4000-8000-0000000071a1'),
+  '["last"]'::jsonb, 'duplicate keys in a batch: one entry, the last wins');
 
 select * from finish();
 rollback;
