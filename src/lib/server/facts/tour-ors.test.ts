@@ -42,7 +42,39 @@ vi.mock("./ors-quota", () => ({
 vi.mock("@/lib/integrations/http", async (orig) => ({ ...(await orig<typeof import("@/lib/integrations/http")>()), postJson: h.postJson }));
 
 import { HttpError } from "@/lib/integrations/http";
-import { getTourMatrix, getTourRoute, getTourSteps, peekTourMatrix, TOUR_ORS_TTL_SECONDS, tourMatrixKey, tourRouteKey, tourStepsKey, withinPolyBudget } from "./tour-ors";
+import {
+  getTourMatrix,
+  getTourRoute,
+  getTourSteps,
+  peekTourMatrix,
+  TOUR_ORS_TTL_SECONDS,
+  tourMatrixKey,
+  tourRouteKey,
+  tourStepsKey,
+  withinPolyBudget,
+  withinStepsBudget,
+} from "./tour-ors";
+import type { OrsStep } from "@/lib/integrations/openrouteservice";
+
+describe("withinStepsBudget (steps entries stay under the cache row limit)", () => {
+  const step = (i: number): OrsStep => [1, `Straße ${i}`, 50, i];
+  const leg = (poly: number, steps: number) => ({ min: 5, km: 1, poly: "a".repeat(poly), steps: Array.from({ length: steps }, (_, i) => step(i)) });
+
+  it("keeps a normal entry as it is", () => {
+    const r = withinStepsBudget({ result: "ok", legs: [leg(500, 20), leg(800, 30)] });
+    expect(r.result === "ok" && r.legs.map((l) => [l.poly.length, l.steps.length])).toEqual([[500, 20], [800, 30]]);
+  });
+
+  it("cuts steps per leg (arrival kept), drops the longest lines first and fits the budget", () => {
+    const big = withinStepsBudget({ result: "ok", legs: Array.from({ length: 26 }, (_, i) => leg(i === 0 ? 7000 : 7600, 500)) });
+    if (big.result !== "ok") throw new Error("unexpected");
+    expect(JSON.stringify(big).length).toBeLessThanOrEqual(250_000);
+    expect(big.legs.every((l) => l.steps.length <= 400)).toBe(true);
+    expect(big.legs[1].steps.at(-1)).toEqual(step(499));
+    expect(big.legs.some((l) => l.poly === "")).toBe(true);
+    expect(withinStepsBudget({ result: "no_route" })).toEqual({ result: "no_route" });
+  });
+});
 
 const fx = (name: string) =>
   JSON.parse(readFileSync(join(__dirname, "../../integrations/__fixtures__/ors-tour", `${name}.json`), "utf8"));

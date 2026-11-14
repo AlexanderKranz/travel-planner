@@ -24,8 +24,8 @@ export function TourDirectionsPanel({
   title: string;
   input: TourInput;
   result: TourResult;
-  /** Owner only: forced recomputation when the route changed (spec 17.4). */
-  onRecompute?: () => void;
+  /** Owner only: forced recomputation when the route changed (spec 17.4); settles when it ran, failed or did not start. */
+  onRecompute?: () => Promise<unknown> | void;
 }) {
   const t = useTranslations("tours");
   const format = useFormatter();
@@ -94,8 +94,13 @@ export function TourDirectionsPanel({
           className={`${btnSecondary} self-start`}
           disabled={recomputing}
           onClick={() => {
-            setRecomputing(true); // one forced computation per answer; the panel resets with the new result
-            onRecompute();
+            // Disabled while it runs; enabled again when it settles (busy, failed or unchanged result), so the owner
+            // can retry. A changed result remounts the panel anyway.
+            setRecomputing(true);
+            void Promise.resolve()
+              .then(() => onRecompute())
+              .catch(() => undefined)
+              .finally(() => setRecomputing(false));
           }}
           data-testid="tour-directions-recompute"
         >
