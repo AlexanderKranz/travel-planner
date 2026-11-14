@@ -1895,7 +1895,7 @@
       },
       "tours": {
         "title": "Stadttouren",
-        "text": "Bis zu 25 Orte in einer Stadt, auch als eingefügte Liste. Die App ordnet sie und plant die Wege: zu Fuß, im Rollstuhl, mit Fahrrad, E-Bike oder Auto, einzelne Abschnitte auch mit ÖPNV. Dazu Wetter für den Tag, Zeitfenster und Öffnungszeiten, Infos zu jedem Ort zum Vorlesen, Wegbeschreibung mit GPX-Datei, teilen und als PDF. Eine Tour lässt sich einem Reisetag zuordnen.",
+        "text": "Bis zu 25 Orte in einer Stadt, auch als eingefügte Liste. Die App ordnet sie, plant die Wege und zeigt Sehenswertes am Weg: zu Fuß, im Rollstuhl, mit Fahrrad, E-Bike oder Auto, einzelne Abschnitte auch mit ÖPNV. Dazu Wetter für den Tag, Zeitfenster und Öffnungszeiten, Infos zu jedem Ort zum Vorlesen, Wegbeschreibung mit GPX-Datei, teilen und als PDF. Eine Tour lässt sich einem Reisetag zuordnen.",
         "link": "Stadttour planen"
       },
       "plan": {

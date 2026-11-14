@@ -1895,7 +1895,7 @@
       },
       "tours": {
         "title": "City tours",
-        "text": "Up to 25 places in a city, also as a pasted list. The app orders them and plans the way: on foot, by wheelchair, bike, e-bike or car, single legs also by public transport. Plus the weather for the day, time windows and opening hours, info on each place to read aloud, directions with a GPX file, sharing and a PDF. A tour can be linked to a trip day.",
+        "text": "Up to 25 places in a city, also as a pasted list. The app orders them, plans the way and shows sights along it: on foot, by wheelchair, bike, e-bike or car, single legs also by public transport. Plus the weather for the day, time windows and opening hours, info on each place to read aloud, directions with a GPX file, sharing and a PDF. A tour can be linked to a trip day.",
         "link": "Plan a city tour"
       },
       "plan": {
