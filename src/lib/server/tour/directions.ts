@@ -81,7 +81,8 @@ async function run(id: string, version: string): Promise<TourDirectionsResult> {
     runs.map(async (r) => {
       const a = await fetchRun(r, false);
       // Instants, not strings: the cache and the tour row format fractional seconds differently.
-      const older = a.result !== "failed" && tour.computedAt !== null && Date.parse(a.fetchedAt) < Date.parse(tour.computedAt);
+      // A stale answer means the cache already tried to refresh and ORS failed: do not try a second time.
+      const older = a.result !== "failed" && !a.stale && tour.computedAt !== null && Date.parse(a.fetchedAt) < Date.parse(tour.computedAt);
       return older ? fetchRun(r, true) : a;
     }),
   );

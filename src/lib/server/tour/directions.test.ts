@@ -150,6 +150,13 @@ describe("getTourDirections", () => {
     expect(h.steps.mock.calls[1][4]).toEqual({ refresh: true });
   });
 
+  it("an old entry served stale (the cache's refresh already failed) is kept, not fetched a second time", async () => {
+    h.steps.mockResolvedValueOnce({ ...ok([{ km: 0.6 }, { km: 1.0 }]), fetchedAt: "2026-11-01T00:00:00.000Z", stale: true, cache: "stale" });
+    const res = await getTourDirections(TOUR, V());
+    expect(res.ok && res.data.stale).toBe(true);
+    expect(h.steps).toHaveBeenCalledTimes(1);
+  });
+
   it("rate limited after 6 per minute", async () => {
     h.steps.mockResolvedValue(ok([{ km: 0.6 }, { km: 1.0 }]));
     for (let i = 0; i < 6; i++) expect((await getTourDirections(TOUR, V())).ok).toBe(true);

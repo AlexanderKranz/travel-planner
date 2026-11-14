@@ -107,6 +107,12 @@ export function TourDirectionsPanel({
           {t("directions.recompute")}
         </button>
       )}
+      {data.legs.some((l) => l === null) && (
+        // A leg had no answer (ORS down for that run): offer a new request without reloading the page.
+        <button type="button" className={`${btnSecondary} self-start`} onClick={() => void load()} disabled={busy} data-testid="tour-directions-retry">
+          {busy ? t("directions.loading") : t("directions.retry")}
+        </button>
+      )}
       {data.legs.every((l) => l !== null && l.poly !== "") ? (
         <>
           <button type="button" className={`${btnSecondary} self-start`} onClick={() => downloadGpx(data)} data-testid="tour-gpx">

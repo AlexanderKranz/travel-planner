@@ -7,8 +7,10 @@ import { decodePolyline } from "./polyline";
 
 export type GpxStop = { name: string; lat: number; lon: number };
 
+/** XML 1.0 forbids C0 controls other than tab, LF and CR, and U+FFFE/U+FFFF: dropped before escaping. */
+const XML_FORBIDDEN = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g;
 const esc = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+  s.replace(XML_FORBIDDEN, "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 const c = (n: number) => n.toFixed(5);
 
 export function buildGpx(p: { name: string; stops: readonly GpxStop[]; legs: readonly (string | null)[]; creator: string }): string {
