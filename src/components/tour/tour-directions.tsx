@@ -44,7 +44,7 @@ export function TourDirectionsPanel({
       const res = await getTourDirections(tourId, resultVersion(result));
       if (res.ok) setData(res.data);
       else if (res.error === "not_computed") setError(t("directions.notComputed"));
-      else setError(t(`errors.${res.error === "rate_limited" || res.error === "ors_unavailable" || res.error === "conflict" ? res.error : "failed"}`));
+      else setError(t(`errors.${res.error === "rate_limited" || res.error === "ors_unavailable" || res.error === "conflict" || res.error === "unreachable" ? res.error : "failed"}`));
     } catch {
       setError(t("errors.failed"));
     } finally {
@@ -107,7 +107,7 @@ export function TourDirectionsPanel({
           {t("directions.recompute")}
         </button>
       )}
-      {data.legs.every((l) => l !== null) ? (
+      {data.legs.every((l) => l !== null && l.poly !== "") ? (
         <>
           <button type="button" className={`${btnSecondary} self-start`} onClick={() => downloadGpx(data)} data-testid="tour-gpx">
             {t("directions.gpx")}
@@ -136,6 +136,11 @@ export function TourDirectionsPanel({
                       {s.metres > 0 && <span className={`${mutedCls} tabular-nums`}>{t("directions.metres", { m: s.metres })}</span>}
                     </li>
                   ))}
+                  {d.cut && (
+                    <li className={`text-sm ${mutedCls}`} data-testid="tour-directions-cut">
+                      {t("directions.stepsCut")}
+                    </li>
+                  )}
                 </ol>
               )}
             </li>
