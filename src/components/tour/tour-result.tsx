@@ -281,13 +281,14 @@ function LegItem({
     <div className="ml-4 flex flex-col gap-2 border-l-2 border-dashed border-line-strong py-2 pl-5" data-testid="tour-leg">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="flex items-center gap-2 text-sm">
-          <ModeIcon mode={leg.mode} />
-          <span className="sr-only">{t(`modes.${leg.mode}`)}</span>
+          {/* A transit leg kept on foot (walking not slower) is shown as walking. */}
+          <ModeIcon mode={leg.note === "walk_not_slower" ? "foot" : leg.mode} />
+          <span className="sr-only">{t(`modes.${leg.note === "walk_not_slower" ? "foot" : leg.mode}`)}</span>
           {ok ? (
             <span>
               <strong>{formatDuration(t, leg.min!)}</strong>
               {leg.km !== null && ` · ${t("km", { km: formatKm(leg.km, locale) })}`}
-              {isTransit(leg.mode) ? ` · ${t("modes.transit")}` : ` · ${t(`routes.${leg.route}`)}`}
+              {isTransit(leg.mode) ? ` · ${t(leg.note === "walk_not_slower" ? "modes.foot" : "modes.transit")}` : ` · ${t(`routes.${leg.route}`)}`}
             </span>
           ) : (
             <span className="text-danger">{isTransit(leg.mode) ? t("modes.transit") : leg.s === "no_route" || leg.s === "not_routable" ? t("noRoute") : t("legFailed")}</span>

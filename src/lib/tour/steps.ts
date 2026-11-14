@@ -74,9 +74,10 @@ export function legChanged(stored: { km: number | null; poly: string | null }, f
 export function resultVersion(r: {
   order: readonly string[];
   legs: readonly { mode: string; route: string; km: number | null; poly?: string | null }[];
-  source?: { ors?: string };
+  source?: { ors?: string; transit?: string };
 }): string {
-  const text = `${r.order.join("|")}#${r.legs.map((l) => `${l.mode}:${l.route}:${l.km ?? "-"}:${l.poly ?? ""}`).join("|")}#${r.source?.ors ?? ""}`;
+  // The timetable date counts too: a recompute that only moved transit times makes an open page outdated.
+  const text = `${r.order.join("|")}#${r.legs.map((l) => `${l.mode}:${l.route}:${l.km ?? "-"}:${l.poly ?? ""}`).join("|")}#${r.source?.ors ?? ""}#${r.source?.transit ?? ""}`;
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) {
     h ^= text.charCodeAt(i);

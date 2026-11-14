@@ -3,7 +3,7 @@
 import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 import { btnSecondary, cardCls, linkCls, mutedCls, warnBox } from "@/components/ui/styles";
-import type { TourInput, TourResult } from "@/lib/domain/tour";
+import { isTransit, type TourInput, type TourResult } from "@/lib/domain/tour";
 import { getTourDirections, type TourDirections } from "@/lib/server/tour/directions";
 import { buildGpx, gpxFileName } from "@/lib/tour/gpx";
 import { tourPointsOf } from "@/lib/tour/points";
@@ -133,7 +133,9 @@ export function TourDirectionsPanel({
           return (
             <li key={`${leg.from}>${leg.to}`} className="flex flex-col gap-1">
               <p className="break-words font-medium">{t("directions.leg", { n: i + 1, from: name(leg.from), to: name(leg.to) })}</p>
-              {d === null ? (
+              {d === null && isTransit(leg.mode) ? (
+                <TransitLegDetails leg={leg} checked={null} />
+              ) : d === null ? (
                 <p className={`text-sm ${mutedCls}`}>{t("directions.legFailed")}</p>
               ) : d.transit ? (
                 <TransitLegDetails leg={leg} checked={null} />

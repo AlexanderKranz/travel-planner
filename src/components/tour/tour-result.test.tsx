@@ -113,7 +113,9 @@ describe("TourResultView", () => {
     expect(html2).not.toContain("Timetable, not real time");
 
     const walk = { ...result, legs: [result.legs[0], { ...transitLeg, transit: undefined, note: "walk_not_slower" as const }] };
-    expect(render("de", de as Messages, { result: walk })).toContain("Zu Fuß ist hier nicht langsamer");
+    const walkHtml = render("de", de as Messages, { result: walk });
+    expect(walkHtml).toContain("Zu Fuß ist hier nicht langsamer");
+    expect(walkHtml).toContain("2,4 km · Zu Fuß"); // labelled as walking, not ÖPNV
   });
 
   it("offers directions only for a saved, current tour; nothing is fetched on render", () => {
