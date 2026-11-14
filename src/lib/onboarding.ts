@@ -36,3 +36,14 @@ export function doneCount(steps: Record<OnboardingStep, boolean>): number {
 export function shouldShowOnboarding(p: { isDemo: boolean; onboardingDoneAt: string | null }): boolean {
   return !p.isDemo && p.onboardingDoneAt === null;
 }
+
+/**
+ * "Mehr entdecken" (#206): one-line hints after the steps. They are not steps, so they never count towards the
+ * progress and need no action. Texts in `start.more.<key>.{title,text,link}`; `link` only when `href` is set.
+ */
+export const ONBOARDING_HINTS = [
+  { key: "stops", href: "/app/trips/new" },
+  { key: "tours", href: "/app/tours/new" },
+  { key: "plan", href: null },
+  { key: "sharing", href: null },
+] as const;

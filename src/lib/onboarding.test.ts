@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { deriveSteps, doneCount, shouldShowOnboarding } from "./onboarding";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { deriveSteps, doneCount, ONBOARDING_HINTS, ONBOARDING_STEPS, shouldShowOnboarding } from "./onboarding";
 
 const empty = { homeAirports: [], birthdate: null, homeLocation: null, groupCount: 0, purposeCount: 0, tripCount: 0 };
 
@@ -30,5 +32,26 @@ describe("shouldShowOnboarding", () => {
   });
   it("never redirects the demo account", () => {
     expect(shouldShowOnboarding({ isDemo: true, onboardingDoneAt: null })).toBe(false);
+  });
+});
+
+describe("ONBOARDING_HINTS (#206)", () => {
+  const more = (loc: string) => JSON.parse(readFileSync(join(__dirname, `../../messages/${loc}.json`), "utf8")).start.more;
+
+  it("every hint has a title and text in de and en, and link text exactly when it links", () => {
+    for (const loc of ["de", "en"]) {
+      const m = more(loc);
+      expect(typeof m.title).toBe("string");
+      expect(typeof m.lead).toBe("string");
+      for (const h of ONBOARDING_HINTS) {
+        expect(m[h.key], `${loc}: ${h.key}`).toMatchObject({ title: expect.any(String), text: expect.any(String) });
+        expect(Object.hasOwn(m[h.key], "link"), `${loc}: ${h.key}.link`).toBe(h.href !== null);
+      }
+    }
+  });
+
+  it("hints are not steps: the progress still counts the four steps only", () => {
+    expect(ONBOARDING_STEPS).toHaveLength(4);
+    expect(ONBOARDING_HINTS.map((h) => h.key)).toEqual(["stops", "tours", "plan", "sharing"]);
   });
 });

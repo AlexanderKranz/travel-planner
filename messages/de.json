@@ -1885,6 +1885,28 @@
       "discover": "Reiseziele finden",
       "discoverWhy": "Noch kein Ziel? „Reiseziele finden“ schlägt Orte zu einem Reisezweck vor, in geschätzter Flugzeit ab deinen Heimatflughäfen oder in Fahrzeit ab deinem Wohnort. Flüge werden geprüft, sobald du die Reise anlegst."
     },
+    "more": {
+      "title": "Mehr entdecken",
+      "lead": "Kein Schritt, nur zum Wissen: Das kann der Reiseplaner noch.",
+      "stops": {
+        "title": "Kreuzfahrt oder Rundreise",
+        "text": "Beim Anlegen „Mehrere Stationen“ wählen. Den Reiseplan als PDF oder Foto hochladen; Häfen und Zeiten werden übernommen, Orte gibt es pro Station.",
+        "link": "Reise mit Stationen anlegen"
+      },
+      "tours": {
+        "title": "Stadttouren",
+        "text": "Bis zu 25 Orte in einer Stadt, auch als eingefügte Liste. Die App ordnet sie und plant die Wege: zu Fuß, im Rollstuhl, mit Fahrrad, E-Bike oder Auto, einzelne Abschnitte auch mit ÖPNV. Dazu Wetter für den Tag, Zeitfenster und Öffnungszeiten, Infos zu jedem Ort zum Vorlesen, Wegbeschreibung mit GPX-Datei, teilen und als PDF. Eine Tour lässt sich einem Reisetag zuordnen.",
+        "link": "Stadttour planen"
+      },
+      "plan": {
+        "title": "Plan anpassen",
+        "text": "Einen fertigen Plan änderst du mit „Plan anpassen“; frühere Versionen bleiben erhalten. Feste Termine und Kosten trägst du selbst ein, der Plan richtet sich danach. Jeder Plan geht auch als PDF."
+      },
+      "sharing": {
+        "title": "Teilen",
+        "text": "Reisen, Reisezwecke, Reisegruppen und Stadttouren teilst du mit anderen Nutzern (nur ansehen oder mitbearbeiten) oder per öffentlichem Link. Geteiltes findest du unter „Mit mir geteilt“."
+      }
+    },
     "link": {
       "settings": "Erste Schritte ansehen",
       "settingsHint": "Eine kurze Einführung: Name, Sprache, Heimatflughäfen und Wohnort, Reisegruppen, Reisezwecke und die erste Reise.",
