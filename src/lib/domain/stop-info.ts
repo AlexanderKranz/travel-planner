@@ -39,6 +39,8 @@ export const StopInfo = z.object({
   key: z.string().min(1).max(160),
   status: z.enum(["ok", "none"]),
   checkedAt: z.string(),
+  /** When this entry was built (the 30-day refresh counts from here; checkedAt may be older, from cached answers). */
+  storedAt: z.string().optional(),
   qid: z.string().regex(QID).optional(),
   lang: z.enum(STOP_INFO_LOCALES).optional(),
   title: z.string().max(200).optional(),

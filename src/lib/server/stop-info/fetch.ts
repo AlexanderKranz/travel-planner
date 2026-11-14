@@ -32,11 +32,12 @@ const DEFAULT_TIMEOUT_MS = 3000;
 const DAY = 86400;
 
 export type StopPoint = { key: string; cat?: string };
-export type BatchResult = { entries: StopInfo[]; unfinished: string[]; calls: number };
+export type BatchResult = { entries: StopInfo[]; unfinished: string[]; calls: number; storedAt: string };
 
 const hash = (parts: readonly string[]) => createHash("sha256").update([...parts].sort().join("|")).digest("hex").slice(0, 32);
 
-type Clock = { deadline: number; now: () => number };
+/** `offline`: a daily limit is used up, so only cached answers are used (spec 12, cache-only). */
+type Clock = { deadline: number; now: () => number; offline?: boolean };
 const timeLeft = (c: Clock) => c.deadline - c.now();
 const timeoutFor = (c: Clock) => Math.min(DEFAULT_TIMEOUT_MS, timeLeft(c));
 
@@ -77,7 +78,7 @@ export function osmTagsQuery(refs: readonly OsmRef[]): string {
   return `[out:json][timeout:10];(${part("node")}${part("way")}${part("relation")});out tags center;`;
 }
 
-type Got<T> = { ok: true; data: T; fetchedAt: string; network: boolean } | { ok: false };
+type Got<T> = { ok: true; data: T; fetchedAt: string; network: boolean } | { ok: false; network: boolean };
 
 async function call<T>(
   c: Clock,
@@ -92,13 +93,13 @@ async function call<T>(
     ttlSeconds: o.ttl,
     schema: o.schema,
     ctx,
-    fetchAllowed: () => timeLeft(c) >= MIN_LEFT_MS,
+    fetchAllowed: () => !c.offline && timeLeft(c) >= MIN_LEFT_MS,
     fetcher: async () => {
       network = true;
       return o.fetch(Math.max(MIN_LEFT_MS, timeoutFor(c)));
     },
   });
-  return r.ok ? { ok: true, data: r.data, fetchedAt: r.fetchedAt, network } : { ok: false };
+  return r.ok ? { ok: true, data: r.data, fetchedAt: r.fetchedAt, network } : { ok: false, network };
 }
 
 export async function fetchStopInfoBatch(
@@ -111,15 +112,14 @@ export async function fetchStopInfoBatch(
   const dates: string[] = [];
   let calls = 0;
   const note = <T,>(g: Got<T>): g is Got<T> & { ok: true } => {
-    if (g.ok) {
-      dates.push(g.fetchedAt);
-      if (g.network) calls++;
-    }
+    // A request that failed still reached the provider: it counts for the daily slot (settle, not release).
+    if (g.network) calls++;
+    if (g.ok) dates.push(g.fetchedAt);
     return g.ok;
   };
 
   const eligible = points.map((p) => ({ ...p, ref: osmRefOf(p.key) })).filter((p): p is StopPoint & { ref: OsmRef } => p.ref !== null);
-  if (eligible.length === 0) return { entries: [], unfinished: [], calls: 0 };
+  if (eligible.length === 0) return { entries: [], unfinished: [], calls: 0, storedAt: new Date(clock.now()).toISOString() };
 
   // 1. OSM tags of all stops in one Overpass query.
   const refs = eligible.map((p) => p.ref);
@@ -139,7 +139,7 @@ export async function fetchStopInfoBatch(
       return { data, status: r.status, latencyMs: r.latencyMs };
     },
   });
-  if (!note(tagsRes)) return { entries: [], unfinished: eligible.map((p) => p.key), calls };
+  if (!note(tagsRes)) return { entries: [], unfinished: eligible.map((p) => p.key), calls, storedAt: new Date(clock.now()).toISOString() };
   const osm = new Map<string, OsmFacts>(eligible.map((p) => [p.key, osmFacts(tagsRes.data[osmRefKey(p.ref)] ?? {})]));
 
   // 2. Wikidata entities, chunked.
@@ -202,6 +202,7 @@ export async function fetchStopInfoBatch(
   // 4. Labels of architects and heritage designations.
   const labelIds = [...new Set([...entities.values()].flatMap((e) => [...e.architects, ...(e.heritage ? [e.heritage] : [])]))];
   const labels = new Map<string, { de?: string; en?: string }>();
+  const failedLabels = new Set<string>();
   for (const ids of chunk(labelIds, WIKIDATA_BATCH)) {
     const g = await call(clock, ctx, {
       provider: "wikidata",
@@ -215,6 +216,7 @@ export async function fetchStopInfoBatch(
       },
     });
     if (note(g)) for (const [k, v] of Object.entries(g.data)) labels.set(k, v);
+    else ids.forEach((q) => failedLabels.add(q));
   }
 
   // 5. Commons thumbnails (logged under wikidata, as the destination picture does).
@@ -238,12 +240,16 @@ export async function fetchStopInfoBatch(
   }
 
   // 6. Cards. A stop whose entity, extract or image request failed is unfinished (fetched again on its next expand).
-  const checkedAt = dates.length ? [...dates].sort()[0] : new Date(clock.now()).toISOString();
+  // checkedAt: the oldest answer used (shown as "abgerufen am"); storedAt: this batch (drives the 30-day refresh, so a
+  // card built from older cached answers is not fetched again on every expand).
+  const storedAt = new Date(clock.now()).toISOString();
+  const checkedAt = dates.length ? [...dates].sort()[0] : storedAt;
   const entries: StopInfo[] = [];
   for (const p of eligible) {
     const f = osm.get(p.key)!;
     const e = f.qid ? entities.get(f.qid) ?? null : null;
-    if ((f.qid && missingEntities.has(f.qid)) || failedExtracts.has(p.key) || (e?.image && failedFiles.has(e.image))) {
+    const needsFailedLabel = !!e && [...e.architects, ...(e.heritage ? [e.heritage] : [])].some((q) => failedLabels.has(q));
+    if ((f.qid && missingEntities.has(f.qid)) || failedExtracts.has(p.key) || (e?.image && failedFiles.has(e.image)) || needsFailedLabel) {
       unfinished.add(p.key);
       continue;
     }
@@ -253,6 +259,7 @@ export async function fetchStopInfoBatch(
         cat: p.cat,
         locale,
         checkedAt,
+        storedAt,
         qid: e ? f.qid : null,
         osm: f,
         entity: e,
@@ -262,5 +269,5 @@ export async function fetchStopInfoBatch(
       }),
     );
   }
-  return { entries, unfinished: [...unfinished], calls };
+  return { entries, unfinished: [...unfinished], calls, storedAt };
 }

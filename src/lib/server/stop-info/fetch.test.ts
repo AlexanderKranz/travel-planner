@@ -87,10 +87,33 @@ describe("fetchStopInfoBatch", () => {
     expect(h.runQuery).toHaveBeenCalledTimes(1);
   });
 
-  it("Overpass down → every stop unfinished, nothing stored as 'none'", async () => {
+  it("Overpass down → every stop unfinished, nothing stored as 'none'; the failed request still counts", async () => {
     h.runQuery.mockRejectedValue(new Error("down"));
     const r = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "de", ctx);
-    expect(r).toEqual({ entries: [], unfinished: ["osm:w1", "osm:n2"], calls: 0 });
+    expect(r).toMatchObject({ entries: [], unfinished: ["osm:w1", "osm:n2"], calls: 1 });
+  });
+
+  it("offline (limit used up): cached answers only, no request", async () => {
+    await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "de", ctx);
+    h.runQuery.mockClear();
+    const r = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "de", ctx, { deadline: Date.now() + 4000, now: Date.now, offline: true });
+    expect(r.calls).toBe(0);
+    expect(r.entries).toHaveLength(2);
+    expect(h.runQuery).not.toHaveBeenCalled();
+  });
+
+  it("a failed labels request leaves stops that need those labels unfinished", async () => {
+    h.entities.mockResolvedValue(ok({ entities: new Map([["Q1", { sitelinks: { en: "X" }, image: null, year: null, architects: ["Q7"], heritage: null, website: null }]]) }));
+    h.labels.mockRejectedValue(new Error("down"));
+    const r = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx);
+    expect(r.unfinished).toEqual(["osm:w1"]);
+  });
+
+  it("storedAt is the batch time even when the answers came from an older cache", async () => {
+    await fetchStopInfoBatch([{ key: "osm:w1" }], "en", ctx);
+    const r = await fetchStopInfoBatch([{ key: "osm:w1" }], "en", ctx, { deadline: Date.parse("2026-12-01T00:00:04Z"), now: () => Date.parse("2026-12-01T00:00:00Z") });
+    expect(r.entries[0].checkedAt).toBe("2026-11-01T00:00:00.000Z");
+    expect(r.entries[0].storedAt).toBe("2026-12-01T00:00:00.000Z");
   });
 
   it("Wikidata down → its stops unfinished; a title-only stop still gets its text", async () => {
@@ -102,7 +125,7 @@ describe("fetchStopInfoBatch", () => {
   });
 
   it("no eligible stop → no call at all", async () => {
-    expect(await fetchStopInfoBatch([{ key: "geo:1" }], "de", ctx)).toEqual({ entries: [], unfinished: [], calls: 0 });
+    expect(await fetchStopInfoBatch([{ key: "geo:1" }], "de", ctx)).toMatchObject({ entries: [], unfinished: [], calls: 0 });
     expect(h.calls).toHaveLength(0);
   });
 });

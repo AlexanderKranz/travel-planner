@@ -68,7 +68,7 @@ describe("getTourStopInfo", () => {
     expect(h.batch).toHaveBeenCalledTimes(1);
     expect(h.batch.mock.calls[0][0].map((p: { key: string }) => p.key)).toEqual(["osm:w1", "osm:n2"]);
     expect(h.batch.mock.calls[0][1]).toBe("de");
-    expect(h.rpc.mock.calls[1][1]).toMatchObject({ p_tour: TOUR, p_locale: "de" });
+    expect(h.rpc.mock.calls[1][1]).toEqual({ p_tour: TOUR, p_locale: "de", p_entries: [entry("osm:w1"), entry("osm:n2")] });
     expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "tour.stop_info", props: expect.objectContaining({ via: "session", calls: 3 }) }));
   });
 
@@ -78,11 +78,23 @@ describe("getTourStopInfo", () => {
     expect(h.rpc.mock.calls.at(-1)?.[0]).toBe("stop_info_release");
   });
 
-  it("daily limit used up → cache-only: stored info, limited, no batch", async () => {
-    h.rpc.mockResolvedValue({ data: { ok: false, reason: "scope" }, error: null });
+  it("daily limit used up → cache-only batch (offline clock), no slot to settle, marked limited", async () => {
+    h.rpc.mockImplementation(async (name: string) => (name === "stop_info_reserve" ? { data: { ok: false, reason: "scope" }, error: null } : { data: "ok", error: null }));
+    h.batch.mockResolvedValue({ entries: [], unfinished: ["osm:w1", "osm:n2"], calls: 0, storedAt: fresh });
     const r = await getTourStopInfo(TOUR);
     expect(r).toMatchObject({ ok: true, data: { limited: true, pending: ["osm:w1", "osm:n2"] } });
-    expect(h.batch).not.toHaveBeenCalled();
+    expect(h.batch.mock.calls[0][3]).toMatchObject({ offline: true });
+    expect(h.rpc.mock.calls.map((c) => c[0])).toEqual(["stop_info_reserve"]);
+  });
+
+  it("a failing merge is logged and the slot settled; the viewer still gets the stored view", async () => {
+    h.rpc.mockImplementation(async (name: string) =>
+      name === "stop_info_reserve" ? { data: { ok: true, id: "slot1" }, error: null } : name === "merge_stop_info" ? { data: null, error: { message: "boom" } } : { data: "ok", error: null },
+    );
+    const r = await getTourStopInfo(TOUR);
+    expect(r.ok).toBe(true);
+    expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "tour.stop_info_failed", level: "error" }));
+    expect(h.rpc.mock.calls.at(-1)?.[0]).toBe("stop_info_settle");
   });
 
   it("not signed in, bad id, unreadable tour", async () => {
