@@ -41,11 +41,12 @@ describe("ONBOARDING_HINTS (#206)", () => {
   it("every hint has a title and text in de and en, and link text exactly when it links", () => {
     for (const loc of ["de", "en"]) {
       const m = more(loc);
-      expect(typeof m.title).toBe("string");
-      expect(typeof m.lead).toBe("string");
+      expect(String(m.title).trim().length).toBeGreaterThan(0);
+      expect(String(m.lead).trim().length).toBeGreaterThan(0);
       for (const h of ONBOARDING_HINTS) {
-        expect(m[h.key], `${loc}: ${h.key}`).toMatchObject({ title: expect.any(String), text: expect.any(String) });
-        expect(Object.hasOwn(m[h.key], "link"), `${loc}: ${h.key}.link`).toBe(h.href !== null);
+        const keys = h.href === null ? ["title", "text"] : ["title", "text", "link"];
+        expect(Object.keys(m[h.key]).sort(), `${loc}: ${h.key}`).toEqual([...keys].sort());
+        for (const k of keys) expect(String(m[h.key][k]).trim().length, `${loc}: ${h.key}.${k}`).toBeGreaterThan(0);
       }
     }
   });
