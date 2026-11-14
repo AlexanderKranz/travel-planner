@@ -1885,6 +1885,28 @@
       "discover": "Find destinations",
       "discoverWhy": "No destination yet? “Find destinations” suggests places for a trip purpose, within an estimated flight time from your home airports or a driving time from your home place. Flights are checked once you create the trip."
     },
+    "more": {
+      "title": "More to discover",
+      "lead": "Not a step, just good to know: what else the travel planner can do.",
+      "stops": {
+        "title": "Cruise or round trip",
+        "text": "Choose “Several stops” when you create a trip. Upload the itinerary as a PDF or photo; ports and times are taken over, and each stop gets its own places.",
+        "link": "Create a trip with stops"
+      },
+      "tours": {
+        "title": "City tours",
+        "text": "Up to 25 places in a city, also as a pasted list. The app orders them, plans the way and shows sights along it: on foot, by wheelchair, bike, e-bike or car, single legs also by public transport. Plus the weather for the day, time windows and opening hours, info on each place to read aloud, directions with a GPX file, sharing and a PDF. A tour can be linked to a trip day.",
+        "link": "Plan a city tour"
+      },
+      "plan": {
+        "title": "Adjust a plan",
+        "text": "Change a finished plan with “Adjust the plan”; earlier versions are kept. Add fixed appointments and costs yourself and the plan works around them. Every plan is also available as a PDF."
+      },
+      "sharing": {
+        "title": "Sharing",
+        "text": "Share trips, purposes, travel groups and city tours with other users (view only or edit). Trips and city tours can also be shared by public link. Things shared with you are under “Shared with me”."
+      }
+    },
     "link": {
       "settings": "View getting started",
       "settingsHint": "A short introduction: name, language, home airports and home place, travel groups, trip purposes and your first trip.",

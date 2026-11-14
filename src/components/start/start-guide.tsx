@@ -1,7 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { btnPrimary, btnSecondary, cardCls, eyebrowCls, linkCls, mutedCls, pillAccentCls, pillCls } from "@/components/ui/styles";
-import { deriveSteps, doneCount, ONBOARDING_STEPS, type OnboardingFacts, type OnboardingStep } from "@/lib/onboarding";
+import { deriveSteps, doneCount, ONBOARDING_HINTS, ONBOARDING_STEPS, type OnboardingFacts, type OnboardingStep } from "@/lib/onboarding";
 import { AboutForm, type AboutValues } from "./about-form";
 import { FinishButton } from "./finish-button";
 import { GroupForm } from "./group-form";
@@ -158,6 +158,28 @@ export async function StartGuide({ facts, about }: { facts: OnboardingFacts; abo
           </>,
         )}
       </ol>
+
+      <section aria-labelledby="start-more" className={`${cardCls} flex flex-col gap-3`} data-testid="start-more">
+        <div className="flex flex-col gap-1">
+          <h2 id="start-more" className="font-serif text-2xl font-bold sm:text-3xl">
+            {t("more.title")}
+          </h2>
+          <p className={`text-sm ${mutedCls}`}>{t("more.lead")}</p>
+        </div>
+        <ul className="flex flex-col divide-y divide-line">
+          {ONBOARDING_HINTS.map(({ key, href }) => (
+            <li key={key} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
+              <h3 className="font-sans text-base font-semibold text-heading">{t(`more.${key}.title`)}</h3>
+              <p className="text-sm">{t(`more.${key}.text`)}</p>
+              {href && (
+                <Link href={href} className={`${linkCls} inline-flex min-h-11 items-center self-start text-sm`}>
+                  {t(`more.${key}.link`)}
+                </Link>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <footer className="flex flex-col items-start gap-2 border-t border-line pt-5">
         <FinishButton variant="finish" />
