@@ -321,7 +321,10 @@ Share views and the PDF read only this snapshot: no external call on the public 
   card action is owner-only.
 - **Phase 2**: `tour_shares` exactly like `trip_shares` (`share_resource` gains `'tour'`, `private.shared_tour_ids()`,
   `writable_tour_ids()`), and a public link for a standalone tour (`share_links.tour_id`, exactly one of
-  `trip_id`/`tour_id` set). This needs the CLAUDE.md rule 6 table list extended (Alex's approval).
+  `trip_id`/`tour_id` set). CLAUDE.md rule 6 was extended in #225; migration `20261120120045_tour_sharing.sql`.
+  Write grantees edit title and input and may compute; the trip link (`trip_id`, `trip_day`) stays owner-only (a
+  trigger refuses it, because the composite FK only checks the tour owner). Tour links are created by the server with
+  the secret key (`share_links.tour_id` is not in the client insert grant).
 
 ## 10. Trip day link, share page, PDF [T16]
 
