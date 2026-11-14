@@ -14,21 +14,25 @@ import { getTourForecast, type TourForecast } from "@/lib/server/tour/forecast";
 export function TourForecastLine({ tourId, date }: { tourId: string; date: string }) {
   const t = useTranslations("tours.forecast");
   const format = useFormatter();
-  const [f, setF] = useState<TourForecast | null>(null);
+  // The answer is kept with the tour and date it was asked for: a pending or empty answer for a new date never shows
+  // the previous date's weather.
+  const [answer, setAnswer] = useState<{ key: string; f: TourForecast | null } | null>(null);
+  const key = `${tourId}|${date}`;
   const wanted = inForecastRange(date);
 
   useEffect(() => {
     if (!wanted) return;
     let live = true;
-    void getTourForecast(tourId).then((r) => {
-      if (live) setF(r);
+    void getTourForecast(tourId, date).then((r) => {
+      if (live) setAnswer({ key: `${tourId}|${date}`, f: r });
     });
     return () => {
       live = false;
     };
   }, [tourId, date, wanted]);
 
-  if (!wanted || !f) return null;
+  const f = answer?.key === key ? answer.f : null;
+  if (!wanted || !f || f.date !== date) return null;
   const group = wmoGroup(f.code);
   const parts = [
     group ? t(`codes.${group}`) : null,

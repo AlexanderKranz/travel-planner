@@ -2266,6 +2266,7 @@
       "query": "„{query}“",
       "notFound": "Nicht gefunden. Such diesen Ort einzeln.",
       "choose": "Treffer für „{query}“ wählen",
+      "notSearched": "{count, plural, one {Nicht gesucht: {names}} other {# Namen nicht gesucht: {names}}}",
       "add": "{count, plural, one {# Ort hinzufügen} other {# Orte hinzufügen}}"
     },
     "directions": {

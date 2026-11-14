@@ -5,6 +5,7 @@ import { inForecastRange } from "@/lib/facts/forecast-range";
 import { fetchDailyForecast, type DailyForecast } from "@/lib/integrations/open-meteo-forecast";
 import { tourCentre, tourPointsOf } from "@/lib/tour/points";
 import { cacheKey, cached } from "../api-cache";
+import { logEvent } from "../events";
 import { rateLimit } from "../rate-limit";
 import { getUserSession } from "../session";
 import { rowToTour, TOUR_COLUMNS, type TourRow } from "./mapping";
@@ -19,15 +20,22 @@ export type TourForecast = DailyForecast & { fetchedAt: string };
 const Id = z.string().uuid();
 const TTL_SECONDS = 3 * 3600;
 
-export async function getTourForecast(id: string): Promise<TourForecast | null> {
+/**
+ * `date`: the tour date the caller displays; a saved tour with another date (changed in another tab) gets no forecast,
+ * so the page never shows weather for a date it does not show.
+ */
+export async function getTourForecast(id: string, date: string): Promise<TourForecast | null> {
   try {
     const session = await getUserSession();
     if (!session || !Id.safeParse(id).success) return null;
     if (!rateLimit(`tour-forecast:${session.userId}`, 30, 60_000).ok) return null;
-    const { data: row } = await session.supabase.from("city_tours").select(TOUR_COLUMNS).eq("id", id).maybeSingle<TourRow>();
+    const { data: row, error } = await session.supabase.from("city_tours").select(TOUR_COLUMNS).eq("id", id).maybeSingle<TourRow>();
+    if (error) {
+      await logEvent({ event: "tour.forecast_failed", level: "error", userId: session.userId, props: { stage: "read", code: error.code ?? null } });
+      return null;
+    }
     const tour = row ? rowToTour(row, session.userId) : null;
-    const date = tour?.input.date;
-    if (!tour || !date || !inForecastRange(date)) return null;
+    if (!tour || tour.input.date !== date || !inForecastRange(date)) return null;
     const c = tourCentre(tour.input, tourPointsOf(tour.input).points);
     if (!c) return null;
     const lat = Math.round(c.lat * 100) / 100;
@@ -51,7 +59,8 @@ export async function getTourForecast(id: string): Promise<TourForecast | null> 
         return { data: r.forecast, status: r.status, latencyMs: r.latencyMs };
       },
     });
-    if (!res.ok || res.data.date !== date) return null;
+    // An expired row served because the refresh failed is not shown: it may describe an older forecast run.
+    if (!res.ok || res.stale || res.data.date !== date) return null;
     return { ...res.data, fetchedAt: res.fetchedAt };
   } catch {
     return null;

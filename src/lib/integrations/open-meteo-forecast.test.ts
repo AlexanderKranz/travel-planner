@@ -35,6 +35,7 @@ describe("daily forecast", () => {
     expect(inForecastRange("2026-11-12", now)).toBe(true);
     expect(inForecastRange("2026-11-11", now)).toBe(false);
     expect(inForecastRange("2026-11-28", now)).toBe(true);
-    expect(inForecastRange("2026-11-29", now)).toBe(false);
+    expect(inForecastRange("2026-11-29", now)).toBe(true); // one day of slack: a centre far ahead of UTC
+    expect(inForecastRange("2026-11-30", now)).toBe(false);
   });
 });

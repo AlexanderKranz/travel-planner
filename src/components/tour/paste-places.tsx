@@ -49,18 +49,21 @@ export function PastePlaces({
     setBusy(true);
     setStatus(null);
     const out: Row[] = [];
-    for (const query of names) {
+    for (const [i, query] of names.entries()) {
       try {
         const res = await searchPlaces(query, centre!, locale, ac.signal);
         if (res.status !== "ok") {
-          setStatus(res.status === "rate_limited" ? t("searchRateLimited") : res.status === "daily_limit" ? t("searchDailyLimit") : t("searchUnavailable"));
+          const why = res.status === "rate_limited" ? t("searchRateLimited") : res.status === "daily_limit" ? t("searchDailyLimit") : t("searchUnavailable");
+          setStatus(`${why} ${t("paste.notSearched", { count: names.length - i, names: names.slice(i).join(", ") })}`);
           break;
         }
         const options = res.items.filter((s) => !isTaken(s.key)).slice(0, 3);
         out.push({ query, options, pick: 0, on: options.length > 0 });
         setRows([...out]);
       } catch {
-        break; // aborted or offline: keep what was found
+        // Aborted (a new search started): stay quiet. Otherwise say which names were not searched, never drop them.
+        if (!ac.signal.aborted) setStatus(t("paste.notSearched", { count: names.length - i, names: names.slice(i).join(", ") }));
+        break;
       }
     }
     setRows([...out]);
