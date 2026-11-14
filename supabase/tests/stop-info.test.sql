@@ -67,8 +67,8 @@ select is(public.merge_stop_info('5100000a-0000-4000-8000-0000000071ff', '[]', '
 select throws_ok($$select public.merge_stop_info('5100000a-0000-4000-8000-0000000071a1', '{}', 'de')$$, '22023', null, 'merge: entries must be an array');
 
 -- ---------- an input change prunes removed stops and moves updated_at ----------
-select public.merge_stop_info('5100000a-0000-4000-8000-0000000071a1',
-  '[{"key":"osm:p1","status":"none","checkedAt":"a"},{"key":"osm:p2","status":"none","checkedAt":"b"}]', 'de');
+do $$ begin perform public.merge_stop_info('5100000a-0000-4000-8000-0000000071a1',
+  '[{"key":"osm:p1","status":"none","checkedAt":"a"},{"key":"osm:p2","status":"none","checkedAt":"b"}]', 'de'); end $$;
 update public.city_tours set input = '{"places":[{"key":"osm:p1"},{"key":"osm:new"}]}' where id = '5100000a-0000-4000-8000-0000000071a1';
 select is((select jsonb_path_query_array(stop_info, '$.stops[*].key') from public.city_tours where id = '5100000a-0000-4000-8000-0000000071a1'),
   '["osm:p1"]'::jsonb, 'input change drops the info of removed stops');
@@ -94,7 +94,7 @@ select is(public.stop_info_reserve('5100000a-0000-4000-8000-0000000000b2', null,
 -- A pending slot older than 2 minutes no longer counts; a settled one does.
 update public.stop_info_slots set created_at = now() - interval '5 minutes' where user_id = '5100000a-0000-4000-8000-0000000000a1';
 select ok((public.stop_info_reserve('5100000a-0000-4000-8000-0000000000a1', null, 2, 100, now() - interval '1 hour') ->> 'ok')::boolean, 'dead pending slots are not counted');
-select public.stop_info_settle(id) from public.stop_info_slots where user_id = '5100000a-0000-4000-8000-0000000000a1';
+do $$ begin perform public.stop_info_settle(id) from public.stop_info_slots where user_id = '5100000a-0000-4000-8000-0000000000a1'; end $$;
 update public.stop_info_slots set created_at = now() - interval '5 minutes' where user_id = '5100000a-0000-4000-8000-0000000000a1';
 select is(public.stop_info_reserve('5100000a-0000-4000-8000-0000000000a1', null, 3, 100, now() - interval '1 hour') ->> 'reason',
   'scope', 'settled slots keep counting, however old within the day (3 settled, limit 3)');
