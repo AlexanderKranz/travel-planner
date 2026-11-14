@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { TourStopInfo } from "@/lib/domain/stop-info";
 import type { LinkedTour } from "@/lib/plan/tour-blocks";
 import { rowToTour, type TourRow } from "./mapping";
 
@@ -27,10 +28,23 @@ export function rowsToLinkedTours(rows: readonly LinkedRow[], tripId: string): L
  * share path passes the secret-key client and the link's owner: the read is then filtered by the shared trip id and
  * that owner, never more (ground rule 6). Throws on a read error.
  */
-export async function loadLinkedTours(sb: SupabaseClient, tripId: string, ownerId?: string): Promise<LinkedTour[]> {
-  let q = sb.from("city_tours").select(LINKED_TOUR_COLUMNS).eq("trip_id", tripId);
+export async function loadLinkedTours(
+  sb: SupabaseClient,
+  tripId: string,
+  ownerId?: string,
+  opts: { stopInfo?: boolean } = {},
+): Promise<LinkedTour[]> {
+  const columns = opts.stopInfo ? `${LINKED_TOUR_COLUMNS}, stop_info` : LINKED_TOUR_COLUMNS;
+  let q = sb.from("city_tours").select(columns).eq("trip_id", tripId);
   if (ownerId !== undefined) q = q.eq("owner_id", ownerId);
-  const { data, error } = await q.returns<LinkedRow[]>();
+  const { data, error } = await q.returns<(LinkedRow & { stop_info?: unknown })[]>();
   if (error) throw new Error("tours read failed");
-  return rowsToLinkedTours(data ?? [], tripId);
+  const tours = rowsToLinkedTours(data ?? [], tripId);
+  if (!opts.stopInfo) return tours;
+  // Stored info only (PDF opt-in): an invalid or missing column value means no lines, never a failed document.
+  const infoById = new Map((data ?? []).map((r) => [r.id, TourStopInfo.safeParse(r.stop_info)] as const));
+  return tours.map((t) => {
+    const parsed = infoById.get(t.id);
+    return { ...t, stopInfo: parsed?.success ? parsed.data : null };
+  });
 }

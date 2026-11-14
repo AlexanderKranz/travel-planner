@@ -1351,6 +1351,7 @@
         "ebike": "mit dem E-Bike",
         "car": "mit dem Auto"
       },
+      "stopInfo": {"articles": "Ortsinfos: Wikipedia-Artikel", "clipped": "gekürzt; Fakten: Wikidata", "checked": "geprüft am {date}"},
       "sources": "Routen: © openrouteservice.org, Kartendaten © OpenStreetMap-Mitwirkende"
     }
   },
@@ -2345,6 +2346,7 @@
     },
     "stopInfo": {
       "toggle": "Infos zum Ort",
+      "pdfInclude": "Ortsinfos aufnehmen",
       "loading": "Wird geladen…",
       "none": "Für diesen Ort gibt es keine Infos.",
       "notYet": "Für diesen Ort sind die Infos noch nicht geladen. Öffne ihn später noch einmal.",

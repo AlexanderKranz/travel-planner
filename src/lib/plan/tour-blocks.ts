@@ -1,3 +1,5 @@
+import type { TourStopInfo } from "@/lib/domain/stop-info";
+import { pdfStopInfo, type PdfStopInfo } from "@/lib/stop-info/pdf-lines";
 import type { OsmKey } from "@/lib/domain/plan";
 import type { Locale } from "@/lib/domain/profile";
 import type { TourInput, TourMode, TourPoint, TourResult } from "@/lib/domain/tour";
@@ -19,6 +21,8 @@ export type LinkedTour = {
   input: TourInput;
   result: TourResult | null;
   updatedAt: string;
+  /** Stored stop info, loaded only for a PDF with "Ortsinfos aufnehmen" (city-tour-stop-info 6). */
+  stopInfo?: TourStopInfo | null;
 };
 
 /** Props of the route sketch (`src/components/tour/route-sketch.tsx`, react-pdf in the PDF). */
@@ -49,6 +53,8 @@ export type TourBlock = {
   sketch: TourSketch | null;
   /** Start or end is a Geoapify address result (no OSM POI): the share box says these are visible. */
   addressEnds: boolean;
+  /** PDF opt-in "Ortsinfos aufnehmen": one line per stop and the article attribution; absent otherwise. */
+  info?: PdfStopInfo | null;
 };
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -136,7 +142,9 @@ function blockOf(t: LinkedTour, day: number): TourBlock {
     title: t.title,
     ...(() => {
       const order = visitOrder(t.input, t.result);
-      return { stops: order.map((p) => p.name), stopKeys: order.map((p) => p.key) };
+      const keys = order.map((p) => p.key);
+      const info = t.stopInfo ? pdfStopInfo(t.stopInfo, keys) : null;
+      return { stops: order.map((p) => p.name), stopKeys: keys, ...(info ? { info } : {}) };
     })(),
     placeCount: t.input.places.length,
     km: tourKm(t.result),

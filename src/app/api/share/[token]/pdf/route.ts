@@ -34,7 +34,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   const byTok = rateLimit(`share-tok:${createHash("sha256").update(token).digest("hex").slice(0, 16)}`, 120, 60_000);
   if (!byTok.ok) return limited(byTok.retryAfterSeconds);
 
-  const doc = await getSharedPlanDocument(token, "pdf");
+  const stopInfo = new URL(request.url).searchParams.get("stopInfo") === "1";
+  const doc = await getSharedPlanDocument(token, "pdf", { stopInfo });
   if (!doc) return notFound();
 
   try {

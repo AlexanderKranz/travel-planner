@@ -120,6 +120,8 @@ export type OwnerDocumentKnown = {
   latest?: { plan: Plan; versionNo: number; versionAt: string };
   /** Owner's home place from this request's profile read; null = none set, undefined = read it here. */
   home?: PlanHome | null;
+  /** PDF opt-in "Ortsinfos aufnehmen": tour blocks carry one stored info line per stop. */
+  stopInfo?: boolean;
 };
 
 /**
@@ -170,7 +172,7 @@ export async function getOwnerPlanDocumentResult(
               .maybeSingle<{ home_location: string | null; home_timezone: string | null }>(),
           );
     // A failed tour read costs the tour blocks, not the plan.
-    const toursQ = loadLinkedTours(sb, tripId).catch((): LinkedTour[] => []);
+    const toursQ = loadLinkedTours(sb, tripId, undefined, { stopInfo: known.stopInfo }).catch((): LinkedTour[] => []);
     const partyQ = loadPartySize(sb, tripId).then(
       (v) => ({ v, failed: false as const }),
       () => ({ v: null, failed: true as const }),
@@ -252,7 +254,11 @@ export async function getOwnerPlanDocument(tripId: string, known?: OwnerDocument
  * caller renders one identical 404 (no oracle between unknown, expired, revoked, no plan). No external API calls.
  * Unknown tokens are not logged. Tokens, hashes and IPs never go into events.
  */
-export async function getSharedPlanDocument(token: string, via: "page" | "pdf"): Promise<PlanDocument | null> {
+export async function getSharedPlanDocument(
+  token: string,
+  via: "page" | "pdf",
+  opts: { stopInfo?: boolean } = {},
+): Promise<PlanDocument | null> {
   if (!isShareTokenFormat(token)) return null;
   try {
     const admin = createSupabaseAdminClient();
@@ -322,7 +328,7 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
 
     // City tours of exactly this trip and owner, from their stored snapshot only (no external call). A failed read
     // costs the tour blocks, not the page. The secret-key read is filtered by the shared trip id (ground rule 6).
-    const tours = await loadLinkedTours(admin, tripId, link.owner_id).catch((): LinkedTour[] => []);
+    const tours = await loadLinkedTours(admin, tripId, link.owner_id, { stopInfo: opts.stopInfo }).catch((): LinkedTour[] => []);
 
     // A failed read only costs the country tile and the sunset, not the page.
     const { data: placeRow } = await admin.from("trips").select(PLACE_COLUMNS).eq("id", tripId).maybeSingle<PlaceRow>();

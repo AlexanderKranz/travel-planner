@@ -1351,6 +1351,7 @@
         "ebike": "by e-bike",
         "car": "by car"
       },
+      "stopInfo": {"articles": "Place info: Wikipedia articles", "clipped": "shortened; facts: Wikidata", "checked": "checked on {date}"},
       "sources": "Routes: © openrouteservice.org, map data © OpenStreetMap contributors"
     }
   },
@@ -2345,6 +2346,7 @@
     },
     "stopInfo": {
       "toggle": "About this place",
+      "pdfInclude": "Include place info",
       "loading": "Loading…",
       "none": "There is no information for this place.",
       "notYet": "The information for this place is not loaded yet. Open it again later.",
