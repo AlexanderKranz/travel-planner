@@ -14,6 +14,7 @@ export const CacheProvider = z.enum([
   "aerodatabox",
   "openrouteservice",
   "geoapify",
+  "transitous",
 ]);
 export type CacheProvider = z.infer<typeof CacheProvider>;
 

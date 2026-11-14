@@ -5,6 +5,7 @@ import type { Locale } from "@/lib/domain/profile";
 import type { ActionError } from "@/lib/domain/result";
 import { canEdit } from "@/lib/domain/sharing";
 import {
+  isTransit,
   legPolyCap,
   ORS_PROFILE,
   TOUR_COMPUTES_PER_DAY,
@@ -21,14 +22,16 @@ import { keepOrder, orderTour } from "@/lib/tour/order";
 import { tourCentre, tourPointsOf, type TourPoints } from "@/lib/tour/points";
 import { decodePolyline } from "@/lib/tour/polyline";
 import { overProposals, type TourProposal } from "@/lib/tour/proposals";
-import { groupRuns, plannedLegs, pruneOverrides } from "@/lib/tour/runs";
+import { groupRuns, isOrsRun, plannedLegs, pruneOverrides } from "@/lib/tour/runs";
 import { sightsNearRoute } from "@/lib/tour/sights";
 import { effectiveMaxMin, stopTimes, sunsetWarning, tourFit, tourTotalMin, type StopTime } from "@/lib/tour/timing";
+import { isoWithOffset, knownTimeZone, zonedInstant } from "@/lib/tour/zoned";
 import { berlinMidnight } from "../ai-usage";
 import { releaseAiCall, reserveAiCall } from "../ai-slots";
 import { logEvent } from "../events";
 import { orsTourGate } from "../facts/ors-quota";
 import { getTourMatrix, getTourRoute, peekTourMatrix, type TourRouteAnswer } from "../facts/tour-ors";
+import { getTransitLeg, TRANSIT_TTL_SECONDS } from "../facts/transit";
 import { rateLimit } from "../rate-limit";
 import { getUserSession } from "../session";
 import { createSupabaseAdminClient } from "../supabase/admin";
@@ -106,6 +109,66 @@ function flaggedKeys(points: readonly TourPoint[], pairs: [number, number][]): s
 function runsBound(tp: TourPoints, overrides: number): number {
   const legs = tp.points.length - 1 + (tp.end !== undefined && tp.end === tp.start ? 1 : 0);
   return Math.max(1, Math.min(legs, 2 * overrides + 1));
+}
+
+/** Characters of stored transit parts per result (polylines have their own 200 kB budget; the check is 256 kB). */
+const TRANSIT_PARTS_BUDGET = 30_000;
+/** All timetable requests of one computation together; later transit legs fail as unavailable (8 s per request). */
+const TRANSIT_DEADLINE_MS = 30_000;
+
+/** Stored timetable answers older than the transit cache (7 days) are recomputed, not served (spec 17.4). */
+function transitExpired(result: Pick<TourResult, "source">, now: Date): boolean {
+  const t = result.source.transit ? Date.parse(result.source.transit) : NaN;
+  return Number.isFinite(t) && now.getTime() - t > TRANSIT_TTL_SECONDS * 1000;
+}
+
+/**
+ * Times the public transport legs in tour order. A leg departs at the start time plus all earlier legs and dwells;
+ * its minutes are the timetable arrival minus that departure (waiting counts). Without a city time zone, a date and
+ * start time, or a known earlier leg, it fails with that reason; never a guessed time.
+ */
+async function timeTransitLegs(
+  legs: TourLeg[],
+  stopDwell: number[],
+  o: { input: TourInput; tz: string | null; byKey: Map<string, TourPoint>; polyCap: number; ctx: { userId: string }; dates: string[] },
+): Promise<void> {
+  const { input, tz } = o;
+  const base = input.date && input.startTime && knownTimeZone(tz) ? zonedInstant(input.date, input.startTime, tz) : null;
+  let elapsed: number | null = 0;
+  let partsChars = 0;
+  const deadline = Date.now() + TRANSIT_DEADLINE_MS;
+  for (let i = 0; i < legs.length; i++) {
+    // Leg i leaves stop i after its dwell, the first stop included (as stopTimes counts it).
+    if (elapsed !== null) elapsed += stopDwell[i] ?? 0;
+    const l = legs[i];
+    if (isTransit(l.mode)) {
+      if (!knownTimeZone(tz)) legs[i] = { ...l, s: "failed", note: "no_time_zone" };
+      else if (!base || elapsed === null) legs[i] = { ...l, s: "failed", note: "no_departure" };
+      else {
+        const utcMs = base.utcMs + elapsed * 60000;
+        if (Date.now() > deadline) {
+          legs[i] = { ...l, s: "failed", note: "unavailable" }; // the computation's time budget is used up
+          elapsed = null;
+          continue;
+        }
+        const a = await getTransitLeg(o.byKey.get(l.from)!, o.byKey.get(l.to)!, { utcMs, iso: isoWithOffset(utcMs, tz) }, tz, o.ctx);
+        if (a.kind !== "failed") o.dates.push(a.fetchedAt);
+        const poly = (p: string) => (p && p.length <= o.polyCap ? p : null);
+        if (a.kind === "ok") {
+          // Parts share a budget next to the polylines, so many transit legs keep the result under its size check.
+          const size = JSON.stringify(a.parts).length;
+          const fits = a.parts.length > 0 && partsChars + size <= TRANSIT_PARTS_BUDGET;
+          if (fits) partsChars += size;
+          legs[i] = { ...l, min: a.min, km: a.km, poly: poly(a.poly), s: "ok", ...(fits ? { transit: a.parts } : {}) };
+        }
+        else if (a.kind === "walk_not_slower") legs[i] = { ...l, min: a.min, km: a.km, poly: poly(a.poly), s: "ok", note: "walk_not_slower" };
+        else if (a.kind === "no_connection") legs[i] = { ...l, s: "no_route", note: "no_connection" };
+        else legs[i] = { ...l, s: "failed", note: "unavailable" };
+      }
+    }
+    const min = legs[i].min;
+    elapsed = elapsed === null || min === null ? null : elapsed + min;
+  }
 }
 
 async function cityTimeZone(input: TourInput, locale: Locale): Promise<string | null> {
@@ -210,7 +273,7 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
   // 2. Unchanged input → the stored result, no ORS call and no slot.
   const hash = tourInputHash(input);
   // A stored result with a failed leg (ORS down then) is recomputed, so a transient outage is not kept forever.
-  if (!force && tour.result && row.result_hash === hash && !tour.result.legs.some((l) => l.s === "failed")) {
+  if (!force && tour.result && row.result_hash === hash && !tour.result.legs.some((l) => l.s === "failed") && !transitExpired(tour.result, new Date())) {
     let result = tour.result;
     let updatedAt = row.updated_at;
     let sightsPending = false;
@@ -308,7 +371,8 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
   // 5b. Legs and runs; one Directions request per run.
   const { kept, dropped } = pruneOverrides(input.legOverrides ?? {}, keys);
   const planned = plannedLegs(keys, { mode: input.mode, route: input.route }, kept);
-  const runs = groupRuns(planned);
+  // Public transport legs are timed one by one from the timetable after the ORS runs (spec 17.4).
+  const runs = groupRuns(planned).filter(isOrsRun);
   const answers: TourRouteAnswer[] = await Promise.all(
     runs.map((r) => getTourRoute(ORS_PROFILE[r.mode], r.route, r.points.map((k) => byKey.get(k)!), ctx, { refresh: force })),
   );
@@ -343,9 +407,14 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
     return err("unreachable", { points: [...new Set(notRoutable)] });
   }
 
-  // 5c. Timing.
+  // 5c. Timing; public transport legs first, in sequence (departure = previous arrival + dwell).
   const dwellByKey = dwellMap(tp);
   const stopDwell = keys.map((k, i) => (i > 0 && i === keys.length - 1 && k === keys[0] ? 0 : (dwellByKey.get(k) ?? 0)));
+  const transitDates: string[] = [];
+  if (legs.some((l) => isTransit(l.mode))) {
+    const tz = await cityTimeZone(input, locale);
+    await timeTransitLegs(legs, stopDwell, { input, tz, byKey, polyCap, ctx, dates: transitDates });
+  }
   const totalMin = tourTotalMin(legs.map((l) => l.min), stopDwell);
   const fit = tourFit(totalMin, input.minMin, maxFrom(input));
   const sunset = sunsetWarning({
@@ -367,7 +436,11 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
     fit: fit.fit,
     ...(sunset ? { sunset } : {}),
     sights: s.sights,
-    source: { ors: orsDates.length ? [...orsDates].sort()[0] : now.toISOString(), ...(s.fetchedAt ? { osm: s.fetchedAt } : {}) },
+    source: {
+      ors: orsDates.length ? [...orsDates].sort()[0] : now.toISOString(),
+      ...(s.fetchedAt ? { osm: s.fetchedAt } : {}),
+      ...(transitDates.length ? { transit: [...transitDates].sort()[0] } : {}),
+    },
     ...(stale ? { stale: true } : {}),
     ...(orderApprox ? { orderApprox: true } : {}),
   });

@@ -71,8 +71,8 @@ async function run(url: string, init: RequestInit, timeoutMs: number): Promise<H
   return { status: res.status, latencyMs, body };
 }
 
-export function fetchJson(url: string, opts: { timeoutMs?: number } = {}): Promise<HttpResult> {
-  return run(url, { method: "GET" }, opts.timeoutMs ?? 8000);
+export function fetchJson(url: string, opts: { timeoutMs?: number; headers?: Record<string, string> } = {}): Promise<HttpResult> {
+  return run(url, { method: "GET", ...(opts.headers ? { headers: opts.headers } : {}) }, opts.timeoutMs ?? 8000);
 }
 
 /** JSON POST with optional extra headers (e.g. `Authorization` for keyed providers; never logged). */

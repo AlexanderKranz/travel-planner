@@ -13,6 +13,7 @@ import {
   type TourDraft,
   type TourInput,
   type TourLeg,
+  type LegMode,
   type TourMode,
   type TourPoint,
   type TourResult,
@@ -351,7 +352,7 @@ export function orderedCoords(
 
 // --- Leg sheet ("Ändern") --------------------------------------------------------------------------------------
 
-export type LegSheet = { key: string; from: string; to: string; mode: TourMode; route: RouteOption };
+export type LegSheet = { key: string; from: string; to: string; mode: LegMode; route: RouteOption };
 
 /** Opens the sheet with the leg's current setting (its override, else the tour setting). */
 export function openLegSheet(from: string, to: string, f: Pick<TourForm, "legOverrides" | "mode" | "route">): LegSheet {
@@ -361,7 +362,7 @@ export function openLegSheet(from: string, to: string, f: Pick<TourForm, "legOve
 }
 
 /** Another mode in the sheet: the route option stays when that mode offers it, else the mode's first option. */
-export function sheetMode(s: LegSheet, mode: TourMode): LegSheet {
+export function sheetMode(s: LegSheet, mode: LegMode): LegSheet {
   return { ...s, mode, route: routeAllowed(mode, s.route) ? s.route : ROUTE_OPTIONS_BY_MODE[mode][0] };
 }
 

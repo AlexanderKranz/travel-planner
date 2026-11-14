@@ -21,6 +21,7 @@ const h = vi.hoisted(() => ({
   logEvent: vi.fn(),
   cityPlaces: vi.fn(),
   getPlaceById: vi.fn(),
+  transit: vi.fn(),
 }));
 vi.mock("../session", async () => {
   const { fakeDb } = await import("./test-db");
@@ -32,6 +33,7 @@ vi.mock("../supabase/admin", async () => {
 });
 vi.mock("../facts/ors-quota", () => ({ orsTourGate: h.gate }));
 vi.mock("../facts/tour-ors", () => ({ getTourMatrix: h.matrix, getTourRoute: h.route, peekTourMatrix: h.peek }));
+vi.mock("../facts/transit", () => ({ getTransitLeg: h.transit, TRANSIT_TTL_SECONDS: 7 * 86400 }));
 vi.mock("../ai-slots", () => ({ reserveAiCall: h.reserve, releaseAiCall: h.release }));
 vi.mock("../events", () => ({ logEvent: h.logEvent }));
 vi.mock("./places", async (orig) => ({ ...(await orig<typeof import("./places")>()), cityPlaces: h.cityPlaces }));
@@ -40,6 +42,7 @@ vi.mock("@/lib/integrations/open-meteo-geocoding", () => ({ getPlaceById: h.getP
 import { legKey, TourInput, type TourResult } from "@/lib/domain/tour";
 import { parseTourMatrix, parseTourRoute } from "@/lib/integrations/openrouteservice";
 import { tourInputHash } from "@/lib/tour/hash";
+import { isoWithOffset } from "@/lib/tour/zoned";
 import { resetRateLimits } from "../rate-limit";
 import { computeTour } from "./compute";
 
@@ -100,6 +103,7 @@ beforeEach(() => {
   h.logEvent.mockReset();
   h.cityPlaces.mockReset().mockResolvedValue({ places: [], pending: false, fetchedAt: "2026-11-02T00:00:00.000Z" });
   h.getPlaceById.mockReset().mockResolvedValue(WIEN);
+  h.transit.mockReset();
 });
 afterEach(() => vi.useRealTimers());
 
@@ -279,6 +283,87 @@ describe("computeTour: pipeline", () => {
     h.matrix.mockResolvedValue({ durations: grid(16), snappedM: [], fetchedAt: "2026-11-01T00:00:00.000Z", stale: false, cache: "hit" });
     const exact = await computeTour(TOUR);
     expect(exact.ok && exact.data.result.orderApprox).toBeUndefined();
+  });
+
+  describe("public transport legs (spec 17.4)", () => {
+    const WIEN_CITY = { key: "geo:2761369", name: "Wien", lat: 48.20849, lon: 16.37208, source: "geonames" as const };
+    const transitInput = (extra: object = {}) =>
+      TourInput.parse({
+        city: WIEN_CITY,
+        places: P.slice(0, 3),
+        order: "keep",
+        date: "2026-11-17",
+        startTime: "10:00",
+        dwellDefaultMin: 30,
+        legOverrides: { [legKey("osm:w2", "osm:w3")]: { mode: "transit", route: "fastest" } },
+        ...extra,
+      });
+    const ok = { kind: "ok", min: 19, km: 2.4, poly: "", fetchedAt: "2026-11-14T08:00:00.000Z", cache: "miss",
+      parts: [{ m: "TRAM", line: "D", head: "Hauptbahnhof", from: "Burgring", to: "Oper", dep: "10:42", arr: "10:55", stops: 3 }] };
+
+    it("no ORS run for the transit leg; it departs at start + earlier legs + dwell and its minutes count everywhere", async () => {
+      h.input = transitInput();
+      h.transit.mockResolvedValue(ok);
+      const res = await computeTour(TOUR);
+      expect(res.ok).toBe(true);
+      if (!res.ok) return;
+      expect(h.route).toHaveBeenCalledTimes(1); // only the foot leg w1 → w2
+      expect(h.route.mock.calls[0][2].map((p: { key: string }) => p.key)).toEqual(["osm:w1", "osm:w2"]);
+      const [from, to, dep, tz] = h.transit.mock.calls[0];
+      expect([from.key, to.key, tz]).toEqual(["osm:w2", "osm:w3", "Europe/Vienna"]);
+      const footMin = res.data.result.legs[0].min!;
+      // 10:00 Wien = 09:00Z, plus 30 min at Stephansdom, the foot leg and 30 min at Hofburg
+      expect(dep.utcMs).toBe(Date.UTC(2026, 10, 17, 9, 0) + (30 + footMin + 30) * 60000);
+      expect(dep.iso).toBe(isoWithOffset(dep.utcMs, "Europe/Vienna")); // local time with the offset, e.g. 11:09+01:00
+      expect(dep.iso.endsWith("+01:00")).toBe(true);
+      const t = res.data.result.legs[1];
+      expect(t).toMatchObject({ mode: "transit", min: 19, km: 2.4, s: "ok", transit: ok.parts });
+      expect(res.data.result.totalMin).toBe(footMin + 19 + 3 * 30);
+      expect(res.data.result.source.transit).toBe("2026-11-14T08:00:00.000Z");
+    });
+
+    it("walking not slower, no connection and provider failure are stored with their reason", async () => {
+      h.input = transitInput();
+      h.transit.mockResolvedValueOnce({ kind: "walk_not_slower", min: 12, km: 0.9, poly: "", fetchedAt: "2026-11-14T08:00:00.000Z", cache: "hit" });
+      let res = await computeTour(TOUR);
+      expect(res.ok && res.data.result.legs[1]).toMatchObject({ mode: "transit", min: 12, s: "ok", note: "walk_not_slower" });
+      resetRateLimits();
+      h.input = transitInput({ startTime: "10:05" });
+      h.transit.mockResolvedValueOnce({ kind: "no_connection", fetchedAt: "2026-11-14T08:00:00.000Z", cache: "miss" });
+      res = await computeTour(TOUR);
+      expect(res.ok && res.data.result.legs[1]).toMatchObject({ s: "no_route", note: "no_connection", min: null });
+      expect(res.ok && res.data.result.totalMin).toBeNull();
+      resetRateLimits();
+      h.input = transitInput({ startTime: "10:10" });
+      h.transit.mockResolvedValueOnce({ kind: "failed" });
+      res = await computeTour(TOUR);
+      expect(res.ok && res.data.result.legs[1]).toMatchObject({ s: "failed", note: "unavailable" });
+    });
+
+    it("without a city time zone the leg fails with no_time_zone and Transitous is not asked", async () => {
+      h.input = transitInput();
+      h.getPlaceById.mockResolvedValue({ ...WIEN, timezone: null });
+      const res = await computeTour(TOUR);
+      expect(res.ok && res.data.result.legs[1]).toMatchObject({ s: "failed", note: "no_time_zone" });
+      expect(h.transit).not.toHaveBeenCalled();
+    });
+
+    it("a stored result with timetable data older than 7 days is recomputed, not served", async () => {
+      h.input = transitInput();
+      h.transit.mockResolvedValue(ok);
+      const stored: TourResult = {
+        v: 1, order: ["osm:w1", "osm:w2", "osm:w3"], legs: [], totalMin: 10, fit: "none", sights: [{ key: "osm:n9", name: "x", lat: 1, lon: 1, leg: 0, m: 5, cat: "c" }],
+        source: { ors: "2026-11-01T00:00:00.000Z", transit: "2026-11-01T00:00:00.000Z" },
+      };
+      h.stored = { result: stored, result_hash: tourInputHash(h.input as TourInput) };
+      const res = await computeTour(TOUR);
+      expect(res.ok && res.data.unchanged).toBe(false);
+      expect(h.transit).toHaveBeenCalled();
+    });
+
+    it("a transit override needs date and start time (schema)", () => {
+      expect(() => transitInput({ date: undefined })).toThrow(/Public transport needs date and start time/);
+    });
   });
 
   it("keep order: no matrix, overrides split runs (one request each), dropped overrides are counted", async () => {

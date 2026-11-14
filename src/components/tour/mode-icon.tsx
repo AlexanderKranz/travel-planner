@@ -1,7 +1,7 @@
-import type { TourMode } from "@/lib/domain/tour";
+import type { LegMode } from "@/lib/domain/tour";
 
 /** Small line icons per mode (24 × 24, currentColor). Decorative: the text next to them names the mode. */
-const PATHS: Record<TourMode, React.ReactNode> = {
+const PATHS: Record<LegMode, React.ReactNode> = {
   foot: (
     <>
       <circle cx="13" cy="4" r="2" />
@@ -30,6 +30,14 @@ const PATHS: Record<TourMode, React.ReactNode> = {
       <path d="M15 1l-2 4h3l-2 4" />
     </>
   ),
+  transit: (
+    <>
+      <rect x="5" y="3" width="14" height="14" rx="3" />
+      <path d="M5 11h14M9 21l1.5-4M15 21l-1.5-4" />
+      <circle cx="8.5" cy="14" r="1" />
+      <circle cx="15.5" cy="14" r="1" />
+    </>
+  ),
   car: (
     <>
       <path d="M4 16v-4l2-5h12l2 5v4z" />
@@ -40,7 +48,7 @@ const PATHS: Record<TourMode, React.ReactNode> = {
   ),
 };
 
-export function ModeIcon({ mode, className }: { mode: TourMode; className?: string }) {
+export function ModeIcon({ mode, className }: { mode: LegMode; className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"

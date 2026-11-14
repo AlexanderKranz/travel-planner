@@ -2,9 +2,9 @@
 
 import { z } from "zod";
 import type { ActionError } from "@/lib/domain/result";
-import { ORS_PROFILE } from "@/lib/domain/tour";
+import { isTransit, ORS_PROFILE } from "@/lib/domain/tour";
 import type { OrsStep } from "@/lib/integrations/openrouteservice";
-import { groupRuns } from "@/lib/tour/runs";
+import { groupRuns, isOrsRun } from "@/lib/tour/runs";
 import { legChanged, resultVersion } from "@/lib/tour/steps";
 import { tourPointsOf } from "@/lib/tour/points";
 import { logEvent } from "../events";
@@ -22,7 +22,7 @@ import { rowToTour, TOUR_COLUMNS, type TourRow } from "./mapping";
  * Owner and read grantees (anyone who can read the tour through RLS) may ask.
  */
 
-export type DirectionsLeg = { steps: OrsStep[]; poly: string; km: number; changed: boolean; cut?: true } | null;
+export type DirectionsLeg = { steps: OrsStep[]; poly: string; km: number; changed: boolean; cut?: true; transit?: true } | null;
 export type TourDirections = { legs: DirectionsLeg[]; fetchedAt: string; stale: boolean };
 export type TourDirectionsResult =
   | { ok: true; data: TourDirections }
@@ -69,9 +69,10 @@ async function run(id: string, version: string): Promise<TourDirectionsResult> {
   if (!hour.ok) return fail("rate_limited", hour.retryAfterSeconds);
 
   const byKey = new Map(tourPointsOf(tour.input).points.map((p) => [p.key, p]));
-  const runs = groupRuns(result.legs.map(({ from, to, mode, route }) => ({ from, to, mode, route })));
+  // Public transport legs need no ORS call: the view shows their stored parts and line (spec 17.4).
+  const runs = groupRuns(result.legs.map(({ from, to, mode, route }) => ({ from, to, mode, route }))).filter(isOrsRun);
   if (runs.some((r) => r.points.some((k) => !byKey.has(k)))) return fail("not_computed");
-  if (!(await orsTourGate(runs.length, { needsMatrix: false }))) return fail("ors_unavailable");
+  if (runs.length && !(await orsTourGate(runs.length, { needsMatrix: false }))) return fail("ors_unavailable");
 
   const ctx = { userId: session.userId };
   const fetchRun = (r: (typeof runs)[number], refresh: boolean) =>
@@ -86,7 +87,9 @@ async function run(id: string, version: string): Promise<TourDirectionsResult> {
       return older ? fetchRun(r, true) : a;
     }),
   );
-  const legs: DirectionsLeg[] = result.legs.map(() => null);
+  const legs: DirectionsLeg[] = result.legs.map((l) =>
+    isTransit(l.mode) && l.s === "ok" ? { steps: [], poly: l.poly ?? "", km: l.km ?? 0, changed: false, transit: true as const } : null,
+  );
   const dates: string[] = [];
   let stale = false;
   let cacheHits = 0;
@@ -103,12 +106,16 @@ async function run(id: string, version: string): Promise<TourDirectionsResult> {
     }
   }
   // ORS answered, but no run has a route now (data changed since the computation): say so, not "unavailable".
-  if (legs.every((l) => l === null)) return fail(answers.every((a) => a.result === "no_route" || a.result === "not_routable") ? "unreachable" : "ors_unavailable");
+  if (legs.every((l) => l === null || l.transit)) {
+    if (runs.length) return fail(answers.every((a) => a.result === "no_route" || a.result === "not_routable") ? "unreachable" : "ors_unavailable");
+    // Only failed public transport legs: the tour is computed, it just has no connection to describe.
+    if (legs.every((l) => l === null)) return fail(result.legs.some((l) => isTransit(l.mode)) ? "unreachable" : "not_computed");
+  }
 
   await logEvent({
     event: "tour.directions",
     userId: session.userId,
     props: { legs: legs.length, runs: runs.length, cacheHits, failedLegs: legs.filter((l) => l === null).length },
   });
-  return { ok: true, data: { legs, fetchedAt: [...dates].sort()[0], stale } };
+  return { ok: true, data: { legs, fetchedAt: [...dates].sort()[0] ?? result.source.transit ?? result.source.ors, stale } };
 }

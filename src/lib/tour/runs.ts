@@ -1,11 +1,14 @@
 /**
  * Legs, per-leg overrides and runs (docs/specs/city-tour.md sections 3.2 [T7] and 5.3 [T8]). Pure.
  */
-import { legKey, type LegSetting, type RouteOption, type TourMode } from "@/lib/domain/tour";
+import { legKey, type LegMode, type LegSetting, type RouteOption, type TourMode } from "@/lib/domain/tour";
 
-export type PlannedLeg = { from: string; to: string; mode: TourMode; route: RouteOption };
+export type PlannedLeg = { from: string; to: string; mode: LegMode; route: RouteOption };
 /** Consecutive legs with equal mode and route: one Directions request over `points`. */
-export type Run = { mode: TourMode; route: RouteOption; legs: number[]; points: string[] };
+export type Run = { mode: LegMode; route: RouteOption; legs: number[]; points: string[] };
+/** A run routed by ORS (every mode but public transport, which is timed leg by leg from the timetable). */
+export type OrsRun = Run & { mode: TourMode };
+export const isOrsRun = (r: Run): r is OrsRun => r.mode !== "transit";
 type Overrides = Record<string, LegSetting>;
 
 /** Legs of an ordered key sequence with the tour default or the override of that place pair. */

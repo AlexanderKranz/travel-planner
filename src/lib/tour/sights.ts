@@ -6,7 +6,7 @@ import {
   CORRIDOR_M,
   MAX_SIGHTS_PER_LEG,
   MAX_TOUR_SIGHTS,
-  type TourMode,
+  type LegMode,
   type TourSight,
 } from "@/lib/domain/tour";
 import { pointToPolylineM } from "./geo";
@@ -14,7 +14,7 @@ import type { LatLon } from "./polyline";
 
 export type SightCandidate = { key: string; name: string; lat: number; lon: number; cat: string; url?: string };
 /** One leg of the tour: its mode (corridor width) and decoded geometry (null when the leg failed). */
-export type SightLeg = { mode: TourMode; line: readonly LatLon[] | null };
+export type SightLeg = { mode: LegMode; line: readonly LatLon[] | null };
 
 /**
  * Keeps candidates within the corridor of a leg (width by that leg's mode), each assigned to the nearest leg among

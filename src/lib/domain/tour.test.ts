@@ -69,7 +69,8 @@ describe("tour constants", () => {
     expect(ORS_PROFILE.cycling).toBe("cycling-regular");
     expect(ORS_PROFILE.ebike).toBe("cycling-electric");
     expect(ROUTE_OPTIONS_BY_MODE.ebike).toEqual(["fastest", "shortest"]);
-    expect(CORRIDOR_M).toEqual({ foot: 150, wheelchair: 150, cycling: 300, ebike: 300, car: 1000 });
+    expect(CORRIDOR_M).toEqual({ foot: 150, wheelchair: 150, cycling: 300, ebike: 300, car: 1000, transit: 0 }); // no sights along a tram line
+    expect(ROUTE_OPTIONS_BY_MODE.transit).toEqual(["fastest"]);
     expect(legKey("a", "b")).toBe("a>b");
   });
 
