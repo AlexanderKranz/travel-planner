@@ -3,6 +3,7 @@ import { tourTitle } from "@/components/tour/format";
 import { TourResultView } from "@/components/tour/tour-result";
 import { mutedCls } from "@/components/ui/styles";
 import type { SharedTour } from "@/lib/server/tour/shared";
+import { resultFitsInput } from "@/lib/tour/ui";
 import { tourView } from "@/lib/tour/view";
 
 /**
@@ -21,7 +22,10 @@ export async function SharedTourView({ shared, token, mapStyleUrl }: { shared: S
         <p className={`text-sm ${mutedCls}`}>{ts("tourBanner")}</p>
         <h1 className="break-words text-3xl font-bold sm:text-4xl">{title}</h1>
       </div>
-      {tour.result && (
+      {/* A result saved before the input changed may name points that are gone: shown only while it still fits. */}
+      {!tour.result || !resultFitsInput(tour.input, tour.result) ? (
+        <p className={mutedCls}>{t("notComputed")}</p>
+      ) : (
         <TourResultView
           input={tour.input}
           result={tour.result}
