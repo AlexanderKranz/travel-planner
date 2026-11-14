@@ -221,6 +221,9 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
     if (prefill) {
       router.push(`/app/trips/${prefill.tripId}`);
       router.refresh();
+    } else if (!isNew && result === null) {
+      // The first result of a saved tour: the server-rendered sharing panel ("compute first") reloads (city-tour 9.3).
+      router.refresh();
     }
   }
 
