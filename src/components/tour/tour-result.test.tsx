@@ -91,6 +91,33 @@ describe("TourResultView", () => {
     expect(html).not.toContain("+ hinzufügen");
   });
 
+  it("shows a public transport leg: parts, timetable note and Transitous source; a failed one says why and offers walking", () => {
+    const transitLeg = {
+      from: HOFBURG.key, to: NASCHMARKT.key, mode: "transit" as const, route: "fastest" as const, min: 19, km: 2.4, poly: null, s: "ok" as const,
+      transit: [
+        { m: "walk", from: "Hofburg", to: "Burgring", dep: "10:40", arr: "10:42" },
+        { m: "TRAM", line: "D", head: "Hauptbahnhof", from: "Burgring", to: "Oper", dep: "10:42", arr: "10:55", stops: 3 },
+      ],
+    };
+    const ok = { ...result, legs: [result.legs[0], transitLeg], source: { ...result.source, transit: "2026-11-14T08:00:00Z" } };
+    const html = render("de", de as Messages, { result: ok });
+    expect(html).toContain("Zu Fuß bis Burgring · 10:40–10:42");
+    expect(html).toContain("D Richtung Hauptbahnhof · Burgring 10:42 → Oper 10:55 · 3 Halte");
+    expect(html).toContain("Fahrplan, keine Echtzeit");
+    expect(html).toContain('href="https://transitous.org/sources/"');
+
+    const failed = { ...result, legs: [result.legs[0], { ...transitLeg, min: null, km: null, s: "no_route" as const, transit: undefined, note: "no_connection" as const }] };
+    const html2 = render("en", en as Messages, { result: failed, onWalkLeg: () => {} });
+    expect(html2).toContain("The timetable has no connection at this time.");
+    expect(html2).toContain("Walk this leg instead");
+    expect(html2).not.toContain("Timetable, not real time");
+
+    const walk = { ...result, legs: [result.legs[0], { ...transitLeg, transit: undefined, note: "walk_not_slower" as const }] };
+    const walkHtml = render("de", de as Messages, { result: walk });
+    expect(walkHtml).toContain("Zu Fuß ist hier nicht langsamer");
+    expect(walkHtml).toContain("2,4 km · Zu Fuß"); // labelled as walking, not ÖPNV
+  });
+
   it("offers directions only for a saved, current tour; nothing is fetched on render", () => {
     const id = "33333333-3333-4333-8333-333333333333";
     expect(render("de", de as Messages, { tourId: id, title: "Wien" })).toContain('data-testid="tour-directions-button"');

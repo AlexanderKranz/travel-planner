@@ -362,7 +362,7 @@ describe("computeTour: pipeline", () => {
     });
 
     it("a transit override needs date and start time (schema)", () => {
-      expect(() => transitInput({ date: undefined })).toThrow(/Public transport needs date and start time/);
+      expect(() => transitInput({ date: undefined })).toThrow(/Public transport needs date, start time and city/);
     });
   });
 

@@ -89,6 +89,7 @@ const tourSettings = {
 
 type RefineInput = {
   date?: string;
+  city?: { key: string };
   mode: TourMode;
   route: RouteOption;
   legOverrides?: Record<string, LegSetting>;
@@ -149,7 +150,9 @@ function refineTour(v: RefineInput, ctx: z.RefinementCtx): void {
   for (const [k, o] of Object.entries(v.legOverrides ?? {})) {
     if (!routeAllowed(o.mode, o.route)) bad(["legOverrides", k, "route"], "Route option not available for this mode");
     // Timetable legs need a departure: the tour date and start time (spec 17.1 [P3]).
-    if (isTransit(o.mode) && (v.date === undefined || v.startTime === undefined)) bad(["legOverrides", k, "mode"], "Public transport needs date and start time");
+    if (isTransit(o.mode) && (v.date === undefined || v.startTime === undefined || v.city === undefined)) {
+      bad(["legOverrides", k, "mode"], "Public transport needs date, start time and city");
+    }
   }
   if (v.minMin !== undefined && v.maxMin !== undefined && v.minMin > v.maxMin) bad(["minMin"], "minMin > maxMin");
   if (v.endBy !== undefined) {

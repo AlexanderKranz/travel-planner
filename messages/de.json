@@ -2400,6 +2400,32 @@
       "needsResult": "Berechne die Tour zuerst, dann kannst du einen Link erstellen.",
       "linksHint": "Wer den Link hat, sieht die berechnete Tour mit Karte und Orten, ohne Anmeldung. Dein Name wird nicht gezeigt."
     },
+    "transit": {
+      "needs": "Bus und Bahn brauchen ein Datum, eine Startzeit und eine Stadt der Tour.",
+      "sheetHint": "Die Verbindung kommt aus dem Fahrplan (Transitous) für die Abfahrt dieses Abschnitts. Wartezeit an der Haltestelle zählt mit.",
+      "walkNotSlower": "Zu Fuß ist hier nicht langsamer als mit Bus und Bahn, daher bleibt der Abschnitt zu Fuß.",
+      "walkInstead": "Diesen Abschnitt zu Fuß gehen",
+      "why": {
+        "no_connection": "Zu dieser Zeit gibt es laut Fahrplan keine Verbindung.",
+        "no_time_zone": "Für die Stadt der Tour ist keine Zeitzone bekannt, daher gibt es keine Fahrplanabfrage.",
+        "no_departure": "Die Abfahrtszeit ist nicht bekannt, weil ein früherer Abschnitt keine Zeit hat.",
+        "unavailable": "Die Fahrplanauskunft ist gerade nicht erreichbar."
+      },
+      "partWalk": "Zu Fuß bis {to} · {dep}–{arr}",
+      "partRide": "{line}{head, select, none {} other { Richtung {head}}} · {from} {dep} → {to} {arr}{stops, plural, =0 {} one { · # Halt} other { · # Halte}}",
+      "destination": "zum Ziel",
+      "vehicle": {
+        "bus": "Bus",
+        "tram": "Straßenbahn",
+        "subway": "U-Bahn",
+        "rail": "Zug",
+        "ferry": "Fähre",
+        "other": "Linie"
+      },
+      "scheduled": "Fahrplan, keine Echtzeit",
+      "source": "Fahrplandaten: Transitous",
+      "checked": "abgerufen am {date}"
+    },
     "routeCredit": "Routen: © openrouteservice.org"
   }
 }

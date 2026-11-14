@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef } from "react";
 import { SelectField } from "@/components/ui/fields";
 import { btnPrimary, btnSecondary, mutedCls } from "@/components/ui/styles";
-import { ROUTE_OPTIONS_BY_MODE, TOUR_MODES, type RouteOption } from "@/lib/domain/tour";
+import { ROUTE_OPTIONS_BY_MODE, TOUR_MODES, isTransit, type RouteOption } from "@/lib/domain/tour";
 import { sheetMode, type LegSheet as SheetState } from "@/lib/tour/ui";
 import { ModeIcon } from "./mode-icon";
 
@@ -16,13 +16,15 @@ type Props = {
   onApply: () => void;
   onReset: () => void;
   onClose: () => void;
+  /** Public transport needs the tour date, start time and city (spec 17.4); otherwise the option is disabled. */
+  transitOk: boolean;
 };
 
 /**
  * "Ändern" on a leg (spec 2.1 step 3): mode and route option for this leg only, as a bottom sheet on phones and a
  * centred dialog from `sm` on. Native <dialog>: focus trap and Escape for free.
  */
-export function LegSheet({ sheet, fromName, toName, onChange, onApply, onReset, onClose }: Props) {
+export function LegSheet({ sheet, fromName, toName, onChange, onApply, onReset, onClose, transitOk }: Props) {
   const t = useTranslations("tours");
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
@@ -65,8 +67,31 @@ export function LegSheet({ sheet, fromName, toName, onChange, onApply, onReset, 
                   {t(`modes.${m}`)}
                 </label>
               ))}
+              <label
+                className={`flex min-h-11 items-center justify-center gap-2 rounded-md border border-line-strong px-3 text-sm has-[:checked]:border-accent has-[:checked]:bg-accent has-[:checked]:text-white has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus ${transitOk ? "cursor-pointer" : "cursor-not-allowed opacity-60"}`}
+              >
+                <input
+                  type="radio"
+                  name={name}
+                  className="sr-only"
+                  disabled={!transitOk}
+                  checked={sheet.mode === "transit"}
+                  onChange={() => onChange(sheetMode(sheet, "transit"))}
+                  aria-describedby={transitOk ? undefined : `${name}-transit`}
+                />
+                <ModeIcon mode="transit" />
+                {t("modes.transit")}
+              </label>
             </div>
+            {!transitOk && (
+              <p id={`${name}-transit`} className={`text-sm ${mutedCls}`}>
+                {t("transit.needs")}
+              </p>
+            )}
           </fieldset>
+          {isTransit(sheet.mode) ? (
+            <p className={`text-sm ${mutedCls}`}>{t("transit.sheetHint")}</p>
+          ) : (
           <SelectField
             label={t("route")}
             hint={t(`routeHelp.${sheet.route}`)}
@@ -79,6 +104,7 @@ export function LegSheet({ sheet, fromName, toName, onChange, onApply, onReset, 
               </option>
             ))}
           </SelectField>
+          )}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <button type="button" className={btnSecondary} onClick={onClose}>
               {t("cancel")}
