@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { getTranslations, setRequestLocale } from "next-intl/server";
+import { PdfButton } from "@/components/pdf/pdf-button";
 import { TourSharePanel } from "@/components/share/tour-share-panel";
 import { SharedHeader } from "@/components/sharing/shared-header";
 import { tourTitle } from "@/components/tour/format";
@@ -41,6 +42,7 @@ export default async function TourPage({ params }: { params: Promise<{ locale: s
     <main className="flex flex-col gap-4">
       {header}
       <TourEditor tour={tour} view={view} prefill={null} mapStyleUrl={mapStyleUrl} trips={tripOptions} />
+      {tour.result && <TourPdfBox tourId={tour.id} />}
       {tour.access === "owner" && profile.ok && (
         <TourSharePanel tourId={tour.id} computed={tour.result !== null} isDemo={profile.data.isDemo} isAdmin={profile.data.role === "admin"} />
       )}
@@ -78,6 +80,7 @@ async function ReadOnlyTour({
           {t("readOnly")}
         </p>
       </div>
+      {tour.result && <TourPdfBox tourId={tour.id} />}
       {tour.result && resultFitsInput(tour.input, tour.result) ? (
         <TourResultView
           input={tour.input}
@@ -102,5 +105,22 @@ async function ReadOnlyTour({
         </div>
       )}
     </main>
+  );
+}
+
+/** PDF of the tour for every reader (city-tour 9.3), with the opt-in "Ortsinfos aufnehmen" (city-tour-stop-info 6). */
+async function TourPdfBox({ tourId }: { tourId: string }) {
+  const t = await getTranslations("share");
+  const tStop = await getTranslations("tours.stopInfo");
+  return (
+    <div className="flex flex-col gap-1" data-testid="tour-pdf">
+      <PdfButton
+        href={`/api/tours/${tourId}/pdf`}
+        label={t("pdf")}
+        busyLabel={t("pdfBusy")}
+        errorText={t("pdfFailed")}
+        stopInfoLabel={tStop("pdfInclude")}
+      />
+    </div>
   );
 }

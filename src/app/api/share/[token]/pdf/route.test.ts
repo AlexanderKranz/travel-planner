@@ -5,6 +5,8 @@ const getShared = vi.fn();
 vi.mock("@/lib/server/plan-document", () => ({ getSharedPlanDocument: (...a: unknown[]) => getShared(...a) }));
 vi.mock("@/lib/server/events", () => ({ logEvent: vi.fn() }));
 vi.mock("@/lib/pdf/render", () => ({ renderPlanPdf: async () => Buffer.from("%PDF-1.7 fake") }));
+vi.mock("@/lib/server/tour/shared", () => ({ getSharedTour: async () => null }));
+vi.mock("@/lib/pdf/tour-response", () => ({ tourPdfResponse: async () => new Response("x") }));
 
 import { resetRateLimits } from "@/lib/server/rate-limit";
 import golf from "@/lib/server/__fixtures__/plan-document-golf.json";
@@ -36,7 +38,7 @@ describe("GET /api/share/[token]/pdf", () => {
     getShared.mockResolvedValue(golf);
     const res = await call(TOKEN);
     expect(res.status).toBe(200);
-    expect(getShared).toHaveBeenCalledWith(TOKEN, "pdf");
+    expect(getShared).toHaveBeenCalledWith(TOKEN, "pdf", { stopInfo: false });
     expect(res.headers.get("content-type")).toBe("application/pdf");
     expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename="[a-z0-9-]+\.pdf"$/);
     expect(res.headers.get("cache-control")).toBe("private, no-store");

@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { PdfButton } from "@/components/pdf/pdf-button";
 import { tourTitle } from "@/components/tour/format";
 import { TourResultView } from "@/components/tour/tour-result";
 import { mutedCls } from "@/components/ui/styles";
@@ -13,6 +14,7 @@ import { tourView } from "@/lib/tour/view";
 export async function SharedTourView({ shared, token, mapStyleUrl }: { shared: SharedTour; token: string; mapStyleUrl: string | null }) {
   const t = await getTranslations("tours");
   const ts = await getTranslations("shared");
+  const tStop = await getTranslations("tours.stopInfo");
   const { tour } = shared;
   const view = tour.outdated ? { stopTimes: null, byMin: null } : tourView(tour.input, tour.result);
   const title = tourTitle(t, tour.title, tour.input.city?.name ?? null, tour.input.places[0]?.name ?? null);
@@ -22,6 +24,15 @@ export async function SharedTourView({ shared, token, mapStyleUrl }: { shared: S
         <p className={`text-sm ${mutedCls}`}>{ts("tourBanner")}</p>
         <h1 className="break-words text-3xl font-bold sm:text-4xl">{title}</h1>
       </div>
+      {tour.result && (
+        <PdfButton
+          href={`/api/share/${token}/pdf`}
+          label={ts("pdf")}
+          busyLabel={ts("pdfBusy")}
+          errorText={ts("pdfFailed")}
+          stopInfoLabel={tStop("pdfInclude")}
+        />
+      )}
       {/* A result saved before the input changed may name points that are gone: shown only while it still fits. */}
       {!tour.result || !resultFitsInput(tour.input, tour.result) ? (
         <p className={mutedCls}>{t("notComputed")}</p>
