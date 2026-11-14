@@ -227,11 +227,8 @@ export const TourResult = z.object({
 });
 export type TourResult = z.infer<typeof TourResult>;
 
-/**
- * Viewer's access to a tour (spec 9.3): the owner; `write` through a tour share with write access (edit and compute,
- * not the trip link); `read` through a read tour share or a trip shared with the viewer.
- */
-export type TourAccess = "owner" | "write" | "read";
+/** Viewer's access to a tour: the owner, or read-only through a trip shared with the viewer (spec 9.3). */
+export type TourAccess = "owner" | "read";
 
 /** A stored tour as the UI gets it. `outdated`: the stored result belongs to another input (or there is none). */
 export type Tour = {

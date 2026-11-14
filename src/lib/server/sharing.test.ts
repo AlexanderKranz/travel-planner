@@ -449,7 +449,6 @@ describe("listSharedWithMe", () => {
     h.contacts = [{ user_id: OWNER, display_name: "Olga", email: "olga@example.com" }];
     h.results["trip_shares.select"] = { data: [{ id: "s-trip", trip_id: "dest", owner_id: OWNER, access: "read", created_at: "2026-11-01T00:00:00Z", trips: tripRow }] };
     h.results["purpose_shares.select"] = { data: [{ id: "s-purpose", purpose_id: "p1", owner_id: OWNER, access: "write", created_at: "2026-11-02T00:00:00Z", trip_purposes: purposeRow }] };
-    h.results["tour_shares.select"] = { data: [] };
     const res = await listSharedWithMe();
     expect(res.ok).toBe(true);
     if (!res.ok) return;
@@ -469,7 +468,7 @@ describe("listSharedWithMe", () => {
       trip: null,
       purpose: { id: "p1", ownerId: OWNER, access: "write", usable: true },
     });
-    expect(h.calls.map((c) => c.table).sort()).toEqual(["group_shares", "purpose_shares", "tour_shares", "trip_shares"]);
+    expect(h.calls.map((c) => c.table).sort()).toEqual(["group_shares", "purpose_shares", "trip_shares"]);
     expect(h.calls.every((c) => c.eqs.some(([k, v]) => k === "grantee_id" && v === ME))).toBe(true);
   });
 
@@ -477,7 +476,6 @@ describe("listSharedWithMe", () => {
     h.contacts = [{ user_id: OWNER, display_name: "Olga", email: "olga@example.com" }];
     h.results["trip_shares.select"] = { data: [] };
     h.results["purpose_shares.select"] = { data: [] };
-    h.results["tour_shares.select"] = { data: [] };
     h.results["group_shares.select"] = {
       data: [
         {
@@ -494,7 +492,7 @@ describe("listSharedWithMe", () => {
       data: [
         {
           id: "s-group", resource: "group", resourceId: "g1", owner: person, access: "write", createdAt: "2026-11-03T00:00:00Z",
-          trip: null, purpose: null, tour: null,
+          trip: null, purpose: null,
           group: { id: "g1", name: "Friends", notes: undefined, description: "5 friends", entryCount: 4, updatedAt: "u", access: "write", sharedBy: person, shareCount: 0 },
         },
       ],
@@ -503,45 +501,9 @@ describe("listSharedWithMe", () => {
     expect(await listSharedWithMe()).toEqual({ ok: false, error: "failed" });
   });
 
-  it("maps tour shares to a tour summary with the viewer's level (city-tour 9.3)", async () => {
-    h.contacts = [{ user_id: OWNER, display_name: "Olga", email: "olga@example.com" }];
-    h.results["trip_shares.select"] = { data: [] };
-    h.results["purpose_shares.select"] = { data: [] };
-    h.results["group_shares.select"] = { data: [] };
-    const places = [
-      { key: "osm:n1", name: "Stephansdom", lat: 48.2085, lon: 16.3731, source: "osm" },
-      { key: "osm:n2", name: "Hofburg", lat: 48.2065, lon: 16.3655, source: "osm" },
-    ];
-    const tourRow = {
-      id: "t1", owner_id: OWNER, title: "Altstadt", input: { places }, trip_id: null, trip_day: null, result: null,
-      result_hash: null, computed_at: null, created_at: "c", updated_at: "u",
-    };
-    h.results["tour_shares.select"] = {
-      data: [
-        { id: "s-tour", tour_id: "t1", owner_id: OWNER, access: "write", created_at: "2026-11-04T00:00:00Z", city_tours: tourRow },
-        { id: "s-gone", tour_id: "t2", owner_id: OWNER, access: "read", created_at: "c", city_tours: null },
-      ],
-    };
-    const res = await listSharedWithMe();
-    expect(res.ok && res.data).toHaveLength(1);
-    expect(res.ok && res.data[0]).toMatchObject({
-      resource: "tour",
-      resourceId: "t1",
-      access: "write",
-      owner: { id: OWNER, name: "Olga" },
-      trip: null,
-      group: null,
-      purpose: null,
-      tour: { id: "t1", access: "write", title: "Altstadt", placeCount: 2 },
-    });
-    h.results["tour_shares.select"] = { error: { code: "x" } };
-    expect(await listSharedWithMe()).toEqual({ ok: false, error: "failed" });
-  });
-
   it("skips shares whose resource cannot be read and fails when a read fails", async () => {
     h.results["trip_shares.select"] = { data: [{ id: "s", trip_id: "dest", owner_id: OWNER, access: "read", created_at: "c", trips: null }] };
     h.results["purpose_shares.select"] = { data: [] };
-    h.results["tour_shares.select"] = { data: [] };
     expect(await listSharedWithMe()).toEqual({ ok: true, data: [] });
     h.results["purpose_shares.select"] = { error: { code: "x" } };
     expect(await listSharedWithMe()).toEqual({ ok: false, error: "failed" });

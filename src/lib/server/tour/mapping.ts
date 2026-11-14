@@ -1,6 +1,5 @@
 import "server-only";
-import { accessOf } from "@/lib/domain/sharing";
-import { TourInput, TourResult, type Tour, type TourAccess, type TourSummary } from "@/lib/domain/tour";
+import { TourInput, TourResult, type Tour, type TourSummary } from "@/lib/domain/tour";
 import { tourInputHash } from "@/lib/tour/hash";
 
 /** Row of `public.city_tours` (migration 20261116120041). */
@@ -16,18 +15,10 @@ export type TourRow = {
   computed_at: string | null;
   created_at: string;
   updated_at: string;
-  /** Through RLS: the owner sees every share row of the tour, a grantee only their own (migration 20261120120045). */
-  tour_shares?: { grantee_id: string; access: "read" | "write" }[] | null;
 };
 
 export const TOUR_COLUMNS =
-  "id, owner_id, title, input, trip_id, trip_day, result, result_hash, computed_at, created_at, updated_at, tour_shares(grantee_id, access)";
-
-/** Owner, else the level of the viewer's own tour share, else `read` (a tour seen through a shared trip). */
-export function tourAccess(row: Pick<TourRow, "owner_id" | "tour_shares">, viewerId: string): TourAccess {
-  const share = row.tour_shares?.find((s) => s.grantee_id === viewerId);
-  return accessOf(row.owner_id, viewerId, share?.access ?? null);
-}
+  "id, owner_id, title, input, trip_id, trip_day, result, result_hash, computed_at, created_at, updated_at";
 
 /**
  * Stored row → `Tour`, or null when the stored input is not a valid `TourInput` (the column is user-writable over
@@ -41,7 +32,7 @@ export function rowToTour(row: TourRow, viewerId: string): Tour | null {
   return {
     id: row.id,
     ownerId: row.owner_id,
-    access: tourAccess(row, viewerId),
+    access: row.owner_id === viewerId ? "owner" : "read",
     title: row.title,
     input: input.data,
     tripId: row.trip_id,

@@ -124,12 +124,4 @@ describe("getSharedTourStopInfo", () => {
     expect(h.rpc.mock.calls[0][1]).toMatchObject({ p_user: null, p_link: "l1", p_scope_limit: 30 });
     expect(h.batch.mock.calls[0][2]).toEqual({ userId: null });
   });
-
-  it("a link for a standalone tour serves exactly that tour (city-tour 9.3)", async () => {
-    h.rows.share_links = { id: "l2", owner_id: "owner", trip_id: null, tour_id: "99999999-9999-4999-8999-999999999999", expires_at: null };
-    expect(await getSharedTourStopInfo(token, TOUR)).toEqual({ ok: false, error: "not_found" });
-    expect(h.batch).not.toHaveBeenCalled();
-    h.rows.share_links = { id: "l2", owner_id: "owner", trip_id: null, tour_id: TOUR, expires_at: null };
-    expect((await getSharedTourStopInfo(token, TOUR)).ok).toBe(true);
-  });
 });

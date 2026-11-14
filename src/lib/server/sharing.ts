@@ -33,11 +33,9 @@ import { loadContacts, personOf } from "./share-contacts";
 import { createSupabaseAdminClient } from "./supabase/admin";
 import { rowToSummary, TRIP_COLUMNS, type TripSummaryRow } from "./trip-mapping";
 import { getTrip } from "./trips";
-import { rowToTour, TOUR_COLUMNS, tourToSummary, type TourRow } from "./tour/mapping";
 
 /**
- * Sharing trips, purposes, groups and city tours (docs/specs/sharing.md section 3, ADR 0010; tours: city-tour spec
- * 9.3). One module for all resources.
+ * Sharing trips and purposes (docs/specs/sharing.md section 3, ADR 0010). One module for both resources.
  *
  * Grants are written ONLY through `rpc("share_resource")` with the secret key (2.9): clients have no insert or update
  * privilege on the share tables, so the email-only rule, the admin-only user list, the lookup limits and the events
@@ -47,9 +45,9 @@ import { rowToTour, TOUR_COLUMNS, tourToSummary, type TourRow } from "./tour/map
  * the link events `share.*`).
  */
 
-const TABLE = { trip: "trip_shares", purpose: "purpose_shares", group: "group_shares", tour: "tour_shares" } as const;
-const RESOURCE_TABLE = { trip: "trips", purpose: "trip_purposes", group: "travel_groups", tour: "city_tours" } as const;
-const RESOURCE_COLUMN = { trip: "trip_id", purpose: "purpose_id", group: "group_id", tour: "tour_id" } as const;
+const TABLE = { trip: "trip_shares", purpose: "purpose_shares", group: "group_shares" } as const;
+const RESOURCE_TABLE = { trip: "trips", purpose: "trip_purposes", group: "travel_groups" } as const;
+const RESOURCE_COLUMN = { trip: "trip_id", purpose: "purpose_id", group: "group_id" } as const;
 
 /** Per-minute lookup limit in memory (instances do not share it); the durable daily limit counts `app_events`. */
 const LOOKUPS_PER_MINUTE = 5;
@@ -215,7 +213,7 @@ export async function shareWith(input: ShareInput): Promise<ActionResult<{ share
   return { ok: true, data: { shareId: res.row.share_id, created: res.row.created } };
 }
 
-type OwnShareRow = { id: string; grantee_id: string; trip_id?: string; purpose_id?: string; group_id?: string; tour_id?: string };
+type OwnShareRow = { id: string; grantee_id: string; trip_id?: string; purpose_id?: string; group_id?: string };
 
 /** Changes the level of an existing grant. Update-only: a grant that was left or revoked meanwhile is `not_found`. */
 export async function setShareAccess(input: ShareAccessInput): Promise<ActionResult> {
@@ -261,7 +259,7 @@ export async function unshare(input: ShareIdInput): Promise<ActionResult> {
     .eq("id", shareId)
     .eq("owner_id", session.userId)
     .select(`id, ${RESOURCE_COLUMN[resource]}`)
-    .returns<{ id: string; trip_id?: string; purpose_id?: string; group_id?: string; tour_id?: string }[]>();
+    .returns<{ id: string; trip_id?: string; purpose_id?: string; group_id?: string }[]>();
   if (error) return fail("failed");
   if (!data || data.length === 0) return fail("not_found");
   await logEvent({
@@ -285,7 +283,7 @@ export async function leaveShare(input: ShareIdInput): Promise<ActionResult> {
     .eq("id", shareId)
     .eq("grantee_id", session.userId)
     .select(`id, ${RESOURCE_COLUMN[resource]}`)
-    .returns<{ id: string; trip_id?: string; purpose_id?: string; group_id?: string; tour_id?: string }[]>();
+    .returns<{ id: string; trip_id?: string; purpose_id?: string; group_id?: string }[]>();
   if (error) return fail("failed");
   if (!data || data.length === 0) return fail("not_found");
   await logEvent({
@@ -328,15 +326,6 @@ type IncomingGroupRow = {
   } | null;
 };
 
-type IncomingTourRow = {
-  id: string;
-  tour_id: string;
-  owner_id: string;
-  access: ShareAccess;
-  created_at: string;
-  city_tours: TourRow | null;
-};
-
 /**
  * Everything shared with the viewer, newest first (RLS hides the shares of a disabled owner). Trips come as summaries
  * with `sharedBy` and the viewer's `access`, purposes as full `TripPurpose` (usable, with the viewer's level).
@@ -345,7 +334,7 @@ export async function listSharedWithMe(): Promise<ActionResult<IncomingShare[]>>
   const session = await getUserSession();
   if (!session) return fail("unauthenticated");
   const me = session.userId;
-  const [trips, purposes, groups, tours, contacts] = await Promise.all([
+  const [trips, purposes, groups, contacts] = await Promise.all([
     session.supabase
       .from("trip_shares")
       .select(`id, trip_id, owner_id, access, created_at, trips(${TRIP_COLUMNS}, travel_groups(name), trip_purposes(name))`)
@@ -364,15 +353,9 @@ export async function listSharedWithMe(): Promise<ActionResult<IncomingShare[]>>
       .eq("grantee_id", me)
       .order("created_at", { ascending: false })
       .returns<IncomingGroupRow[]>(),
-    session.supabase
-      .from("tour_shares")
-      .select(`id, tour_id, owner_id, access, created_at, city_tours(${TOUR_COLUMNS})`)
-      .eq("grantee_id", me)
-      .order("created_at", { ascending: false })
-      .returns<IncomingTourRow[]>(),
     loadContacts(session.supabase),
   ]);
-  if (trips.error || purposes.error || groups.error || tours.error || !contacts) return fail("failed");
+  if (trips.error || purposes.error || groups.error || !contacts) return fail("failed");
 
   const out: IncomingShare[] = [];
   for (const r of trips.data) {
@@ -390,7 +373,6 @@ export async function listSharedWithMe(): Promise<ActionResult<IncomingShare[]>>
       trip: rowToSummary(row as TripSummaryRow, me, owner),
       purpose: null,
       group: null,
-      tour: null,
     });
   }
   for (const r of groups.data) {
@@ -405,7 +387,6 @@ export async function listSharedWithMe(): Promise<ActionResult<IncomingShare[]>>
       createdAt: r.created_at,
       trip: null,
       purpose: null,
-      tour: null,
       group: {
         id: r.travel_groups.id,
         name: r.travel_groups.name,
@@ -431,26 +412,7 @@ export async function listSharedWithMe(): Promise<ActionResult<IncomingShare[]>>
       createdAt: r.created_at,
       trip: null,
       group: null,
-      tour: null,
       purpose: rowToPurpose(row, me),
-    });
-  }
-  for (const r of tours.data) {
-    if (!r.city_tours) continue;
-    // The viewer's share row decides the access, exactly as for a tour read directly.
-    const tour = rowToTour({ ...r.city_tours, tour_shares: [{ grantee_id: me, access: r.access }] }, me);
-    if (!tour) continue;
-    out.push({
-      id: r.id,
-      resource: "tour",
-      resourceId: r.tour_id,
-      owner: personOf(contacts, r.owner_id),
-      access: r.access,
-      createdAt: r.created_at,
-      trip: null,
-      purpose: null,
-      group: null,
-      tour: tourToSummary(tour),
     });
   }
   out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));

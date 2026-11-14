@@ -16,17 +16,9 @@ export const ShareLinkInput = z.object({
 });
 export type ShareLinkInputParsed = z.infer<typeof ShareLinkInput>;
 
-/** Input of a link for a standalone city tour (spec city-tour 9.3): no items, so only label and expiry. */
-export const TourShareLinkInput = z.object({
-  label: z.string().trim().max(60).nullable(),
-  expiresInDays: z.union([z.literal(7), z.literal(30), z.literal(90)]).nullable(),
-});
-
-/** A link points at a trip or at a standalone city tour (exactly one is set). */
 export type ShareLink = {
   id: string;
-  tripId: string | null;
-  tourId: string | null;
+  tripId: string;
   label: string | null;
   includeItems: boolean;
   includeItemNotes: boolean;

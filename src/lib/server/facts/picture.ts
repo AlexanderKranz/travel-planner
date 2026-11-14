@@ -98,8 +98,8 @@ export async function getSharedDestinationPicture(
       .from("share_links")
       .select("trip_id, owner_id, expires_at")
       .eq("token_hash", hashShareToken(token))
-      .maybeSingle<{ trip_id: string | null; owner_id: string; expires_at: string | null }>();
-    if (!link || !link.trip_id) return null; // a standalone tour link has no destination picture
+      .maybeSingle<{ trip_id: string; owner_id: string; expires_at: string | null }>();
+    if (!link) return null;
     // Same rules as getSharedPlanDocument, so this stays safe on its own: nothing for an expired link or a disabled owner.
     if (link.expires_at !== null && Date.parse(link.expires_at) <= Date.now()) return null;
     const { data: owner, error: ownerErr } = await admin

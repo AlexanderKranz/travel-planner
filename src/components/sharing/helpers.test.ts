@@ -35,7 +35,7 @@ describe("birthdateForAge", () => {
 
 describe("sharedPurposeOptions", () => {
   const owner = { id: "o", name: "Mia", email: "m@x.test" };
-  const base = { id: "s", resourceId: "p", owner, access: "read" as const, createdAt: "", trip: null, group: null, tour: null };
+  const base = { id: "s", resourceId: "p", owner, access: "read" as const, createdAt: "", trip: null, group: null };
   it("lists usable purpose shares only, labelled with the owner", () => {
     const purpose = (id: string, usable: boolean) => ({ id, name: `P${id}`, usable }) as never;
     const out = sharedPurposeOptions([
@@ -50,7 +50,7 @@ describe("sharedPurposeOptions", () => {
 
 describe("sharedGroupOptions", () => {
   const owner = { id: "o", name: "Mia", email: "m@x.test" };
-  const base = { id: "s", resourceId: "g", owner, access: "write" as const, createdAt: "", trip: null, purpose: null, tour: null };
+  const base = { id: "s", resourceId: "g", owner, access: "write" as const, createdAt: "", trip: null, purpose: null };
   it("lists group shares (either level) with the owner's name, nothing else", () => {
     const group = { id: "g1", name: "Friends" } as never;
     expect(

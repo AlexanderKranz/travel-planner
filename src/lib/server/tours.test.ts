@@ -125,31 +125,6 @@ describe("updateTour / deleteTour / linkTourToTrip: owner only", () => {
     expect(writes()).toHaveLength(0);
   });
 
-  it("a write grantee of the tour may save title and input (scoped to the owner's row) but not delete or link it", async () => {
-    const base = h.reply;
-    h.reply = (o) =>
-      o.table === "city_tours" && (o.op === "select" || o.op === "update")
-        ? { data: row({ owner_id: "u2", tour_shares: [{ grantee_id: "u1", access: "write" }] }) }
-        : base(o);
-    expect(await getTour(TOUR)).toMatchObject({ ok: true, data: { access: "write" } });
-    const res = await updateTour(TOUR, { places: [{ key: "osm:n1" }, { key: "osm:n2" }] });
-    expect(res.ok).toBe(true);
-    const upd = writes().find((w) => w.op === "update")!;
-    expect(Object.keys(upd.payload as object).sort()).toEqual(["input", "title"]);
-    expect(upd.eqs).toContainEqual(["owner_id", "u2"]);
-    expect(await deleteTour(TOUR)).toEqual({ ok: false, error: "forbidden" });
-    expect(await linkTourToTrip(TOUR, null, null)).toEqual({ ok: false, error: "forbidden" });
-  });
-
-  it("a read grantee of the tour cannot save it", async () => {
-    const base = h.reply;
-    h.reply = (o) =>
-      o.table === "city_tours" && o.op === "select" ? { data: row({ owner_id: "u2", tour_shares: [{ grantee_id: "u1", access: "read" }] }) } : base(o);
-    expect(await getTour(TOUR)).toMatchObject({ ok: true, data: { access: "read" } });
-    expect(await updateTour(TOUR, draft())).toEqual({ ok: false, error: "forbidden" });
-    expect(writes()).toHaveLength(0);
-  });
-
   it("update keeps stored points without a reference and never writes result columns", async () => {
     const res = await updateTour(TOUR, { title: " Domrunde ", places: [{ key: "osm:n1", dwellMin: 5 }, { key: "osm:n2" }] }, "2026-11-12T00:00:00Z");
     expect(res.ok).toBe(true);

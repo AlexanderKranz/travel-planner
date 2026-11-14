@@ -6,7 +6,6 @@ import { fail, zodIssues, type ActionResult } from "@/lib/domain/result";
 import {
   MAX_LINKS_PER_TRIP,
   ShareLinkInput,
-  TourShareLinkInput,
   type CreatedShareLink,
   type ShareLink,
 } from "@/lib/domain/share";
@@ -17,7 +16,6 @@ import { getPlanRow, getVersion } from "./plan-store";
 import { rateLimit } from "./rate-limit";
 import { getUserSession } from "./session";
 import { newShareToken } from "./share-token";
-import { createSupabaseAdminClient } from "./supabase/admin";
 
 const Id = z.string().uuid();
 const FK_VIOLATION = "23503";
@@ -25,12 +23,11 @@ const DAY_MS = 86_400_000;
 
 // token_hash is deliberately absent: clients have no select grant on it.
 const LINK_COLUMNS =
-  "id, trip_id, tour_id, label, include_items, include_item_notes, expires_at, view_count, last_viewed_at, created_at";
+  "id, trip_id, label, include_items, include_item_notes, expires_at, view_count, last_viewed_at, created_at";
 
 type LinkRow = {
   id: string;
-  trip_id: string | null;
-  tour_id: string | null;
+  trip_id: string;
   label: string | null;
   include_items: boolean;
   include_item_notes: boolean;
@@ -44,7 +41,6 @@ function rowToLink(r: LinkRow): ShareLink {
   return {
     id: r.id,
     tripId: r.trip_id,
-    tourId: r.tour_id,
     label: r.label,
     includeItems: r.include_items,
     includeItemNotes: r.include_item_notes,
@@ -145,87 +141,5 @@ export async function revokeShareLink(id: string): Promise<ActionResult> {
   await logEvent({ event: "share.revoked", userId: session.userId, props: { linkId: id } });
   // Fresh RSC payload in the action response; router.refresh() alone was occasionally stale (E2E flake).
   revalidatePath("/[locale]/app/trips/[id]", "page");
-  revalidatePath("/[locale]/app/tours/[id]", "page");
   return { ok: true };
-}
-
-/** Links of an own standalone tour (spec city-tour 9.3). Expired links stay listed until revoked. */
-export async function listTourShareLinks(tourId: string): Promise<ActionResult<ShareLink[]>> {
-  const session = await getUserSession();
-  if (!session) return fail("unauthenticated");
-  if (!Id.safeParse(tourId).success) return fail("invalid");
-  const { data, error } = await session.supabase
-    .from("share_links")
-    .select(LINK_COLUMNS)
-    .eq("tour_id", tourId)
-    .order("created_at", { ascending: false })
-    .returns<LinkRow[]>();
-  if (error) return fail("failed");
-  return { ok: true, data: data.map(rowToLink) };
-}
-
-/**
- * A public read-only link for an own city tour. The tour is checked through RLS (owner only: grantees, also write
- * grantees, cannot publish someone else's tour); the row is written with the secret key because `tour_id` is not in
- * the client insert grant (migration 20261120120045). The URL uses the owner's language.
- */
-export async function createTourShareLink(tourId: string, input: unknown): Promise<ActionResult<CreatedShareLink>> {
-  const session = await getUserSession();
-  if (!session) return fail("unauthenticated");
-  if (!Id.safeParse(tourId).success) return fail("invalid");
-  const parsed = TourShareLinkInput.safeParse(input);
-  if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
-  const rl = rateLimit(`share-create:${session.userId}`, 10, 60_000);
-  if (!rl.ok) return fail("rate_limited");
-
-  const profile = await getProfile();
-  if (!profile.ok) return fail("failed");
-  if (profile.data.isDemo) return fail("demo_forbidden");
-
-  const { data: tour, error: tourError } = await session.supabase
-    .from("city_tours")
-    .select("id, owner_id, result")
-    .eq("id", tourId)
-    .maybeSingle<{ id: string; owner_id: string; result: unknown }>();
-  if (tourError) return fail("failed");
-  if (!tour) return fail("not_found");
-  if (tour.owner_id !== session.userId) return fail("forbidden");
-  if (tour.result == null) return fail("no_plan"); // nothing to show yet: compute the tour first
-
-  const base = getAppUrl();
-  if (!base) return fail("failed");
-
-  const now = Date.now();
-  const admin = createSupabaseAdminClient();
-  const { count, error: countError } = await admin
-    .from("share_links")
-    .select("id", { count: "exact", head: true })
-    .eq("tour_id", tourId)
-    .eq("owner_id", session.userId)
-    .or(`expires_at.is.null,expires_at.gt.${new Date(now).toISOString()}`);
-  if (countError) return fail("failed");
-  if ((count ?? 0) >= MAX_LINKS_PER_TRIP) return fail("limit_reached");
-
-  const { token, hash } = newShareToken();
-  const { data, error } = await admin
-    .from("share_links")
-    .insert({
-      owner_id: session.userId, // the checked session user, never client input
-      tour_id: tourId,
-      token_hash: hash,
-      label: parsed.data.label && parsed.data.label.length > 0 ? parsed.data.label : null,
-      include_items: false,
-      include_item_notes: false,
-      expires_at: parsed.data.expiresInDays === null ? null : new Date(now + parsed.data.expiresInDays * DAY_MS).toISOString(),
-    })
-    .select(LINK_COLUMNS)
-    .single<LinkRow>();
-  if (error) return fail(error.code === FK_VIOLATION ? "not_found" : "failed");
-
-  await logEvent({
-    event: "share.created",
-    userId: session.userId,
-    props: { linkId: data.id, expiresInDays: parsed.data.expiresInDays, includeItems: false, kind: "tour" },
-  });
-  return { ok: true, data: { link: rowToLink(data), url: `${base}/${profile.data.locale}/s/${token}` } };
 }
