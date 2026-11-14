@@ -33,7 +33,8 @@ tracking, user-written notes per stop.
 
 Per stop key, cheapest first:
 1. **All `osm:` keys:** one Overpass query by element ids for the whole tour, as a union so no selector replaces the
-   others' results: `[out:json];(node(id:…);way(id:…);relation(id:…););out tags;`. Only the `wikidata`,
+   others' results: `[out:json];(node(id:…);way(id:…);relation(id:…););out tags center;`. The parser keeps
+   tag-only elements (ways and relations have no `lat`/`lon` of their own) and matches them by type and id. Only the `wikidata`,
    `wikipedia`, `website`, `contact:website` and `opening_hours` tags are kept, cached
    `cacheKey("osm-tags", 1, { ids: hash })` 30 d. The cached city places and landmarks are not enough: landmarks
    keep `wikipedia` only as a flag and neither keeps `opening_hours`. When Overpass fails, the `wikidata` id from
@@ -52,10 +53,10 @@ Per tour, all batched (at most 27 stops):
 
 | Call | Request | Gives | Cache key | TTL |
 |---|---|---|---|---|
-| Wikidata entities | `wbgetentities&ids=Q1|Q2…&props=sitelinks|claims&sitefilter=dewiki|enwiki` (≤ 50 ids) | article titles in de/en; claims P18 image, P571 inception, P84 architect, P1435 heritage designation, P856 website | `cacheKey("wd-stop", 1, { ids: hash })` | 30 d |
-| Wikidata labels | `wbgetentities&ids=…&props=labels&languages=de|en` for the architect and heritage items (≤ 50 ids per request) | their names | `cacheKey("wd-labels", 1, { ids: hash })` | 90 d |
-| Wikipedia extracts | `query&prop=extracts|pageprops&ppprop=disambiguation&exintro&explaintext&exlimit=20&redirects=1&titles=…` per language, chunks of ≤ 20 titles | intro text; the resolved title after redirects; pages with `disambiguation` are dropped | `cacheKey("wp-extract", 1, { lang, titles: hash })` | 30 d |
-| Commons image info | `prop=imageinfo&iiprop=url|size|mime|extmetadata&iiurlwidth=330&titles=File:…` (≤ 50) | `thumburl` (330 px), licence, artist | `cacheKey("commons-info", 1, { titles: hash })` | 60 d |
+| Wikidata entities | `wbgetentities&ids=Q1\|Q2…&props=sitelinks\|claims&sitefilter=dewiki\|enwiki` (≤ 50 ids) | article titles in de/en; claims P18 image, P571 inception, P84 architect, P1435 heritage designation, P856 website | `cacheKey("wd-stop", 1, { ids: hash })` | 30 d |
+| Wikidata labels | `wbgetentities&ids=…&props=labels&languages=de\|en` for the architect and heritage items (≤ 50 ids per request) | their names | `cacheKey("wd-labels", 1, { ids: hash })` | 90 d |
+| Wikipedia extracts | `query&prop=extracts\|pageprops&ppprop=disambiguation&exintro&explaintext&exlimit=20&redirects=1&titles=…` per language, chunks of ≤ 20 titles | intro text; the resolved title after redirects; pages with `disambiguation` are dropped | `cacheKey("wp-extract", 1, { lang, titles: hash })` | 30 d |
+| Commons image info | `prop=imageinfo&iiprop=url\|size\|mime\|extmetadata&iiurlwidth=330&titles=File:…` (≤ 50) | `thumburl` (330 px), licence, artist | `cacheKey("commons-info", 1, { titles: hash })` | 60 d |
 
 - Every request with an id or title list is chunked to the API limit (Wikidata 50 ids, extracts 20 titles,
   Commons 50 files) and the results are merged. A cold 25-stop tour costs about 5–7 requests plus one Overpass
@@ -65,13 +66,15 @@ Per tour, all batched (at most 27 stops):
 - Providers: `wikidata` (entities, labels, and Commons image info, as the destination picture in
   `facts/picture.ts` already logs Commons), `wikipedia` (extracts), `overpass` (tags); all in `CacheProvider` today.
   Endpoints in `api_calls`: `stop_entities`, `stop_labels`, `stop_extracts`, `stop_images`, `stop_osm_tags`.
-- Text: the intro clipped on a sentence boundary to at most 700 characters (`clipParagraphs` of `wikivoyage.ts`),
+- Text: the intro clipped on a sentence boundary to at most 700 characters including the "…" (`clipParagraphs` of
+  `wikivoyage.ts`; its no-sentence fallback cuts at 699 so the ellipsis stays inside `StopInfo.text`'s max),
   marked "gekürzt" when clipped. Disambiguation pages and pages without an extract are dropped; a redirect stores
   the target article's title and URL.
 - Images: only free licences (CC0, public domain, CC BY, CC BY-SA in their versions; same rule as the destination
   picture in `facts/picture.ts`), stored as the 330 px `thumburl` (never the original file URL). `Artist` is HTML
   from Commons: reduced to plain text, never rendered as HTML. Unknown or non-free licence = no picture.
-- Facts: inception as a year ("Erbaut 1147", "Eröffnet 1891" for a station or museum by `cat`), at most two
+- Facts: inception (P571) as a year, worded by `cat`: "Erbaut 1147" only for buildings (church, castle, tower,
+  bridge, monument), "Eröffnet 1891" for a station or museum, otherwise the neutral "Seit 1891"; at most two
   architects, one heritage designation (all Wikidata); website (OSM `website`/`contact:website` first, else Wikidata
   P856) and opening hours (OSM `opening_hours`, raw, "laut OpenStreetMap"; a value over 255 characters is left
   out, never cut) with their own source.
@@ -92,7 +95,7 @@ change; the route does not). Alternative: inside `result` with a smaller polylin
 export const StopInfo = z.object({
   key: z.string(),                          // tour point key
   status: z.enum(["ok", "none"]),           // "none" = checked, nothing usable (not fetched again until stale)
-  checkedAt: z.string(),                    // when this entry was fetched: shown as "abgerufen am", drives refresh
+  checkedAt: z.string(),                    // oldest fetchedAt of the API answers used (cached or new): "abgerufen am", drives refresh
   qid: z.string().regex(/^Q\d{1,12}$/).optional(), // absent for a title-only match (section 2)
   lang: z.enum(["de", "en"]).optional(),    // language of title and text: the owner's locale, or "en" as fallback ([Q1])
   title: z.string().max(200).optional(),    // Wikipedia article title (link); absent = facts or picture only
@@ -149,7 +152,8 @@ answers, then the card (or "Für diesen Ort gibt es keine Infos"):
 
 **Read-out (Web Speech API).**
 - Shown only when `window.speechSynthesis` exists and a voice for the text's language exists; otherwise one muted
-  line "Vorlesen wird von diesem Browser nicht unterstützt".
+  line "Vorlesen wird von diesem Browser nicht unterstützt". A card with facts but no text is read (name and facts)
+  with the voice of the owner's locale.
 - Per stop: a play button inside the expanded card; while reading it becomes pause, then resume. A small bar above
   the stop list, shown only once any card is open: "Tour vorlesen" (from the first stop with text; it fetches the
   info batch if needed), pause/resume, "Nächster Ort" (expands the next stop's card while reading it), stop. Only one
@@ -260,8 +264,10 @@ readOut.{play, pause, resume, next, stop, tour, reading, unsupported, voiceNote}
   for the text's language; the "nicht unterstützt" line disappears when a matching voice arrives.
 - **Stop limit.** All bounds use `MAX_TOUR_POINTS`; capacity numbers in this spec assume the 27 points of #221.
 - **Daily quotas are reserved, not just counted** (review 2): the limits of this section are checked and taken in one
-  statement that inserts a `pending` reservation row while counting the window (as `ai_call_slots` does for
-  Claude); no reservation, no request. The reservation is marked used or released after the batch.
+  function that first takes `pg_advisory_xact_lock` per counted scope (user, share link, app-wide; as
+  `ai_call_slots` does), then counts the window and inserts a `pending` reservation row; no reservation, no
+  request. The reservation is marked used or released after the batch; a `pending` row older than 2 minutes (a
+  batch that died) no longer counts.
 - **A stale locale cannot overwrite a newer one** (review 2): `merge_stop_info` takes the batch's locale and applies
   it only when it equals the owner's current locale (read from `profiles` in the same statement); otherwise the
   write is discarded.
