@@ -77,6 +77,23 @@ describe("pickConnection", () => {
     expect(pickConnection(body, DEPART, "Europe/Vienna")).toMatchObject({ kind: "walk_not_slower", min: 18 });
   });
 
+  it("among connections leaving at or after the departure, the earliest arrival wins (spec 17.4)", () => {
+    const later = { ...wien.itineraries[1], startTime: "2026-11-17T09:10:00Z", endTime: "2026-11-17T09:30:00Z" };
+    const a = pickConnection({ itineraries: [wien.itineraries[1], later] }, DEPART, "Europe/Vienna");
+    expect(a.kind === "ok" && a.min).toBe(30);
+  });
+
+  it("more parts than stored: minutes and line kept, no cut part list", () => {
+    const many = { ...wien.itineraries[1], legs: Array.from({ length: 13 }, () => wien.itineraries[1].legs[1]) };
+    const a = pickConnection({ itineraries: [many] }, DEPART, "Europe/Vienna");
+    expect(a.kind === "ok" && a.parts).toEqual([]);
+    expect(a.kind === "ok" && a.min).toBe(34);
+  });
+
+  it("malformed times are a provider error, not 'no connection'", () => {
+    expect(() => pickConnection({ itineraries: [{ ...wien.itineraries[1], startTime: "soon" }] }, DEPART, "Europe/Vienna")).toThrow();
+  });
+
   it("a connection leaving even one minute before the departure is missed, not taken", () => {
     const early = { itineraries: [{ ...wien.itineraries[1], startTime: "2026-11-17T08:59:00Z" }] };
     expect(pickConnection(early, DEPART, "Europe/Vienna")).toEqual({ kind: "no_connection" });

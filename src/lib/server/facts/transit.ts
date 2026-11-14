@@ -35,7 +35,7 @@ export function transitKey(from: Point, to: Point, departureIso: string, timeZon
 }
 
 const Answer: z.ZodType<TransitAnswer> = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("ok"), min: z.number().int().min(0), km: z.number().min(0), poly: z.string(), parts: z.array(TransitPart).min(1) }),
+  z.object({ kind: z.literal("ok"), min: z.number().int().min(0), km: z.number().min(0), poly: z.string(), parts: z.array(TransitPart) }),
   z.object({ kind: z.literal("walk_not_slower"), min: z.number().int().min(0), km: z.number().min(0), poly: z.string() }),
   z.object({ kind: z.literal("no_connection") }),
 ]);
@@ -104,7 +104,10 @@ export async function getTransitLeg(
     for (const ms of IN_FLIGHT_WAITS_MS) {
       await sleep(ms);
       const hit = await peekCache({ provider: "transitous", key, schema: Answer });
-      if (hit) return { ...hit.data, fetchedAt: hit.fetchedAt, cache: "hit" };
+      // peekCache ignores expiry: only an answer fetched within the cache lifetime counts as the other request's.
+      if (hit && Date.now() - Date.parse(hit.fetchedAt) < TRANSIT_TTL_SECONDS * 1000) {
+        return { ...hit.data, fetchedAt: hit.fetchedAt, cache: "hit" };
+      }
     }
     await logEvent({ event: "transit.failed", level: "warn", userId: ctx.userId, props: { reason: "in_flight_timeout" } });
     return { kind: "failed" };

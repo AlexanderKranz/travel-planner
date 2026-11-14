@@ -108,7 +108,8 @@ async function run(id: string, version: string): Promise<TourDirectionsResult> {
   // ORS answered, but no run has a route now (data changed since the computation): say so, not "unavailable".
   if (legs.every((l) => l === null || l.transit)) {
     if (runs.length) return fail(answers.every((a) => a.result === "no_route" || a.result === "not_routable") ? "unreachable" : "ors_unavailable");
-    if (legs.every((l) => l === null)) return fail("not_computed");
+    // Only failed public transport legs: the tour is computed, it just has no connection to describe.
+    if (legs.every((l) => l === null)) return fail(result.legs.some((l) => isTransit(l.mode)) ? "unreachable" : "not_computed");
   }
 
   await logEvent({

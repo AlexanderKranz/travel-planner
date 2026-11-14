@@ -34,6 +34,15 @@ export function zonedInstant(date: string, hhmm: string, timeZone: string): { ut
   return { utcMs, iso: `${date}T${hhmm}:00${sign}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}` };
 }
 
+/** ISO string of a UTC instant as local time with the zone's offset ("2026-11-17T10:42:00+01:00"). */
+export function isoWithOffset(utcMs: number, timeZone: string): string {
+  const off = zoneOffsetMin(timeZone, utcMs);
+  const local = new Date(Math.floor(utcMs / 60000) * 60000 + off * 60000).toISOString().slice(0, 16);
+  const abs = Math.abs(off);
+  const pad = (v: number) => String(v).padStart(2, "0");
+  return `${local}:00${off >= 0 ? "+" : "-"}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
+}
+
 /** Local HH:MM in `timeZone` of a UTC instant. */
 export function localHhmm(utcMs: number, timeZone: string): string {
   return new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(utcMs));
