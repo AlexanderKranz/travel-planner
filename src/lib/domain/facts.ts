@@ -5,7 +5,7 @@ import type { ActivityGroup, ActivityType } from "@/lib/facts/activity-types";
 import type { ActivityPlace } from "@/lib/facts/activity-places";
 import type { Cafe, Restaurant } from "@/lib/facts/cuisine";
 
-export type SourceId = "open_meteo" | "geonames" | "osm" | "wikivoyage" | "wikipedia" | "wikimedia" | "rest_countries" | "suncalc" | "aerodatabox" | "openrouteservice" | "ourairports";
+export type SourceId = "open_meteo" | "geonames" | "osm" | "wikivoyage" | "wikipedia" | "wikimedia" | "rest_countries" | "suncalc" | "aerodatabox" | "openrouteservice" | "ourairports" | "transitous";
 
 export type Fact<T> =
   | { status: "ok"; data: T; source: SourceId; sourceUrl?: string;

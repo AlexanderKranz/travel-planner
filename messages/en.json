@@ -839,6 +839,11 @@
         "label": "Drive times: openrouteservice.org",
         "provides": "Drive time and road distance by car from the destination centre to each suggested place, and the ways, times and distances of city tours.",
         "license": "© openrouteservice.org by HeiGIT, map data © OpenStreetMap contributors (ODbL 1.0)."
+      },
+      "transitous": {
+        "label": "Timetables: Transitous",
+        "provides": "Bus and rail connections for single legs of a city tour (timetable, not real time). The server asks with the leg's start, destination and departure time, without names or an account.",
+        "license": "Timetable data of the transport operators, list and licences at transitous.org/sources; map data © OpenStreetMap contributors (ODbL 1.0)."
       }
     },
     "builtOn": "Dataset built on {date}",
@@ -1349,6 +1354,7 @@
         "wheelchair": "by wheelchair",
         "cycling": "by bike",
         "ebike": "by e-bike",
+        "transit": "by public transport",
         "car": "by car"
       },
       "stopInfo": {"articles": "Place info: Wikipedia articles", "clipped": "shortened; facts: Wikidata", "checked": "checked on {date}"},
@@ -2118,6 +2124,7 @@
       "wheelchair": "Wheelchair",
       "cycling": "Bike",
       "ebike": "E-bike",
+      "transit": "Public transport",
       "car": "Car"
     },
     "modesShort": {
@@ -2125,6 +2132,7 @@
       "wheelchair": "by wheelchair",
       "cycling": "by bike",
       "ebike": "by e-bike",
+      "transit": "by public transport",
       "car": "by car"
     },
     "route": "Route",

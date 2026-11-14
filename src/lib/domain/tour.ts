@@ -26,6 +26,10 @@ export const MAX_TOUR_POINTS = MAX_TOUR_PLACES + 2;
 
 export const TOUR_MODES = ["foot", "wheelchair", "cycling", "ebike", "car"] as const;
 export type TourMode = (typeof TOUR_MODES)[number];
+/** Modes of one leg: a tour mode or public transport, which is an override only (spec 17.1 [P3], 17.4). */
+export const LEG_MODES = [...TOUR_MODES, "transit"] as const;
+export type LegMode = (typeof LEG_MODES)[number];
+export const isTransit = (m: LegMode): m is "transit" => m === "transit";
 
 export const ROUTE_OPTIONS = ["fastest", "shortest", "green", "quiet", "no_steps", "no_highways"] as const;
 export type RouteOption = (typeof ROUTE_OPTIONS)[number];
@@ -34,15 +38,16 @@ export type RouteOption = (typeof ROUTE_OPTIONS)[number];
  * Route options per mode (spec 5.2). The single place to edit when the ORS spike shows that a profile rejects an
  * option ([T5] note): remove it here and the form, the schema refine and the server all follow.
  */
-export const ROUTE_OPTIONS_BY_MODE: Record<TourMode, readonly RouteOption[]> = {
+export const ROUTE_OPTIONS_BY_MODE: Record<LegMode, readonly RouteOption[]> = {
   foot: ["fastest", "shortest", "green", "quiet", "no_steps"],
   wheelchair: ["fastest", "shortest"],
   cycling: ["fastest", "shortest", "quiet"],
   ebike: ["fastest", "shortest"], // spike 17.2: both checked on cycling-electric
   car: ["fastest", "shortest", "no_highways"],
+  transit: ["fastest"], // the timetable decides; the option is not shown for transit
 };
 
-export function routeAllowed(mode: TourMode, route: RouteOption): boolean {
+export function routeAllowed(mode: LegMode, route: RouteOption): boolean {
   return ROUTE_OPTIONS_BY_MODE[mode].includes(route);
 }
 
@@ -57,12 +62,12 @@ export const ORS_PROFILE = {
 export type OrsTourProfile = (typeof ORS_PROFILE)[TourMode];
 
 /** Corridor around a leg in metres for sights near the route (spec 6 [T12]). */
-export const CORRIDOR_M: Record<TourMode, number> = { foot: 150, wheelchair: 150, cycling: 300, ebike: 300, car: 1000 };
+export const CORRIDOR_M: Record<LegMode, number> = { foot: 150, wheelchair: 150, cycling: 300, ebike: 300, car: 1000, transit: 0 };
 
 /** Key of a per-leg override: the place pair `"<fromKey>><toKey>"` ([T7]). */
 export const legKey = (from: string, to: string): string => `${from}>${to}`;
 
-export const LegSetting = z.object({ mode: z.enum(TOUR_MODES), route: z.enum(ROUTE_OPTIONS) });
+export const LegSetting = z.object({ mode: z.enum(LEG_MODES), route: z.enum(ROUTE_OPTIONS) });
 export type LegSetting = z.infer<typeof LegSetting>;
 
 const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -83,6 +88,7 @@ const tourSettings = {
 };
 
 type RefineInput = {
+  date?: string;
   mode: TourMode;
   route: RouteOption;
   legOverrides?: Record<string, LegSetting>;
@@ -142,6 +148,8 @@ function refineTour(v: RefineInput, ctx: z.RefinementCtx): void {
   if (!routeAllowed(v.mode, v.route)) bad(["route"], "Route option not available for this mode");
   for (const [k, o] of Object.entries(v.legOverrides ?? {})) {
     if (!routeAllowed(o.mode, o.route)) bad(["legOverrides", k, "route"], "Route option not available for this mode");
+    // Timetable legs need a departure: the tour date and start time (spec 17.1 [P3]).
+    if (isTransit(o.mode) && (v.date === undefined || v.startTime === undefined)) bad(["legOverrides", k, "mode"], "Public transport needs date and start time");
   }
   if (v.minMin !== undefined && v.maxMin !== undefined && v.minMin > v.maxMin) bad(["minMin"], "minMin > maxMin");
   if (v.endBy !== undefined) {
@@ -182,15 +190,36 @@ export const POLY_BUDGET = 200_000;
 /** Line length one leg may keep in a route of `legs` legs: the result and the route cache stay under 256 kB. */
 export const legPolyCap = (legs: number): number => Math.min(MAX_LEG_POLY, Math.floor(POLY_BUDGET / Math.max(1, legs)));
 
+export const TRANSIT_MAX_PARTS = 12;
+export const TRANSIT_NOTES = ["walk_not_slower", "no_connection", "no_time_zone", "no_departure", "unavailable"] as const;
+export type TransitNote = (typeof TRANSIT_NOTES)[number];
+export const TransitPart = z.object({
+  /** `walk` or the vehicle type (BUS, TRAM, SUBWAY, RAIL, …) as Transitous names it. */
+  m: z.string().min(1).max(20),
+  line: z.string().max(40).optional(),
+  head: z.string().max(80).optional(),
+  agency: z.string().max(80).optional(),
+  from: z.string().max(120),
+  to: z.string().max(120),
+  dep: HHMM,
+  arr: HHMM,
+  stops: z.number().int().min(0).max(200).optional(),
+});
+export type TransitPart = z.infer<typeof TransitPart>;
+
 export const TourLeg = z.object({
   from: z.string(),
   to: z.string(),
-  mode: z.enum(TOUR_MODES),
+  mode: z.enum(LEG_MODES),
   route: z.enum(ROUTE_OPTIONS),
   min: z.number().int().min(0).nullable(),
   km: z.number().min(0).nullable(),
   poly: z.string().max(20000).nullable(), // encoded polyline, precision 5
   s: z.enum(LEG_STATUS),
+  /** Public transport leg: the chosen connection's parts (spec 17.4), times as local HH:MM of the tour city. */
+  transit: z.array(TransitPart).max(TRANSIT_MAX_PARTS).optional(),
+  /** Why a transit leg shows no connection, or that walking is not slower and was kept. */
+  note: z.enum(TRANSIT_NOTES).optional(),
 });
 export type TourLeg = z.infer<typeof TourLeg>;
 
@@ -221,7 +250,7 @@ export const TourResult = z.object({
   fit: z.enum(TOUR_FIT),
   sunset: z.string().optional(), // HH:MM local, only when the tour ends after it
   sights: z.array(TourSight).max(MAX_TOUR_SIGHTS),
-  source: z.object({ ors: z.string(), osm: z.string().optional() }), // oldest fetchedAt ISO per provider
+  source: z.object({ ors: z.string(), osm: z.string().optional(), transit: z.string().optional() }), // oldest fetchedAt ISO per provider
   stale: z.boolean().optional(),
   orderApprox: z.literal(true).optional(), // order from the heuristic (more than 16 points, spec 17.1 [P1])
 });

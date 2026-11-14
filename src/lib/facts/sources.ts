@@ -20,6 +20,7 @@ export const SOURCES: Record<SourceId, SourceInfo> = {
   aerodatabox: { id: "aerodatabox", homepage: "https://aerodatabox.com", license: "RapidAPI Basic plan (non-commercial, attribution required)", licenseUrl: null, labelKey: "aerodatabox" },
   openrouteservice: { id: "openrouteservice", homepage: "https://openrouteservice.org/", license: "© openrouteservice.org, data © OpenStreetMap contributors (ODbL 1.0)", licenseUrl: "https://opendatacommons.org/licenses/odbl/1-0/", labelKey: "openrouteservice" },
   ourairports: { id: "ourairports", homepage: "https://ourairports.com/data/", license: "Public domain", licenseUrl: null, labelKey: "ourairports" },
+  transitous: { id: "transitous", homepage: "https://transitous.org/sources/", license: "Timetable data per operator (see transitous.org/sources), map data © OpenStreetMap contributors (ODbL 1.0)", licenseUrl: "https://transitous.org/sources/", labelKey: "transitous" },
   suncalc: { id: "suncalc", homepage: null, license: "n/a", licenseUrl: null, labelKey: "suncalc" },
 };
 

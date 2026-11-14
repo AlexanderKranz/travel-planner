@@ -839,6 +839,11 @@
         "label": "Fahrzeiten: openrouteservice.org",
         "provides": "Fahrzeit und Straßenentfernung mit dem Auto vom Zielort-Zentrum zu jedem vorgeschlagenen Ort, und Wege, Zeiten und Strecken der Stadttouren.",
         "license": "© openrouteservice.org by HeiGIT, Kartendaten © OpenStreetMap-Mitwirkende (ODbL 1.0)."
+      },
+      "transitous": {
+        "label": "Fahrpläne: Transitous",
+        "provides": "Verbindungen mit Bus und Bahn für einzelne Abschnitte einer Stadttour (Fahrplan, keine Echtzeit). Der Server fragt mit Start, Ziel und Abfahrtszeit des Abschnitts an, ohne Namen oder Konto.",
+        "license": "Fahrplandaten der jeweiligen Verkehrsbetriebe, Liste und Lizenzen auf transitous.org/sources; Kartendaten © OpenStreetMap-Mitwirkende (ODbL 1.0)."
       }
     },
     "builtOn": "Datensatz erstellt am {date}",
@@ -1349,6 +1354,7 @@
         "wheelchair": "im Rollstuhl",
         "cycling": "mit dem Fahrrad",
         "ebike": "mit dem E-Bike",
+        "transit": "mit Bus und Bahn",
         "car": "mit dem Auto"
       },
       "stopInfo": {"articles": "Ortsinfos: Wikipedia-Artikel", "clipped": "gekürzt; Fakten: Wikidata", "checked": "geprüft am {date}"},
@@ -2118,6 +2124,7 @@
       "wheelchair": "Rollstuhl",
       "cycling": "Fahrrad",
       "ebike": "E-Bike",
+      "transit": "ÖPNV",
       "car": "Auto"
     },
     "modesShort": {
@@ -2125,6 +2132,7 @@
       "wheelchair": "im Rollstuhl",
       "cycling": "mit dem Fahrrad",
       "ebike": "mit dem E-Bike",
+      "transit": "mit Bus und Bahn",
       "car": "mit dem Auto"
     },
     "route": "Route",
