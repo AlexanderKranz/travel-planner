@@ -4,6 +4,7 @@ import { linkCls, mutedCls } from "@/components/ui/styles";
 import { timeRange } from "@/lib/plan/fixed-items";
 import type { TourBlock } from "@/lib/plan/tour-blocks";
 import { RouteSketch } from "./route-sketch";
+import { StopInfoToggle, TourReadOutBar, type StopRef } from "./stop-info/stop-info";
 
 /** "Stadttour · 10:00–13:40 · 5 Orte · 4,2 km zu Fuß" (city-tour 10). */
 export function useTourSummary() {
@@ -26,6 +27,11 @@ export function useTourSummary() {
 export function DayTourBlock({ tour, access }: { tour: TourBlock; access?: "owner" | "write" | "read" }) {
   const t = useTranslations("tours");
   const summary = useTourSummary()(tour);
+  // Stop info toggles (city-tour-stop-info 6): one per stop; a round trip's closing stop repeats the start, so none there.
+  const refs =
+    tour.stopKeys && tour.stopKeys.length === tour.stops.length
+      ? tour.stops.map((name, i) => (i > 0 && tour.stopKeys![i] === tour.stopKeys![0] ? null : { key: tour.stopKeys![i], name, n: i + 1 }))
+      : null;
   return (
     <li className="min-w-0 rounded-lg border border-l-4 border-info-line bg-info-bg/60 py-1.5 pl-3 pr-2" data-tour-block={tour.id}>
       <details className="group/tour min-w-0">
@@ -37,10 +43,12 @@ export function DayTourBlock({ tour, access }: { tour: TourBlock; access?: "owne
         </summary>
         <div className="flex min-w-0 flex-col gap-2 pb-2 pl-5">
           {tour.title && <p className="break-words font-medium">{tour.title}</p>}
+          {refs && <TourReadOutBar tourId={tour.id} stops={refs.filter((r): r is StopRef => r !== null)} />}
           <ol className="list-decimal pl-5 text-sm" aria-label={t("dayBlockStops")}>
             {tour.stops.map((name, i) => (
               <li key={i} className="break-words">
                 {name}
+                {refs?.[i] && <StopInfoToggle tourId={tour.id} stop={refs[i]} />}
               </li>
             ))}
           </ol>

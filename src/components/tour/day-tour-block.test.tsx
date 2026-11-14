@@ -1,6 +1,8 @@
 import { NextIntlClientProvider } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/server/stop-info/actions", () => ({ getTourStopInfo: vi.fn(), getSharedTourStopInfo: vi.fn() }));
 import de from "../../../messages/de.json";
 import en from "../../../messages/en.json";
 import type { PlanDay } from "@/lib/domain/plan";
@@ -8,6 +10,8 @@ import { tourBlocks } from "@/lib/plan/tour-blocks";
 import { linkedTour, wienInput, wienResult } from "@/lib/plan/tour-test-helpers";
 import { DayCard } from "@/components/plan/day-card";
 import { TripToursNoDay } from "./trip-tours-no-day";
+import { getSharedTourStopInfo, getTourStopInfo } from "@/lib/server/stop-info/actions";
+import { StopInfoProvider } from "./stop-info/context";
 
 vi.mock("@/i18n/navigation", () => ({
   useRouter: () => ({ refresh: () => {} }),
@@ -131,5 +135,32 @@ describe("tours without a day (trip page)", () => {
     expect(html).toContain('href="/app/tours/y"');
     expect(html).not.toContain('href="/app/tours/z"');
     expect(renderNoDay([linkedTour()])).toBe("");
+  });
+});
+
+describe("stop info toggles in the tour block (city-tour-stop-info 6)", () => {
+  const shared = (tours = tourBlocks([linkedTour()], 5)) =>
+    renderToStaticMarkup(
+      <NextIntlClientProvider locale="de" messages={de} timeZone="Europe/Berlin">
+        <StopInfoProvider source={{ kind: "share", token: "a".repeat(43) }}>
+          <DayCard day={day} places={{}} tours={tours} />
+        </StopInfoProvider>
+      </NextIntlClientProvider>,
+    );
+
+  it("one collapsed toggle per OSM stop, nothing fetched on render, no read-out bar before a card is open", () => {
+    const html = shared();
+    expect(html.match(/Infos zum Ort/g)).toHaveLength(3);
+    expect(html.match(/aria-expanded="false"/g)?.length).toBeGreaterThanOrEqual(3);
+    expect(html).not.toContain("aria-expanded=\"true\"");
+    expect(html).not.toContain("Tour vorlesen");
+    expect(getSharedTourStopInfo).not.toHaveBeenCalled();
+    expect(getTourStopInfo).not.toHaveBeenCalled();
+  });
+
+  it("without a provider (or for blocks stored before stopKeys) no toggles", () => {
+    expect(render({ tours: tourBlocks([linkedTour()], 5) })).not.toContain("Infos zum Ort");
+    const old = tourBlocks([linkedTour()], 5).map((b) => ({ ...b, stopKeys: undefined }));
+    expect(shared(old)).not.toContain("Infos zum Ort");
   });
 });

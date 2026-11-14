@@ -1,6 +1,8 @@
 import { NextIntlClientProvider } from "next-intl";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/server/stop-info/actions", () => ({ getTourStopInfo: vi.fn(), getSharedTourStopInfo: vi.fn() }));
 import de from "../../../messages/de.json";
 import en from "../../../messages/en.json";
 import type { Plan, PlanDay } from "@/lib/domain/plan";

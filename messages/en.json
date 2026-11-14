@@ -2338,6 +2338,48 @@
         "thunder": "Thunderstorm"
       }
     },
+    "stopInfo": {
+      "toggle": "About this place",
+      "loading": "Loading…",
+      "none": "There is no information for this place.",
+      "notYet": "The information for this place is not loaded yet. Open it again later.",
+      "limited": "Information can't be fetched right now.",
+      "error": "The information could not be loaded.",
+      "more": "Read on Wikipedia",
+      "englishText": "English text",
+      "imageCredit": "Photo: {artist}, {licence}",
+      "imageCreditNoArtist": "Photo: Wikimedia Commons, {licence}",
+      "facts": {
+        "built": "Built {year}",
+        "opened": "Opened {year}",
+        "since": "Since {year}",
+        "architect": "Architect: {names}",
+        "heritage": "Heritage: {value}",
+        "website": "Website",
+        "openingHours": "Opening hours according to OpenStreetMap: {value}"
+      },
+      "source": {
+        "text": "Text: Wikipedia, CC BY-SA 4.0",
+        "textEn": "Text: English Wikipedia, CC BY-SA 4.0",
+        "clipped": "shortened",
+        "facts": "Facts: Wikidata",
+        "osm": "Website/opening hours: OpenStreetMap",
+        "checked": "retrieved {date}"
+      },
+      "readOut": {
+        "play": "Read aloud",
+        "pause": "Pause",
+        "resume": "Resume",
+        "next": "Next place",
+        "stop": "Stop",
+        "tour": "Read the tour",
+        "reading": "Reading: {name}",
+        "unsupported": "Reading aloud is not supported by this browser.",
+        "noVoiceEn": "This device has no voice for the English text; it is not read aloud.",
+        "voiceNote": "The voice comes from your device.",
+        "intro": "{n}. {name}."
+      }
+    },
     "routeCredit": "Routes: © openrouteservice.org"
   }
 }

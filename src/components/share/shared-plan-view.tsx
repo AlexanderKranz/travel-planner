@@ -1,3 +1,4 @@
+import { StopInfoProvider } from "@/components/tour/stop-info/context";
 import { useFormatter, useTranslations } from "next-intl";
 import { CostSummaryView } from "@/components/items/cost-summary";
 import { ItemList } from "@/components/items/item-list";
@@ -26,6 +27,7 @@ export function SharedPlanView({ doc, token, uiLocale, banner }: { doc: PlanDocu
   const tn = useTranslations("nav");
   const eyebrow = [h.purposeName, h.destination].filter(Boolean).join(" · ");
   return (
+    <StopInfoProvider source={{ kind: "share", token }}>
     <div className="flex min-h-screen flex-col print:min-h-0">
       <div data-no-print className="bg-header text-header-fg">
         <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-4 px-4 py-3">
@@ -72,5 +74,6 @@ export function SharedPlanView({ doc, token, uiLocale, banner }: { doc: PlanDocu
       <footer className={`border-t border-line pt-4 text-center text-xs ${mutedCls}`}>{t("footer")}</footer>
       </div>
     </div>
+    </StopInfoProvider>
   );
 }
