@@ -38,14 +38,18 @@ export function rowToTour(row: TourRow, viewerId: string): Tour | null {
   if (!input.success) return null;
   const result = row.result == null ? null : TourResult.safeParse(row.result);
   const valid = result?.success ? result.data : null;
+  // A tour shared directly does not carry the owner's trip along: its link and day stay hidden from the grantee
+  // (city-tour 9.3). Grantees of the trip itself (no tour share row) keep them.
+  const direct = row.owner_id !== viewerId && !!row.tour_shares?.some((s) => s.grantee_id === viewerId);
+  const tripId = direct ? null : row.trip_id;
   return {
     id: row.id,
     ownerId: row.owner_id,
     access: tourAccess(row, viewerId),
     title: row.title,
     input: input.data,
-    tripId: row.trip_id,
-    tripDay: row.trip_id ? row.trip_day : null,
+    tripId,
+    tripDay: tripId ? row.trip_day : null,
     result: valid,
     computedAt: row.computed_at,
     outdated: !valid || row.result_hash !== tourInputHash(input.data),

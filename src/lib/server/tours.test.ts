@@ -141,6 +141,17 @@ describe("updateTour / deleteTour / linkTourToTrip: owner only", () => {
     expect(await linkTourToTrip(TOUR, null, null)).toEqual({ ok: false, error: "forbidden" });
   });
 
+  it("a direct tour grantee does not see the owner's trip link; a trip grantee does", async () => {
+    const base = h.reply;
+    h.reply = (o) =>
+      o.table === "city_tours" && o.op === "select"
+        ? { data: row({ owner_id: "u2", trip_id: TRIP, trip_day: 2, tour_shares: [{ grantee_id: "u1", access: "read" }] }) }
+        : base(o);
+    expect(await getTour(TOUR)).toMatchObject({ ok: true, data: { tripId: null, tripDay: null } });
+    h.reply = (o) => (o.table === "city_tours" && o.op === "select" ? { data: row({ owner_id: "u2", trip_id: TRIP, trip_day: 2 }) } : base(o));
+    expect(await getTour(TOUR)).toMatchObject({ ok: true, data: { tripId: TRIP, tripDay: 2 } });
+  });
+
   it("a read grantee of the tour cannot save it", async () => {
     const base = h.reply;
     h.reply = (o) =>

@@ -7,6 +7,7 @@ const h = vi.hoisted(() => ({
   ops: [] as Op[],
   reply: (() => ({})) as (op: Op) => Reply,
   isDemo: false,
+  locale: "de" as "de" | "en",
   events: [] as { event: string; props?: Record<string, unknown> }[],
 }));
 vi.mock("./session", async () => {
@@ -17,7 +18,7 @@ vi.mock("./supabase/admin", async () => {
   const { fakeDb } = await import("./tour/test-db");
   return { createSupabaseAdminClient: () => fakeDb("admin", h.ops, (o) => h.reply(o)) };
 });
-vi.mock("./profile", () => ({ getProfile: async () => ({ ok: true, data: { isDemo: h.isDemo, locale: "en" } }) }));
+vi.mock("./profile", () => ({ getProfile: async () => ({ ok: true, data: { isDemo: h.isDemo, locale: h.locale } }) }));
 vi.mock("./app-url", () => ({ getAppUrl: () => "https://app.test" }));
 vi.mock("./events", () => ({ logEvent: async (e: { event: string; props?: Record<string, unknown> }) => void h.events.push(e) }));
 vi.mock("./plan-store", () => ({ getPlanRow: async () => null, getVersion: async () => null }));
@@ -36,6 +37,7 @@ beforeEach(() => {
   resetRateLimits();
   h.ops = [];
   h.isDemo = false;
+  h.locale = "de";
   h.events = [];
   h.reply = (o) => {
     if (o.table === "city_tours") return { data: { id: TOUR, owner_id: "u1", result: { v: 1 } } };
@@ -51,7 +53,7 @@ describe("createTourShareLink (city-tour 9.3)", () => {
     const res = await createTourShareLink(TOUR, { label: " Altstadt ", expiresInDays: 30 });
     expect(res.ok).toBe(true);
     if (!res.ok) return;
-    expect(res.data.url).toMatch(/^https:\/\/app\.test\/en\/s\/[A-Za-z0-9_-]+$/);
+    expect(res.data.url).toMatch(/^https:\/\/app\.test\/de\/s\/[A-Za-z0-9_-]+$/);
     expect(res.data.link).toMatchObject({ tourId: TOUR, tripId: null });
     const insert = h.ops.find((o) => o.op === "insert")!;
     expect(insert.client).toBe("admin");
@@ -60,6 +62,12 @@ describe("createTourShareLink (city-tour 9.3)", () => {
     // The tour was read through the user's session (RLS) before the secret-key write.
     expect(h.ops.findIndex((o) => o.client === "user" && o.table === "city_tours")).toBeLessThan(h.ops.indexOf(insert));
     expect(h.events).toContainEqual(expect.objectContaining({ event: "share.created", props: expect.objectContaining({ kind: "tour" }) }));
+  });
+
+  it("the URL follows the owner's language, not a fixed one", async () => {
+    h.locale = "en";
+    const res = await createTourShareLink(TOUR, { label: null, expiresInDays: null });
+    expect(res.ok && res.data.url).toMatch(/^https:\/\/app\.test\/en\/s\//);
   });
 
   it("not the owner (also a write grantee): forbidden, nothing written", async () => {
