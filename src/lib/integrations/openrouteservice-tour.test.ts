@@ -129,6 +129,7 @@ describe("tour directions: request bodies (exactly the spike's table)", () => {
       "foot-walking": ["fastest", "shortest", "green", "quiet", "no_steps"],
       wheelchair: ["fastest", "shortest"],
       "cycling-regular": ["fastest", "shortest", "quiet"],
+      "cycling-electric": ["fastest", "shortest"], // spike 17.2
       "driving-car": ["fastest", "shortest", "no_highways"],
     });
   });

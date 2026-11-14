@@ -36,6 +36,7 @@ import { CityField } from "./city-field";
 import { CitySuggestions } from "./city-suggestions";
 import { tourTitle } from "./format";
 import { LegSheet } from "./leg-sheet";
+import { PastePlaces } from "./paste-places";
 import { PlaceList } from "./place-list";
 import { PlaceSearch } from "./place-search";
 import { TourError } from "./tour-error";
@@ -125,6 +126,15 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
     if (busy !== null) return;
     setForm(next);
     setError(null);
+  }
+
+  /** Several places at once (pasted list): one edit, so none is lost to a stale form. */
+  function addPlaces(list: FormPoint[]) {
+    let next = form;
+    for (const p of list) if (canAddPlace(next, p.key)) next = { ...next, places: [...next.places, p] };
+    if (next === form) return;
+    setUnknown((u) => u.filter((k) => !list.some((p) => p.key === k)));
+    edit(next);
   }
 
   function addPlace(p: FormPoint) {
@@ -278,6 +288,12 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
             ) : (
               <p className={`text-sm ${mutedCls}`}>{t("maxPlaces", { max: MAX_TOUR_PLACES })}</p>
             )}
+            <PastePlaces
+              centre={centre}
+              room={MAX_TOUR_PLACES - form.places.length}
+              isTaken={taken}
+              onAdd={(list) => addPlaces(list.map(suggestionToPoint))}
+            />
             {form.city?.key.startsWith("geo:") && (
               <CitySuggestions
                 key={`${form.city.key}|${prefill?.tripId ?? saved?.tripId ?? ""}`}

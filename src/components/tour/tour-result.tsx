@@ -7,6 +7,7 @@ import { formatKm, orderedCoords, resultRows, roundMetres, type LegRow, type Pro
 import { formatDuration } from "./format";
 import { GoogleLinks } from "./google-links";
 import { TourDirectionsPanel } from "./tour-directions";
+import { TourForecastLine } from "./tour-forecast";
 import { resultVersion } from "@/lib/tour/steps";
 import { ModeIcon } from "./mode-icon";
 import { TourMapPanel } from "./tour-map-panel";
@@ -101,6 +102,7 @@ export function TourResultView(p: TourResultProps) {
             {t("outdated")}
           </p>
         )}
+        {p.tourId && input.date && !p.outdated && <TourForecastLine tourId={p.tourId} date={input.date} />}
         {result.sunset && <p className={warnBox}>{t("sunset", { time: result.sunset })}</p>}
         {result.orderApprox && (
           <p className={`text-sm ${mutedCls}`} data-testid="tour-order-approx">

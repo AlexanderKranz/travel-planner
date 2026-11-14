@@ -22,6 +22,14 @@ const PATHS: Record<TourMode, React.ReactNode> = {
       <path d="M6 16l4-8h5l3 8M10 8l3 8h-7M14 5h3" />
     </>
   ),
+  ebike: (
+    <>
+      <circle cx="6" cy="16" r="4" />
+      <circle cx="18" cy="16" r="4" />
+      <path d="M6 16l4-8h5l3 8M10 8l3 8h-7" />
+      <path d="M15 1l-2 4h3l-2 4" />
+    </>
+  ),
   car: (
     <>
       <path d="M4 16v-4l2-5h12l2 5v4z" />

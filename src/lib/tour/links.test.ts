@@ -17,10 +17,11 @@ describe("googleMapsLinks", () => {
   });
 
   it("maps modes", () => {
-    const mode = (m: "foot" | "wheelchair" | "cycling" | "car") => params(googleMapsLinks(pts(2), m)[0]).get("travelmode");
-    expect([mode("foot"), mode("wheelchair"), mode("cycling"), mode("car")]).toEqual([
+    const mode = (m: "foot" | "wheelchair" | "cycling" | "ebike" | "car") => params(googleMapsLinks(pts(2), m)[0]).get("travelmode");
+    expect([mode("foot"), mode("wheelchair"), mode("cycling"), mode("ebike"), mode("car")]).toEqual([
       "walking",
       "walking",
+      "bicycling",
       "bicycling",
       "driving",
     ]);

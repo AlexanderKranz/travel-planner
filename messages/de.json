@@ -1346,6 +1346,7 @@
         "foot": "zu Fuß",
         "wheelchair": "im Rollstuhl",
         "cycling": "mit dem Fahrrad",
+        "ebike": "mit dem E-Bike",
         "car": "mit dem Auto"
       },
       "sources": "Routen: © openrouteservice.org, Kartendaten © OpenStreetMap-Mitwirkende"
@@ -2110,12 +2111,14 @@
       "foot": "Zu Fuß",
       "wheelchair": "Rollstuhl",
       "cycling": "Fahrrad",
+      "ebike": "E-Bike",
       "car": "Auto"
     },
     "modesShort": {
       "foot": "zu Fuß",
       "wheelchair": "im Rollstuhl",
       "cycling": "mit dem Fahrrad",
+      "ebike": "mit dem E-Bike",
       "car": "mit dem Auto"
     },
     "route": "Route",
@@ -2227,7 +2230,7 @@
     "linkSave": "Speichern",
     "linkSaved": "Gespeichert.",
     "linkNeedsSave": "Speichere die Tour zuerst.",
-    "dayBlock": "Stadttour{time, select, none {} other { · {time}}} · {count, plural, one {# Ort} other {# Orte}}{km, select, none {} other { · {km} km {mode, select, foot {zu Fuß} wheelchair {im Rollstuhl} cycling {mit dem Fahrrad} other {mit dem Auto}}}}",
+    "dayBlock": "Stadttour{time, select, none {} other { · {time}}} · {count, plural, one {# Ort} other {# Orte}}{km, select, none {} other { · {km} km {mode, select, foot {zu Fuß} wheelchair {im Rollstuhl} cycling {mit dem Fahrrad} ebike {mit dem E-Bike} other {mit dem Auto}}}}",
     "dayBlockNoTime": "Startzeit setzen, damit der Plan diese Zeit freihält.",
     "openTour": "Tour öffnen",
     "dayAction": "Stadttour für diesen Tag",
@@ -2253,6 +2256,20 @@
     "dayBlockStops": "Stationen der Tour",
     "noDayTitle": "Stadttouren ohne Tag",
     "noDayHint": "Diese Touren gehören zu keinem Tag der Reise und fließen nicht in den Plan ein.",
+    "paste": {
+      "open": "Liste einfügen",
+      "label": "Orte, einer pro Zeile (oder durch Komma oder Semikolon getrennt)",
+      "placeholder": "Stephansdom\nHofburg\nNaschmarkt",
+      "hint": "Jeder Name wird gesucht; du bestätigst jeden Treffer. Höchstens {max} Orte passen noch in die Tour.",
+      "search": "Orte suchen",
+      "none": "Keine Namen gefunden. Schreib einen Ort pro Zeile.",
+      "query": "„{query}“",
+      "inTour": "Schon in der Tour.",
+      "notFound": "Nicht gefunden. Such diesen Ort einzeln.",
+      "choose": "Treffer für „{query}“ wählen",
+      "notSearched": "{count, plural, one {Nicht gesucht: {names}} other {# Namen nicht gesucht: {names}}}",
+      "add": "{count, plural, one {# Ort hinzufügen} other {# Orte hinzufügen}}"
+    },
     "directions": {
       "button": "Wegbeschreibung",
       "loading": "Wegbeschreibung wird geladen…",
@@ -2299,6 +2316,27 @@
       "roundaboutNoExit": "In den Kreisverkehr",
       "roundaboutNoExitOnto": "In den Kreisverkehr, Richtung {name}",
       "arrive": "Angekommen"
+    },
+    "forecast": {
+      "label": "Wetter (Vorhersage):",
+      "temps": "{max}° / {min}°",
+      "precip": "{mm} mm Niederschlag",
+      "prob": "Regenwahrscheinlichkeit {p} %",
+      "source": "Open-Meteo, abgerufen {date}",
+      "codes": {
+        "clear": "Sonnig",
+        "mainlyClear": "Überwiegend klar",
+        "partlyCloudy": "Teilweise bewölkt",
+        "overcast": "Bedeckt",
+        "fog": "Nebel",
+        "drizzle": "Nieselregen",
+        "rain": "Regen",
+        "freezingRain": "Gefrierender Regen",
+        "snow": "Schnee",
+        "showers": "Regenschauer",
+        "snowShowers": "Schneeschauer",
+        "thunder": "Gewitter"
+      }
     },
     "routeCredit": "Routen: © openrouteservice.org"
   }
