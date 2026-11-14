@@ -57,6 +57,8 @@ export const CHANGED_OFF_ROUTE_M = 50;
 export function legChanged(stored: { km: number | null; poly: string | null }, fresh: { km: number; poly: string }): boolean {
   if (stored.km !== null && Math.abs(stored.km - fresh.km) > Math.max(0.05 * stored.km, 0.05)) return true;
   if (!stored.poly) return false;
+  // Same encoded line, same route: skip the point-to-line scan (quadratic in the points of long legs).
+  if (stored.poly === fresh.poly) return false;
   const old = decodePolyline(stored.poly);
   const now = decodePolyline(fresh.poly);
   if (old.length < 2 || now.length < 2) return false;

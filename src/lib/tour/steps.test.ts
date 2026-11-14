@@ -64,5 +64,6 @@ describe("legChanged", () => {
     expect(legChanged({ km: 0.6, poly: line }, { km: 0.6, poly: detour })).toBe(true);
     // The other direction: the stored line had the detour, the new one is direct.
     expect(legChanged({ km: 0.6, poly: detour }, { km: 0.6, poly: line })).toBe(true);
+    expect(legChanged({ km: 0.6, poly: detour }, { km: 0.6, poly: detour })).toBe(false); // identical line: no scan
   });
 });

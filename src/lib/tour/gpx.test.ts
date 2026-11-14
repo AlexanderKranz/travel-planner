@@ -20,6 +20,13 @@ describe("buildGpx", () => {
     expect(gpx).toContain('<trkpt lat="48.20750" lon="16.37000"/>');
   });
 
+  it("drops characters XML 1.0 forbids, so the file stays parseable", () => {
+    const gpx = buildGpx({ name: "Tour\u0001\u0008 A\uFFFF", stops: [{ name: "Ort\u000B", lat: 48, lon: 16 }], legs: [], creator: "x" });
+    expect(gpx).not.toMatch(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/);
+    expect(gpx).toContain("<name>Tour A</name>");
+    expect(gpx).toContain("<name>Ort</name>");
+  });
+
   it("file names are safe", () => {
     expect(gpxFileName("Wien · Schönbrunn & Prater")).toBe("Wien-Schonbrunn-Prater.gpx");
     expect(gpxFileName("···")).toBe("tour.gpx");

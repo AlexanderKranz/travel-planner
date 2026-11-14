@@ -2267,6 +2267,7 @@
       "gpxIncomplete": "Für mindestens einen Abschnitt fehlt die Route, deshalb gibt es gerade keine GPX-Datei. Versuch es später noch einmal.",
       "notComputed": "Berechne die Tour zuerst (oder neu), dann gibt es die Wegbeschreibung.",
       "stepsCut": "Für diesen Abschnitt sind nicht alle Abbiegehinweise gespeichert. Folge zusätzlich der Karte.",
+      "retry": "Wegbeschreibung erneut laden",
       "recompute": "Tour neu berechnen",
       "backToTop": "Zurück zur Übersicht"
     },
