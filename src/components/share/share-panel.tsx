@@ -16,6 +16,7 @@ export async function SharePanel({
   isAdmin = false,
   owner = true,
   tourEndpointsVisible = false,
+  hasTours = false,
 }: {
   tripId: string;
   hasPlan: boolean;
@@ -25,8 +26,12 @@ export async function SharePanel({
   owner?: boolean;
   /** A city tour on a day of the trip starts or ends at an address (Geoapify, no OSM place): links show it (city-tour 10). */
   tourEndpointsVisible?: boolean;
+  /** The trip has city tours: the PDF offers "Ortsinfos aufnehmen" (city-tour-stop-info 6). */
+  hasTours?: boolean;
 }) {
   const t = await getTranslations("share");
+  const tStop = await getTranslations("tours.stopInfo");
+  const stopInfoLabel = hasTours ? tStop("pdfInclude") : undefined;
   if (!owner) {
     if (!hasPlan) return null;
     return (
@@ -35,7 +40,7 @@ export async function SharePanel({
           <h2 id="share-title" className="text-xl font-bold">
             {t("pdfTitle")}
           </h2>
-          <PdfButton href={`/api/trips/${tripId}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} />
+          <PdfButton href={`/api/trips/${tripId}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} stopInfoLabel={stopInfoLabel} />
         </div>
         <p className={`text-sm ${mutedCls}`}>{t("pdfHint")}</p>
       </section>
@@ -53,7 +58,7 @@ export async function SharePanel({
           {t("title")}
         </h2>
         {hasPlan && (
-          <PdfButton href={`/api/trips/${tripId}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} />
+          <PdfButton href={`/api/trips/${tripId}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} stopInfoLabel={stopInfoLabel} />
         )}
       </div>
       {hasPlan && <p className={`-mt-2 text-sm ${mutedCls}`}>{t("pdfHint")}</p>}

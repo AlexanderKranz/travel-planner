@@ -812,12 +812,12 @@
       },
       "wikipedia": {
         "label": "Wikipedia",
-        "provides": "Beschreibung des Reiseziels, wenn die Wikivoyage-Einleitung sehr kurz ist.",
+        "provides": "Beschreibung des Reiseziels, wenn die Wikivoyage-Einleitung sehr kurz ist. Für Stadttouren: Ortsinfos zu den Stationen (Einleitung des Artikels, gekürzt, mit Link und Lizenzhinweis), auf Englisch, wenn es keinen deutschen Artikel gibt.",
         "license": "CC BY-SA 4.0. Gezeigt wird ein gekürzter Auszug mit Link zum Artikel."
       },
       "wikimedia": {
         "label": "Wikimedia Commons und Wikidata",
-        "provides": "Bild des Reiseziels (Seitenbanner oder Hauptbild des Ortes). Für Stadttouren: wie bekannt ein Ort ist (Zahl der Wikipedia- und anderen Wikimedia-Artikel darüber), um die Vorschläge zu ordnen.",
+        "provides": "Bild des Reiseziels (Seitenbanner oder Hauptbild des Ortes). Für Stadttouren: wie bekannt ein Ort ist (Zahl der Wikipedia- und anderen Wikimedia-Artikel darüber), um die Vorschläge zu ordnen. Ortsinfos der Stadttouren: Fakten wie Baujahr oder Website (Wikidata) und ein Bild der Station (Commons, mit Urheber und Lizenz).",
         "license": "Je nach Bild: CC0, gemeinfrei, CC BY oder CC BY-SA. Urheber und Lizenz stehen unter dem Bild."
       },
       "rest_countries": {
@@ -1351,6 +1351,7 @@
         "ebike": "mit dem E-Bike",
         "car": "mit dem Auto"
       },
+      "stopInfo": {"articles": "Ortsinfos: Wikipedia-Artikel", "clipped": "gekürzt; Fakten: Wikidata", "checked": "geprüft am {date}"},
       "sources": "Routen: © openrouteservice.org, Kartendaten © OpenStreetMap-Mitwirkende"
     }
   },
@@ -2345,6 +2346,7 @@
     },
     "stopInfo": {
       "toggle": "Infos zum Ort",
+      "pdfInclude": "Ortsinfos aufnehmen",
       "loading": "Wird geladen…",
       "none": "Für diesen Ort gibt es keine Infos.",
       "notYet": "Für diesen Ort sind die Infos noch nicht geladen. Öffne ihn später noch einmal.",

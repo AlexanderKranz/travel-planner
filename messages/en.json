@@ -812,12 +812,12 @@
       },
       "wikipedia": {
         "label": "Wikipedia",
-        "provides": "Destination description when the Wikivoyage intro is very short.",
+        "provides": "Destination description when the Wikivoyage intro is very short. For city tours: place info for the stops (the article's intro, shortened, with link and licence), in English when there is no article in your language.",
         "license": "CC BY-SA 4.0. A shortened excerpt is shown with a link to the article."
       },
       "wikimedia": {
         "label": "Wikimedia Commons and Wikidata",
-        "provides": "Picture of the destination (page banner or main image of the place). For city tours: how well known a place is (number of Wikipedia and other Wikimedia articles about it), to order the suggestions.",
+        "provides": "Picture of the destination (page banner or main image of the place). For city tours: how well known a place is (number of Wikipedia and other Wikimedia articles about it), to order the suggestions. Place info of city tours: facts such as the year built or the website (Wikidata) and a picture of the stop (Commons, with author and licence).",
         "license": "Per picture: CC0, public domain, CC BY or CC BY-SA. Author and licence are shown under the picture."
       },
       "rest_countries": {
@@ -1351,6 +1351,7 @@
         "ebike": "by e-bike",
         "car": "by car"
       },
+      "stopInfo": {"articles": "Place info: Wikipedia articles", "clipped": "shortened; facts: Wikidata", "checked": "checked on {date}"},
       "sources": "Routes: © openrouteservice.org, map data © OpenStreetMap contributors"
     }
   },
@@ -2345,6 +2346,7 @@
     },
     "stopInfo": {
       "toggle": "About this place",
+      "pdfInclude": "Include place info",
       "loading": "Loading…",
       "none": "There is no information for this place.",
       "notYet": "The information for this place is not loaded yet. Open it again later.",

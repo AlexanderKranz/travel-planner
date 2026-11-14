@@ -1,11 +1,13 @@
 import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { pdfResponse } from "@/lib/pdf/response";
+import { tourPdfResponse } from "@/lib/pdf/tour-response";
 import { logEvent } from "@/lib/server/events";
 import { clientIp } from "@/lib/server/client-ip";
 import { getSharedPlanDocument } from "@/lib/server/plan-document";
 import { rateLimit } from "@/lib/server/rate-limit";
 import { isShareTokenFormat } from "@/lib/server/share-token";
+import { getSharedTour } from "@/lib/server/tour/shared";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -34,11 +36,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
   const byTok = rateLimit(`share-tok:${createHash("sha256").update(token).digest("hex").slice(0, 16)}`, 120, 60_000);
   if (!byTok.ok) return limited(byTok.retryAfterSeconds);
 
-  const doc = await getSharedPlanDocument(token, "pdf");
-  if (!doc) return notFound();
+  const stopInfo = new URL(request.url).searchParams.get("stopInfo") === "1";
+  const doc = await getSharedPlanDocument(token, "pdf", { stopInfo });
+  // Not a trip link: a link for a standalone city tour (city-tour 9.3), in the owner's language; else the same 404.
+  const shared = doc ? null : await getSharedTour(token, "pdf", { stopInfo });
+  if (!doc && !shared) return notFound();
 
   try {
-    return await pdfResponse(doc, "share");
+    if (shared) return await tourPdfResponse(shared.tour, shared.locale, shared.stopInfo, "share");
+    return await pdfResponse(doc!, "share");
   } catch (e) {
     console.error("pdf.failed", e); // full stack in the Vercel function log
     await logEvent({

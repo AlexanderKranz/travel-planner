@@ -17,7 +17,7 @@ const JSON_HEADERS = { "Cache-Control": "private, no-store" };
  * owner, a write grantee and a read grantee of a shared trip (sharing spec 1.1); RLS already limits what is read, so a
  * trip the user cannot see (a stranger, an unknown id, a disabled owner) answers 404 and a trip without a plan 409.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await getUserSession();
   if (!session) return NextResponse.json({ error: "unauthenticated" }, { status: 401, headers: JSON_HEADERS });
@@ -32,7 +32,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   // The read goes through the RLS session (see plan-document.ts). No access check beyond a visible trip is needed.
-  const res = await getOwnerPlanDocumentResult(id);
+  // "Ortsinfos aufnehmen" (city-tour-stop-info 6): stored stop info only, one line per stop.
+  const stopInfo = new URL(request.url).searchParams.get("stopInfo") === "1";
+  const res = await getOwnerPlanDocumentResult(id, { stopInfo });
   if (!res.ok) {
     if (res.error === "not_found") return NextResponse.json({ error: "not_found" }, { status: 404, headers: JSON_HEADERS });
     if (res.error === "no_plan") return NextResponse.json({ error: "no_plan" }, { status: 409, headers: JSON_HEADERS });

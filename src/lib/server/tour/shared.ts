@@ -1,5 +1,6 @@
 import "server-only";
 import type { Locale } from "@/lib/domain/profile";
+import { TourStopInfo } from "@/lib/domain/stop-info";
 import type { Tour } from "@/lib/domain/tour";
 import { logEvent } from "../events";
 import { hashShareToken, isShareTokenFormat } from "../share-token";
@@ -19,6 +20,8 @@ export type SharedTour = {
   tour: Tour;
   /** The owner's language: the page and the PDF are shown in it. */
   locale: Locale;
+  /** Stored stop info, only when asked for (PDF opt-in "Ortsinfos aufnehmen"); else null. */
+  stopInfo: TourStopInfo | null;
 };
 
 const SHARED_TOUR_COLUMNS = "id, owner_id, title, input, trip_id, trip_day, result, result_hash, computed_at, created_at, updated_at";
@@ -46,17 +49,16 @@ export async function resolveTourLink(token: string): Promise<LinkRow & { tour_i
   return { ...link, tour_id: link.tour_id, locale: owner.locale };
 }
 
-export async function getSharedTour(token: string, via: "page" | "pdf"): Promise<SharedTour | null> {
+export async function getSharedTour(token: string, via: "page" | "pdf", opts: { stopInfo?: boolean } = {}): Promise<SharedTour | null> {
   try {
     const link = await resolveTourLink(token);
     if (!link) return null;
     const admin = createSupabaseAdminClient();
-    const { data: row, error } = await admin
-      .from("city_tours")
-      .select(SHARED_TOUR_COLUMNS)
-      .eq("id", link.tour_id)
-      .eq("owner_id", link.owner_id)
-      .maybeSingle<TourRow>();
+    const read = (columns: string) =>
+      admin.from("city_tours").select(columns).eq("id", link.tour_id).eq("owner_id", link.owner_id).maybeSingle<TourRow & { stop_info?: unknown }>();
+    let { data: row, error } = await read(opts.stopInfo ? `${SHARED_TOUR_COLUMNS}, stop_info` : SHARED_TOUR_COLUMNS);
+    // Stop info is optional: a failed read with it falls back to the tour alone, never a 404 for a readable tour.
+    if (error && opts.stopInfo) ({ data: row, error } = await read(SHARED_TOUR_COLUMNS));
     if (error || !row) return null;
     // The visitor is nobody: viewerId "" never equals an owner id, so access is "read".
     const parsed = rowToTour({ ...row, trip_id: null, trip_day: null, tour_shares: [] }, "");
@@ -66,7 +68,13 @@ export async function getSharedTour(token: string, via: "page" | "pdf"): Promise
       logEvent({ event: "share.viewed", userId: link.owner_id, props: { linkId: link.id, via, kind: "tour" } }),
     ]);
     // Nothing that names the owner or the trip leaves this function.
-    return { linkId: link.id, tour: { ...parsed, ownerId: "", tripId: null, tripDay: null }, locale: link.locale };
+    const info = opts.stopInfo ? TourStopInfo.safeParse(row.stop_info) : null;
+    return {
+      linkId: link.id,
+      tour: { ...parsed, ownerId: "", tripId: null, tripDay: null },
+      locale: link.locale,
+      stopInfo: info?.success ? info.data : null,
+    };
   } catch {
     return null;
   }

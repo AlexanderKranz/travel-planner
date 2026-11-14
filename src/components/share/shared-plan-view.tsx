@@ -16,6 +16,7 @@ import { DriveTimesScope } from "@/components/plan/drive-times-scope";
 /** Read-only plan for the public share page. Imports no owner server actions. */
 export function SharedPlanView({ doc, token, uiLocale, banner }: { doc: PlanDocument; token: string; uiLocale: string; banner?: React.ReactNode }) {
   const t = useTranslations("shared");
+  const tStop = useTranslations("tours.stopInfo");
   const ti = useTranslations("items");
   const f = useFormatter();
   const { plan } = doc;
@@ -43,7 +44,13 @@ export function SharedPlanView({ doc, token, uiLocale, banner }: { doc: PlanDocu
             {t("banner")} · {t("version", { n: doc.versionNo })} · {t("updated", { date: f.dateTime(new Date(doc.versionAt), { dateStyle: "medium" }) })}
           </p>
           <div data-no-print className="mt-1">
-            <PdfButton href={`/api/share/${token}/pdf`} label={t("pdf")} busyLabel={t("pdfBusy")} errorText={t("pdfFailed")} />
+            <PdfButton
+              href={`/api/share/${token}/pdf`}
+              label={t("pdf")}
+              busyLabel={t("pdfBusy")}
+              errorText={t("pdfFailed")}
+              stopInfoLabel={(doc.tours ?? []).length > 0 ? tStop("pdfInclude") : undefined}
+            />
           </div>
         </header>
       <DriveTimesScope

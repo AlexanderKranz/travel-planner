@@ -1,6 +1,7 @@
-import { Circle, Path, Svg, Text, View } from "@react-pdf/renderer";
+import { Circle, Link, Path, Svg, Text, View } from "@react-pdf/renderer";
 import { timeRange } from "@/lib/plan/fixed-items";
 import type { TourBlock } from "@/lib/plan/tour-blocks";
+import type { PdfStopInfo } from "@/lib/stop-info/pdf-lines";
 import { sketchGeometry } from "@/lib/tour/sketch";
 import type { Fmt } from "./format";
 import type { PdfT } from "./labels";
@@ -21,12 +22,12 @@ export function tourLine(tour: TourBlock, t: PdfT, fmt: Fmt): string {
 }
 
 /** The route sketch from the stored polylines (react-pdf `Svg`, no base map; city-tour 8). */
-export function TourSketchPdf({ tour, best }: { tour: TourBlock; best: boolean }) {
-  const g = tour.sketch ? sketchGeometry(tour.sketch.legs, tour.sketch.points, SKETCH_W, SKETCH_H, 8) : null;
+export function TourSketchPdf({ tour, best, width = SKETCH_W, height = SKETCH_H }: { tour: TourBlock; best: boolean; width?: number; height?: number }) {
+  const g = tour.sketch ? sketchGeometry(tour.sketch.legs, tour.sketch.points, width, height, 8) : null;
   if (!g) return null;
   const line = best ? C.accentLight : C.accent;
   return (
-    <Svg width={SKETCH_W} height={SKETCH_H} viewBox={`0 0 ${SKETCH_W} ${SKETCH_H}`} style={{ marginTop: 3 }}>
+    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ marginTop: 3 }}>
       {g.paths.map((p, i) => (
         <Path key={i} d={p.d} fill="none" stroke={line} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" strokeDasharray={p.dashed ? "4 3" : undefined} />
       ))}
@@ -34,6 +35,29 @@ export function TourSketchPdf({ tour, best }: { tour: TourBlock; best: boolean }
         <Circle key={i} cx={d.x} cy={d.y} r={3.2} fill={best ? C.cream : C.navy} />
       ))}
     </Svg>
+  );
+}
+
+const BY_SA = "https://creativecommons.org/licenses/by-sa/4.0/";
+
+/**
+ * "Ortsinfos: Wikipedia-Artikel „Stephansdom“, „Hofburg“ (en) (CC BY-SA 4.0), gekürzt; Fakten: Wikidata · geprüft am …"
+ * Each article and the licence are links (city-tour-stop-info 12, PDF attribution).
+ */
+export function StopInfoSources({ info, t, fmt, color }: { info: PdfStopInfo; t: PdfT; fmt: Fmt; color: string }) {
+  return (
+    <Text style={{ fontSize: 6.5, color, marginTop: 2 }}>
+      {t("tour.stopInfo.articles")}{" "}
+      {info.articles.map((a, i) => (
+        <Text key={a.url}>
+          {i > 0 ? ", " : ""}
+          <Link src={a.url} style={{ color }}>{`„${a.title}“`}</Link>
+          {a.en ? " (en)" : ""}
+        </Text>
+      ))}{" "}
+      (<Link src={BY_SA} style={{ color }}>CC BY-SA 4.0</Link>), {t("tour.stopInfo.clipped")}
+      {info.checkedAt ? ` · ${t("tour.stopInfo.checked", { date: fmt.date(info.checkedAt.slice(0, 10)) })}` : ""}
+    </Text>
   );
 }
 
@@ -57,9 +81,21 @@ export function TourRowPdf({ tour, best, t, fmt }: { tour: TourBlock; best: bool
         <Text style={{ flexGrow: 1, flexShrink: 1, fontWeight: 600, color: ink }}>{tourLine(tour, t, fmt)}</Text>
       </View>
       {tour.title ? <Text style={{ marginLeft: 64, color: ink }}>{tour.title}</Text> : null}
-      <Text style={{ marginLeft: 64, fontSize: 7.5, color: best ? C.navyMuted : C.muted }}>
-        {tour.stops.map((name, i) => `${i + 1}. ${name}`).join("  ")}
-      </Text>
+      {tour.info ? (
+        <View style={{ marginLeft: 64 }}>
+          {tour.stops.map((name, i) => (
+            <Text key={i} style={{ fontSize: 7.5, color: best ? C.navyMuted : C.muted }}>
+              {`${i + 1}. ${name}`}
+              {tour.info?.lines[i] ? ` – ${tour.info.lines[i]}` : ""}
+            </Text>
+          ))}
+          <StopInfoSources info={tour.info} t={t} fmt={fmt} color={best ? C.navyMuted : C.subtle} />
+        </View>
+      ) : (
+        <Text style={{ marginLeft: 64, fontSize: 7.5, color: best ? C.navyMuted : C.muted }}>
+          {tour.stops.map((name, i) => `${i + 1}. ${name}`).join("  ")}
+        </Text>
+      )}
       <View style={{ marginLeft: 64 }}>
         <TourSketchPdf tour={tour} best={best} />
       </View>

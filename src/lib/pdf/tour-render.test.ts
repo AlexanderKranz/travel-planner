@@ -21,6 +21,14 @@ async function extractText(buf: Buffer): Promise<string> {
   return pages.join("\n");
 }
 
+const stopInfo = {
+  v: 1 as const,
+  locale: "de" as const,
+  stops: [
+    { key: "osm:w2", status: "ok" as const, checkedAt: "2026-11-10T00:00:00Z", lang: "de" as const, title: "Hofburg", text: "Die Hofburg ist eine Residenz in Wien. Mehr dazu." },
+  ],
+};
+
 describe("PDF city tour block (city-tour 10)", () => {
   it("line: time range, places, distance and mode from the pdf labels (de, en)", () => {
     const [b] = tourBlocks([linkedTour()], 5);
@@ -39,5 +47,42 @@ describe("PDF city tour block (city-tour 10)", () => {
     expect(text).toContain("10:00–12:10 · 3 Orte · 1,6 km zu Fuß");
     expect(text).toContain("1. Hofburg");
     expect(text).toContain("Routen: © openrouteservice.org");
+  }, 30_000);
+
+
+  it("with the opt-in Ortsinfos aufnehmen: one line per stop and the article attribution; without it the PDF is unchanged", async () => {
+    const base = { ...(structuredClone(cruise) as unknown as PlanDocument), items: null, costs: null };
+    const withInfo = { ...base, tours: tourBlocks([linkedTour({ tripDay: 2, stopInfo })], base.plan.days.length) };
+    const text = (await extractText(await renderPlanPdf(withInfo, makeT(de.pdf)))).replace(/\s+/g, " ");
+    expect(text).toContain("Die Hofburg ist eine Residenz in Wien.");
+    expect(text).not.toContain("Mehr dazu");
+    expect(text).toContain("Ortsinfos: Wikipedia-Artikel");
+    expect(text).toContain("CC BY-SA 4.0");
+    const plain = { ...base, tours: tourBlocks([linkedTour({ tripDay: 2 })], base.plan.days.length) };
+    const plainText = (await extractText(await renderPlanPdf(plain, makeT(de.pdf)))).replace(/\s+/g, " ");
+    expect(plainText).not.toContain("Ortsinfos");
+  }, 30_000);
+});
+
+describe("PDF of a standalone city tour (city-tour 9.3)", () => {
+  it("renders title, line, stops, sources; stop info only when given", async () => {
+    const { renderToBuffer } = await import("@react-pdf/renderer");
+    const { createElement } = await import("react");
+    const { registerFonts } = await import("./fonts");
+    const { TourPdf } = await import("./tour-pdf");
+    const { noDayBlockOf } = await import("@/lib/plan/tour-blocks");
+    registerFonts();
+    const render = async (info: typeof stopInfo | null) => {
+      const block = noDayBlockOf(linkedTour({ tripDay: null, stopInfo: info }));
+      const el = createElement(TourPdf, { block, title: "Wien", date: null, stopTimes: null, generatedAt: "2026-11-14T00:00:00Z", locale: "de", t: makeT(de.pdf), fmt: makeFormat("de") });
+      return (await extractText(await renderToBuffer(el as Parameters<typeof renderToBuffer>[0]))).replace(/\s+/g, " ");
+    };
+    const text = await render(null);
+    expect(text).toContain("Wien");
+    expect(text).toContain("3 Orte");
+    expect(text).toContain("Hofburg");
+    expect(text).toContain("Routen: © openrouteservice.org");
+    expect(text).not.toContain("Ortsinfos");
+    expect(await render(stopInfo)).toContain("Die Hofburg ist eine Residenz in Wien.");
   }, 30_000);
 });

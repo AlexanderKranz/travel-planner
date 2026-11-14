@@ -227,6 +227,7 @@ export default async function TripDetailPage({
           // Any tour with a day counts: the shared document uses the stored plan's day count, which can differ from
           // the trip length after the trip was shortened. A notice too many is harmless, one too few is not.
           tourEndpointsVisible={tourBlocks(tours, MAX_TRIP_DAYS).some((b) => b.addressEnds)}
+          hasTours={tours.length > 0}
         />
       </div>
       <p className="text-sm text-muted">
