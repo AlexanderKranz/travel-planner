@@ -1,13 +1,14 @@
 "use client";
 
 import { useLocale, useTranslations } from "next-intl";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { btnSecondary, inputCls, labelCls, mutedCls } from "@/components/ui/styles";
 import type { TourSuggestion } from "@/lib/domain/tour";
 import { splitPlaceList } from "@/lib/tour/paste";
 import { searchPlaces } from "@/lib/tour/search-client";
 
-type Row = { query: string; options: TourSuggestion[]; pick: number; on: boolean };
+/** `inTour`: the search found the place, but it is already in the tour (not "not found"). */
+type Row = { query: string; options: TourSuggestion[]; pick: number; on: boolean; inTour: boolean };
 
 /**
  * "Liste einfügen": code splits the pasted text, each name goes through the place search (one request after the
@@ -34,6 +35,14 @@ export function PastePlaces({
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const abort = useRef<AbortController | null>(null);
+  const centreKey = centre ? `${centre.lat},${centre.lon}` : "";
+  const [rowsFor, setRowsFor] = useState("");
+
+  // The city (search centre) changed: cancel a running search; results found for the old centre are hidden below.
+  useEffect(() => {
+    abort.current?.abort();
+  }, [centreKey]);
+  const shown = rowsFor === centreKey ? rows : null;
 
   if (!centre || room <= 0) return null;
 
@@ -48,6 +57,7 @@ export function PastePlaces({
     abort.current = ac;
     setBusy(true);
     setStatus(null);
+    setRowsFor(centreKey);
     const out: Row[] = [];
     for (const [i, query] of names.entries()) {
       try {
@@ -57,8 +67,9 @@ export function PastePlaces({
           setStatus(`${why} ${t("paste.notSearched", { count: names.length - i, names: names.slice(i).join(", ") })}`);
           break;
         }
+        if (ac.signal.aborted) break;
         const options = res.items.filter((s) => !isTaken(s.key)).slice(0, 3);
-        out.push({ query, options, pick: 0, on: options.length > 0 });
+        out.push({ query, options, pick: 0, on: options.length > 0, inTour: options.length === 0 && res.items.length > 0 });
         setRows([...out]);
       } catch {
         // Aborted (a new search started): stay quiet. Otherwise say which names were not searched, never drop them.
@@ -66,20 +77,21 @@ export function PastePlaces({
         break;
       }
     }
+    if (abort.current !== ac) return; // a newer search owns the state
     setRows([...out]);
     setBusy(false);
   }
 
   function add() {
-    if (!rows) return;
-    const picked = rows.filter((r) => r.on && r.options[r.pick]).map((r) => r.options[r.pick]);
+    if (!shown) return;
+    const picked = shown.filter((r) => r.on && r.options[r.pick]).map((r) => r.options[r.pick]);
     const unique = picked.filter((s, i) => picked.findIndex((x) => x.key === s.key) === i).slice(0, room);
     onAdd(unique);
     setRows(null);
     setText("");
   }
 
-  const chosen = rows?.filter((r) => r.on && r.options[r.pick]).length ?? 0;
+  const chosen = shown?.filter((r) => r.on && r.options[r.pick]).length ?? 0;
   return (
     <details className="rounded-lg border border-line p-3">
       <summary className="min-h-11 cursor-pointer content-center font-medium">{t("paste.open")}</summary>
@@ -104,21 +116,21 @@ export function PastePlaces({
             {status}
           </p>
         )}
-        {rows && rows.length > 0 && (
+        {shown && shown.length > 0 && (
           <>
             <ul className="flex flex-col gap-2" data-testid="paste-results">
-              {rows.map((r, i) => (
+              {shown.map((r, i) => (
                 <li key={`${r.query}-${i}`} className="flex flex-col gap-1 rounded-lg border border-line p-2">
                   <span className={`text-sm ${mutedCls} break-words`}>{t("paste.query", { query: r.query })}</span>
                   {r.options.length === 0 ? (
-                    <span className="text-sm">{t("paste.notFound")}</span>
+                    <span className="text-sm">{r.inTour ? t("paste.inTour") : t("paste.notFound")}</span>
                   ) : (
                     <label className="flex min-h-11 items-center gap-2">
                       <input
                         type="checkbox"
                         className="size-5 shrink-0"
                         checked={r.on}
-                        onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))}
+                        onChange={(e) => setRows(shown.map((x, j) => (j === i ? { ...x, on: e.target.checked } : x)))}
                       />
                       {r.options.length === 1 ? (
                         <span className="break-words font-medium">{r.options[0].name}</span>
@@ -127,7 +139,7 @@ export function PastePlaces({
                           aria-label={t("paste.choose", { query: r.query })}
                           className={`${inputCls} min-w-0`}
                           value={r.pick}
-                          onChange={(e) => setRows(rows.map((x, j) => (j === i ? { ...x, pick: Number(e.target.value) } : x)))}
+                          onChange={(e) => setRows(shown.map((x, j) => (j === i ? { ...x, pick: Number(e.target.value) } : x)))}
                         >
                           {r.options.map((o, k) => (
                             <option key={o.key} value={k}>

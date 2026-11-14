@@ -2264,6 +2264,7 @@
       "search": "Search places",
       "none": "No names found. Write one place per line.",
       "query": "“{query}”",
+      "inTour": "Already in the tour.",
       "notFound": "Not found. Search for this place on its own.",
       "choose": "Choose the match for “{query}”",
       "notSearched": "{count, plural, one {Not searched: {names}} other {# names not searched: {names}}}",

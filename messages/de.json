@@ -2264,6 +2264,7 @@
       "search": "Orte suchen",
       "none": "Keine Namen gefunden. Schreib einen Ort pro Zeile.",
       "query": "„{query}“",
+      "inTour": "Schon in der Tour.",
       "notFound": "Nicht gefunden. Such diesen Ort einzeln.",
       "choose": "Treffer für „{query}“ wählen",
       "notSearched": "{count, plural, one {Nicht gesucht: {names}} other {# Namen nicht gesucht: {names}}}",
