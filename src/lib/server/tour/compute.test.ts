@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   ops: [] as Op[],
   reply: (() => ({})) as (op: Op) => Reply,
   owner: "u1",
+  shares: [] as { grantee_id: string; access: "read" | "write" }[],
   stored: null as null | { result: unknown; result_hash: string | null },
   input: {} as unknown,
   gate: vi.fn(async () => true),
@@ -71,6 +72,7 @@ function row() {
     id: TOUR, owner_id: h.owner, title: null, input: h.input, trip_id: null, trip_day: null,
     result: h.stored?.result ?? null, result_hash: h.stored?.result_hash ?? null, computed_at: null,
     created_at: "2026-11-12T00:00:00Z", updated_at: "2026-11-12T00:00:00Z",
+    tour_shares: h.shares,
   };
 }
 const adminWrites = () => h.ops.filter((o) => o.client === "admin" && o.op === "update");
@@ -80,6 +82,7 @@ beforeEach(() => {
   resetRateLimits();
   h.ops = [];
   h.owner = "u1";
+  h.shares = [];
   h.stored = null;
   h.input = TourInput.parse({ places: P });
   h.reply = (o) => {
@@ -104,9 +107,21 @@ describe("computeTour: access and short cuts", () => {
   it("a grantee (not the owner) cannot compute: no slot, no ORS call, no write", async () => {
     h.owner = "u2";
     expect(await computeTour(TOUR)).toEqual({ ok: false, error: "forbidden" });
+    h.shares = [{ grantee_id: "u1", access: "read" }]; // a read share of the tour: still read-only
+    expect(await computeTour(TOUR)).toEqual({ ok: false, error: "forbidden" });
     expect(orsCalls()).toBe(0);
     expect(h.reserve).not.toHaveBeenCalled();
     expect(adminWrites()).toHaveLength(0);
+  });
+
+  it("a write grantee of the tour computes; the snapshot write stays scoped to the owner's row", async () => {
+    h.owner = "u2";
+    h.shares = [{ grantee_id: "u1", access: "write" }];
+    const res = await computeTour(TOUR);
+    expect(res.ok).toBe(true);
+    const w = adminWrites();
+    expect(w).toHaveLength(1);
+    expect(w[0].eqs).toContainEqual(["owner_id", "u2"]);
   });
 
   it("unchanged input → the stored result, 0 ORS calls, no slot taken", async () => {

@@ -3,6 +3,7 @@
 import { z } from "zod";
 import type { Locale } from "@/lib/domain/profile";
 import type { ActionError } from "@/lib/domain/result";
+import { canEdit } from "@/lib/domain/sharing";
 import {
   legPolyCap,
   ORS_PROFILE,
@@ -31,7 +32,7 @@ import { getTourMatrix, getTourRoute, peekTourMatrix, type TourRouteAnswer } fro
 import { rateLimit } from "../rate-limit";
 import { getUserSession } from "../session";
 import { createSupabaseAdminClient } from "../supabase/admin";
-import { rowToTour, TOUR_COLUMNS, type TourRow } from "./mapping";
+import { rowToTour, TOUR_COLUMNS, tourAccess, type TourRow } from "./mapping";
 import { cityDestination, cityPlaces } from "./places";
 import { GEO_KEY } from "./resolve";
 
@@ -197,7 +198,8 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
     .maybeSingle<TourRow>();
   if (readError) return err("failed");
   if (!row) return err("not_found");
-  if (row.owner_id !== session.userId) return err("forbidden");
+  // Owner or write grantee of the tour (spec 9.3); read grantees and trip grantees only read.
+  if (!canEdit(tourAccess(row, session.userId))) return err("forbidden");
   const tour = rowToTour(row, session.userId);
   if (!tour) return err("invalid");
   const input = tour.input;
