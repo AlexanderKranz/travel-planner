@@ -4,10 +4,10 @@
 
 -- ---------- city_tours.stop_info ----------
 -- TourStopInfo { v: 1, locale, stops: StopInfo[] } (spec 4), validated by Zod in the app; the database bounds shape and
--- size. Written by the server only (no client grant), through public.merge_stop_info below.
+-- size (128 kB: 27 entries at their Zod maxima stay below it). Written by the server only (no client grant), through public.merge_stop_info below.
 alter table public.city_tours
   add column if not exists stop_info jsonb
-    check (stop_info is null or (jsonb_typeof(stop_info) = 'object' and pg_column_size(stop_info) <= 65536));
+    check (stop_info is null or (jsonb_typeof(stop_info) = 'object' and pg_column_size(stop_info) <= 131072));
 
 -- ---------- helpers ----------
 -- The point keys of a tour input: start, places, and an end place ("start" as end adds nothing). Never raises on a
@@ -116,7 +116,11 @@ begin
    where t.id = p_tour
      and p_locale = (select p.locale from public.profiles p where p.id = t.owner_id);
   get diagnostics v_rows = row_count;
-  return case when v_rows = 1 then 'ok' else 'stale_locale' end;
+  if v_rows = 1 then
+    return 'ok';
+  end if;
+  -- Nothing updated: the tour was deleted meanwhile, or the locale no longer matches.
+  return case when exists (select 1 from public.city_tours where id = p_tour) then 'stale_locale' else 'not_found' end;
 end;
 $$;
 

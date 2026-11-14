@@ -27,8 +27,10 @@ select ok(not has_column_privilege('authenticated', 'public.city_tours', 'stop_i
       and not has_column_privilege('authenticated', 'public.city_tours', 'stop_info', 'insert'), 'authenticated: no write on stop_info');
 select throws_ok($$update public.city_tours set stop_info = '[]' where id = '5100000a-0000-4000-8000-0000000071a1'$$,
   '23514', null, 'stop_info must be an object');
-select throws_ok($$update public.city_tours set stop_info = jsonb_build_object('x', repeat('x', 66000)) where id = '5100000a-0000-4000-8000-0000000071a1'$$,
-  '23514', null, 'stop_info above 65536 bytes is refused');
+select throws_ok($$update public.city_tours set stop_info = jsonb_build_object('x', repeat('x', 132000)) where id = '5100000a-0000-4000-8000-0000000071a1'$$,
+  '23514', null, 'stop_info above 131072 bytes is refused');
+select lives_ok($$update public.city_tours set stop_info = jsonb_build_object('x', repeat('x', 100000)) where id = '5100000a-0000-4000-8000-0000000071a1'$$,
+  'stop_info of 100 kB is accepted');
 update public.city_tours set stop_info = null, updated_at = '2026-01-01T00:00:00Z' where id = '5100000a-0000-4000-8000-0000000071a1';
 
 -- ---------- helpers ----------
