@@ -7,6 +7,7 @@ import {
   fetchRouteSteps,
   type TourMatrix,
   type TourRoute,
+  type OrsStep,
   type TourRouteSteps,
 } from "@/lib/integrations/openrouteservice";
 import { legPolyCap, type OrsTourProfile, type RouteOption } from "@/lib/domain/tour";
@@ -188,6 +189,31 @@ const StepsPayload: z.ZodType<TourRouteSteps> = z.discriminatedUnion("result", [
 
 export type TourStepsAnswer = (TourRouteSteps & Fetched) | { result: "failed" };
 
+const STEPS_PER_LEG = 400;
+/** Serialized size a steps entry may reach; the api_cache check is 256 kB. */
+export const STEPS_ENTRY_BUDGET = 250_000;
+
+/**
+ * A steps entry that fits its cache row (Sourcery on #222): lines get the same per-leg share as routes, steps are cut
+ * to `STEPS_PER_LEG` (the arrival kept), and while the entry is still too large the longest line is dropped (the leg
+ * keeps its steps; the GPX then says it is incomplete) and, last, the steps are halved. Never grows the answer.
+ */
+export function withinStepsBudget(route: TourRouteSteps, budget = STEPS_ENTRY_BUDGET): TourRouteSteps {
+  if (route.result !== "ok") return route;
+  const cap = legPolyCap(route.legs.length);
+  const cut = (steps: OrsStep[], max: number) => (steps.length <= max ? steps : [...steps.slice(0, Math.max(0, max - 1)), steps[steps.length - 1]]);
+  let legs = route.legs.map((l) => ({ ...l, poly: l.poly.length <= cap ? l.poly : "", steps: cut(l.steps, STEPS_PER_LEG) }));
+  const size = () => JSON.stringify({ result: "ok", legs }).length;
+  while (size() > budget && legs.some((l) => l.poly)) {
+    const longest = legs.reduce((a, l, i) => (l.poly.length > legs[a].poly.length ? i : a), 0);
+    legs = legs.map((l, i) => (i === longest ? { ...l, poly: "" } : l));
+  }
+  for (let max = STEPS_PER_LEG; size() > budget && max > 2; max = Math.floor(max / 2)) {
+    legs = legs.map((l) => ({ ...l, steps: cut(l.steps, Math.floor(max / 2)) }));
+  }
+  return { result: "ok", legs };
+}
+
 /**
  * A run's route with turn-by-turn steps, fetched only on request ("Wegbeschreibung", spec 17.1 [P2]), cached 90 days
  * under its own key and logged as `tour_steps` (Directions bucket). Never throws.
@@ -212,7 +238,7 @@ export async function getTourSteps(
       fetcher: async () => {
         await assertOrsQuota("directions");
         const r = await fetchRouteSteps(profile, points, option);
-        return { data: r.route, status: r.status, latencyMs: r.latencyMs };
+        return { data: withinStepsBudget(r.route), status: r.status, latencyMs: r.latencyMs };
       },
     });
     if (!res.ok) return { result: "failed" };

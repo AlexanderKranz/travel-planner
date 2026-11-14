@@ -64,7 +64,21 @@ export function legChanged(stored: { km: number | null; poly: string | null }, f
   return off(now, old) || off(old, now);
 }
 
-/** Identity of a stored result for the directions view: order and each leg's mode, option and km. */
-export function resultVersion(r: { order: readonly string[]; legs: readonly { mode: string; route: string; km: number | null }[] }): string {
-  return `${r.order.join("|")}#${r.legs.map((l) => `${l.mode}:${l.route}:${l.km ?? "-"}`).join("|")}`;
+/**
+ * Identity of a stored result for the directions view: order, each leg's mode, option, km and line, and the route
+ * source date (a recomputation that only moves a line or refreshes ORS changes it too). A short FNV-1a hash, so the
+ * page sends a few characters, not the polylines. Pure (browser and server).
+ */
+export function resultVersion(r: {
+  order: readonly string[];
+  legs: readonly { mode: string; route: string; km: number | null; poly?: string | null }[];
+  source?: { ors?: string };
+}): string {
+  const text = `${r.order.join("|")}#${r.legs.map((l) => `${l.mode}:${l.route}:${l.km ?? "-"}:${l.poly ?? ""}`).join("|")}#${r.source?.ors ?? ""}`;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `${h.toString(16).padStart(8, "0")}-${text.length.toString(36)}`;
 }

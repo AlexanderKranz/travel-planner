@@ -36,7 +36,7 @@ export type TourResultProps = {
   tourId?: string;
   title?: string;
   /** Owner only: "Tour neu berechnen" from the changed-route notice, forced (spec 17.4). */
-  onRecomputeForce?: () => void;
+  onRecomputeForce?: () => Promise<unknown> | void;
 };
 
 /** Remount key of the map: changes with any of its inputs (route geometry, modes, stops, sights). */

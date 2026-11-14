@@ -2,9 +2,25 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { encodePolyline } from "./polyline";
-import { legChanged, stepLines } from "./steps";
+import { legChanged, resultVersion, stepLines } from "./steps";
 
 const messages = (loc: string) => JSON.parse(readFileSync(join(__dirname, `../../../messages/${loc}.json`), "utf8")).tours.steps;
+
+describe("resultVersion", () => {
+  const base = {
+    order: ["osm:n1", "osm:n2"],
+    legs: [{ mode: "foot", route: "fastest", km: 0.6, poly: "abc" }],
+    source: { ors: "2026-11-13T10:00:00.000Z" },
+  };
+  it("is short and changes with the line or the route source, not only with order and km", () => {
+    const v = resultVersion(base);
+    expect(v).toMatch(/^[0-9a-f]{8}-[0-9a-z]+$/);
+    expect(resultVersion({ ...base })).toBe(v);
+    expect(resultVersion({ ...base, legs: [{ ...base.legs[0], poly: "abd" }] })).not.toBe(v);
+    expect(resultVersion({ ...base, source: { ors: "2026-11-14T10:00:00.000Z" } })).not.toBe(v);
+    expect(resultVersion({ ...base, legs: [{ ...base.legs[0], km: 0.7 }] })).not.toBe(v);
+  });
+});
 
 describe("stepLines", () => {
   it("maps ORS types to message keys, with the street only when named", () => {
