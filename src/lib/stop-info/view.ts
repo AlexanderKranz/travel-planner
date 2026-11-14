@@ -37,7 +37,7 @@ export function storedView(
   const pending: string[] = [];
   for (const p of eligible) {
     const s = byKey.get(p.key);
-    const at = s ? Date.parse(s.checkedAt) : NaN;
+    const at = s ? Date.parse(s.storedAt ?? s.checkedAt) : NaN;
     if (s && Number.isFinite(at) && now - at < maxAge) stops.push(s);
     else pending.push(p.key);
   }

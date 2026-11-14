@@ -4,10 +4,10 @@
 
 -- ---------- city_tours.stop_info ----------
 -- TourStopInfo { v: 1, locale, stops: StopInfo[] } (spec 4), validated by Zod in the app; the database bounds shape and
--- size. Written by the server only (no client grant), through public.merge_stop_info below.
+-- size (128 kB: 27 entries at their Zod maxima stay below it). Written by the server only (no client grant), through public.merge_stop_info below.
 alter table public.city_tours
   add column if not exists stop_info jsonb
-    check (stop_info is null or (jsonb_typeof(stop_info) = 'object' and pg_column_size(stop_info) <= 65536));
+    check (stop_info is null or (jsonb_typeof(stop_info) = 'object' and pg_column_size(stop_info) <= 131072));
 
 -- ---------- helpers ----------
 -- The point keys of a tour input: start, places, and an end place ("start" as end adds nothing). Never raises on a
@@ -81,13 +81,17 @@ set search_path = ''
 as $$
 declare
   v_rows integer;
+  v_owner uuid;
 begin
   if p_tour is null or p_locale is null or p_locale not in ('de', 'en') or jsonb_typeof(p_entries) is distinct from 'array' then
     raise exception 'invalid arguments' using errcode = '22023';
   end if;
-  if not exists (select 1 from public.city_tours where id = p_tour) then
+  select owner_id into v_owner from public.city_tours where id = p_tour;
+  if v_owner is null then
     return 'not_found';
   end if;
+  -- Hold the owner's profile row until commit, so a locale change cannot slip between the check and the write.
+  perform 1 from public.profiles where id = v_owner for share;
 
   -- One UPDATE: under READ COMMITTED a concurrent merge on the same row is re-evaluated against the newer version.
   update public.city_tours t
@@ -102,14 +106,21 @@ begin
                         else '[]'::jsonb end) e
                   where not exists (select 1 from jsonb_array_elements(p_entries) n where n ->> 'key' = e ->> 'key')
                  union all
-                 select n from jsonb_array_elements(p_entries) n
+                 -- One entry per key from the batch (the last one wins).
+                 (select distinct on (n ->> 'key') n
+                    from jsonb_array_elements(p_entries) with ordinality as x(n, i)
+                   order by n ->> 'key', i desc)
                ) m(e)
               where e ->> 'key' = any (private.tour_point_keys(t.input))
            ), '[]'::jsonb))
    where t.id = p_tour
      and p_locale = (select p.locale from public.profiles p where p.id = t.owner_id);
   get diagnostics v_rows = row_count;
-  return case when v_rows = 1 then 'ok' else 'stale_locale' end;
+  if v_rows = 1 then
+    return 'ok';
+  end if;
+  -- Nothing updated: the tour was deleted meanwhile, or the locale no longer matches.
+  return case when exists (select 1 from public.city_tours where id = p_tour) then 'stale_locale' else 'not_found' end;
 end;
 $$;
 
@@ -120,7 +131,8 @@ $$;
 create table if not exists public.stop_info_slots (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid references auth.users (id) on delete cascade,
-  link_id     uuid references public.share_links (id) on delete cascade,
+  -- No foreign key: deleting a share link must not delete its settled slots (they keep counting app-wide today).
+  link_id     uuid,
   created_at  timestamptz not null default now(),
   settled_at  timestamptz,
   constraint stop_info_slots_one_scope check ((user_id is null) <> (link_id is null))

@@ -47,12 +47,12 @@ async function viewFor(row: TourRowLite, scope: Scope, ctxUser: string | null, v
 
   const burstKey = "user" in scope ? `stop-info:${scope.user}` : `stop-info-link:${scope.link}`;
   const reserved = rateLimit(burstKey, BURST_PER_MIN, 60_000).ok ? await reserve(admin, scope) : null;
-  if (!reserved) return { ok: true, data: { locale, ...first, limited: true } };
-
   const pendingPoints: StopPointRef[] = eligible.filter((p) => first.pending.includes(p.key));
+  const limited = !reserved;
   let calls = 0;
   try {
-    const batch = await fetchStopInfoBatch(pendingPoints, locale, { userId: ctxUser });
+    // A used-up limit means cache-only (spec 12): cached API answers are still turned into cards, no request is sent.
+    const batch = await fetchStopInfoBatch(pendingPoints, locale, { userId: ctxUser }, limited ? offlineClock() : undefined);
     calls = batch.calls;
     if (batch.entries.length) {
       const { error } = await admin.rpc("merge_stop_info", { p_tour: row.id, p_entries: batch.entries, p_locale: locale });
@@ -61,15 +61,22 @@ async function viewFor(row: TourRowLite, scope: Scope, ctxUser: string | null, v
     await logEvent({
       event: "tour.stop_info",
       userId: ctxUser ?? undefined,
-      props: { via, stops: pendingPoints.length, entries: batch.entries.length, unfinished: batch.unfinished.length, calls },
+      props: { via, stops: pendingPoints.length, entries: batch.entries.length, unfinished: batch.unfinished.length, calls, limited },
     });
+  } catch (err) {
+    await logEvent({ event: "tour.stop_info_failed", level: "error", userId: ctxUser ?? undefined, props: { via, message: String(err).slice(0, 200) } });
   } finally {
-    await admin.rpc(calls > 0 ? "stop_info_settle" : "stop_info_release", { p_id: reserved });
+    if (reserved) await admin.rpc(calls > 0 ? "stop_info_settle" : "stop_info_release", { p_id: reserved });
   }
 
   const { data: fresh } = await admin.from("city_tours").select("stop_info").eq("id", row.id).maybeSingle<{ stop_info: unknown }>();
   const after = storedView(fresh?.stop_info ?? row.stop_info, eligible, locale);
-  return { ok: true, data: { locale, ...after, limited: false } };
+  return { ok: true, data: { locale, ...after, limited } };
+}
+
+/** Clock for a cache-only batch: no network request is allowed. */
+function offlineClock() {
+  return { deadline: Date.now() + 4000, now: Date.now, offline: true };
 }
 
 /** One reserved batch slot (per user or per link, plus app-wide), or null when a daily limit is used up. */

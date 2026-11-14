@@ -72,6 +72,7 @@ export type BuildInput = {
   cat?: string;
   locale: StopInfoLocale;
   checkedAt: string;
+  storedAt?: string;
   qid: string | null;
   osm: OsmFacts | null;
   entity: EntityPart | null;
@@ -107,12 +108,14 @@ export function buildStopInfo(b: BuildInput): StopInfo {
   const text = b.extract ? clipStopText(b.extract.part.text) : null;
   const image = e?.image ? stopImage(e.image, b.thumb) : null;
   const hasFacts = Object.keys(facts).length > 0;
-  if (!text && !image && !hasFacts) return { key: b.key, status: "none", checkedAt: b.checkedAt };
+  const stamp = b.storedAt ? { storedAt: b.storedAt } : {};
+  if (!text && !image && !hasFacts) return { key: b.key, status: "none", checkedAt: b.checkedAt, ...stamp };
 
   return StopInfo.parse({
     key: b.key,
     status: "ok",
     checkedAt: b.checkedAt,
+    ...stamp,
     ...(b.qid ? { qid: b.qid } : {}),
     ...(text && b.extract ? { lang: b.extract.lang, title: b.extract.part.title.slice(0, 200), text: text.text, ...(text.clipped ? { clipped: true } : {}) } : {}),
     ...(image ? { image } : {}),

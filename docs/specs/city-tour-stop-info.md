@@ -87,7 +87,7 @@ Per tour, all batched (at most 27 stops):
 ## 4. Data model [S3]
 
 A new column, not part of `result`: **`city_tours.stop_info jsonb`** (null = not fetched yet), check
-`pg_column_size(stop_info) <= 65536`, written with the secret key like `result`. *Recommended*: `result` already
+`pg_column_size(stop_info) <= 131072`, written with the secret key like `result`. *Recommended*: `result` already
 spends 200 kB of its 256 kB on route lines (25 stops), and the info changes on a different schedule (articles
 change; the route does not). Alternative: inside `result` with a smaller polyline budget.
 
@@ -232,8 +232,8 @@ readOut.{play, pause, resume, next, stop, tour, reading, unsupported, voiceNote}
 ## 12. Implementation rules (review of this spec, 2026-11-13)
 
 - **Writes of `stop_info` are atomic merges per stop.** The server writes through one SQL function
-  `private.merge_stop_info(tour_id uuid, entries jsonb, locale text)` (security definer, called with the secret
-  key): in a single `update … where id = tour_id`, it keeps the stored entries, replaces or adds the fetched ones by
+  `public.merge_stop_info(p_tour uuid, p_entries jsonb, p_locale text)` (security definer, execute for
+  `service_role` only, called through PostgREST RPC with the secret key): in a single `update … where id = tour_id`, it keeps the stored entries, replaces or adds the fetched ones by
   `key`, and drops every entry whose `key` is no longer a point of the row's **current** `input` (read in the same
   statement). Overlapping fetches therefore never lose each other's entries, and a late fetch cannot restore removed
   stops. A locale change replaces the whole value.
