@@ -2266,6 +2266,7 @@
       "gpxHint": "For OsmAnd, Organic Maps, Komoot and other apps that open GPX routes. They follow exactly this route.",
       "gpxIncomplete": "At least one leg has no route right now, so there is no GPX file. Try again later.",
       "notComputed": "Compute the tour first (or again) to get directions.",
+      "stepsCut": "Not all turn instructions are stored for this leg. Follow the map as well.",
       "recompute": "Compute the tour again",
       "backToTop": "Back to the summary"
     },

@@ -7,7 +7,6 @@ import {
   fetchRouteSteps,
   type TourMatrix,
   type TourRoute,
-  type OrsStep,
   type TourRouteSteps,
 } from "@/lib/integrations/openrouteservice";
 import { legPolyCap, type OrsTourProfile, type RouteOption } from "@/lib/domain/tour";
@@ -180,7 +179,7 @@ const StepsPayload: z.ZodType<TourRouteSteps> = z.discriminatedUnion("result", [
   z.object({
     result: z.literal("ok"),
     legs: z
-      .array(z.object({ min: z.number().int().min(0), km: z.number().min(0), poly: z.string(), steps: z.array(Step).max(400) }))
+      .array(z.object({ min: z.number().int().min(0), km: z.number().min(0), poly: z.string(), steps: z.array(Step).max(400), cut: z.literal(true).optional() }))
       .min(1),
   }),
   z.object({ result: z.literal("no_route") }),
@@ -190,7 +189,7 @@ const StepsPayload: z.ZodType<TourRouteSteps> = z.discriminatedUnion("result", [
 export type TourStepsAnswer = (TourRouteSteps & Fetched) | { result: "failed" };
 
 const STEPS_PER_LEG = 400;
-/** Serialized size a steps entry may reach; the api_cache check is 256 kB. */
+/** Bytes (UTF-8 JSON) a steps entry may reach; the api_cache check is 256 kB. */
 export const STEPS_ENTRY_BUDGET = 250_000;
 
 /**
@@ -201,15 +200,18 @@ export const STEPS_ENTRY_BUDGET = 250_000;
 export function withinStepsBudget(route: TourRouteSteps, budget = STEPS_ENTRY_BUDGET): TourRouteSteps {
   if (route.result !== "ok") return route;
   const cap = legPolyCap(route.legs.length);
-  const cut = (steps: OrsStep[], max: number) => (steps.length <= max ? steps : [...steps.slice(0, Math.max(0, max - 1)), steps[steps.length - 1]]);
-  let legs = route.legs.map((l) => ({ ...l, poly: l.poly.length <= cap ? l.poly : "", steps: cut(l.steps, STEPS_PER_LEG) }));
-  const size = () => JSON.stringify({ result: "ok", legs }).length;
+  type Leg = (typeof route.legs)[number];
+  const cut = (l: Leg, max: number): Leg =>
+    l.steps.length <= max ? l : { ...l, steps: [...l.steps.slice(0, Math.max(0, max - 1)), l.steps[l.steps.length - 1]], cut: true };
+  let legs = route.legs.map((l) => cut({ ...l, poly: l.poly.length <= cap ? l.poly : "" }, STEPS_PER_LEG));
+  // UTF-8 bytes of the JSON text: street names with umlauts count twice, close to the jsonb storage size.
+  const size = () => Buffer.byteLength(JSON.stringify({ result: "ok", legs }), "utf8");
   while (size() > budget && legs.some((l) => l.poly)) {
     const longest = legs.reduce((a, l, i) => (l.poly.length > legs[a].poly.length ? i : a), 0);
     legs = legs.map((l, i) => (i === longest ? { ...l, poly: "" } : l));
   }
   for (let max = STEPS_PER_LEG; size() > budget && max > 2; max = Math.floor(max / 2)) {
-    legs = legs.map((l) => ({ ...l, steps: cut(l.steps, Math.floor(max / 2)) }));
+    legs = legs.map((l) => cut(l, Math.floor(max / 2)));
   }
   return { result: "ok", legs };
 }

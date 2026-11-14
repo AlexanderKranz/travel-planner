@@ -22,7 +22,7 @@ import { rowToTour, TOUR_COLUMNS, type TourRow } from "./mapping";
  * Owner and read grantees (anyone who can read the tour through RLS) may ask.
  */
 
-export type DirectionsLeg = { steps: OrsStep[]; poly: string; km: number; changed: boolean } | null;
+export type DirectionsLeg = { steps: OrsStep[]; poly: string; km: number; changed: boolean; cut?: true } | null;
 export type TourDirections = { legs: DirectionsLeg[]; fetchedAt: string; stale: boolean };
 export type TourDirectionsResult =
   | { ok: true; data: TourDirections }
@@ -80,7 +80,8 @@ async function run(id: string, version: string): Promise<TourDirectionsResult> {
   const answers = await Promise.all(
     runs.map(async (r) => {
       const a = await fetchRun(r, false);
-      const older = a.result !== "failed" && tour.computedAt !== null && a.fetchedAt < tour.computedAt;
+      // Instants, not strings: the cache and the tour row format fractional seconds differently.
+      const older = a.result !== "failed" && tour.computedAt !== null && Date.parse(a.fetchedAt) < Date.parse(tour.computedAt);
       return older ? fetchRun(r, true) : a;
     }),
   );
@@ -97,10 +98,11 @@ async function run(id: string, version: string): Promise<TourDirectionsResult> {
     if (a.result !== "ok") continue;
     for (const [j, li] of runOf.legs.entries()) {
       const leg = a.legs[j];
-      legs[li] = { steps: leg.steps, poly: leg.poly, km: leg.km, changed: legChanged(result.legs[li], leg) };
+      legs[li] = { steps: leg.steps, poly: leg.poly, km: leg.km, changed: legChanged(result.legs[li], leg), ...(leg.cut ? { cut: true as const } : {}) };
     }
   }
-  if (legs.every((l) => l === null)) return fail("ors_unavailable");
+  // ORS answered, but no run has a route now (data changed since the computation): say so, not "unavailable".
+  if (legs.every((l) => l === null)) return fail(answers.every((a) => a.result === "no_route" || a.result === "not_routable") ? "unreachable" : "ors_unavailable");
 
   await logEvent({
     event: "tour.directions",

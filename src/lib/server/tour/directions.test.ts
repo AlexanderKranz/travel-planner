@@ -105,6 +105,20 @@ describe("getTourDirections", () => {
     expect(await getTourDirections(TOUR, V())).toEqual({ ok: false, error: "ors_unavailable" });
   });
 
+  it("every run answered no route → unreachable, not an outage", async () => {
+    h.steps.mockResolvedValue({ result: "no_route", fetchedAt: "2026-11-13T09:00:00.000Z", stale: false, cache: "miss" });
+    expect(await getTourDirections(TOUR, V())).toEqual({ ok: false, error: "unreachable" });
+  });
+
+  it("compares cache and computation times as instants (different fractional-second formats)", async () => {
+    // Cache 0.05 s before the computation; as text ".4Z" sorts after ".45+00:00" ("Z" > "5"), as time it is older.
+    expect("2026-11-12T10:00:00.4Z" > "2026-11-12T10:00:00.45+00:00").toBe(true);
+    h.row = { ...h.row!, computed_at: "2026-11-12T10:00:00.45+00:00" };
+    h.steps.mockResolvedValueOnce({ ...ok([{ km: 0.6 }, { km: 1.0 }]), fetchedAt: "2026-11-12T10:00:00.4Z", cache: "hit" }).mockResolvedValueOnce(ok([{ km: 0.6 }, { km: 1.0 }]));
+    expect((await getTourDirections(TOUR, V())).ok).toBe(true);
+    expect(h.steps.mock.calls[1]?.[4]).toEqual({ refresh: true });
+  });
+
   it("no result or an outdated one → not_computed, no ORS call", async () => {
     setup({ result: null, hash: null });
     expect(await getTourDirections(TOUR, V())).toEqual({ ok: false, error: "not_computed" });

@@ -313,7 +313,8 @@ export function parseTourRoute(body: unknown, n: number): OrsTourLeg[] {
  * metres after the manoeuvre, the step's first polyline index relative to its leg, and `exit_number` on type 7.
  */
 export type OrsStep = [type: number, name: string, metres: number, wp: number, exit?: number];
-export type OrsTourLegSteps = OrsTourLeg & { steps: OrsStep[] };
+/** `cut`: steps were shortened to fit the cache row (the view says the list is incomplete). */
+export type OrsTourLegSteps = OrsTourLeg & { steps: OrsStep[]; cut?: true };
 export type TourRouteSteps =
   | { result: "ok"; legs: OrsTourLegSteps[] }
   | { result: "no_route" }

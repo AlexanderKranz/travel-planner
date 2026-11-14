@@ -72,7 +72,17 @@ describe("withinStepsBudget (steps entries stay under the cache row limit)", () 
     expect(big.legs.every((l) => l.steps.length <= 400)).toBe(true);
     expect(big.legs[1].steps.at(-1)).toEqual(step(499));
     expect(big.legs.some((l) => l.poly === "")).toBe(true);
+    expect(big.legs[1].cut).toBe(true); // shortened lists are marked, so the view can say so
     expect(withinStepsBudget({ result: "no_route" })).toEqual({ result: "no_route" });
+  });
+
+  it("budgets UTF-8 bytes, not characters (umlauts count twice)", () => {
+    const wide = (i: number): OrsStep => [1, "Ä".repeat(110), 50, i];
+    const legs = Array.from({ length: 4 }, () => ({ min: 5, km: 1, poly: "", steps: Array.from({ length: 300 }, (_, i) => wide(i)) }));
+    const r = withinStepsBudget({ result: "ok", legs }, 200_000);
+    if (r.result !== "ok") throw new Error("unexpected");
+    expect(Buffer.byteLength(JSON.stringify(r), "utf8")).toBeLessThanOrEqual(200_000);
+    expect(r.legs.every((l) => l.cut)).toBe(true);
   });
 });
 
