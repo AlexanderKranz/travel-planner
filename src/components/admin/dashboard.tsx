@@ -109,8 +109,14 @@ export async function AdminDashboard({
               value={num(shares.groupSharesRead + shares.groupSharesWrite)}
               hint={t("usage.readWrite", { read: num(shares.groupSharesRead), write: num(shares.groupSharesWrite) })}
             />
+            <Stat
+              label={t("usage.tourShares")}
+              value={num(shares.tourSharesRead + shares.tourSharesWrite)}
+              hint={t("usage.readWrite", { read: num(shares.tourSharesRead), write: num(shares.tourSharesWrite) })}
+            />
             <Stat label={t("usage.tripsShared")} value={num(shares.tripsShared)} />
             <Stat label={t("usage.groupsShared")} value={num(shares.groupsShared)} />
+            <Stat label={t("usage.toursShared")} value={num(shares.toursShared)} />
             <Stat label={t("usage.entryLinks")} value={num(shares.entryLinks)} />
             <Stat label={t("usage.recipients")} value={num(shares.recipients)} />
             <Stat label={t("usage.grantsThisMonth")} value={num(shares.grantsThisMonth)} />

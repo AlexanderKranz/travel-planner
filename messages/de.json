@@ -1399,6 +1399,8 @@
       "readWrite": "{read} nur lesen, {write} bearbeiten",
       "groupShares": "Gruppen-Freigaben",
       "groupsShared": "Geteilte Gruppen",
+      "tourShares": "Stadttour-Freigaben",
+      "toursShared": "Geteilte Stadttouren",
       "entryLinks": "Verknüpfte Einträge",
       "toursCreated": "Stadttouren erstellt (7 Tage)",
       "toursComputed": "Stadttouren berechnet (7 Tage)"

@@ -35,6 +35,8 @@ export const ShareStatsRaw = z.object({
   tripSharesRead: n, tripSharesWrite: n, purposeSharesRead: n, purposeSharesWrite: n,
   groupSharesRead: n, groupSharesWrite: n, groupsShared: n, entryLinks: n,
   tripsShared: n, recipients: n, grantsThisMonth: n, lookupsThisMonth: n, lookupMissesThisMonth: n,
+  // Tour shares (migration 20261120120045); 0 when absent.
+  tourSharesRead: n.default(0), tourSharesWrite: n.default(0), toursShared: n.default(0),
 });
 
 export const RecentEventsRaw = z.array(z.object({
