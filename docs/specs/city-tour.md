@@ -8,7 +8,7 @@ and plans the legs between them." Wanted: route choice per tour or per leg (fast
 sights on or near the way, time limits (tour and per stop), standalone or part of a trip (for example one day of the
 plan).
 
-Scope: one tour = one city, up to 10 places plus an optional start and end, one day, walking, wheelchair, bike or
+Scope: one tour = one city, up to 25 places (10 in the MVP, 17.1 [P1]) plus an optional start and end, one day, walking, wheelchair, bike or
 car. Not in scope: public transport (ORS has none), multi-day tours, booking, live navigation.
 
 Examples use the fixture towns only: Wien (Stephansdom, Hofburg, Naschmarkt, Belvedere, Riesenrad) and Passau (Dom
@@ -80,7 +80,7 @@ export const TourPoint = z.object({
   cat: z.string().max(40).optional(), // OSM category for the icon, e.g. "place_of_worship"
   dwellMin: z.number().int().min(0).max(480).optional(),  // absent = tour default
 });
-export const MAX_TOUR_PLACES = 10;   // + start + end = at most 12 points
+export const MAX_TOUR_PLACES = 25;   // + start + end = at most 27 points (was 10 in the MVP, section 17.1 [P1])
 ```
 
 Sources, cheapest first:
@@ -135,13 +135,15 @@ export const TourInput = z.object({
 export function orderTour(
   m: (number | null)[][],              // seconds, n × n, index = point index
   opts: { start?: number; end?: number; keep?: boolean },
-): { order: number[] } | { error: "unreachable"; pairs: [number, number][] };
+): { order: number[]; exact: boolean } | { error: "unreachable"; pairs: [number, number][] };   // opts also take quick?: boolean
 ```
 
 - **Matrix**: one ORS matrix request over all points, profile of the tour mode, durations only
   (`src/lib/server/tour/matrix.ts`). Matrix calls take no `preference` or weightings, so the order is optimal for the
   mode's default routing, not for the chosen route option or per-leg modes. The UI help text says so.
-- **Algorithm**: exact Held–Karp DP for an open path, at most 12 points (≈ 600k steps, < 50 ms). Cases:
+- **Algorithm**: exact Held–Karp DP for an open path up to 16 points (`EXACT_MAX_POINTS`); above that the deterministic
+  local search of `order-heuristic.ts` with `exact: false` (17.1 [P1]); `quick` (drop proposals) is exact only up to
+  12 points. Cases:
   - start and end set: fixed path start → end; end = start: round trip;
   - only start: open end; only end: free start;
   - neither: best open path over all starts.
@@ -155,7 +157,7 @@ export function orderTour(
   the tag, the stop row shows it raw with "laut OpenStreetMap, geprüft am …". Phase 2 can add per-stop time windows
   (DP with earliest finish time, which stays exact when waiting is allowed).
 - Alternative considered: ORS `/optimization` (VROOM) solves TSP with time windows in one call, but adds an endpoint,
-  a quota and a black box; code is enough for 12 points.
+  a quota and a black box; code is enough for 27 points (17.1 [P1]).
 
 ## 5. Routes per leg [T4] [T5] [T8]
 
@@ -168,7 +170,7 @@ export function orderTour(
 | `cycling` | `cycling-regular` | `cycling-electric` later |
 | `car` | `driving-car` | no traffic, no parking time |
 
-Public transport is not offered: ORS has none, and a transit time would be invented.
+Public transport is not offered: ORS has none, and a transit time would be invented. Phase 2 may add it per leg from timetable data (section 17.1 [P3]).
 
 ### 5.2 Route options, defined by what ORS really does
 
@@ -200,7 +202,7 @@ labelled by what they do ("Grüner", "Ruhiger", "Ohne Autobahn"), never "schöne
 ### 5.3 Requests
 
 - Legs are grouped into **runs** of consecutive legs with the same mode and option. One Directions request per run,
-  with all its waypoints (ORS allows up to 50, so at most 12 here). A tour without overrides costs **one** request.
+  with all its waypoints (ORS allows up to 50, so at most 27 here). A tour without overrides costs **one** request.
   The response's `segments[i]` give each leg's `duration`/`distance`; `way_points` split the encoded polyline per
   leg.
 - New client functions in `src/lib/integrations/openrouteservice.ts`, next to the unchanged car functions:
@@ -264,7 +266,7 @@ Migration `supabase/migrations/<date>120039_city_tours.sql` (next free number), 
 | `id` | uuid | no | `gen_random_uuid()` | PK; `unique (id, owner_id)` |
 | `owner_id` | uuid | no | `auth.uid()` | FK `auth.users` on delete cascade |
 | `title` | text | yes | | `<= 120` |
-| `input` | jsonb | no | | `TourInput` (3.2), validated by Zod; `pg_column_size(input) <= 16384` |
+| `input` | jsonb | no | | `TourInput` (3.2), validated by Zod; `pg_column_size(input) <= 32768` (16384 in the MVP; raised for 25 places, 17.1 [P1]) |
 | `trip_id` | uuid | yes | | composite FK `(trip_id, owner_id) → trips (id, owner_id) on delete set null (trip_id)` (column list, PG 15+) |
 | `trip_day` | smallint | yes | | `between 1 and 60`; ignored by code when `trip_id` is null |
 | `result` | jsonb | yes | | `TourResult` (9.2), written by the server only |
@@ -424,7 +426,7 @@ No LLM, so no evals. CI needs no network: ORS and Geoapify answers are recorded 
 |---|---|
 | 0 spike | integrations-dev, about 12 live ORS calls (free): matrix foot-walking for 6 Wien points (limits, latency); Directions foot-walking with 6 waypoints (segments, way_points, polyline); `green` and `quiet` weightings in Wien and Passau (accepted? route differs? coverage); `extra_info: ["green", "noise"]` presence; `no_steps`; wheelchair; cycling-regular; driving-car `no_highways`; `x-ratelimit-*` headers per endpoint and profile; one Geoapify autocomplete call ("Stephansdom" around Wien). Result recorded in this spec, as in `find-destinations-drive.md` §5. |
 | 1 MVP | sections 2–13: standalone tours, 4 modes, route options that pass the spike, per-leg overrides, order optimize/keep, start/end, dwell, min/max/end-by, drop proposals, sunset warning, sights near the route, MapLibre map, trip-day link with `fixed` slot and duplicate guard, trip share page and PDF block. PRs: migration first (alone), then server, then UI. |
-| 2 | `tour_shares` and a public tour link, standalone tour PDF; per-stop time windows; opening hours parsed for checks; waterfront option via alternative routes; paste a list of places (code split + autocomplete each); weather forecast for the tour date (Open-Meteo, within 16 days); e-bike profile; "use my location" as start. |
+| 2 | See section 17 (issue #205, decided 2026-11-13). Original list: `tour_shares` and a public tour link, standalone tour PDF; per-stop time windows; opening hours parsed for checks; waterfront option via alternative routes; paste a list of places (code split + autocomplete each); weather forecast for the tour date (Open-Meteo, within 16 days); e-bike profile; "use my location" as start. |
 
 ### Spike results (2026-11-12)
 
@@ -846,7 +848,7 @@ landmarks answer costs nothing.
 - **[T17] ORS gate with the 50-request plan reserve, 20 computations per user per day, 90-day caches; split the ORS
   cap by endpoint.** *Recommended.* Alternative: keep the one shared 200 counter (tours and drive searches compete
   for Directions).
-- **[T18] Caps: 10 places + start + end, 50 tours per user; standalone tours purged 18 months after the later of
+- **[T18] Caps: 10 places + start + end (25 since phase 2, 17.1 [P1]), 50 tours per user; standalone tours purged 18 months after the later of
   date and last change.** *Recommended.* Alternatives: 8 places (shorter lists on phones), no retention.
 - **[T19] Spike first, then MVP as section 14, phase 2 after use.** *Recommended.*
 
@@ -860,3 +862,157 @@ landmarks answer costs nothing.
   it.
 - ORS walking times assume a constant speed and ignore crowds, crossings and lifts; the footer says so.
 - A Geoapify autocomplete result without OSM identity cannot be matched to plan places for the duplicate guard.
+
+## 17. Phase 2 (issue #205, decided by Alex 2026-11-13)
+
+Phase 2 = the section 14 list plus three requests from the issue: 25 stops, directions that follow the app's route,
+public transport. No item adds an LLM call (rule 2): the pasted list is a code split plus the place search.
+
+### 17.1 Decisions
+
+- **[P1] 25 stops: exact order up to 16 points, a deterministic heuristic above.** `MAX_TOUR_PLACES = 25` (+ start
+  + end = 27 points). Held–Karp needs 2^n·n states (27 points ≈ 3.6·10^9: impossible); up to 16 points it stays
+  < 100 ms. Above 16: nearest-neighbour from every allowed start, then 2-opt and Or-opt until no gain; ties by input
+  order, so the same input gives the same order. The result says "sehr gute Reihenfolge, nicht garantiert die beste"
+  when the heuristic ran. ORS `/optimization` (VROOM) is rejected again: also heuristic, plus an endpoint and quota.
+- **[P2] Directions only on request.** Nothing directions-related is computed with the tour. A "Wegbeschreibung"
+  button on a computed tour calls ORS Directions per run again **with steps kept** and shows turn-by-turn steps per
+  leg; the same view offers a GPX download.
+  - **One route source for the view.** Steps and GPX both come from that on-request response (its geometry and
+    steps), so they always describe the same path. The stored `result` stays the source for times, checks, map and
+    PDF. If any leg of the response differs from the stored leg by more than 5 % or 50 m in distance, the view shows
+    "Die Route hat sich seit der Berechnung geändert" with "Tour neu berechnen"; steps and GPX are still the
+    response's.
+  - Steps are stored compactly (`[type, name, metres, wayPointIndex, exit?]`, `exit` = ORS `exit_number`, only on
+    type 7 "enter roundabout"; about 10 kB for 26 legs, spike 17.2) under
+    their own cache key `cacheKey("tour-steps", 1, { profile, route, h })` (90 d), never in `city_tours.result`.
+  - Sentences are built by code from the ORS step `type` (0–13) and street `name` with `tours.steps.*` messages
+    (de + en), so one request serves both locales and ORS's English `instruction` text is not shown. `name` "-" =
+    unnamed way.
+  - Roundabout: type 7 with `exit` uses `tours.steps.roundabout` ("Im Kreisverkehr die {exit, selectordinal, …}
+    Ausfahrt nehmen{name}"); without `exit`, `tours.steps.roundaboutNoExit`. Type 8 (exit roundabout) is merged
+    into the type 7 sentence.
+  - Same ORS gate as a computation (Directions bucket `>= runs`); rate limit shared with computations.
+  - Google Maps links stay as they are (label: Google may route differently).
+- **[P3] Public transport only per leg, from timetable data, if the spike passes.** Candidate: Transitous (MOTIS,
+  open GTFS data). Never used for the order (a transit matrix would cost n² requests): a leg can be set to
+  "ÖPNV" as a leg override, or the whole tour with "Meine Reihenfolge". Needs date and start time; legs are timed in
+  sequence (departure = previous arrival + dwell), one request per transit leg. The leg shows line, departure,
+  arrival and walking parts, "Fahrplan, keine Echtzeit", source and check date; no connection = failed leg. Short
+  cache (7 d). **Spike passed technically (17.2, 2026-11-13); the terms set conditions** that must hold before the
+  build (transitous.org/api, read 2026-11-13):
+  - only for **open-source, non-commercial** projects that are "light on resources". The repo is public and
+    MIT-licensed since #219 (Alex's choice, 2026-11-13), so this condition holds; non-commercial use stays a
+    condition for as long as Transitous is used.
+  - every request sends a `User-Agent` with app name, version and a contact (the repo URL).
+  - attribution: a visible link to `https://transitous.org/sources/` (source line of a transit leg) plus the OSM
+    attribution the app already shows.
+  - more than 720 `/plan` requests per 24 h need coordination with Transitous: a guard `TRANSITOUS_DAILY` (default
+    500) counted over `api_calls`, as for ORS.
+  - best effort, no SLA, can be withdrawn: a transit leg that fails shows why and offers walking; never a guess.
+  - Request: `GET /api/v6/plan?fromPlace=lat,lon&toPlace=lat,lon&time=<ISO with offset>` (MOTIS 2). Times come back
+    in UTC (`Z`) and are shown in the tour's local time. A leg carries `mode`, `displayName`/`routeShortName`,
+    `headsign`, `agencyName`, `startTime`/`endTime`, `scheduledStartTime`, `realTime`, `scheduled`, `from.name`.
+  - Store compactly: responses are 25–380 kB (geometry, intermediate stops); keep the first itinerary that departs
+    at or after the leg's departure: per part mode, line, headsign, from/to stop names, times, polyline.
+  - The response's `direct` walk is compared: when walking is not slower than the best connection, the leg says so
+    and stays walking (Passau and Frankfurt cases).
+- **[P4] Tour sharing exactly like trip sharing.** `tour_shares` (`share_resource` gains `'tour'`,
+  `private.shared_tour_ids()`, `writable_tour_ids()`), public link via `share_links.tour_id` (exactly one of
+  `trip_id`/`tour_id`). Needs the CLAUDE.md rule 6 table list extended first (own PR).
+- **[P5] "Use my location" as start: dropped** (not a use case worth the exception to "the browser never supplies
+  coordinates").
+- **[P6] Per-stop time windows + parsed opening hours, one feature.** User windows `TourPoint.window?: { after?:
+  HhMm; before?: HhMm }` constrain the order (DP with earliest finish time up to 16 points, heuristic with a
+  feasibility check above). OSM `opening_hours` is parsed on the server only (`opening_hours.js`, LGPL-3.0, kept out
+  of the browser bundle) and used for checks only ("laut OpenStreetMap um 10:20 geschlossen, geprüft am …"), never
+  as a window by itself.
+- **[P7] Waterfront option: dropped.** Up to one Directions request per leg (26 with 25 stops) plus Overpass, for an
+  effect that cannot be checked well.
+- **[P8] Weather: daily forecast only.** Open-Meteo `/v1/forecast` daily values for the tour date at the tour centre,
+  with `timezone=auto` (day boundaries in the tour centre's local time zone; the default would be GMT),
+  only when the date is within 16 days: weather code, max/min temperature, precipitation sum and probability. Cache
+  key `forecast:v1:{lat2,lon2,date}`, TTL 3 h. Shown with source and check date; outside the 16 days nothing is
+  shown.
+- **Small items:** e-bike mode (`cycling-electric`, spike 17.2), paste a list of places (split by line, comma or
+  semicolon; each name through the place search, at most 25; the user confirms each match), standalone tour PDF
+  (trip PDF tour block + SVG sketch, route `/api/tours/[id]/pdf`).
+
+### 17.2 Spike results (2026-11-13)
+
+7 ORS calls (heigit), 27 points on a 3 km grid around Wien Stephansplatz, one Open-Meteo call and 4 Transitous calls (User-Agent with the repo URL as contact).
+
+| # | Call | Result |
+|---|---|---|
+| 1 | matrix `foot-walking`, 27 × 27 | 200, 2.4 s, no nulls. Fits `ORS_TIMEOUT_MS` (10 s). |
+| 2 | Directions `foot-walking`, 27 waypoints, `instructions: true` | 200, 0.33 s. 26 segments, 535 steps, polyline 4.6 kB, response 68 kB. Step keys `distance, duration, instruction, name, type, way_points`; types seen 0–6, 10–13; unnamed ways have `name: "-"`. Compact steps ≈ 9.7 kB. |
+| 3 | Directions `cycling-electric`, fastest, 3 points | 200, 1.7 km in 6.1 min (regular: 7.6 min). Warning code 4 as for foot. |
+| 4 | Directions `cycling-regular`, fastest | 200, 1.68 km, 7.6 min. |
+| 5 | Directions `cycling-regular`, shortest | 200, 1.66 km, 12.8 min (pushing through a pedestrian area). |
+| 6 | Directions `driving-car`, fastest | 200, 2.19 km, 7.4 min, no warnings. |
+| 7 | Directions `driving-car`, shortest | 200, 2.19 km, 7.5 min. |
+| 8 | Open-Meteo forecast, daily, 16 days, Wien | 200, 0.06 s. Fields as P8; the 16th day had `precipitation_probability_max: null`, so every daily value is nullable. |
+| 9 | Transitous `/api/v6/plan`, Wien Stephansdom → Schönbrunn, weekday 10:00 | 200, 0.21 s, 267 kB. Several itineraries (U1+U4 32 min, U4 36 min, U3+tram 60 33 min); `numItineraries: 2` was not honoured (window-based). Wiener Linien, `scheduled: true`, `realTime: false` for a future day. |
+| 10 | Transitous, Passau Dom → Veste Oberhaus | 200, 0.06 s. Bus K2 (Stadtwerke Passau) 14 min; `direct` walk 16 min. |
+| 11 | Transitous, Barcelona Sagrada Família → Park Güell | 200, 0.12 s, 376 kB. L5 + bus H6 (TMB) 26 min, several alternatives. |
+| 12 | Transitous, Frankfurt Römer → Städel | 200, 0.08 s. Tram 11/12/14 (VGF) 18 min; `direct` walk 18 min, so walking is as fast. |
+
+Each ORS call decremented its own endpoint counter by 1 (matrix 500, Directions 2000), as in the 2026-11-12 spike.
+
+### 17.3 PRs (each with CodeRabbit review)
+
+1. Migration (only if the worst-case test of 1b needs it): `city_tours` size checks (input 16 kB, result 256 kB).
+2. 25 stops: heuristic order, cap, label, long list at 360 px.
+3. Directions on request: steps client + cache, step sentences, GPX, "Wegbeschreibung" view.
+4. E-bike mode. 5. Paste a list. 6. Daily forecast. 7. Standalone PDF.
+8. CLAUDE.md rule 6 → migration `tour_shares` + `share_links.tour_id` → server → UI.
+9. Public transport (licence condition met by #219, see [P3]). 10. Time windows + opening hours.
+
+### 17.4 Clarifications (review of this section, 2026-11-13)
+
+Each point below is binding for the implementation and wins over a shorter sentence above.
+
+- **Computation vs. directions [P2].** The computation still requests ORS Directions per run and stores each leg's
+  minutes, km and polyline in `result` (map, PDF, times, checks). Only turn-by-turn steps and the GPX are on request.
+- **One cache entry for the view [P2].** The `tour-steps` entry stores, per leg, the steps **and** the polyline of
+  that answer, so a later cache hit still yields a GPX that matches its steps.
+- **"Changed" means distance or geometry [P2].** A leg is `changed` when its distance differs by more than 5 % or
+  50 m, **or** when any point of either polyline lies more than 50 m from the other one (both directions, point to
+  segment, the sights corridor helper), so an added or a removed detour both count. The notice shows for any
+  changed leg.
+- **"Tour neu berechnen" from that notice [P2]** forces a recomputation: it skips the unchanged-input shortcut and
+  refreshes the `tour-route` entries of its runs (`cached({ refresh: true })`, a fetch that replaces the row), then
+  stores the new result. It counts against the computation limits like any computation. The directions request
+  refreshes a `tour-steps` row whose `fetchedAt` is older than the tour's `computed_at`, so steps and GPX follow the
+  recomputed route.
+- **Large results [P1].** All stored geometry of one result (ORS leg polylines and transit `legGeometry`) shares a
+  200 kB budget (at most 20 kB per leg); a leg over its share keeps minutes and km without the line. The same cap is
+  applied before a route is cached. The result stays under the 256 kB check, so no migration.
+- **Transitous quota [P3].** A new table `provider_slots` (provider, cache key, `reserved_at`, `expires_at` = +2 min,
+  `done`), not `api_calls` (its `status` is the HTTP code). A security-definer function reserves a slot under a
+  transaction-level advisory lock per provider: it counts the last 24 h of `api_calls` rows plus unexpired, not yet
+  done slots, refuses at `TRANSITOUS_DAILY`, and refuses a second live slot for the same cache key (that caller
+  waits for the cache instead: in-flight dedupe). The caller marks the slot done after logging the call. An expired
+  slot (process died) stops counting by itself. No slot, no request (fail closed). Migration with the transit PR.
+- **Transit time zone [P3].** Transit needs a tour city with a known IANA time zone (GeoNames via Open-Meteo, as the
+  city point carries). Requests send the departure as local time with that zone's offset on the tour date; UTC
+  answers are shown in that zone. Without a city time zone the ÖPNV option is not offered.
+- **Transit legs in the tour [P3].** A transit leg is computed during the computation, after the ORS runs, in
+  sequence (departure = previous arrival + dwell). The chosen itinerary is the first that departs at or after that
+  time; the leg's minutes are its **arrival minus the requested departure**, so the wait at the stop counts. They
+  replace the leg's minutes everywhere: totals, stop times, fit check, proposals ("ca." as now). Its km and line come
+  from the itinerary's `legGeometry` (walking parts included). It is stored in `result` like any leg: `TourLeg.mode`
+  gains `"transit"` (an override only, never a tour mode) and an optional `transit` part list, both in the Zod
+  schema. The result stores the oldest transit `fetchedAt`; when it is older than 7 days, the unchanged-input
+  shortcut recomputes instead of returning the stored result.
+- **Transit legs in the directions view and GPX [P3].** No ORS call for them: the view lists the stored parts
+  (walk to stop, line and headsign, departure/arrival, stops count, walk to the place) with "Fahrplan, keine
+  Echtzeit" and its source; the GPX uses the stored line.
+- **Time windows [P6].** Type `TourPoint.window?: { after?: HHMM; before?: HHMM }` with the existing `HHMM`
+  validator from `domain/common.ts`, added to `TourPoint`, `TourPointDraft` and `resolveDraft`, and to
+  `tourInputHash` (hash version bump, so stored results recompute). `after` must be before `before` (field error). Windows are wall-clock times of the tour day, like `startTime`, so arrivals
+  (`startTime` + minutes) and windows compare without a time zone. A window needs `startTime` (schema refine with a
+  form message); without it the window fields are disabled. Opening hours are checked only with a date and a city
+  time zone (holidays and DST); otherwise the raw tag is shown as today.
+- **Standalone tour share links [P4].** `share_links.trip_id` becomes nullable in the sharing migration, with a check
+  that exactly one of `trip_id` and `tour_id` is set.

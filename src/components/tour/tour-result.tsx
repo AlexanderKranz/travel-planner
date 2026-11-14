@@ -1,11 +1,13 @@
 "use client";
 
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { btnSecondary, cardCls, labelCls, mutedCls, pillAccentCls, pillCls } from "@/components/ui/styles";
+import { btnSecondary, cardCls, labelCls, mutedCls, pillAccentCls, pillCls, warnBox } from "@/components/ui/styles";
 import type { TourInput, TourResult, TourSight } from "@/lib/domain/tour";
 import { formatKm, orderedCoords, resultRows, roundMetres, type LegRow, type Proposal } from "@/lib/tour/ui";
 import { formatDuration } from "./format";
 import { GoogleLinks } from "./google-links";
+import { TourDirectionsPanel } from "./tour-directions";
+import { resultVersion } from "@/lib/tour/steps";
 import { ModeIcon } from "./mode-icon";
 import { TourMapPanel } from "./tour-map-panel";
 
@@ -29,6 +31,11 @@ export type TourResultProps = {
   sightInTour?: (key: string) => boolean;
   canAddMore?: boolean;
   onApplyProposal?: (p: Proposal) => void;
+  /** Saved tour: "Wegbeschreibung" on request (spec 17.1 [P2]); absent for an unsaved draft. */
+  tourId?: string;
+  title?: string;
+  /** Owner only: "Tour neu berechnen" from the changed-route notice, forced (spec 17.4). */
+  onRecomputeForce?: () => Promise<unknown> | void;
 };
 
 /** Remount key of the map: changes with any of its inputs (route geometry, modes, stops, sights). */
@@ -39,7 +46,6 @@ function mapKey(result: TourResult, mode: string, coords: { lat: number; lon: nu
   return `${text.length}-${h >>> 0}`;
 }
 
-const warnBox = "rounded-lg border border-warn-line bg-warn-bg p-3 text-sm text-warn-fg";
 
 /** Result of a tour (spec 2.1 step 3, sections 6 and 7): summary, map, stops and legs, nearby sights, sources. */
 export function TourResultView(p: TourResultProps) {
@@ -96,6 +102,11 @@ export function TourResultView(p: TourResultProps) {
           </p>
         )}
         {result.sunset && <p className={warnBox}>{t("sunset", { time: result.sunset })}</p>}
+        {result.orderApprox && (
+          <p className={`text-sm ${mutedCls}`} data-testid="tour-order-approx">
+            {t("orderApprox")}
+          </p>
+        )}
         {!result.sunset && input.date && input.startTime && !input.city && <p className={`text-sm ${mutedCls}`}>{t("sunsetNeedsCity")}</p>}
         {(p.droppedOverrides ?? 0) > 0 && <p className={warnBox}>{t("overridesDropped", { count: p.droppedOverrides ?? 0 })}</p>}
       </div>
@@ -200,6 +211,10 @@ export function TourResultView(p: TourResultProps) {
           {checked(result.source.ors) ? ` · ${t("checked", { date: checked(result.source.ors)! })}` : ""}
         </p>
         <p>{t("walkNote")}</p>
+        {/* Keyed by the result: a new computation resets loaded steps, so they never describe an older route. */}
+        {p.tourId && !p.outdated && (
+          <TourDirectionsPanel key={resultVersion(result)} tourId={p.tourId} title={p.title ?? ""} input={input} result={result} onRecompute={p.onRecomputeForce} />
+        )}
         <GoogleLinks points={coords} mode={input.mode} />
       </footer>
     </section>

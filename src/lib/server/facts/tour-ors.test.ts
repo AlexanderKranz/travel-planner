@@ -42,7 +42,49 @@ vi.mock("./ors-quota", () => ({
 vi.mock("@/lib/integrations/http", async (orig) => ({ ...(await orig<typeof import("@/lib/integrations/http")>()), postJson: h.postJson }));
 
 import { HttpError } from "@/lib/integrations/http";
-import { getTourMatrix, getTourRoute, peekTourMatrix, TOUR_ORS_TTL_SECONDS, tourMatrixKey, tourRouteKey } from "./tour-ors";
+import {
+  getTourMatrix,
+  getTourRoute,
+  getTourSteps,
+  peekTourMatrix,
+  TOUR_ORS_TTL_SECONDS,
+  tourMatrixKey,
+  tourRouteKey,
+  tourStepsKey,
+  withinPolyBudget,
+  withinStepsBudget,
+} from "./tour-ors";
+import type { OrsStep } from "@/lib/integrations/openrouteservice";
+
+describe("withinStepsBudget (steps entries stay under the cache row limit)", () => {
+  const step = (i: number): OrsStep => [1, `Straße ${i}`, 50, i];
+  const leg = (poly: number, steps: number) => ({ min: 5, km: 1, poly: "a".repeat(poly), steps: Array.from({ length: steps }, (_, i) => step(i)) });
+
+  it("keeps a normal entry as it is", () => {
+    const r = withinStepsBudget({ result: "ok", legs: [leg(500, 20), leg(800, 30)] });
+    expect(r.result === "ok" && r.legs.map((l) => [l.poly.length, l.steps.length])).toEqual([[500, 20], [800, 30]]);
+  });
+
+  it("cuts steps per leg (arrival kept), drops the longest lines first and fits the budget", () => {
+    const big = withinStepsBudget({ result: "ok", legs: Array.from({ length: 26 }, (_, i) => leg(i === 0 ? 7000 : 7600, 500)) });
+    if (big.result !== "ok") throw new Error("unexpected");
+    expect(JSON.stringify(big).length).toBeLessThanOrEqual(250_000);
+    expect(big.legs.every((l) => l.steps.length <= 400)).toBe(true);
+    expect(big.legs[1].steps.at(-1)).toEqual(step(499));
+    expect(big.legs.some((l) => l.poly === "")).toBe(true);
+    expect(big.legs[1].cut).toBe(true); // shortened lists are marked, so the view can say so
+    expect(withinStepsBudget({ result: "no_route" })).toEqual({ result: "no_route" });
+  });
+
+  it("budgets UTF-8 bytes, not characters (umlauts count twice)", () => {
+    const wide = (i: number): OrsStep => [1, "Ä".repeat(110), 50, i];
+    const legs = Array.from({ length: 4 }, () => ({ min: 5, km: 1, poly: "", steps: Array.from({ length: 300 }, (_, i) => wide(i)) }));
+    const r = withinStepsBudget({ result: "ok", legs }, 200_000);
+    if (r.result !== "ok") throw new Error("unexpected");
+    expect(Buffer.byteLength(JSON.stringify(r), "utf8")).toBeLessThanOrEqual(200_000);
+    expect(r.legs.every((l) => l.cut)).toBe(true);
+  });
+});
 
 const fx = (name: string) =>
   JSON.parse(readFileSync(join(__dirname, "../../integrations/__fixtures__/ors-tour", `${name}.json`), "utf8"));
@@ -177,5 +219,42 @@ describe("getTourRoute", () => {
     vi.stubEnv("OPENROUTESERVICE_API_KEY", "");
     expect(await getTourRoute("foot-walking", "green", wien, ctx)).toEqual({ result: "failed" });
     expect(h.store.size).toBe(0);
+  });
+});
+
+describe("getTourSteps (on request, spec 17.1 [P2])", () => {
+  it("own key and endpoint (tour_steps, Directions bucket), steps kept; the route cache stays without steps", async () => {
+    h.postJson.mockResolvedValue({ status: 200, latencyMs: 1, body: fx("directions-foot-wien-fastest") });
+    expect(tourStepsKey("foot-walking", "fastest", wien)).not.toBe(tourRouteKey("foot-walking", "fastest", wien));
+    const r = await getTourSteps("foot-walking", "fastest", wien, ctx);
+    expect(h.calls[0]).toMatchObject({ provider: "openrouteservice", endpoint: "tour_steps", key: tourStepsKey("foot-walking", "fastest", wien), ttlSeconds: 90 * 86400 });
+    expect(h.buckets).toEqual(["directions"]);
+    expect(r.result === "ok" && r.legs).toHaveLength(5);
+    expect(r.result === "ok" && r.legs[0].steps[1]).toEqual([1, "Stephansplatz", 85, 3]);
+    expect(JSON.stringify([...h.store.values()])).not.toMatch(/instruction/);
+    // Only the steps entry is written: the route cache gets no steps.
+    expect(h.calls.map((c) => c.endpoint)).toEqual(["tour_steps"]);
+    expect([...h.store.keys()]).toEqual([tourStepsKey("foot-walking", "fastest", wien)]);
+    expect(h.store.has(tourRouteKey("foot-walking", "fastest", wien))).toBe(false);
+    await getTourSteps("foot-walking", "fastest", wien, ctx);
+    expect(h.postJson).toHaveBeenCalledTimes(1);
+  });
+
+  it("failures → failed, not cached", async () => {
+    h.postJson.mockRejectedValueOnce(new HttpError(429));
+    expect(await getTourSteps("foot-walking", "fastest", wien, ctx)).toEqual({ result: "failed" });
+    h.quotaOk = false;
+    expect(await getTourSteps("foot-walking", "fastest", wien, ctx)).toEqual({ result: "failed" });
+    expect(h.store.size).toBe(0);
+  });
+});
+
+describe("withinPolyBudget (cache rows stay under 256 kB)", () => {
+  it("empties lines over their share; minutes and km stay", () => {
+    const leg = (len: number) => ({ min: 5, km: 1, poly: "a".repeat(len) });
+    const r = withinPolyBudget({ result: "ok", legs: Array.from({ length: 26 }, (_, i) => leg(i === 3 ? 9000 : 500)) });
+    expect(r.result === "ok" && r.legs[3]).toEqual({ min: 5, km: 1, poly: "" }); // share = 200000 / 26 = 7692
+    expect(r.result === "ok" && r.legs[0].poly).toHaveLength(500);
+    expect(withinPolyBudget({ result: "no_route" })).toEqual({ result: "no_route" });
   });
 });

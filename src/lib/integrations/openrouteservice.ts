@@ -10,6 +10,7 @@
 import "server-only";
 import { z } from "zod";
 import {
+  MAX_TOUR_POINTS,
   ORS_PROFILE,
   ROUTE_OPTIONS_BY_MODE,
   TOUR_MODES,
@@ -186,8 +187,8 @@ export const TOUR_OPTIONS_BY_PROFILE = Object.fromEntries(
   TOUR_MODES.map((m) => [ORS_PROFILE[m], ROUTE_OPTIONS_BY_MODE[m]]),
 ) as Record<OrsTourProfile, readonly RouteOption[]>;
 
-/** 10 places + start + end (spec 3.1). ORS itself allows 50 waypoints and 3500 matrix elements. */
-export const ORS_TOUR_MAX_POINTS = 12;
+/** 25 places + start + end (spec 17.1 [P1]). ORS allows 50 waypoints and 3500 matrix elements (27 × 27 = 729). */
+export const ORS_TOUR_MAX_POINTS = MAX_TOUR_POINTS;
 /** ORS "could not find routable point" (HTTP 404); the message names the 0-based coordinate index. */
 export const ORS_NOT_ROUTABLE_CODE = 2010;
 
@@ -307,6 +308,56 @@ export function parseTourRoute(body: unknown, n: number): OrsTourLeg[] {
   }));
 }
 
+/**
+ * One turn-by-turn step, compact (spec 17.1 [P2]): ORS `type` (0–13), street `name` ("-" = unnamed, kept as ""),
+ * metres after the manoeuvre, the step's first polyline index relative to its leg, and `exit_number` on type 7.
+ */
+export type OrsStep = [type: number, name: string, metres: number, wp: number, exit?: number];
+/** `cut`: steps were shortened to fit the cache row (the view says the list is incomplete). */
+export type OrsTourLegSteps = OrsTourLeg & { steps: OrsStep[]; cut?: true };
+export type TourRouteSteps =
+  | { result: "ok"; legs: OrsTourLegSteps[] }
+  | { result: "no_route" }
+  | { result: "not_routable"; point: number };
+
+const StepsSegments = z.object({
+  routes: z
+    .array(
+      z.object({
+        way_points: z.array(z.number().int().min(0)),
+        segments: z.array(
+          z.object({
+            steps: z.array(
+              z.object({
+                type: z.number().int().min(0).max(13),
+                name: z.string().optional(),
+                distance: z.number().min(0),
+                way_points: z.array(z.number().int().min(0)).min(1),
+                exit_number: z.number().int().min(1).optional(),
+              }),
+            ),
+          }),
+        ),
+      }),
+    )
+    .min(1),
+});
+
+/** Legs as `parseTourRoute` plus each segment's steps (ORS's English `instruction` text is dropped). */
+export function parseTourRouteSteps(body: unknown, n: number): OrsTourLegSteps[] {
+  const legs = parseTourRoute(body, n);
+  const route = StepsSegments.parse(body).routes[0];
+  return legs.map((leg, i) => ({
+    ...leg,
+    steps: route.segments[i].steps.map((st): OrsStep => {
+      const name = !st.name || st.name === "-" ? "" : st.name.slice(0, 120);
+      const metres = Math.round(st.distance * 1000);
+      const wp = Math.max(0, st.way_points[0] - route.way_points[i]);
+      return st.type === 7 && st.exit_number ? [st.type, name, metres, wp, st.exit_number] : [st.type, name, metres, wp];
+    }),
+  }));
+}
+
 /** 0-based coordinate index from a 2010 answer ("... of specified coordinate 1: 13.46 48.57 ..."), or null. */
 export function notRoutablePoint(err: unknown, n: number): number | null {
   if (!(err instanceof HttpError) || err.status !== 404) return null;
@@ -328,6 +379,26 @@ export async function fetchRoute(
   option: RouteOption,
   opts: { timeoutMs?: number } = {},
 ): Promise<{ route: TourRoute; status: number; latencyMs: number }> {
+  return requestRoute(profile, points, option, opts, parseTourRoute);
+}
+
+/** As `fetchRoute`, keeping the steps: only for "Wegbeschreibung" on request (spec 17.1 [P2]). */
+export async function fetchRouteSteps(
+  profile: OrsTourProfile,
+  points: readonly LonLat[],
+  option: RouteOption,
+  opts: { timeoutMs?: number } = {},
+): Promise<{ route: TourRouteSteps; status: number; latencyMs: number }> {
+  return requestRoute(profile, points, option, opts, parseTourRouteSteps);
+}
+
+async function requestRoute<L extends OrsTourLeg>(
+  profile: OrsTourProfile,
+  points: readonly LonLat[],
+  option: RouteOption,
+  opts: { timeoutMs?: number },
+  parse: (body: unknown, n: number) => L[],
+): Promise<{ route: { result: "ok"; legs: L[] } | { result: "no_route" } | { result: "not_routable"; point: number }; status: number; latencyMs: number }> {
   const key = process.env.OPENROUTESERVICE_API_KEY?.trim();
   if (!key) throw new MissingKeyError();
   assertTourPoints(points);
@@ -338,7 +409,7 @@ export async function fetchRoute(
       timeoutMs: opts.timeoutMs ?? ORS_DIRECTIONS_TIMEOUT_MS,
       headers: { Authorization: key },
     });
-    return { route: { result: "ok", legs: parseTourRoute(r.body, points.length) }, status: r.status, latencyMs: r.latencyMs };
+    return { route: { result: "ok", legs: parse(r.body, points.length) }, status: r.status, latencyMs: r.latencyMs };
   } catch (err) {
     const latencyMs = Date.now() - started;
     if (isNoRouteError(err)) return { route: { result: "no_route" }, status: 404, latencyMs };

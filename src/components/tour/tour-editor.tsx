@@ -148,7 +148,8 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
     }
   }
 
-  async function plan() {
+  async function plan(force = false) {
+    if (busy !== null) return; // one save or computation at a time (a second click must not start another)
     const blocked = formProblem(form);
     setProblem(blocked);
     if (blocked) return;
@@ -189,7 +190,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
     }
 
     setBusy("computing");
-    const c = await computeTour(current.id).catch((): ComputeTourResult => ({ ok: false, error: "failed" }));
+    const c = await computeTour(current.id, force ? { force: true } : {}).catch((): ComputeTourResult => ({ ok: false, error: "failed" }));
     setBusy(null);
     if (!c.ok) {
       onComputeError(c);
@@ -343,6 +344,9 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
           sightInTour={(key) => form.places.some((p) => p.key === key)}
           canAddMore={!full}
           onApplyProposal={(p) => edit(applyProposal(form, p))}
+          tourId={saved?.id}
+          title={title}
+          onRecomputeForce={() => plan(true)}
         />
       ) : (
         saved && <p className={`text-sm ${mutedCls}`}>{t("notComputed")}</p>

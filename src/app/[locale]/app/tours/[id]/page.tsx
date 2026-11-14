@@ -58,6 +58,8 @@ async function ReadOnlyTour({ tour, view, mapStyleUrl }: { tour: Tour; view: Ret
           byMin={view.byMin}
           mapStyleUrl={mapStyleUrl}
           outdated={tour.outdated}
+          tourId={tour.id}
+          title={title}
         />
       ) : (
         <div className={`${cardCls} flex flex-col gap-2`}>
