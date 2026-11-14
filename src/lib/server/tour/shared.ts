@@ -54,12 +54,11 @@ export async function getSharedTour(token: string, via: "page" | "pdf", opts: { 
     const link = await resolveTourLink(token);
     if (!link) return null;
     const admin = createSupabaseAdminClient();
-    const { data: row, error } = await admin
-      .from("city_tours")
-      .select(opts.stopInfo ? `${SHARED_TOUR_COLUMNS}, stop_info` : SHARED_TOUR_COLUMNS)
-      .eq("id", link.tour_id)
-      .eq("owner_id", link.owner_id)
-      .maybeSingle<TourRow & { stop_info?: unknown }>();
+    const read = (columns: string) =>
+      admin.from("city_tours").select(columns).eq("id", link.tour_id).eq("owner_id", link.owner_id).maybeSingle<TourRow & { stop_info?: unknown }>();
+    let { data: row, error } = await read(opts.stopInfo ? `${SHARED_TOUR_COLUMNS}, stop_info` : SHARED_TOUR_COLUMNS);
+    // Stop info is optional: a failed read with it falls back to the tour alone, never a 404 for a readable tour.
+    if (error && opts.stopInfo) ({ data: row, error } = await read(SHARED_TOUR_COLUMNS));
     if (error || !row) return null;
     // The visitor is nobody: viewerId "" never equals an owner id, so access is "read".
     const parsed = rowToTour({ ...row, trip_id: null, trip_day: null, tour_shares: [] }, "");

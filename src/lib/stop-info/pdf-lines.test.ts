@@ -6,11 +6,16 @@ describe("stopLine", () => {
     expect(stopLine("Der Stephansdom ist eine Kathedrale. Er steht in Wien.")).toBe("Der Stephansdom ist eine Kathedrale.");
   });
   it("cuts a long first sentence on a word, with … and at most 140 characters", () => {
-    const long = `${"Wort ".repeat(60)}Ende.`;
+    // The 139th character falls inside "Donaukanal": the cut goes back to the previous whole word.
+    const long = `${"Am Ufer ".repeat(16)}liegt der Donaukanal mit vielen Brücken.`;
     const out = stopLine(long);
     expect(out.length).toBeLessThanOrEqual(140);
-    expect(out.endsWith("…")).toBe(true);
-    expect(out).not.toMatch(/ …$/);
+    expect(out).toMatch(/ der…$/);
+  });
+  it("does not end the first sentence at abbreviations or ordinal numbers", () => {
+    expect(stopLine("Die St. Peter-Kirche, z. B. im 18. Jh. umgebaut, liegt nahe dem Graben. Sie ist barock.")).toBe(
+      "Die St. Peter-Kirche, z. B. im 18. Jh. umgebaut, liegt nahe dem Graben.",
+    );
   });
 });
 

@@ -43,7 +43,9 @@ export async function tourPdfResponse(
   registerFonts();
   const t = loadPdfT(locale);
   const fmt = makeFormat(locale);
-  const block = noDayBlockOf({ id: tour.id, tripDay: null, title: tour.title, input: tour.input, result: tour.result, updatedAt: tour.updatedAt, stopInfo });
+  // An outdated result belongs to another input: the PDF then lists the current stops without route, times or sketch.
+  const result = tour.outdated ? null : tour.result;
+  const block = noDayBlockOf({ id: tour.id, tripDay: null, title: tour.title, input: tour.input, result, updatedAt: tour.updatedAt, stopInfo });
   const view = tour.outdated ? null : tourView(tour.input, tour.result);
   const title = tourPdfTitle(tour, t("tour.label"));
   const element = createElement(TourPdf, {

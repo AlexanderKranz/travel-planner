@@ -8,11 +8,25 @@ import type { StopInfo, TourStopInfo } from "@/lib/domain/stop-info";
 
 export const PDF_LINE_MAX = 140;
 
+/**
+ * End of the first sentence: ".", "!" or "?" followed by a space and a capital letter (or the end), unless the word
+ * before the dot is an abbreviation (short or with an inner dot: "z. B.", "Dr.", "St.", "u.a.") or a number ("19.").
+ */
+function firstSentence(text: string): string {
+  const re = /[.!?](?=\s+\p{Lu}|$)/gu;
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    const before = text.slice(0, m.index);
+    const word = /(\S+)$/.exec(before)?.[1] ?? "";
+    const abbreviation = text[m.index] === "." && (word.length <= 3 || word.includes(".") || /^\d+$/.test(word));
+    if (!abbreviation) return text.slice(0, m.index + 1);
+  }
+  return text;
+}
+
 /** First sentence, at most `max` characters including the "…". */
 export function stopLine(text: string, max = PDF_LINE_MAX): string {
   const clean = text.replace(/\s+/g, " ").trim();
-  const m = /^(.+?[.!?])(\s|$)/.exec(clean);
-  const first = m ? m[1] : clean;
+  const first = firstSentence(clean);
   if (first.length <= max) return first;
   const cut = first.slice(0, max - 1);
   const space = cut.lastIndexOf(" ");
