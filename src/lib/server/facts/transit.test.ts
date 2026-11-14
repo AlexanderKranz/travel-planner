@@ -6,6 +6,8 @@ const h = vi.hoisted(() => ({
   calls: [] as Record<string, unknown>[],
   rpc: vi.fn(),
   plan: vi.fn(),
+  logEvent: vi.fn(),
+  stale: false,
 }));
 vi.mock("../api-cache", async (orig) => {
   const m = await orig<typeof import("../api-cache")>();
@@ -14,7 +16,7 @@ vi.mock("../api-cache", async (orig) => {
     peekCache: async (o: { key: string }) => (h.store.has(o.key) ? { data: h.store.get(o.key), fetchedAt: "f0" } : undefined),
     cached: async (o: { key: string; schema: { parse: (v: unknown) => unknown }; fetcher: () => Promise<{ data: unknown }> }) => {
       h.calls.push(o);
-      if (h.store.has(o.key)) return { ok: true, data: h.store.get(o.key), fetchedAt: "f0", stale: false, cache: "hit" };
+      if (h.store.has(o.key)) return { ok: true, data: h.store.get(o.key), fetchedAt: "f0", stale: h.stale, cache: h.stale ? "stale" : "hit" };
       try {
         const data = o.schema.parse((await o.fetcher()).data);
         h.store.set(o.key, data);
@@ -27,6 +29,7 @@ vi.mock("../api-cache", async (orig) => {
 });
 vi.mock("../supabase/admin", () => ({ createSupabaseAdminClient: () => ({ rpc: h.rpc }) }));
 vi.mock("@/lib/integrations/transitous", () => ({ fetchPlan: h.plan }));
+vi.mock("../events", () => ({ logEvent: h.logEvent }));
 
 import { getTransitLeg, transitDailyCap, transitKey } from "./transit";
 
@@ -41,6 +44,8 @@ beforeEach(() => {
   h.calls.length = 0;
   h.rpc.mockReset();
   h.plan.mockReset().mockResolvedValue({ answer, status: 200, latencyMs: 80 });
+  h.logEvent.mockReset();
+  h.stale = false;
   vi.useRealTimers();
 });
 
@@ -49,16 +54,30 @@ describe("getTransitLeg", () => {
     h.rpc.mockImplementation(async (fn: string) => (fn === "provider_reserve_slot" ? { data: { ok: true, id: "s1" }, error: null } : { data: null, error: null }));
     const r = await getTransitLeg(A, B, DEP, "Europe/Vienna", ctx);
     expect(r).toMatchObject({ kind: "no_connection", cache: "miss" });
-    expect(h.calls[0]).toMatchObject({ provider: "transitous", endpoint: "plan", ttlSeconds: 7 * 86400, key: transitKey(A, B, DEP.iso) });
+    expect(h.calls[0]).toMatchObject({ provider: "transitous", endpoint: "plan", ttlSeconds: 7 * 86400, key: transitKey(A, B, DEP.iso, "Europe/Vienna") });
     const [fn, args] = h.rpc.mock.calls[0];
     expect(fn).toBe("provider_reserve_slot");
     expect(args).toMatchObject({ p_provider: "transitous", p_daily_cap: 500 });
     expect(args.p_cache_key).toMatch(/^[0-9a-f]{64}$/);
     expect(h.rpc).toHaveBeenLastCalledWith("provider_settle_slot", { p_id: "s1" });
-    // A cache hit needs no slot.
+    expect(h.plan).toHaveBeenCalledTimes(1);
+    expect(h.plan.mock.calls[0][3]).toBe("Europe/Vienna");
+    // A cache hit needs no slot and no request.
     h.rpc.mockClear();
     expect(await getTransitLeg(A, B, DEP, "Europe/Vienna", ctx)).toMatchObject({ cache: "hit" });
     expect(h.rpc).not.toHaveBeenCalled();
+    expect(h.plan).toHaveBeenCalledTimes(1);
+  });
+
+  it("an expired answer served after a failed refresh is not used as current; the failure is logged", async () => {
+    h.store.set(transitKey(A, B, DEP.iso, "Europe/Vienna"), answer);
+    h.stale = true;
+    expect(await getTransitLeg(A, B, DEP, "Europe/Vienna", ctx)).toEqual({ kind: "failed" });
+    expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "transit.failed", level: "warn" }));
+  });
+
+  it("the time zone is part of the key (stored times are formatted in it)", () => {
+    expect(transitKey(A, B, DEP.iso, "Europe/Vienna")).not.toBe(transitKey(A, B, DEP.iso, "Europe/Berlin"));
   });
 
   it("cap reached or slot state unreadable → failed, no request (fail closed)", async () => {
@@ -74,7 +93,7 @@ describe("getTransitLeg", () => {
     h.rpc.mockResolvedValue({ data: { ok: false, reason: "in_flight" }, error: null });
     const p = getTransitLeg(A, B, DEP, "Europe/Vienna", ctx);
     await vi.advanceTimersByTimeAsync(1000);
-    h.store.set(transitKey(A, B, DEP.iso), answer); // the other request's answer lands
+    h.store.set(transitKey(A, B, DEP.iso, "Europe/Vienna"), answer); // the other request's answer lands
     await vi.advanceTimersByTimeAsync(1000);
     expect(await p).toMatchObject({ kind: "no_connection", cache: "hit" });
     expect(h.plan).not.toHaveBeenCalled();
@@ -92,5 +111,7 @@ describe("getTransitLeg", () => {
     expect(transitDailyCap({})).toBe(500);
     expect(transitDailyCap({ TRANSITOUS_DAILY: "120" })).toBe(120);
     expect(transitDailyCap({ TRANSITOUS_DAILY: "x" })).toBe(500);
+    expect(transitDailyCap({ TRANSITOUS_DAILY: "  " })).toBe(500);
+    expect(transitDailyCap({ TRANSITOUS_DAILY: "0" })).toBe(0);
   });
 });

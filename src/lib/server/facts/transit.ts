@@ -5,6 +5,7 @@ import { TransitPart } from "@/lib/domain/tour";
 import { fetchPlan, type TransitAnswer } from "@/lib/integrations/transitous";
 import { cacheKey, cached, peekCache, type CacheCtx } from "../api-cache";
 import { QuotaGuardError } from "../flights-quota";
+import { logEvent } from "../events";
 import { createSupabaseAdminClient } from "../supabase/admin";
 
 /**
@@ -15,19 +16,22 @@ import { createSupabaseAdminClient } from "../supabase/admin";
  */
 export const TRANSIT_TTL_SECONDS = 7 * 86400;
 export const TRANSITOUS_DAILY_DEFAULT = 500;
-const IN_FLIGHT_WAITS_MS = [1500, 2500, 3000];
+/** Covers the other request's whole 8 s timeout plus a margin. */
+const IN_FLIGHT_WAITS_MS = [1500, 2500, 3000, 3000];
 
 export const transitDailyCap = (env: Record<string, string | undefined> = process.env): number => {
-  const n = Number(env.TRANSITOUS_DAILY);
+  const raw = env.TRANSITOUS_DAILY?.trim();
+  if (!raw) return TRANSITOUS_DAILY_DEFAULT;
+  const n = Number(raw);
   return Number.isInteger(n) && n >= 0 ? n : TRANSITOUS_DAILY_DEFAULT;
 };
 
 type Point = { lat: number; lon: number };
 const ll = (p: Point) => `${p.lat.toFixed(5)},${p.lon.toFixed(5)}`;
 
-/** Points (5 dp) and the local departure with its offset; no owner, so the cache is shared. */
-export function transitKey(from: Point, to: Point, departureIso: string): string {
-  return cacheKey("transit-plan", 1, { from: ll(from), to: ll(to), time: departureIso });
+/** Points (5 dp), departure instant and the zone the stored times are formatted in; no owner, so it is shared. */
+export function transitKey(from: Point, to: Point, departureIso: string, timeZone: string): string {
+  return cacheKey("transit-plan", 1, { from: ll(from), to: ll(to), time: departureIso, tz: timeZone });
 }
 
 const Answer: z.ZodType<TransitAnswer> = z.discriminatedUnion("kind", [
@@ -68,7 +72,7 @@ export async function getTransitLeg(
   timeZone: string,
   ctx: CacheCtx,
 ): Promise<TransitLegAnswer> {
-  const key = transitKey(from, to, departure.iso);
+  const key = transitKey(from, to, departure.iso, timeZone);
   let slot: string | null = null;
   let inFlight = false;
   try {
@@ -90,16 +94,22 @@ export async function getTransitLeg(
         return { data: p.answer, status: p.status, latencyMs: p.latencyMs };
       },
     });
-    if (res.ok) return { ...res.data, fetchedAt: res.fetchedAt, cache: res.cache };
-    if (!inFlight) return { kind: "failed" };
+    // An expired row served after a failed refresh is an old timetable: never stored as a current leg.
+    if (res.ok && !res.stale) return { ...res.data, fetchedAt: res.fetchedAt, cache: res.cache };
+    if (!inFlight) {
+      await logEvent({ event: "transit.failed", level: "warn", userId: ctx.userId, props: { reason: res.ok ? "stale" : res.error } });
+      return { kind: "failed" };
+    }
     // Another request fetches this leg right now: wait for its cache row instead of a second call.
     for (const ms of IN_FLIGHT_WAITS_MS) {
       await sleep(ms);
       const hit = await peekCache({ provider: "transitous", key, schema: Answer });
       if (hit) return { ...hit.data, fetchedAt: hit.fetchedAt, cache: "hit" };
     }
+    await logEvent({ event: "transit.failed", level: "warn", userId: ctx.userId, props: { reason: "in_flight_timeout" } });
     return { kind: "failed" };
   } catch {
+    await logEvent({ event: "transit.failed", level: "warn", userId: ctx.userId, props: { reason: "error" } });
     return { kind: "failed" };
   } finally {
     if (slot) await settle(slot);

@@ -77,6 +77,11 @@ describe("pickConnection", () => {
     expect(pickConnection(body, DEPART, "Europe/Vienna")).toMatchObject({ kind: "walk_not_slower", min: 18 });
   });
 
+  it("a connection leaving even one minute before the departure is missed, not taken", () => {
+    const early = { itineraries: [{ ...wien.itineraries[1], startTime: "2026-11-17T08:59:00Z" }] };
+    expect(pickConnection(early, DEPART, "Europe/Vienna")).toEqual({ kind: "no_connection" });
+  });
+
   it("no itinerary after the departure and no walk → no_connection; a bad shape throws", () => {
     expect(pickConnection({ itineraries: [wien.itineraries[0]] }, DEPART, "Europe/Vienna")).toEqual({ kind: "no_connection" });
     expect(() => pickConnection({ nope: 1 }, DEPART, "Europe/Vienna")).toThrow();
