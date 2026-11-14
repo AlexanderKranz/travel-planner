@@ -313,6 +313,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
               unreachable={unreachable}
               unknown={unknown}
               onChange={(places) => edit({ ...form, places })}
+              hasStartTime={!!form.startTime}
             />
             {(problem === "places" || form.places.length < 2) && (
               <p className={`text-sm ${problem === "places" ? "text-danger" : mutedCls}`} role={problem === "places" ? "alert" : undefined}>
@@ -331,6 +332,11 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
         {problem === "durations" && (
           <p role="alert" className="text-sm text-danger">
             {t("durationOrder")}
+          </p>
+        )}
+        {problem === "windows" && (
+          <p role="alert" className="text-sm text-danger">
+            {t("window.order")}
           </p>
         )}
 

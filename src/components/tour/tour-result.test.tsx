@@ -143,6 +143,26 @@ describe("TourResultView", () => {
     expect(render("de", de as Messages, { tourId: id, outdated: true })).not.toContain("Infos zum Ort");
   });
 
+  it("shows a window with its wait, a missed window and an opening-hours check (spec 17.4)", () => {
+    const win = TourInput.parse({
+      city: WIEN_CITY,
+      places: [STEPHANSDOM, { ...HOFBURG, window: { after: "11:00", before: "11:30" } }, NASCHMARKT],
+      startTime: "10:00",
+    });
+    const html = render("de", de as Messages, {
+      input: win,
+      result: { ...result, hours: [{ key: NASCHMARKT.key, kind: "closed", at: "12:10", checkedAt: "2026-11-14T09:00:00Z" }] },
+      stopTimes: [
+        { arrive: "10:00", leave: "10:30" },
+        { arrive: "10:40", leave: "12:00", waitMin: 20, lateMin: 5 },
+        { arrive: "12:10", leave: "12:40" },
+      ],
+    });
+    expect(html).toContain("Zeitfenster: ab 11:00 · bis 11:30 · 20 Min. Wartezeit");
+    expect(html).toContain('data-testid="tour-window-late"');
+    expect(html).toContain("Laut OpenStreetMap um 12:10 geschlossen");
+  });
+
   it("shows owner controls, the fit badge and the outdated notice", () => {
     const html = render("en", en as Messages, {
       onChangeLeg: () => {},

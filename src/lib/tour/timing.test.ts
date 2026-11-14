@@ -5,9 +5,23 @@ import {
   minToHhmm,
   stopTimes,
   sunsetWarning,
+  totalWaitMin,
   tourFit,
   tourTotalMin,
 } from "./timing";
+
+describe("stopTimes with time windows (spec 17.4)", () => {
+  it("waits before `after`, flags a start after `before`, and shifts later stops", () => {
+    const t = stopTimes("10:00", [10, 10], [0, 30, 30], [undefined, { after: "10:30" }, { before: "11:05" }]);
+    expect(t).toEqual([
+      { arrive: "10:00", leave: "10:00" },
+      { arrive: "10:10", leave: "11:00", waitMin: 20 },
+      { arrive: "11:10", leave: "11:40", lateMin: 5 },
+    ]);
+    expect(totalWaitMin(t)).toBe(20);
+    expect(totalWaitMin(stopTimes("10:00", [10], [0, 30]))).toBe(0);
+  });
+});
 
 const WIEN = { lat: 48.2082, lon: 16.3738 };
 

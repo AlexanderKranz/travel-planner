@@ -31,7 +31,7 @@ export const GEO_KEY = /^geo:(\d{1,10})$/;
 export function knownPoints(input: TourInput | null, result: TourResult | null): KnownPoints {
   const out: KnownPoints = new Map();
   const add = (p: TourPoint | undefined) => {
-    if (p) out.set(p.key, { ...p, dwellMin: undefined });
+    if (p) out.set(p.key, { ...p, dwellMin: undefined, window: undefined });
   };
   if (input) {
     add(input.city);
@@ -51,7 +51,7 @@ const withoutUndefined = (p: TourPoint): TourPoint =>
   Object.fromEntries(Object.entries(p).filter(([, v]) => v !== undefined)) as TourPoint;
 
 async function resolveOne(d: TourPointDraft, known: KnownPoints, locale: Locale, ctx: CacheCtx): Promise<One> {
-  const dwell = (p: TourPoint): One => ({ ok: true, point: withoutUndefined({ ...p, dwellMin: d.dwellMin }) });
+  const dwell = (p: TourPoint): One => ({ ok: true, point: withoutUndefined({ ...p, dwellMin: d.dwellMin, window: d.window }) });
   if (d.ref) {
     const ref = verifyPointRef(d.ref, d.key);
     if (!ref) return { ok: false, error: "unknown_point", key: d.key };

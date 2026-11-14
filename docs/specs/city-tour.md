@@ -926,7 +926,7 @@ public transport. No item adds an LLM call (rule 2): the pasted list is a code s
 - **[P5] "Use my location" as start: dropped** (not a use case worth the exception to "the browser never supplies
   coordinates").
 - **[P6] Per-stop time windows + parsed opening hours, one feature.** User windows `TourPoint.window?: { after?:
-  HhMm; before?: HhMm }` constrain the order (DP with earliest finish time up to 16 points, heuristic with a
+  HHMM; before?: HHMM }` constrain the order (DP with earliest finish time up to 16 points, heuristic with a
   feasibility check above). OSM `opening_hours` is parsed on the server only (`opening_hours.js`, LGPL-3.0, kept out
   of the browser bundle) and used for checks only ("laut OpenStreetMap um 10:20 geschlossen, geprüft am …"), never
   as a window by itself.
@@ -1017,5 +1017,13 @@ Each point below is binding for the implementation and wins over a shorter sente
   (`startTime` + minutes) and windows compare without a time zone. A window needs `startTime` (schema refine with a
   form message); without it the window fields are disabled. Opening hours are checked only with a date and a city
   time zone (holidays and DST); otherwise the raw tag is shown as today.
+  - *Implementation notes (2026-11-14):* `after` = the visit starts not before it (waiting allowed, the wait counts in
+    the total and shifts later departures, transit legs included); `before` = the visit starts at the latest then.
+    With windows the order minimises the finish time (exact up to 16 points, `orderTourWithWindows`). When no order
+    meets every window, nothing is dropped or refused: the order with the least lateness is used and each late stop
+    shows "Zeitfenster verpasst". Drop proposals ignore windows (they stay "ca."). Opening hours are checked against
+    the OSM tag stored with the stop info (#213), so only stops whose info was loaded are checked; the result keeps
+    `hours: [{ key, kind: "closed" | "closes", at, checkedAt }]`. `opening_hours` (LGPL-3.0-only) is an unmodified
+    npm dependency used in `src/lib/server/tour/opening-check.ts` only (never in the browser bundle).
 - **Standalone tour share links [P4].** `share_links.trip_id` becomes nullable in the sharing migration, with a check
   that exactly one of `trip_id` and `tour_id` is set.

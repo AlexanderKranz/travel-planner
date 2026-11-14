@@ -2426,6 +2426,23 @@
       "source": "Timetable data: Transitous",
       "checked": "retrieved {date}"
     },
+    "window": {
+      "label": "Time window",
+      "none": "none",
+      "after": "Not before",
+      "before": "At the latest",
+      "afterShort": "from {time}",
+      "beforeShort": "until {time}",
+      "needsStart": "Set a start time for the tour first; time windows are clock times of the tour day.",
+      "clear": "Remove time window",
+      "order": "In a time window, “Not before” must come before “At the latest”.",
+      "wait": "{duration} waiting",
+      "late": "Time window missed: arrival {duration} after {before}. No order meets every time window; adjust them or the places."
+    },
+    "hours": {
+      "closed": "According to OpenStreetMap closed at {time} (checked on {date}).",
+      "closes": "According to OpenStreetMap this place closes at {time}, before your visit ends (checked on {date})."
+    },
     "routeCredit": "Routes: © openrouteservice.org"
   }
 }

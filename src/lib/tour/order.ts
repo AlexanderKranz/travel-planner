@@ -16,10 +16,12 @@
 
 import { MAX_TOUR_POINTS } from "@/lib/domain/tour";
 import { heuristicOrder } from "./order-heuristic";
+import { deadlineSeed, exactWindowOrder, searchWindowOrder, type WindowTiming } from "./order-windows";
 
 export type Matrix = readonly (readonly (number | null)[])[];
 export type OrderOpts = { start?: number; end?: number; keep?: boolean; quick?: boolean };
-export type OrderResult = { order: number[]; exact: boolean } | { error: "unreachable"; pairs: [number, number][] };
+/** `lateAt`: point indices whose time window the order misses (no on-time order found; spec 17.4). */
+export type OrderResult = { order: number[]; exact: boolean; lateAt?: number[] } | { error: "unreachable"; pairs: [number, number][] };
 
 /** Held–Karp needs 2^n·n states: 16 points stay well under a second even for the drop proposals (n calls). */
 export const EXACT_MAX_POINTS = 16;
@@ -128,4 +130,21 @@ export function pathSeconds(m: Matrix, seq: number[]): number | null {
     s += d;
   }
   return s;
+}
+
+/**
+ * Order with per-stop time windows (spec 17.1 [P6], 17.4). Without any window: `orderTour`. With windows: the exact
+ * earliest-finish order meeting every window up to `EXACT_MAX_POINTS`; otherwise (more points, or no on-time order) a
+ * local search on lateness then finish time, seeded with the window-free order and a by-deadline order. A missed
+ * window is reported in `lateAt` (never a dropped stop); `exact` is false then.
+ */
+export function orderTourWithWindows(m: Matrix, opts: Pick<OrderOpts, "start" | "end">, t: WindowTiming): OrderResult {
+  const base = orderTour(m, opts);
+  if ("error" in base || !t.win.some(Boolean)) return base;
+  if (m.length <= EXACT_MAX_POINTS) {
+    const exact = exactWindowOrder(m, t, opts);
+    if (exact) return { order: exact, exact: true };
+  }
+  const r = searchWindowOrder(m, t, opts, [base.order, deadlineSeed(m.length, t, opts)]);
+  return { order: r.order, exact: false, ...(r.lateAt.length ? { lateAt: r.lateAt } : {}) };
 }
