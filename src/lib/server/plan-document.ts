@@ -263,13 +263,15 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
       .maybeSingle<{
         id: string;
         owner_id: string;
-        trip_id: string;
+        trip_id: string | null;
         include_items: boolean;
         include_item_notes: boolean;
         expires_at: string | null;
       }>();
-    if (error || !link) return null;
+    // A link for a standalone city tour has no trip: it is served by getSharedTour (tour/shared.ts), not here.
+    if (error || !link || !link.trip_id) return null;
     if (link.expires_at !== null && Date.parse(link.expires_at) <= Date.now()) return null;
+    const tripId = link.trip_id;
 
     // Links of a disabled owner answer like an unknown token; re-enabling the owner brings them back.
     // Fails closed: if the flag cannot be read, the link is not served. Exception: 42703 (undefined column) in the
@@ -285,7 +287,7 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
     const { data: planRow, error: planErr } = await admin
       .from("plans")
       .select("id, latest_version, open_done")
-      .eq("trip_id", link.trip_id)
+      .eq("trip_id", tripId)
       .maybeSingle<{ id: string; latest_version: number; open_done: string[] }>();
     if (planErr || !planRow || planRow.latest_version < 1) return null;
 
@@ -309,21 +311,21 @@ export async function getSharedPlanDocument(token: string, via: "page" | "pdf"):
       const { data: rows, error: itemErr } = await admin
         .from("trip_items")
         .select(columns)
-        .eq("trip_id", link.trip_id)
+        .eq("trip_id", tripId)
         .order("day", { ascending: true, nullsFirst: false })
         .order("created_at", { ascending: true })
         .returns<SharedItemRow[]>();
       if (itemErr) return null;
       items = rows.map((r) => rowToSharedItem(r, link.include_item_notes));
-      party = await loadPartySize(admin, link.trip_id);
+      party = await loadPartySize(admin, tripId);
     }
 
     // City tours of exactly this trip and owner, from their stored snapshot only (no external call). A failed read
     // costs the tour blocks, not the page. The secret-key read is filtered by the shared trip id (ground rule 6).
-    const tours = await loadLinkedTours(admin, link.trip_id, link.owner_id).catch((): LinkedTour[] => []);
+    const tours = await loadLinkedTours(admin, tripId, link.owner_id).catch((): LinkedTour[] => []);
 
     // A failed read only costs the country tile and the sunset, not the page.
-    const { data: placeRow } = await admin.from("trips").select(PLACE_COLUMNS).eq("id", link.trip_id).maybeSingle<PlaceRow>();
+    const { data: placeRow } = await admin.from("trips").select(PLACE_COLUMNS).eq("id", tripId).maybeSingle<PlaceRow>();
 
     await Promise.allSettled([
       Promise.resolve(admin.rpc("share_link_touch", { p_id: link.id })),

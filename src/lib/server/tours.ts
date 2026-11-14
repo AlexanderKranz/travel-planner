@@ -1,5 +1,6 @@
 "use server";
 
+import { canEdit } from "@/lib/domain/sharing";
 import { z } from "zod";
 import type { InterestOrGeneral } from "@/lib/domain/facts";
 import type { Locale } from "@/lib/domain/profile";
@@ -20,7 +21,7 @@ import { logEvent } from "./events";
 import { getPurpose } from "./purposes";
 import { externalWriteAllowed, rateLimit } from "./rate-limit";
 import { getUserSession } from "./session";
-import { rowToTour, TOUR_COLUMNS, tourToSummary, type TourRow } from "./tour/mapping";
+import { rowToTour, TOUR_COLUMNS, tourAccess, type TourRow, tourToSummary } from "./tour/mapping";
 import { cityDestination, cityPlaces } from "./tour/places";
 import { signPointRef } from "./tour/point-ref";
 import { GEO_KEY, knownPoints, resolveDraft } from "./tour/resolve";
@@ -137,7 +138,7 @@ export async function createTour(draft: TourDraft, link?: { tripId: string; day?
 }
 
 /**
- * Saves a new title and input (owner only; grantees read). Points already in the tour may come back without a
+ * Saves a new title and input (owner or write grantee of the tour; read grantees get `forbidden`). Points already in the tour may come back without a
  * reference. `expectedUpdatedAt`: the `updatedAt` the form was loaded with; a different stored value → `conflict`.
  * The stored result stays until the next computation; `outdated` tells whether it still matches.
  */
@@ -151,15 +152,16 @@ export async function updateTour(id: string, draft: TourDraft, expectedUpdatedAt
 
   const before = await readTour(session, id);
   if (!before.ok) return fail(before.error);
-  if (before.row.owner_id !== session.userId) return fail("forbidden");
+  if (!canEdit(tourAccess(before.row, session.userId))) return fail("forbidden");
   if (expectedUpdatedAt !== undefined && before.row.updated_at !== expectedUpdatedAt) return fail("conflict");
   const r = await resolve(session, parsed.data, rowToTour(before.row, session.userId));
   if (!r.ok) return r.result;
+  // RLS lets the owner and a write grantee update (title and input only; the trip link is the owner's).
   let q = session.supabase
     .from("city_tours")
     .update({ title: ownTitle(r.input), input: r.input })
     .eq("id", id)
-    .eq("owner_id", session.userId);
+    .eq("owner_id", before.row.owner_id);
   // Conditional on the version the form was loaded with: a concurrent save in between gives `conflict`.
   if (expectedUpdatedAt !== undefined) q = q.eq("updated_at", expectedUpdatedAt);
   const { data, error } = await q.select(TOUR_COLUMNS).maybeSingle<TourRow>();

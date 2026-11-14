@@ -57,12 +57,14 @@ select throws_ok($$select * from public.share_resource('7d000000-0000-4000-8000-
 reset role;
 set local request.jwt.claims = '{"sub":"7d000000-0000-4000-8000-0000000000b2","role":"authenticated"}';
 set local role authenticated;
-select is((select count(*)::int from public.city_tours where owner_id = '7d000000-0000-4000-8000-0000000000a1'), 2, 'B sees the two tours shared with B, not the private one');
+select is(array(select id::text from public.city_tours where owner_id = '7d000000-0000-4000-8000-0000000000a1' order by id),
+  array['7d000000-0000-4000-8000-0000000071a1', '7d000000-0000-4000-8000-0000000073a1'], 'B sees exactly the two tours shared with B, not the private one');
+select is((select count(*)::int from public.city_tours where owner_id = '7d000000-0000-4000-8000-0000000000f6'), 1, 'B sees F''s shared tour while F is active');
 select lives_ok($$update public.city_tours set title = 'Renamed by B' where id = '7d000000-0000-4000-8000-0000000071a1'$$, 'B may update the title');
 select is((select title from public.city_tours where id = '7d000000-0000-4000-8000-0000000071a1'), 'Renamed by B', 'the title changed');
 select throws_ok($$update public.city_tours set trip_id = '7d000000-0000-4000-8000-00000000a201', trip_day = 1 where id = '7d000000-0000-4000-8000-0000000071a1'$$, '42501', 'owner_only', 'B cannot link the tour to A''s trip');
 update public.city_tours set title = 'Read-only rename' where id = '7d000000-0000-4000-8000-0000000073a1';
-select isnt((select title from public.city_tours where id = '7d000000-0000-4000-8000-0000000073a1'), 'Read-only rename', 'B cannot update a tour shared read-only');
+select is((select title from public.city_tours where id = '7d000000-0000-4000-8000-0000000073a1'), 'A tour to delete', 'B cannot update a tour shared read-only (visible, unchanged)');
 delete from public.city_tours where id = '7d000000-0000-4000-8000-0000000071a1';
 select is((select count(*)::int from public.city_tours where id = '7d000000-0000-4000-8000-0000000071a1'), 1, 'B cannot delete the tour');
 select is((select count(*)::int from public.tour_shares), 3, 'B sees its own three share rows');
@@ -89,6 +91,8 @@ reset role;
 set local request.jwt.claims = '{"sub":"7d000000-0000-4000-8000-0000000000a1","role":"authenticated"}';
 set local role authenticated;
 select lives_ok($$update public.city_tours set trip_id = '7d000000-0000-4000-8000-00000000a201', trip_day = 1 where id = '7d000000-0000-4000-8000-0000000071a1'$$, 'the owner may link the tour to a trip');
+select is((select trip_id::text || '/' || trip_day::text from public.city_tours where id = '7d000000-0000-4000-8000-0000000071a1'),
+  '7d000000-0000-4000-8000-00000000a201/1', 'the owner''s trip link was saved');
 select is((select count(*)::int from public.tour_shares), 3, 'A sees the three share rows of A''s tours');
 select ok(exists (select 1 from public.share_contacts() where user_id = '7d000000-0000-4000-8000-0000000000b2'), 'B is in A''s share contacts');
 select throws_ok($$insert into public.share_links (trip_id, tour_id, token_hash) values (null, '7d000000-0000-4000-8000-0000000071a1', repeat('a', 64))$$, '42501', null, 'A cannot insert a tour link directly (no column grant)');

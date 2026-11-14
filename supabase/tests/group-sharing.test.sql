@@ -820,7 +820,7 @@ select is((select (public.admin_share_stats(now() - interval '1 day') ->> 'entry
 select is((select (public.admin_share_stats(now() - interval '1 day') ->> 'recipients')::int),
   (select count(distinct g)::int from (select grantee_id g from public.trip_shares union all select grantee_id from public.purpose_shares union all select grantee_id from public.group_shares) x), 'admin_share_stats recipients include group grantees');
 select ok((select (public.admin_share_stats(now() - interval '1 day') ->> 'grantsThisMonth')::int) >= (select count(*)::int from public.group_shares), 'admin_share_stats grants include group shares');
-select is((select count(*)::int from jsonb_object_keys(public.admin_share_stats(now() - interval '1 day'))), 13, 'admin_share_stats returns thirteen counters and nothing else');
+select is((select count(*)::int from jsonb_object_keys(public.admin_share_stats(now() - interval '1 day'))), 16, 'admin_share_stats returns sixteen counters and nothing else (three for tours since 20261120120045)');
 select ok((public.admin_share_stats(now() - interval '1 day'))::text !~ '[0-9a-f]{8}-[0-9a-f]{4}-', 'admin_share_stats holds no ids');
 reset role;
 set local request.jwt.claims = '{}';

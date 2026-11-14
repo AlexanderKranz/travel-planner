@@ -42,8 +42,8 @@ describe("ShareInput / ShareAccessInput / ShareIdInput", () => {
       }
     }
   });
-  it("SHARE_RESOURCES includes the group (docs/specs/group-sharing.md 3.1)", () => {
-    expect([...SHARE_RESOURCES]).toEqual(["trip", "purpose", "group"]);
+  it("SHARE_RESOURCES includes the group (docs/specs/group-sharing.md 3.1) and the city tour (city-tour 9.3)", () => {
+    expect([...SHARE_RESOURCES]).toEqual(["trip", "purpose", "group", "tour"]);
   });
   it("rejects unknown resources and levels, and a bad resource id", () => {
     expect(ShareInput.safeParse({ resource: "plan", resourceId: ID, target: { email: "a@b.de" }, access: "read" }).success).toBe(false);

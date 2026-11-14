@@ -112,27 +112,27 @@ export async function getTourStopInfo(tourId: string): Promise<StopInfoResult> {
   }
 }
 
-/** Share-link viewer: the link must be valid and the tour linked to the link's trip, same owner. */
+/**
+ * Share-link viewer: the link must be valid, same owner, and either a trip link whose trip the tour is linked to, or a
+ * link for exactly this standalone tour (spec city-tour 9.3).
+ */
 export async function getSharedTourStopInfo(token: string, tourId: string): Promise<StopInfoResult> {
   try {
     if (!isShareTokenFormat(token) || !Id.safeParse(tourId).success) return { ok: false, error: "not_found" };
     const admin = createSupabaseAdminClient();
     const { data: link, error } = await admin
       .from("share_links")
-      .select("id, owner_id, trip_id, expires_at")
+      .select("id, owner_id, trip_id, tour_id, expires_at")
       .eq("token_hash", hashShareToken(token))
-      .maybeSingle<{ id: string; owner_id: string; trip_id: string; expires_at: string | null }>();
+      .maybeSingle<{ id: string; owner_id: string; trip_id: string | null; tour_id: string | null; expires_at: string | null }>();
     if (error || !link) return { ok: false, error: "not_found" };
     if (link.expires_at !== null && Date.parse(link.expires_at) <= Date.now()) return { ok: false, error: "not_found" };
     const { data: owner } = await admin.from("profiles").select("disabled_at").eq("id", link.owner_id).maybeSingle<{ disabled_at: string | null }>();
     if (!owner || owner.disabled_at) return { ok: false, error: "not_found" };
-    const { data: row } = await admin
-      .from("city_tours")
-      .select("id, owner_id, input, stop_info")
-      .eq("id", tourId)
-      .eq("trip_id", link.trip_id)
-      .eq("owner_id", link.owner_id)
-      .maybeSingle<TourRowLite>();
+    let q = admin.from("city_tours").select("id, owner_id, input, stop_info").eq("id", tourId).eq("owner_id", link.owner_id);
+    if (link.trip_id) q = q.eq("trip_id", link.trip_id);
+    else if (link.tour_id !== tourId) return { ok: false, error: "not_found" };
+    const { data: row } = await q.maybeSingle<TourRowLite>();
     if (!row) return { ok: false, error: "not_found" };
     return await viewFor(row, { link: link.id }, null, "share");
   } catch {

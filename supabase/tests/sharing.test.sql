@@ -753,7 +753,7 @@ select is((select (public.admin_share_stats(now() - interval '1 day') ->> 'looku
 select is((select (public.admin_share_stats(now() - interval '1 day') ->> 'tripSharesWrite')::int), (select count(*)::int from public.trip_shares where access = 'write'), 'admin_share_stats counts write trip shares');
 select is((select (public.admin_share_stats(now() - interval '1 day') ->> 'recipients')::int),
   (select count(distinct g)::int from (select grantee_id g from public.trip_shares union all select grantee_id from public.purpose_shares union all select grantee_id from public.group_shares) x), 'admin_share_stats counts distinct recipients');
-select is((select (select count(*) from jsonb_object_keys(public.admin_share_stats(now() - interval '1 day')))::int), 13, 'admin_share_stats returns thirteen counters and nothing else');
+select is((select (select count(*) from jsonb_object_keys(public.admin_share_stats(now() - interval '1 day')))::int), 16, 'admin_share_stats returns sixteen counters and nothing else (three for tours since 20261120120045)');
 select is((select (public.admin_share_stats(now() + interval '1 day') ->> 'grantsThisMonth')::int), 0, 'admin_share_stats: grants before the month start are not counted');
 reset role;
 set local request.jwt.claims = '{}';
