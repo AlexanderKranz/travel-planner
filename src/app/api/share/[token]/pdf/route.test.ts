@@ -5,8 +5,9 @@ const getShared = vi.fn();
 vi.mock("@/lib/server/plan-document", () => ({ getSharedPlanDocument: (...a: unknown[]) => getShared(...a) }));
 vi.mock("@/lib/server/events", () => ({ logEvent: vi.fn() }));
 vi.mock("@/lib/pdf/render", () => ({ renderPlanPdf: async () => Buffer.from("%PDF-1.7 fake") }));
-vi.mock("@/lib/server/tour/shared", () => ({ getSharedTour: async () => null }));
-vi.mock("@/lib/pdf/tour-response", () => ({ tourPdfResponse: async () => new Response("x") }));
+const sharedTour = vi.hoisted(() => ({ value: null as unknown }));
+vi.mock("@/lib/server/tour/shared", () => ({ getSharedTour: async () => sharedTour.value }));
+vi.mock("@/lib/pdf/tour-response", () => ({ tourPdfResponse: async () => new Response("tour-pdf", { headers: { "Content-Type": "application/pdf" } }) }));
 
 import { resetRateLimits } from "@/lib/server/rate-limit";
 import golf from "@/lib/server/__fixtures__/plan-document-golf.json";
@@ -22,6 +23,15 @@ describe("GET /api/share/[token]/pdf", () => {
   beforeEach(() => {
     resetRateLimits();
     getShared.mockReset();
+    sharedTour.value = null;
+  });
+
+  it("a tour link (no plan document) answers with the tour PDF (city-tour 9.3)", async () => {
+    getShared.mockResolvedValue(null);
+    sharedTour.value = { linkId: "L", tour: {}, locale: "de", stopInfo: null };
+    const res = await call(TOKEN);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("tour-pdf");
   });
 
   it("404 on bad token format without touching the DB", async () => {

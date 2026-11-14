@@ -34,10 +34,14 @@ export async function loadLinkedTours(
   ownerId?: string,
   opts: { stopInfo?: boolean } = {},
 ): Promise<LinkedTour[]> {
-  const columns = opts.stopInfo ? `${LINKED_TOUR_COLUMNS}, stop_info` : LINKED_TOUR_COLUMNS;
-  let q = sb.from("city_tours").select(columns).eq("trip_id", tripId);
-  if (ownerId !== undefined) q = q.eq("owner_id", ownerId);
-  const { data, error } = await q.returns<(LinkedRow & { stop_info?: unknown })[]>();
+  const read = (columns: string) => {
+    let q = sb.from("city_tours").select(columns).eq("trip_id", tripId);
+    if (ownerId !== undefined) q = q.eq("owner_id", ownerId);
+    return q.returns<(LinkedRow & { stop_info?: unknown })[]>();
+  };
+  let { data, error } = await read(opts.stopInfo ? `${LINKED_TOUR_COLUMNS}, stop_info` : LINKED_TOUR_COLUMNS);
+  // Stop info is optional: a failed read with it falls back to the tours alone (never a PDF without its tours).
+  if (error && opts.stopInfo) ({ data, error } = await read(LINKED_TOUR_COLUMNS));
   if (error) throw new Error("tours read failed");
   const tours = rowsToLinkedTours(data ?? [], tripId);
   if (!opts.stopInfo) return tours;

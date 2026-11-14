@@ -10,7 +10,10 @@ describe("stopLine", () => {
     const long = `${"Am Ufer ".repeat(16)}liegt der Donaukanal mit vielen Brücken.`;
     const out = stopLine(long);
     expect(out.length).toBeLessThanOrEqual(140);
-    expect(out).toMatch(/ der…$/);
+    expect(out).toMatch(/^Am Ufer Am Ufer .* der…$/);
+  });
+  it("a short last word still ends the sentence", () => {
+    expect(stopLine("Die Kirche ist alt. Sie wurde 1900 umgebaut.")).toBe("Die Kirche ist alt.");
   });
   it("does not end the first sentence at abbreviations or ordinal numbers", () => {
     expect(stopLine("Die St. Peter-Kirche, z. B. im 18. Jh. umgebaut, liegt nahe dem Graben. Sie ist barock.")).toBe(
@@ -37,6 +40,10 @@ describe("pdfStopInfo", () => {
       { title: "Hofburg Palace", url: "https://en.wikipedia.org/wiki/Hofburg_Palace", en: true },
     ]);
     expect(r?.checkedAt).toBe("2026-11-08T00:00:00Z");
+  });
+  it("no line for text without an article to credit", () => {
+    const noTitle = { ...info, stops: [{ key: "osm:n9", status: "ok" as const, checkedAt: "2026-11-10T00:00:00Z", text: "Ohne Quelle." }] };
+    expect(pdfStopInfo(noTitle, ["osm:n9"])).toBeNull();
   });
   it("null without any text", () => {
     expect(pdfStopInfo(info, ["osm:n3"])).toBeNull();

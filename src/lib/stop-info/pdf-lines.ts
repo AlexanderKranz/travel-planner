@@ -8,16 +8,23 @@ import type { StopInfo, TourStopInfo } from "@/lib/domain/stop-info";
 
 export const PDF_LINE_MAX = 140;
 
+/** Common German and English abbreviations whose dot does not end a sentence (lower case, without the dot). */
+const ABBREVIATIONS = new Set([
+  "z", "b", "dr", "st", "nr", "ca", "bzw", "u", "a", "jh", "jhd", "mio", "mrd", "vgl", "ggf", "inkl", "evtl", "hl", "prof",
+  "str", "e", "v", "chr", "n", "s", "o", "mr", "mrs", "ms", "jr", "sr", "no", "approx", "etc", "i", "vs", "mt", "ft",
+]);
+
 /**
- * End of the first sentence: ".", "!" or "?" followed by a space and a capital letter (or the end), unless the word
- * before the dot is an abbreviation (short or with an inner dot: "z. B.", "Dr.", "St.", "u.a.") or a number ("19.").
+ * End of the first sentence: ".", "!" or "?" followed by a space and a capital letter (or the end), unless the dot
+ * belongs to a known abbreviation ("z. B.", "Dr.", "St."), a single letter, a word with an inner dot ("u.a.") or a
+ * number ("19.").
  */
 function firstSentence(text: string): string {
   const re = /[.!?](?=\s+\p{Lu}|$)/gu;
   for (let m = re.exec(text); m; m = re.exec(text)) {
-    const before = text.slice(0, m.index);
-    const word = /(\S+)$/.exec(before)?.[1] ?? "";
-    const abbreviation = text[m.index] === "." && (word.length <= 3 || word.includes(".") || /^\d+$/.test(word));
+    const word = /(\S+)$/.exec(text.slice(0, m.index))?.[1] ?? "";
+    const abbreviation =
+      text[m.index] === "." && (ABBREVIATIONS.has(word.toLowerCase()) || word.includes(".") || /^\d+$/.test(word));
     if (!abbreviation) return text.slice(0, m.index + 1);
   }
   return text;
@@ -51,7 +58,8 @@ export function pdfStopInfo(info: TourStopInfo | null | undefined, keys: readonl
   const used: StopInfo[] = [];
   const lines = keys.map((k) => {
     const s = byKey.get(k);
-    if (!s || s.status !== "ok" || !s.text) return null;
+    // Only text whose article can be credited in the source line (title and language known).
+    if (!s || s.status !== "ok" || !s.text || !s.title || !s.lang) return null;
     if (!used.includes(s)) used.push(s);
     return stopLine(s.text);
   });
