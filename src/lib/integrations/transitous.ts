@@ -74,7 +74,7 @@ const minutes = (fromMs: number, toIso: string) => Math.max(0, Math.round((Date.
 export function pickConnection(body: unknown, departUtcMs: number, timeZone: string): TransitAnswer {
   const plan = PlanResponse.parse(body);
   const best = plan.itineraries
-    .filter((it) => Date.parse(it.startTime) >= departUtcMs - 60_000 && it.legs.some((l) => l.mode !== "WALK"))
+    .filter((it) => Date.parse(it.startTime) >= departUtcMs && it.legs.some((l) => l.mode !== "WALK"))
     .sort((a, b) => Date.parse(a.endTime) - Date.parse(b.endTime) || Date.parse(a.startTime) - Date.parse(b.startTime))[0];
   const walk = plan.direct?.find((it) => it.legs.every((l) => l.mode === "WALK"));
   const walkMin = walk ? Math.round((Date.parse(walk.endTime) - Date.parse(walk.startTime)) / 60000) : null;

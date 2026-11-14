@@ -311,8 +311,8 @@ describe("computeTour: pipeline", () => {
       const [from, to, dep, tz] = h.transit.mock.calls[0];
       expect([from.key, to.key, tz]).toEqual(["osm:w2", "osm:w3", "Europe/Vienna"]);
       const footMin = res.data.result.legs[0].min!;
-      // 10:00 Wien = 09:00Z, plus the foot leg and 30 min dwell at Hofburg
-      expect(dep.utcMs).toBe(Date.UTC(2026, 10, 17, 9, 0) + (footMin + 30) * 60000);
+      // 10:00 Wien = 09:00Z, plus 30 min at Stephansdom, the foot leg and 30 min at Hofburg
+      expect(dep.utcMs).toBe(Date.UTC(2026, 10, 17, 9, 0) + (30 + footMin + 30) * 60000);
       expect(dep.iso).toBe(new Date(dep.utcMs).toISOString());
       const t = res.data.result.legs[1];
       expect(t).toMatchObject({ mode: "transit", min: 19, km: 2.4, s: "ok", transit: ok.parts });

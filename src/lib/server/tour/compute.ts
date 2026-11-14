@@ -111,6 +111,9 @@ function runsBound(tp: TourPoints, overrides: number): number {
   return Math.max(1, Math.min(legs, 2 * overrides + 1));
 }
 
+/** Characters of stored transit parts per result (polylines have their own 200 kB budget; the check is 256 kB). */
+const TRANSIT_PARTS_BUDGET = 30_000;
+
 /** Stored timetable answers older than the transit cache (7 days) are recomputed, not served (spec 17.4). */
 function transitExpired(result: Pick<TourResult, "source">, now: Date): boolean {
   const t = result.source.transit ? Date.parse(result.source.transit) : NaN;
@@ -130,8 +133,10 @@ async function timeTransitLegs(
   const { input, tz } = o;
   const base = input.date && input.startTime && knownTimeZone(tz) ? zonedInstant(input.date, input.startTime, tz) : null;
   let elapsed: number | null = 0;
+  let partsChars = 0;
   for (let i = 0; i < legs.length; i++) {
-    if (elapsed !== null) elapsed += i > 0 ? stopDwell[i] : 0;
+    // Leg i leaves stop i after its dwell, the first stop included (as stopTimes counts it).
+    if (elapsed !== null) elapsed += stopDwell[i] ?? 0;
     const l = legs[i];
     if (isTransit(l.mode)) {
       if (!knownTimeZone(tz)) legs[i] = { ...l, s: "failed", note: "no_time_zone" };
@@ -141,7 +146,13 @@ async function timeTransitLegs(
         const a = await getTransitLeg(o.byKey.get(l.from)!, o.byKey.get(l.to)!, { utcMs, iso: new Date(utcMs).toISOString() }, tz, o.ctx);
         if (a.kind !== "failed") o.dates.push(a.fetchedAt);
         const poly = (p: string) => (p && p.length <= o.polyCap ? p : null);
-        if (a.kind === "ok") legs[i] = { ...l, min: a.min, km: a.km, poly: poly(a.poly), s: "ok", transit: a.parts };
+        if (a.kind === "ok") {
+          // Parts share a budget next to the polylines, so many transit legs keep the result under its size check.
+          const size = JSON.stringify(a.parts).length;
+          const fits = partsChars + size <= TRANSIT_PARTS_BUDGET;
+          if (fits) partsChars += size;
+          legs[i] = { ...l, min: a.min, km: a.km, poly: poly(a.poly), s: "ok", ...(fits ? { transit: a.parts } : {}) };
+        }
         else if (a.kind === "walk_not_slower") legs[i] = { ...l, min: a.min, km: a.km, poly: poly(a.poly), s: "ok", note: "walk_not_slower" };
         else if (a.kind === "no_connection") legs[i] = { ...l, s: "no_route", note: "no_connection" };
         else legs[i] = { ...l, s: "failed", note: "unavailable" };

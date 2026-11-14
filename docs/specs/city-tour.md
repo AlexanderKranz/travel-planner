@@ -1001,8 +1001,8 @@ Each point below is binding for the implementation and wins over a shorter sente
   city point carries). Requests send the departure as local time with that zone's offset on the tour date; UTC
   answers are shown in that zone. Without a city time zone the ÖPNV option is not offered.
 - **Transit legs in the tour [P3].** A transit leg is computed during the computation, after the ORS runs, in
-  sequence (departure = previous arrival + dwell). The chosen itinerary is the first that departs at or after that
-  time; the leg's minutes are its **arrival minus the requested departure**, so the wait at the stop counts. They
+  sequence (departure = previous arrival + dwell). The chosen itinerary is, among those departing at or after that time, the one arriving earliest (a later train that arrives sooner is the better leg);
+  the leg's minutes are its **arrival minus the requested departure**, so the wait at the stop counts. They
   replace the leg's minutes everywhere: totals, stop times, fit check, proposals ("ca." as now). Its km and line come
   from the itinerary's `legGeometry` (walking parts included). It is stored in `result` like any leg: `TourLeg.mode`
   gains `"transit"` (an override only, never a tour mode) and an optional `transit` part list, both in the Zod
