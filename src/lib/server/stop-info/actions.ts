@@ -11,7 +11,7 @@ import { getUserSession } from "../session";
 import { hashShareToken, isShareTokenFormat } from "../share-token";
 import { createSupabaseAdminClient } from "../supabase/admin";
 import { fetchStopInfoBatch } from "./fetch";
-import { landmarkQids, prefetchRecentlyScheduled, scheduleStopInfoPrefetch } from "./prefetch";
+import { landmarkQids, prefetchRunning, scheduleStopInfoPrefetch, type PrefetchScope } from "./prefetch";
 
 /**
  * Stop info on the first expand (docs/specs/city-tour-stop-info.md sections 5 and 12). Readers of a tour (owner and
@@ -46,9 +46,11 @@ async function viewFor(row: TourRowLite, scope: Scope, ctxUser: string | null, v
   if (!locale) return { ok: false, error: "failed" };
   const eligible = eligibleStops(input.data);
   const first = storedView(row.stop_info, eligible, locale);
+  // Background runs from a share-link viewer are charged to that link, not to the owner.
+  const bgScope: PrefetchScope = "link" in scope ? { link: scope.link } : null;
   if (first.pending.length === 0) {
     // Partial cards are shown; the background fetch completes them (scheduled at most once per cooldown).
-    const loading = first.incomplete.length > 0 ? scheduleStopInfoPrefetch(row.id) : false;
+    const loading = first.incomplete.length > 0 ? scheduleStopInfoPrefetch(row.id, Date.now(), bgScope) : false;
     return { ok: true, data: { locale, stops: first.stops, pending: first.pending, limited: false, loading } };
   }
 
@@ -84,7 +86,7 @@ async function viewFor(row: TourRowLite, scope: Scope, ctxUser: string | null, v
   const after = storedView(fresh?.stop_info ?? row.stop_info, eligible, locale);
   // Missing or partial stops left: the background fetch has the time Overpass needs ("Infos werden geladen").
   const loading =
-    after.pending.length + after.incomplete.length > 0 ? (limited ? prefetchRecentlyScheduled(row.id) : scheduleStopInfoPrefetch(row.id)) : false;
+    after.pending.length + after.incomplete.length > 0 ? (limited ? prefetchRunning(row.id) : scheduleStopInfoPrefetch(row.id, Date.now(), bgScope)) : false;
   return { ok: true, data: { locale, stops: after.stops, pending: after.pending, limited, loading } };
 }
 

@@ -34,7 +34,7 @@ vi.mock("../events", () => ({ logEvent: h.logEvent }));
 vi.mock("./prefetch", () => ({
   landmarkQids: async () => new Map([["osm:w1", "Q1"]]),
   scheduleStopInfoPrefetch: h.schedule,
-  prefetchRecentlyScheduled: h.recent,
+  prefetchRunning: h.recent,
 }));
 
 import { resetRateLimits } from "../rate-limit";
@@ -151,7 +151,7 @@ describe("fast path and background (decisions 2026-11-15)", () => {
     const opts = h.batch.mock.calls[0][4];
     expect(opts.tags).toBe("unknown");
     expect(opts.qids.get("osm:w1")).toBe("Q1");
-    expect(h.schedule).toHaveBeenCalledWith(TOUR);
+    expect(h.schedule).toHaveBeenCalledWith(TOUR, expect.any(Number), null);
     expect(r).toMatchObject({ ok: true, data: { loading: true } });
   });
 
@@ -159,7 +159,7 @@ describe("fast path and background (decisions 2026-11-15)", () => {
     h.rows.city_tours = { id: TOUR, owner_id: "owner", input, stop_info: { v: 1, locale: "de", stops: [{ ...entry("osm:w1"), partial: true }, entry("osm:n2")] } };
     const r = await getTourStopInfo(TOUR);
     expect(h.batch).not.toHaveBeenCalled();
-    expect(h.schedule).toHaveBeenCalledWith(TOUR);
+    expect(h.schedule).toHaveBeenCalledWith(TOUR, expect.any(Number), null);
     expect(r).toMatchObject({ ok: true, data: { pending: [], loading: true } });
   });
 

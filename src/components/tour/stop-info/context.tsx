@@ -119,7 +119,7 @@ function useSpeech(): Speech {
 }
 
 const POLL_MS = 15_000;
-const POLL_MAX = 4;
+const POLL_MAX = 8; // 2 minutes: the background budget is about 110 s
 
 export function StopInfoProvider({ source, children }: { source: StopInfoSource; children: ReactNode }) {
   const [loads, setLoads] = useState<Record<string, Load>>({});

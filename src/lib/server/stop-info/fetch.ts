@@ -34,6 +34,8 @@ import { cacheKey, cached, type CacheCtx } from "../api-cache";
  * `tags: "all"` (background) Overpass is asked for every stop; if it fails, known-id stops still get partial cards.
  */
 export const STOP_INFO_BUDGET_MS = 4000;
+/** Request path with known-id stops: Overpass gets at most this, so their Wikidata/Wikipedia lookups keep their time. */
+export const OVERPASS_REQUEST_CAP_MS = 1500;
 const MIN_LEFT_MS = 500;
 const DEFAULT_TIMEOUT_MS = 3000;
 const DAY = 86400;
@@ -144,7 +146,9 @@ export async function fetchStopInfoBatch(
       ttl: 30 * DAY,
       schema: TagsPayload,
       fetch: async () => {
-        const r = await runQuery(osmTagsQuery(refs), { deadline: clock.deadline });
+        const capped = opts.tags !== "all" && eligible.some((p) => known.has(p.key));
+        const deadline = capped ? Math.min(clock.deadline, clock.now() + OVERPASS_REQUEST_CAP_MS) : clock.deadline;
+        const r = await runQuery(osmTagsQuery(refs), { deadline });
         const data: Record<string, Record<string, string>> = {};
         for (const e of r.elements) {
           const kept = Object.fromEntries(Object.entries(e.tags).filter(([k]) => KEPT_TAGS.includes(k)));

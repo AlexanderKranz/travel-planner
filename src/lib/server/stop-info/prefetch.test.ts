@@ -26,7 +26,7 @@ vi.mock("./fetch", () => ({ fetchStopInfoBatch: h.batch }));
 vi.mock("../events", () => ({ logEvent: h.logEvent }));
 vi.mock("../tour/landmarks", () => ({ readLandmarks: h.landmarks }));
 
-import { BACKGROUND_BUDGET_MS, landmarkQids, prefetchStopInfo, resetPrefetchState, scheduleStopInfoPrefetch } from "./prefetch";
+import { BACKGROUND_BUDGET_MS, landmarkQids, prefetchRunning, prefetchStopInfo, resetPrefetchState, scheduleStopInfoPrefetch } from "./prefetch";
 
 const TOUR = "55555555-5555-4555-8555-555555555555";
 const city = { key: "geo:1", name: "London", lat: 51.5072, lon: -0.1276, source: "geonames" };
@@ -54,12 +54,26 @@ beforeEach(() => {
 });
 
 describe("scheduleStopInfoPrefetch", () => {
-  it("runs the batch after the response, at most once per tour within the cooldown", () => {
+  it("runs the batch after the response; loading while it runs; at most once per tour within the cooldown", async () => {
     expect(scheduleStopInfoPrefetch(TOUR, NOW)).toBe(true);
-    expect(scheduleStopInfoPrefetch(TOUR, NOW + 60_000)).toBe(true); // still loading, not scheduled again
+    expect(scheduleStopInfoPrefetch(TOUR, NOW + 30_000)).toBe(true); // still running, not scheduled again
+    expect(h.after).toHaveBeenCalledTimes(1);
+    expect(prefetchRunning(TOUR)).toBe(true);
+    // The callback really runs the batch.
+    await h.after.mock.calls[0][0]();
+    expect(h.batch).toHaveBeenCalledTimes(1);
+    // Finished: no longer "loading", and not scheduled again within the cooldown.
+    expect(prefetchRunning(TOUR)).toBe(false);
+    expect(scheduleStopInfoPrefetch(TOUR, NOW + 60_000)).toBe(false);
     expect(h.after).toHaveBeenCalledTimes(1);
     expect(scheduleStopInfoPrefetch(TOUR, NOW + 3 * 60_000)).toBe(true);
     expect(h.after).toHaveBeenCalledTimes(2);
+  });
+
+  it("a run triggered by a share-link viewer reserves against the link, not the owner", async () => {
+    scheduleStopInfoPrefetch(TOUR, NOW, { link: "link1" });
+    await h.after.mock.calls[0][0]();
+    expect(h.rpc).toHaveBeenCalledWith("stop_info_reserve", expect.objectContaining({ p_user: null, p_link: "link1", p_scope_limit: 30 }));
   });
 
   it("outside a request scope (after() throws) nothing is scheduled", () => {
@@ -94,7 +108,8 @@ describe("prefetchStopInfo", () => {
     expect(clock.deadline).toBe(NOW + BACKGROUND_BUDGET_MS);
     expect(opts.tags).toBe("all");
     expect(opts.qids.get("osm:w1")).toBe("Q1");
-    expect(h.rpc).toHaveBeenCalledWith("merge_stop_info", expect.objectContaining({ p_tour: TOUR, p_locale: "en" }));
+    expect(h.rpc).toHaveBeenCalledWith("merge_stop_info", { p_tour: TOUR, p_locale: "en", p_entries: [card("osm:w1"), card("osm:w2")] });
+    expect(h.rpc).toHaveBeenCalledWith("stop_info_reserve", expect.objectContaining({ p_user: "owner", p_link: null, p_scope_limit: 60 }));
     expect(h.rpc).toHaveBeenCalledWith("stop_info_settle", { p_id: "slot1" });
   });
 

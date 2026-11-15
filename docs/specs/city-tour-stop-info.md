@@ -138,7 +138,9 @@ statement, so a key added back later is fetched again.
   a failed Overpass call never blocks the stops whose id is known. Those get a `partial` card (no OSM opening hours or
   website yet), shown at once; missing and partial stops are then completed by a background run (same `after()`,
   at most once per tour and instance in 2 minutes). While that run is due, the card says "Die Infos zu diesem Ort
-  werden gerade geladen" and the page looks again up to 4 times, 15 s apart. The APIs are batched (section 3), so all
+  werden gerade geladen" and the page looks again up to 8 times, 15 s apart (a partial card adds "Weitere Angaben
+  werden noch geladen"). A background run started by a share-link viewer counts against that link's daily limit, not
+  the owner's. On the request path Overpass gets at most 1.5 s when known-id stops are in the batch. The APIs are batched (section 3), so all
   27 stops cost about the same 5–7 requests as one stop.
 - **Who can trigger it:** the owner and read grantees (session, RLS read), and share-link viewers through the share
   route by token. All of them write only `stop_info`, through the server with the secret key; nobody else's input

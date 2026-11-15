@@ -21,6 +21,7 @@ export const BACKGROUND_BUDGET_MS = 110_000;
 /** "Infos werden geladen" is shown while a background run for the tour was scheduled this recently (per instance). */
 export const PREFETCH_COOLDOWN_MS = 2 * 60_000;
 const USER_DAILY_BATCHES = 60;
+const LINK_DAILY_BATCHES = 30;
 const APP_DAILY_BATCHES = 2000;
 
 /** Stop key → Wikidata id from the city's cached landmark set (0 external calls; empty when the set is not cached). */
@@ -37,52 +38,67 @@ export async function landmarkQids(input: TourInput, ctx: { userId: string | nul
   return out;
 }
 
-const lastScheduled = new Map<string, number>();
+/** Per tour and instance: when a run was last scheduled (cooldown) and whether it is still running (card text). */
+const runs = new Map<string, { at: number; running: boolean }>();
 
-/** Whether a background run for this tour was scheduled within the cooldown (per instance; drives the card text). */
-export function prefetchRecentlyScheduled(tourId: string, now: number = Date.now()): boolean {
-  const at = lastScheduled.get(tourId);
-  return at !== undefined && now - at < PREFETCH_COOLDOWN_MS;
+/** Who pays for a background run: the owner (computation, owner or grantee expand) or a share link (its own limit). */
+export type PrefetchScope = { link: string } | null;
+
+/** Whether a background run for this tour is scheduled or running right now (per instance; "Infos werden geladen"). */
+export function prefetchRunning(tourId: string): boolean {
+  return runs.get(tourId)?.running ?? false;
 }
 
 /**
  * Schedules `prefetchStopInfo` after the response, at most once per tour and instance per cooldown. Returns whether a
- * run is scheduled (now or recently). Never throws; outside a request scope (no `after`) it returns false.
+ * run is scheduled or running now. Never throws; outside a request scope (no `after`) it returns false.
  */
-export function scheduleStopInfoPrefetch(tourId: string, now: number = Date.now()): boolean {
-  if (prefetchRecentlyScheduled(tourId, now)) return true;
+export function scheduleStopInfoPrefetch(tourId: string, now: number = Date.now(), scope: PrefetchScope = null): boolean {
+  const last = runs.get(tourId);
+  if (last && (last.running || now - last.at < PREFETCH_COOLDOWN_MS)) return last.running;
   try {
     after(async () => {
-      await prefetchStopInfo(tourId);
+      try {
+        await prefetchStopInfo(tourId, Date.now, scope);
+      } finally {
+        const r = runs.get(tourId);
+        if (r) r.running = false;
+      }
     });
   } catch {
     return false;
   }
-  lastScheduled.set(tourId, now);
-  if (lastScheduled.size > 500) lastScheduled.delete(lastScheduled.keys().next().value!);
+  runs.set(tourId, { at: now, running: true });
+  if (runs.size > 500) runs.delete(runs.keys().next().value!);
   return true;
 }
 
 /** Test hook. */
 export function resetPrefetchState(): void {
-  lastScheduled.clear();
+  runs.clear();
 }
 
 /** One background batch for a tour: missing, stale or partial stops only. Never throws. */
-export async function prefetchStopInfo(tourId: string, now: () => number = Date.now): Promise<"done" | "nothing" | "limited" | "failed"> {
+export async function prefetchStopInfo(
+  tourId: string,
+  now: () => number = Date.now,
+  scope: PrefetchScope = null,
+): Promise<"done" | "nothing" | "limited" | "failed"> {
   const admin = createSupabaseAdminClient();
   let reserved: string | null = null;
   let calls = 0;
   try {
-    const { data: row } = await admin
+    const { data: row, error: rowError } = await admin
       .from("city_tours")
       .select("id, owner_id, input, stop_info")
       .eq("id", tourId)
       .maybeSingle<{ id: string; owner_id: string; input: unknown; stop_info: unknown }>();
+    if (rowError) throw rowError;
     if (!row) return "failed";
     const input = TourInput.safeParse(row.input);
     if (!input.success) return "failed";
-    const { data: profile } = await admin.from("profiles").select("locale").eq("id", row.owner_id).maybeSingle<{ locale: string }>();
+    const { data: profile, error: profileError } = await admin.from("profiles").select("locale").eq("id", row.owner_id).maybeSingle<{ locale: string }>();
+    if (profileError) throw profileError;
     const locale = profile && (STOP_INFO_LOCALES as readonly string[]).includes(profile.locale) ? (profile.locale as StopInfoLocale) : null;
     if (!locale) return "failed";
 
@@ -91,10 +107,11 @@ export async function prefetchStopInfo(tourId: string, now: () => number = Date.
     const wanted = new Set([...view.pending, ...view.incomplete]);
     if (wanted.size === 0) return "nothing";
 
+    // A run triggered by a share-link viewer counts against that link's limit, never the owner's.
     const { data: slot, error } = await admin.rpc("stop_info_reserve", {
-      p_user: row.owner_id,
-      p_link: null,
-      p_scope_limit: USER_DAILY_BATCHES,
+      p_user: scope ? null : row.owner_id,
+      p_link: scope ? scope.link : null,
+      p_scope_limit: scope ? LINK_DAILY_BATCHES : USER_DAILY_BATCHES,
       p_app_limit: APP_DAILY_BATCHES,
       p_day_start: berlinMidnight(new Date(now())).toISOString(),
     });

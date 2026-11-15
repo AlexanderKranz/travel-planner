@@ -133,7 +133,9 @@ describe("view (spec 5)", () => {
     expect(storedView(stored, eligibleStops(input), "de", now)).toEqual({ stops: [stored.stops[0]], pending: ["osm:n2"], incomplete: [] });
     // A partial entry (no OSM tags yet) is shown and listed for the background fetch, not pending.
     const partial = { ...stored, stops: [{ ...stored.stops[0], partial: true }] };
-    expect(storedView(partial, eligibleStops(input), "de", now)).toMatchObject({ pending: ["osm:n2"], incomplete: ["osm:w1"] });
+    const pv = storedView(partial, eligibleStops(input), "de", now);
+    expect(pv).toMatchObject({ pending: ["osm:n2"], incomplete: ["osm:w1"] });
+    expect(pv.stops).toEqual([partial.stops[0]]); // the partial card is shown
     expect(storedView(stored, eligibleStops(input), "en", now).pending).toEqual(["osm:w1", "osm:n2"]);
     expect(storedView(null, eligibleStops(input), "de", now).pending).toEqual(["osm:w1", "osm:n2"]);
   });
