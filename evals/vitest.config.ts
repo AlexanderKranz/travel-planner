@@ -1,9 +1,8 @@
-import tsconfigPaths from "vite-tsconfig-paths";
 import { defineConfig } from "vitest/config";
 
 /** Live evals only (spec 7): `npm run evals:live`. Never part of `npm test`. */
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  resolve: { tsconfigPaths: true },
   test: {
     include: ["evals/live.eval.ts", "evals/group-text.eval.ts", "evals/patch-shrink.eval.ts", "evals/tags-cases.eval.ts", "evals/itinerary.eval.ts", "evals/itinerary-docs.gen.ts", "evals/port-places.eval.ts"],
     testTimeout: 600_000,
