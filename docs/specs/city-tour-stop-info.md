@@ -176,6 +176,8 @@ answers, then the card (or "Für diesen Ort gibt es keine Infos"):
 - Spoken text: "{n}. {name}." then the card text, then the fact lines as sentences. No picture credits, no links.
   Each utterance gets the language of its text: the name and fact sentences the owner's locale, a fallback text an
   English voice (`lang = "en"`); without an English voice that text is skipped in the read-out and the card says so.
+  "Without a voice" means the browser lists its voices and none fits; an empty list (voices not loaded yet, or a
+  browser that never lists them) counts as unknown, and the text is read with the default voice (`hasVoice`, #240).
 - Long texts are split into sentence chunks (Chrome cuts long utterances; iOS needs the first `speak` inside the tap).
 - Accessibility: buttons at least 44 × 44 px with text labels (`aria-pressed` for play/pause), an `aria-live="polite"`
   status "Liest: {name}" (not repeating the text), keyboard operable, no autoplay. Reading stops when the page is

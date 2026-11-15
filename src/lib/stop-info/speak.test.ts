@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chunks, speakable, stopSpeech } from "./speak";
+import { chunks, hasVoice, speakable, stopSpeech } from "./speak";
 
 describe("read-out text (spec 6)", () => {
   it("drops parenthesised asides (pronunciation, IPA) before speaking", () => {
@@ -23,5 +23,16 @@ describe("read-out text (spec 6)", () => {
       { text: "Erbaut 1147", lang: "de" },
     ]);
     expect(stopSpeech({ ...base, textVoice: false })).toEqual([{ text: "1. Dom.", lang: "de" }, { text: "Erbaut 1147", lang: "de" }]);
+  });
+});
+
+describe("hasVoice", () => {
+  it("accepts de-DE and de_DE, and reads anyway while the voice list is unknown (empty)", () => {
+    expect(hasVoice(["de-de", "en-gb"], "de")).toBe(true);
+    expect(hasVoice(["de_DE"], "de")).toBe(true);
+    expect(hasVoice(["en-US"], "en")).toBe(true);
+    expect(hasVoice([], "de")).toBe(true);
+    expect(hasVoice(["fr-fr", "it-it"], "de")).toBe(false);
+    expect(hasVoice(["de-at"], "en")).toBe(false);
   });
 });

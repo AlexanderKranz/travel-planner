@@ -2179,6 +2179,7 @@
       "optimize": "Best order",
       "keep": "My order"
     },
+    "placesToggle": "{count, plural, one {# place} other {# places}} · show and edit",
     "orderHelp": "The best order uses the default route of the chosen mode, not the route option or legs set differently.",
     "orderApprox": "A very good order, not guaranteed to be the best: with more than 16 points it is approximated.",
     "date": "Date",
