@@ -4,6 +4,9 @@ import { tourMapStyleUrl } from "@/lib/server/tour/map-style";
 import { tourPrefill } from "@/lib/server/tour/prefill";
 import { listTrips } from "@/lib/server/trips";
 
+/** Stop info is completed in the background after a computation or an expand (`after()`, up to ~110 s). */
+export const maxDuration = 300;
+
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 /**

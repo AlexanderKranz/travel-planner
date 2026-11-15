@@ -9,6 +9,8 @@ const h = vi.hoisted(() => ({
   batch: vi.fn(),
   logEvent: vi.fn(),
   session: { userId: "viewer" } as { userId: string } | null,
+  schedule: vi.fn(),
+  recent: vi.fn(),
 }));
 
 /** Minimal chainable fake: from(table).select().eq()…maybeSingle() answers h.rows[table]. */
@@ -29,6 +31,11 @@ vi.mock("../session", () => ({ getUserSession: async () => (h.session ? { ...h.s
 vi.mock("../supabase/admin", () => ({ createSupabaseAdminClient: () => fake() }));
 vi.mock("./fetch", () => ({ fetchStopInfoBatch: h.batch }));
 vi.mock("../events", () => ({ logEvent: h.logEvent }));
+vi.mock("./prefetch", () => ({
+  landmarkQids: async () => new Map([["osm:w1", "Q1"]]),
+  scheduleStopInfoPrefetch: h.schedule,
+  prefetchRunning: h.recent,
+}));
 
 import { resetRateLimits } from "../rate-limit";
 import { getSharedTourStopInfo, getTourStopInfo } from "./actions";
@@ -50,6 +57,8 @@ beforeEach(() => {
   h.rpc.mockReset().mockImplementation(async (name: string) => (name === "stop_info_reserve" ? { data: { ok: true, id: "slot1" }, error: null } : { data: "ok", error: null }));
   h.batch.mockReset().mockResolvedValue({ entries: [entry("osm:w1"), entry("osm:n2")], unfinished: [], calls: 3 });
   h.logEvent.mockReset();
+  h.schedule.mockReset().mockReturnValue(true);
+  h.recent.mockReset().mockReturnValue(false);
 });
 
 describe("getTourStopInfo", () => {
@@ -131,5 +140,33 @@ describe("getSharedTourStopInfo", () => {
     expect(h.batch).not.toHaveBeenCalled();
     h.rows.share_links = { id: "l2", owner_id: "owner", trip_id: null, tour_id: TOUR, expires_at: null };
     expect((await getSharedTourStopInfo(token, TOUR)).ok).toBe(true);
+  });
+});
+
+describe("fast path and background (decisions 2026-11-15)", () => {
+  it("request path: known landmark ids, Overpass only for unknown stops; leftovers go to the background", async () => {
+    h.batch.mockResolvedValue({ entries: [{ ...entry("osm:w1"), status: "ok", partial: true }], unfinished: ["osm:n2"], calls: 2 });
+    h.rows.city_tours = { id: TOUR, owner_id: "owner", input, stop_info: null };
+    const r = await getTourStopInfo(TOUR);
+    const opts = h.batch.mock.calls[0][4];
+    expect(opts.tags).toBe("unknown");
+    expect(opts.qids.get("osm:w1")).toBe("Q1");
+    expect(h.schedule).toHaveBeenCalledWith(TOUR, expect.any(Number), null);
+    expect(r).toMatchObject({ ok: true, data: { loading: true } });
+  });
+
+  it("all fresh but one partial card: no batch now, background completes it", async () => {
+    h.rows.city_tours = { id: TOUR, owner_id: "owner", input, stop_info: { v: 1, locale: "de", stops: [{ ...entry("osm:w1"), partial: true }, entry("osm:n2")] } };
+    const r = await getTourStopInfo(TOUR);
+    expect(h.batch).not.toHaveBeenCalled();
+    expect(h.schedule).toHaveBeenCalledWith(TOUR, expect.any(Number), null);
+    expect(r).toMatchObject({ ok: true, data: { pending: [], loading: true } });
+  });
+
+  it("everything complete: nothing scheduled, not loading", async () => {
+    h.rows.city_tours = { id: TOUR, owner_id: "owner", input, stop_info: { v: 1, locale: "de", stops: [entry("osm:w1"), entry("osm:n2")] } };
+    const r = await getTourStopInfo(TOUR);
+    expect(h.schedule).not.toHaveBeenCalled();
+    expect(r).toMatchObject({ ok: true, data: { loading: false } });
   });
 });

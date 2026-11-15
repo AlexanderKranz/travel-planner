@@ -2380,6 +2380,8 @@
       "loading": "Wird geladen…",
       "none": "Für diesen Ort gibt es keine Infos.",
       "notYet": "Für diesen Ort sind die Infos noch nicht geladen. Öffne ihn später noch einmal.",
+      "loadingBackground": "Die Infos zu diesem Ort werden gerade geladen. Das dauert meist weniger als eine Minute.",
+      "loadingMore": "Weitere Angaben (z. B. Öffnungszeiten) werden noch geladen.",
       "limited": "Infos gerade nicht abrufbar.",
       "error": "Die Infos konnten nicht geladen werden.",
       "more": "Weiter auf Wikipedia",

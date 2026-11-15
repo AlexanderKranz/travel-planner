@@ -28,6 +28,8 @@ export type ThumbPart = {
 };
 
 const IMAGE_HOST = "upload.wikimedia.org";
+/** Commons answers thumbnails on thumb.wikimedia.org with tracking parameters (seen 2026-11-15); same path on upload. */
+const THUMB_HOSTS = new Set([IMAGE_HOST, "thumb.wikimedia.org"]);
 const RASTER = /^image\/(jpeg|png|webp)$/;
 
 /** Intro clipped on a sentence to at most 700 characters including "…"; `clipped` when anything was cut. */
@@ -42,7 +44,7 @@ export function clipStopText(text: string): { text: string; clipped: boolean } |
   return { text: out, clipped: out.length < full.length };
 }
 
-/** A free-licensed raster thumbnail on upload.wikimedia.org; CC BY / BY-SA need an artist (spec 12). */
+/** A free-licensed raster thumbnail, stored as an upload.wikimedia.org URL; CC BY / BY-SA need an artist (spec 12). */
 export function stopImage(file: string, t: ThumbPart | undefined): StopImage | null {
   if (!t || !RASTER.test(t.mime) || looksLikeNonPhoto(file)) return null;
   let url: URL;
@@ -51,13 +53,13 @@ export function stopImage(file: string, t: ThumbPart | undefined): StopImage | n
   } catch {
     return null;
   }
-  if (url.protocol !== "https:" || url.hostname !== IMAGE_HOST) return null;
+  if (url.protocol !== "https:" || !THUMB_HOSTS.has(url.hostname) || !url.pathname.startsWith("/wikipedia/commons/")) return null;
   const licence = classifyLicense(t.licenseShortName, t.licenseUrl);
   if (!licence) return null;
   const artist = artistToText(t.artistHtml, 200);
   if (licence.needsAttribution && !artist) return null;
   return {
-    url: url.href,
+    url: `https://${IMAGE_HOST}${url.pathname}`, // no query (utm_*), the host next/image allows
     w: Math.round(t.width),
     h: Math.round(t.height),
     licence: licence.name.slice(0, 60),

@@ -255,10 +255,23 @@ export function StopInfoToggle({
           <p className="text-sm" role="status">
             {t("error")}
           </p>
+        ) : info?.partial && info.status !== "ok" && view?.loading ? (
+          <p className="text-sm" role="status">
+            {t("loadingBackground")}
+          </p>
         ) : info?.status === "ok" ? (
-          <StopCard info={info} stop={stop} tourId={tourId} view={view!} />
+          <>
+            <StopCard info={info} stop={stop} tourId={tourId} view={view!} />
+            {info.partial && view?.loading && (
+              <p className={`mt-2 text-xs ${mutedCls}`} role="status">
+                {t("loadingMore")}
+              </p>
+            )}
+          </>
         ) : !info && view?.pending.includes(stop.key) ? (
-          <p className="text-sm">{view.limited ? t("limited") : t("notYet")}</p>
+          <p className="text-sm" role="status">
+            {view.loading ? t("loadingBackground") : view.limited ? t("limited") : t("notYet")}
+          </p>
         ) : (
           <p className={`text-sm ${mutedCls}`}>{t("none")}</p>
         )}

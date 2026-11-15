@@ -19,6 +19,7 @@ const h = vi.hoisted(() => ({
   reserve: vi.fn(),
   release: vi.fn(),
   logEvent: vi.fn(),
+  schedulePrefetch: vi.fn(),
   cityPlaces: vi.fn(),
   getPlaceById: vi.fn(),
   transit: vi.fn(),
@@ -36,6 +37,7 @@ vi.mock("../facts/tour-ors", () => ({ getTourMatrix: h.matrix, getTourRoute: h.r
 vi.mock("../facts/transit", () => ({ getTransitLeg: h.transit, TRANSIT_TTL_SECONDS: 7 * 86400 }));
 vi.mock("../ai-slots", () => ({ reserveAiCall: h.reserve, releaseAiCall: h.release }));
 vi.mock("../events", () => ({ logEvent: h.logEvent }));
+vi.mock("../stop-info/prefetch", () => ({ scheduleStopInfoPrefetch: h.schedulePrefetch }));
 vi.mock("./places", async (orig) => ({ ...(await orig<typeof import("./places")>()), cityPlaces: h.cityPlaces }));
 vi.mock("@/lib/integrations/open-meteo-geocoding", () => ({ getPlaceById: h.getPlaceById }));
 
@@ -101,6 +103,7 @@ beforeEach(() => {
   h.reserve.mockReset().mockResolvedValue({ ok: true, id: "slot1", pending: 0 });
   h.release.mockReset();
   h.logEvent.mockReset();
+  h.schedulePrefetch.mockReset();
   h.cityPlaces.mockReset().mockResolvedValue({ places: [], pending: false, fetchedAt: "2026-11-02T00:00:00.000Z" });
   h.getPlaceById.mockReset().mockResolvedValue(WIEN);
   h.transit.mockReset();
@@ -134,6 +137,7 @@ describe("computeTour: access and short cuts", () => {
     const res = await computeTour(TOUR);
     expect(res).toMatchObject({ ok: true, data: { unchanged: true, result: stored } });
     expect(orsCalls()).toBe(0);
+    expect(h.schedulePrefetch).not.toHaveBeenCalled(); // nothing saved, nothing new to fetch
     expect(h.reserve).not.toHaveBeenCalled();
     expect(h.cityPlaces).not.toHaveBeenCalled();
     expect(adminWrites()).toHaveLength(0);
@@ -247,6 +251,8 @@ describe("computeTour: pipeline", () => {
     expect(readAt).toBeGreaterThanOrEqual(0);
     expect(readAt).toBeLessThan(h.ops.indexOf(w[0]));
     expect(res.data.updatedAt).toBe("2026-11-12T01:00:00Z");
+    // Stop info is prefetched in the background once the result is saved.
+    expect(h.schedulePrefetch).toHaveBeenCalledWith(TOUR);
 
     expect(h.logEvent).toHaveBeenCalledWith({
       event: "tour.computed",

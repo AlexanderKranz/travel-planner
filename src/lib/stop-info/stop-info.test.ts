@@ -76,6 +76,10 @@ describe("card (spec 3, 4, 12)", () => {
     expect(stopImage("Dom.svg", thumb({ mime: "image/svg+xml" }))).toBeNull();
     expect(stopImage("Dom.jpg", thumb({ thumbUrl: "https://evil.example/x.jpg" }))).toBeNull();
     expect(stopImage("Wappen Passau.jpg", thumb())).toBeNull();
+    // Commons answers on thumb.wikimedia.org with tracking parameters (2026-11-15): stored as the plain upload URL.
+    const live = "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Dom.jpg/330px-Dom.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo";
+    expect(stopImage("Dom.jpg", thumb({ thumbUrl: live }))?.url).toBe("https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Dom.jpg/330px-Dom.jpg");
+    expect(stopImage("Dom.jpg", thumb({ thumbUrl: "https://thumb.wikimedia.org/other/x.jpg" }))).toBeNull();
   });
 
   it("builds an ok card with text, facts and picture; OSM website before Wikidata", () => {
@@ -126,7 +130,12 @@ describe("view (spec 5)", () => {
 
   it("fresh entries in the owner's locale count; stale, missing or other-locale entries are pending", () => {
     const stored = { v: 1, locale: "de", stops: [{ key: "osm:w1", status: "none", checkedAt: "2026-11-01T00:00:00Z" }, { key: "osm:n2", status: "none", checkedAt: "2026-09-01T00:00:00Z" }] };
-    expect(storedView(stored, eligibleStops(input), "de", now)).toEqual({ stops: [stored.stops[0]], pending: ["osm:n2"] });
+    expect(storedView(stored, eligibleStops(input), "de", now)).toEqual({ stops: [stored.stops[0]], pending: ["osm:n2"], incomplete: [] });
+    // A partial entry (no OSM tags yet) is shown and listed for the background fetch, not pending.
+    const partial = { ...stored, stops: [{ ...stored.stops[0], partial: true }] };
+    const pv = storedView(partial, eligibleStops(input), "de", now);
+    expect(pv).toMatchObject({ pending: ["osm:n2"], incomplete: ["osm:w1"] });
+    expect(pv.stops).toEqual([partial.stops[0]]); // the partial card is shown
     expect(storedView(stored, eligibleStops(input), "en", now).pending).toEqual(["osm:w1", "osm:n2"]);
     expect(storedView(null, eligibleStops(input), "de", now).pending).toEqual(["osm:w1", "osm:n2"]);
   });

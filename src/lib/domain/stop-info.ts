@@ -48,6 +48,8 @@ export const StopInfo = z.object({
   clipped: z.boolean().optional(),
   image: StopImage.optional(),
   facts: StopFacts.optional(),
+  /** Built without OSM tags (Overpass did not answer in time): shown, and completed by the background fetch. */
+  partial: z.boolean().optional(),
 });
 export type StopInfo = z.infer<typeof StopInfo>;
 
@@ -69,4 +71,6 @@ export type StopInfoView = {
   pending: string[];
   /** A daily limit is used up: only stored and cached info is shown (spec 12). */
   limited: boolean;
+  /** A background fetch for the missing or partial stops is running or was scheduled just now ("Infos werden geladen"). */
+  loading?: boolean;
 };

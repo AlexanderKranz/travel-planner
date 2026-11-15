@@ -34,7 +34,7 @@ vi.mock("@/lib/integrations/wikimedia-stops", async (orig) => ({
   fetchCommonsThumbs: h.thumbs,
 }));
 
-import { fetchStopInfoBatch, osmTagsQuery } from "./fetch";
+import { OVERPASS_REQUEST_CAP_MS, fetchStopInfoBatch, osmTagsQuery } from "./fetch";
 
 const ctx = { userId: "u1" };
 const ok = <T,>(data: T) => ({ ...data, status: 200, latencyMs: 5 });
@@ -127,5 +127,63 @@ describe("fetchStopInfoBatch", () => {
   it("no eligible stop → no call at all", async () => {
     expect(await fetchStopInfoBatch([{ key: "geo:1" }], "de", ctx)).toMatchObject({ entries: [], unfinished: [], calls: 0 });
     expect(h.calls).toHaveLength(0);
+  });
+
+  describe("landmark fast path (decisions 2026-11-15)", () => {
+    const qids = new Map([["osm:w1", "Q1"]]);
+
+    it("request path: a stop with a known Wikidata id skips Overpass and becomes a partial card", async () => {
+      const r = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx, undefined, { qids, tags: "unknown" });
+      // Overpass is asked only for the stop without a known id.
+      expect(h.runQuery).toHaveBeenCalledTimes(1);
+      expect(h.runQuery.mock.calls[0][0]).toBe(osmTagsQuery([{ type: "node", id: 2 }]));
+      const w1 = r.entries.find((e) => e.key === "osm:w1")!;
+      expect(w1).toMatchObject({ status: "ok", qid: "Q1", title: "St. Stephen's Cathedral", partial: true });
+      expect(w1.facts?.website).toBeUndefined(); // OSM website comes with the background fetch
+      expect(r.entries.find((e) => e.key === "osm:n2")?.partial).toBeUndefined();
+    });
+
+    it("a failed Overpass call never blocks stops with a known id; others stay unfinished", async () => {
+      h.runQuery.mockRejectedValue(Object.assign(new Error("502"), { status: 502 }));
+      const r = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx, undefined, { qids, tags: "unknown" });
+      expect(r.entries.map((e) => [e.key, e.partial])).toEqual([["osm:w1", true]]);
+      expect(r.unfinished).toEqual(["osm:n2"]);
+      // Same in the background mode: Overpass down still yields the partial card.
+      h.store.clear();
+      const bg = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx, undefined, { qids, tags: "all" });
+      expect(bg.entries.map((e) => [e.key, e.partial])).toEqual([["osm:w1", true]]);
+      expect(bg.unfinished).toEqual(["osm:n2"]);
+    });
+
+    it("request path: Overpass failing slowly at its deadline leaves time for the known stop's partial card", async () => {
+      let overpassDeadline = 0;
+      h.runQuery.mockImplementation(async (_q: string, o: { deadline: number }) => {
+        overpassDeadline = o.deadline;
+        await new Promise((r) => setTimeout(r, Math.max(0, o.deadline - Date.now())));
+        throw Object.assign(new Error("timeout"), { name: "TimeoutError" });
+      });
+      const started = Date.now();
+      const r = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx, undefined, { qids, tags: "unknown" });
+      expect(overpassDeadline - started).toBeLessThanOrEqual(OVERPASS_REQUEST_CAP_MS + 50); // capped, not the full 4 s
+      expect(r.entries.map((e) => [e.key, e.partial])).toEqual([["osm:w1", true]]);
+      expect(r.unfinished).toEqual(["osm:n2"]);
+    }, 10_000);
+
+    it("background mode asks Overpass for every stop: full cards with OSM facts, not partial", async () => {
+      const r = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx, undefined, { qids, tags: "all" });
+      expect(h.runQuery.mock.calls[0][0]).toBe(osmTagsQuery([{ type: "way", id: 1 }, { type: "node", id: 2 }]));
+      const w1 = r.entries.find((e) => e.key === "osm:w1")!;
+      expect(w1.partial).toBeUndefined();
+      expect(w1.facts).toMatchObject({ website: "https://dom.example/", websiteFrom: "osm" });
+    });
+
+    it("a repeated batch for the same stops is served from the cache (no new requests)", async () => {
+      await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx, undefined, { qids, tags: "all" });
+      const again = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx, undefined, { qids, tags: "all" });
+      expect(h.runQuery).toHaveBeenCalledTimes(1);
+      expect(h.entities).toHaveBeenCalledTimes(1);
+      expect(again.calls).toBe(0);
+      expect(again.entries).toHaveLength(2);
+    });
   });
 });

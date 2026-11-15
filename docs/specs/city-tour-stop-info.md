@@ -8,8 +8,9 @@ Decided by Alex, 2026-11-13: (1) info cards plus **read-out by the browser's Web
 no server text-to-speech; (2) the info shows in the **tour result, the trip PDF and the share page**; (3) audio is
 **play/pause per stop plus "next stop"**, never triggered by location; (4) **the info must not overload the tour
 view**: each stop gets a collapsed toggle "Infos zum Ort" / "About this place" that reveals its card and its
-play/pause control, nothing is expanded by default, and the info is fetched only when a stop is first expanded
-(section 5). The share page works the same way; the PDF follows a compact rule (section 6, [Q2]).
+play/pause control, nothing is expanded by default. **Changed by Alex, 2026-11-15:** the info is prefetched in the
+background after a computation, and fetched on the first expand only as a fallback (section 5). The share page works
+the same way; the PDF follows a compact rule (section 6, [Q2]).
 The open questions were decided the same day (section 11).
 
 Not in scope: a narrated or rewritten guide (would need a new rule 2 use), recorded audio, offline packs, location
@@ -122,19 +123,33 @@ statement, so a key added back later is fetched again.
 
 ## 5. When it is fetched [S4]
 
-- **Lazily, on the first expand.** Nothing is fetched with the computation or on page load. The first time any stop
-  of a tour is expanded, `tourStopInfo(id)` fetches the info **for all stops of the tour in one batch** and stores
-  it in `stop_info`; later expands (of any stop, by anyone) read what is stored. *Recommended* over a per-stop fetch:
-  the APIs are batched (section 3), so all 27 stops cost about the same 5–7 requests as one stop, and the next expand then
-  answers instantly. Budget 4 s; stops not done in time are fetched on their own expand.
+- **In the background after a computation (Alex, 2026-11-15).** Once a computation has saved its result, the server
+  runs the batch with `after()` (the response is not delayed) and a budget of about 110 s (`maxDuration` 300 on the
+  tour, trip and share pages). Only stops that are missing, stale or `partial` are fetched, so a recompute with the
+  same stops costs no calls. *Reason:* the first version fetched only on the first expand with a 4 s budget and started
+  with one Overpass query; the public Overpass instance answered a 3-element query in 27 s or with HTTP 502 (measured
+  2026-11-15), so no stop ever got a card and nothing was cached.
+- **Landmark fast path.** The Wikidata id of a stop is taken from the city's cached landmark set (`readLandmarks`,
+  `osmType`/`osmId` → `wikidata`, 0 calls) where it is there; such stops go straight to Wikidata, Wikipedia and Commons,
+  which answer well within a second. Overpass is then needed only for stops without a known id and for the OSM tags
+  (opening hours, website).
+- **On the first expand, as fallback.** When stops are still missing (no computation since, or the background run
+  failed), the expand fetches them **in one batch** with a 4 s budget: Overpass only for stops without a known id, and
+  a failed Overpass call never blocks the stops whose id is known. Those get a `partial` card (no OSM opening hours or
+  website yet), shown at once; missing and partial stops are then completed by a background run (same `after()`,
+  at most once per tour and instance in 2 minutes). While that run is due, the card says "Die Infos zu diesem Ort
+  werden gerade geladen" and the page looks again up to 8 times, 15 s apart (a partial card adds "Weitere Angaben
+  werden noch geladen"). A background run started by a share-link viewer counts against that link's daily limit, not
+  the owner's. On the request path Overpass gets at most 1.5 s when known-id stops are in the batch. The APIs are batched (section 3), so all
+  27 stops cost about the same 5–7 requests as one stop.
 - **Who can trigger it:** the owner and read grantees (session, RLS read), and share-link viewers through the share
   route by token. All of them write only `stop_info`, through the server with the secret key; nobody else's input
   changes. Share-link fetches have their own durable limit per link (section 12).
 - **Stops added later** have no entry; their first expand fetches them (and any other missing stops) in one batch.
-- Refresh: an entry whose `checkedAt` is older than 30 days (both statuses) is fetched again on its next expand,
+- Refresh: an entry whose `storedAt` is older than 30 days (both statuses) is fetched again (next computation or expand),
   and so is the whole `stop_info` when its `locale` differs from the owner's current locale (the owner switched
-  language, [Q1]). A completed refresh that finds nothing replaces the old entry with `status: "none"`. No
-  background job.
+  language, [Q1]). A completed refresh that finds nothing replaces the old entry with `status: "none"`. No cron job:
+  background runs only follow a computation or an expand.
 - Rate limits and the cache-only mode when they are used up: section 12.
 
 ## 6. UI [S5]
@@ -191,8 +206,9 @@ readOut.{play, pause, resume, next, stop, tour, reading, unsupported, voiceNote}
 - Clients (recorded fixtures, one live check each like the sitelinks spike): batching ≤ 50, sitefilter, extracts per
   language, disambiguation dropped, clipping, licence filter, artist HTML stripped.
 - Pipeline: budget leaves partial info; recompute keeps known stops; size check; owner-only writes; grantee read.
-- Lazy loading: nothing fetched on render or computation; the first expand fetches one batch for all stops; a second
-  expand makes no call; the share route fetch is rate limited per token.
+- Loading: nothing fetched on render; a saved computation schedules the background batch (`after()`), an unchanged
+  recompute does not; fresh full cards are never fetched again; known landmark ids skip Overpass; a failed Overpass
+  call still yields partial cards for them; the share route fetch is rate limited per token.
 - UI: toggles collapsed by default with `aria-expanded`; card renders facts and credits; no read-out controls without `speechSynthesis`; one utterance at a time; status
   text; 360 px without horizontal scroll (E2E).
 - PDF and share: without the opt-in the PDF is unchanged; with it, one line (≤ 140 characters) per stop and the
@@ -202,8 +218,8 @@ readOut.{play, pause, resume, next, stop, tour, reading, unsupported, voiceNote}
 ## 9. PRs (each with a bot review)
 
 1. Migration `city_tours.stop_info` (alone, merged and applied first).
-2. Server: clients, matching, `tourStopInfo` (fetched on the first expand only, never after a computation), cache
-   keys, limits.
+2. Server: clients, matching, `tourStopInfo` (fetched on the first expand; since 2026-11-15 also in the background
+   after a computation, see section 5), cache keys, limits.
 3. UI: cards and read-out in the tour result and the share page.
 4. PDF lines and the sources page text.
 

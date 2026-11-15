@@ -14,6 +14,9 @@ import { hashShareToken, isShareTokenFormat } from "@/lib/server/share-token";
 import { tourMapStyleUrl } from "@/lib/server/tour/map-style";
 import { getSharedTour } from "@/lib/server/tour/shared";
 
+/** Stop info is completed in the background after a computation or an expand (`after()`, up to ~110 s). */
+export const maxDuration = 300;
+
 // Never cached: revoking or expiring a link must take effect at once.
 export const dynamic = "force-dynamic";
 

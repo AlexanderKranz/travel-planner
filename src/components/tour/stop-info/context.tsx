@@ -118,24 +118,54 @@ function useSpeech(): Speech {
   return { supported, voiceFor, reading, speak, pause, resume, stop };
 }
 
+const POLL_MS = 15_000;
+const POLL_MAX = 8; // 2 minutes: the background budget is about 110 s
+
 export function StopInfoProvider({ source, children }: { source: StopInfoSource; children: ReactNode }) {
   const [loads, setLoads] = useState<Record<string, Load>>({});
   const [open, setOpenState] = useState<Record<string, Set<string>>>({});
   const busy = useRef(new Set<string>());
+  /** Re-checks per tour while the background fetch runs ("Infos werden geladen"). */
+  const polls = useRef(new Map<string, number>());
+  const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const alive = useRef(true);
   const speech = useSpeech();
 
+  // Leaving the page stops the re-checks; a response arriving afterwards schedules no new one.
+  useEffect(() => {
+    alive.current = true;
+    const pending = timers.current;
+    return () => {
+      alive.current = false;
+      pending.forEach(clearTimeout);
+      pending.clear();
+    };
+  }, []);
+
   const load = useCallback(
-    (tourId: string) => {
+    /** `background`: a re-check while cards are shown; keeps the loaded view (no "loading" flash, focus stays). */
+    function load(tourId: string, background = false) {
       if (busy.current.has(tourId)) return;
       busy.current.add(tourId);
-      setLoads((l) => ({ ...l, [tourId]: { status: "loading" } }));
+      if (!background) setLoads((l) => ({ ...l, [tourId]: { status: "loading" } }));
       const call = source.kind === "share" ? getSharedTourStopInfo(source.token, tourId) : getTourStopInfo(tourId);
       void call
         .catch(() => ({ ok: false as const, error: "failed" as const }))
         .then((r) => {
-          setLoads((l) => ({ ...l, [tourId]: r.ok ? { status: "loaded", view: r.data } : { status: "error" } }));
-          // Only a running request blocks another; whether a finished load is repeated is decided by the toggle.
           busy.current.delete(tourId);
+          if (!alive.current) return;
+          // A failed re-check keeps what is shown; a failed first load shows the error.
+          if (r.ok || !background) setLoads((l) => ({ ...l, [tourId]: r.ok ? { status: "loaded", view: r.data } : { status: "error" } }));
+          // While the background fetch runs, look again a few times so the cards appear without a reload.
+          const n = polls.current.get(tourId) ?? 0;
+          if (r.ok && r.data.loading && n < POLL_MAX) {
+            polls.current.set(tourId, n + 1);
+            const id = setTimeout(() => {
+              timers.current.delete(id);
+              load(tourId, true);
+            }, POLL_MS);
+            timers.current.add(id);
+          } else if (r.ok && !r.data.loading) polls.current.delete(tourId);
         });
     },
     [source],
