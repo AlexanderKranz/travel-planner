@@ -11,12 +11,15 @@ import { getUserSession } from "../session";
 import { hashShareToken, isShareTokenFormat } from "../share-token";
 import { createSupabaseAdminClient } from "../supabase/admin";
 import { fetchStopInfoBatch } from "./fetch";
+import { landmarkQids, prefetchRecentlyScheduled, scheduleStopInfoPrefetch } from "./prefetch";
 
 /**
  * Stop info on the first expand (docs/specs/city-tour-stop-info.md sections 5 and 12). Readers of a tour (owner and
  * grantees through RLS, or a share-link viewer by token) get the stored info; when stops are pending, one batch is
  * fetched for all of them, within durable daily limits reserved before the batch, and merged atomically by
- * `merge_stop_info`. Nothing is fetched on render or with a computation; only this action triggers a batch.
+ * `merge_stop_info`. On this request path the batch uses the landmark fast path and asks Overpass only for stops
+ * without a known Wikidata id (4 s budget); whatever stays missing or partial is completed by the background fetch
+ * (prefetch.ts), which also runs after every computation. Nothing is fetched on render.
  */
 export type StopInfoResult = { ok: true; data: StopInfoView } | { ok: false; error: "unauthenticated" | "invalid" | "not_found" | "failed" };
 
@@ -43,7 +46,11 @@ async function viewFor(row: TourRowLite, scope: Scope, ctxUser: string | null, v
   if (!locale) return { ok: false, error: "failed" };
   const eligible = eligibleStops(input.data);
   const first = storedView(row.stop_info, eligible, locale);
-  if (first.pending.length === 0) return { ok: true, data: { locale, ...first, limited: false } };
+  if (first.pending.length === 0) {
+    // Partial cards are shown; the background fetch completes them (scheduled at most once per cooldown).
+    const loading = first.incomplete.length > 0 ? scheduleStopInfoPrefetch(row.id) : false;
+    return { ok: true, data: { locale, stops: first.stops, pending: first.pending, limited: false, loading } };
+  }
 
   const burstKey = "user" in scope ? `stop-info:${scope.user}` : `stop-info-link:${scope.link}`;
   const reserved = rateLimit(burstKey, BURST_PER_MIN, 60_000).ok ? await reserve(admin, scope) : null;
@@ -52,7 +59,11 @@ async function viewFor(row: TourRowLite, scope: Scope, ctxUser: string | null, v
   let calls = 0;
   try {
     // A used-up limit means cache-only (spec 12): cached API answers are still turned into cards, no request is sent.
-    const batch = await fetchStopInfoBatch(pendingPoints, locale, { userId: ctxUser }, limited ? offlineClock() : undefined);
+    const qids = await landmarkQids(input.data, { userId: ctxUser });
+    const batch = await fetchStopInfoBatch(pendingPoints, locale, { userId: ctxUser }, limited ? offlineClock() : undefined, {
+      qids,
+      tags: "unknown",
+    });
     calls = batch.calls;
     if (batch.entries.length) {
       const { error } = await admin.rpc("merge_stop_info", { p_tour: row.id, p_entries: batch.entries, p_locale: locale });
@@ -71,7 +82,10 @@ async function viewFor(row: TourRowLite, scope: Scope, ctxUser: string | null, v
 
   const { data: fresh } = await admin.from("city_tours").select("stop_info").eq("id", row.id).maybeSingle<{ stop_info: unknown }>();
   const after = storedView(fresh?.stop_info ?? row.stop_info, eligible, locale);
-  return { ok: true, data: { locale, ...after, limited } };
+  // Missing or partial stops left: the background fetch has the time Overpass needs ("Infos werden geladen").
+  const loading =
+    after.pending.length + after.incomplete.length > 0 ? (limited ? prefetchRecentlyScheduled(row.id) : scheduleStopInfoPrefetch(row.id)) : false;
+  return { ok: true, data: { locale, stops: after.stops, pending: after.pending, limited, loading } };
 }
 
 /** Clock for a cache-only batch: no network request is allowed. */

@@ -18,6 +18,9 @@ import { resultFitsInput } from "@/lib/tour/ui";
 import { tourView } from "@/lib/tour/view";
 import { unwrap } from "@/lib/unwrap";
 
+/** Stop info is completed in the background after a computation or an expand (`after()`, up to ~110 s). */
+export const maxDuration = 300;
+
 export default async function TourPage({ params }: { params: Promise<{ locale: string; id: string }> }) {
   const { locale, id } = await params;
   setRequestLocale(locale);

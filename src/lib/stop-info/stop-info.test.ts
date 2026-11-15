@@ -126,7 +126,10 @@ describe("view (spec 5)", () => {
 
   it("fresh entries in the owner's locale count; stale, missing or other-locale entries are pending", () => {
     const stored = { v: 1, locale: "de", stops: [{ key: "osm:w1", status: "none", checkedAt: "2026-11-01T00:00:00Z" }, { key: "osm:n2", status: "none", checkedAt: "2026-09-01T00:00:00Z" }] };
-    expect(storedView(stored, eligibleStops(input), "de", now)).toEqual({ stops: [stored.stops[0]], pending: ["osm:n2"] });
+    expect(storedView(stored, eligibleStops(input), "de", now)).toEqual({ stops: [stored.stops[0]], pending: ["osm:n2"], incomplete: [] });
+    // A partial entry (no OSM tags yet) is shown and listed for the background fetch, not pending.
+    const partial = { ...stored, stops: [{ ...stored.stops[0], partial: true }] };
+    expect(storedView(partial, eligibleStops(input), "de", now)).toMatchObject({ pending: ["osm:n2"], incomplete: ["osm:w1"] });
     expect(storedView(stored, eligibleStops(input), "en", now).pending).toEqual(["osm:w1", "osm:n2"]);
     expect(storedView(null, eligibleStops(input), "de", now).pending).toEqual(["osm:w1", "osm:n2"]);
   });

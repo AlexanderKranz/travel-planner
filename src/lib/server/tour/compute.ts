@@ -37,6 +37,7 @@ import { getTourMatrix, getTourRoute, peekTourMatrix, type TourRouteAnswer } fro
 import { getTransitLeg, TRANSIT_TTL_SECONDS } from "../facts/transit";
 import { rateLimit } from "../rate-limit";
 import { getUserSession } from "../session";
+import { scheduleStopInfoPrefetch } from "../stop-info/prefetch";
 import { createSupabaseAdminClient } from "../supabase/admin";
 import { rowToTour, TOUR_COLUMNS, tourAccess, type TourRow } from "./mapping";
 import { cityDestination, cityPlaces } from "./places";
@@ -527,6 +528,8 @@ async function run(id: string, force: boolean): Promise<ComputeTourResult> {
   // 6. Snapshot with the secret key, then the event (no names, no coordinates).
   const saved = await saveResult(row, result, hash);
   if (!saved) return err("conflict"); // the tour changed (or was deleted) meanwhile: reload and compute again
+  // Stop info in the background after the response (missing, stale or partial stops only; cached stops cost nothing).
+  scheduleStopInfoPrefetch(row.id);
   const failedLegs = legs.filter((l) => l.s !== "ok").length;
   await logEvent({
     event: "tour.computed",

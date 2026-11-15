@@ -118,14 +118,19 @@ function useSpeech(): Speech {
   return { supported, voiceFor, reading, speak, pause, resume, stop };
 }
 
+const POLL_MS = 15_000;
+const POLL_MAX = 4;
+
 export function StopInfoProvider({ source, children }: { source: StopInfoSource; children: ReactNode }) {
   const [loads, setLoads] = useState<Record<string, Load>>({});
   const [open, setOpenState] = useState<Record<string, Set<string>>>({});
   const busy = useRef(new Set<string>());
+  /** Re-checks per tour while the background fetch runs ("Infos werden geladen"). */
+  const polls = useRef(new Map<string, number>());
   const speech = useSpeech();
 
   const load = useCallback(
-    (tourId: string) => {
+    function load(tourId: string) {
       if (busy.current.has(tourId)) return;
       busy.current.add(tourId);
       setLoads((l) => ({ ...l, [tourId]: { status: "loading" } }));
@@ -136,6 +141,12 @@ export function StopInfoProvider({ source, children }: { source: StopInfoSource;
           setLoads((l) => ({ ...l, [tourId]: r.ok ? { status: "loaded", view: r.data } : { status: "error" } }));
           // Only a running request blocks another; whether a finished load is repeated is decided by the toggle.
           busy.current.delete(tourId);
+          // While the background fetch runs, look again a few times so the cards appear without a reload.
+          const n = polls.current.get(tourId) ?? 0;
+          if (r.ok && r.data.loading && n < POLL_MAX) {
+            polls.current.set(tourId, n + 1);
+            setTimeout(() => load(tourId), POLL_MS);
+          } else if (r.ok && !r.data.loading) polls.current.delete(tourId);
         });
     },
     [source],

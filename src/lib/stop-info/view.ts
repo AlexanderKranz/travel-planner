@@ -2,7 +2,8 @@
  * What is stored and what still needs a fetch (docs/specs/city-tour-stop-info.md section 5). Pure.
  *
  * Eligible stops are the tour's `osm:` points. An entry counts while it is younger than 30 days and the stored
- * locale is the owner's current one; otherwise its key is pending (fetched on the next expand).
+ * locale is the owner's current one; otherwise its key is pending (fetched on the next expand). A counted entry marked
+ * `partial` (no OSM tags yet) is listed in `incomplete` for the background fetch.
  */
 import { STOP_INFO_REFRESH_DAYS, TourStopInfo, type StopInfo, type StopInfoLocale } from "@/lib/domain/stop-info";
 import type { TourInput } from "@/lib/domain/tour";
@@ -28,18 +29,22 @@ export function storedView(
   eligible: readonly StopPointRef[],
   ownerLocale: StopInfoLocale,
   now: number = Date.now(),
-): { stops: StopInfo[]; pending: string[] } {
+): { stops: StopInfo[]; pending: string[]; incomplete: string[] } {
   const parsed = TourStopInfo.safeParse(raw);
   const usable = parsed.success && parsed.data.locale === ownerLocale ? parsed.data.stops : [];
   const byKey = new Map(usable.map((s) => [s.key, s]));
   const maxAge = STOP_INFO_REFRESH_DAYS * 86_400_000;
   const stops: StopInfo[] = [];
   const pending: string[] = [];
+  const incomplete: string[] = [];
   for (const p of eligible) {
     const s = byKey.get(p.key);
     const at = s ? Date.parse(s.storedAt ?? s.checkedAt) : NaN;
-    if (s && Number.isFinite(at) && now - at < maxAge) stops.push(s);
-    else pending.push(p.key);
+    if (s && Number.isFinite(at) && now - at < maxAge) {
+      stops.push(s);
+      // Shown, but built without OSM tags: the background fetch completes it (not fetched again on expand).
+      if (s.partial) incomplete.push(p.key);
+    } else pending.push(p.key);
   }
-  return { stops, pending };
+  return { stops, pending, incomplete };
 }

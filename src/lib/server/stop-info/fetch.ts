@@ -23,8 +23,15 @@ import { cacheKey, cached, type CacheCtx } from "../api-cache";
 /**
  * One stop-info batch for a tour (docs/specs/city-tour-stop-info.md sections 2, 3 and 5): OSM tags (Overpass), Wikidata
  * entities, Wikipedia extracts in the owner's language with English fallback, labels, Commons thumbnails. Every call is
- * cached in api_cache and logged in api_calls; the batch has a 4 s budget. Stops whose pieces did not arrive in time
- * get no entry ("unfinished") and are fetched on their next expand. Nothing is guessed.
+ * cached in api_cache and logged in api_calls; the batch has a 4 s budget on the request path and a long one in the
+ * background (prefetch.ts). Stops whose pieces did not arrive in time get no entry ("unfinished") and are fetched again.
+ * Nothing is guessed.
+ *
+ * Landmark fast path (spec, decisions 2026-11-15): `qids` maps stop keys to the Wikidata id already known from the
+ * city's cached landmarks. Those stops do not need Overpass for their Wikidata link: with `tags: "unknown"` (request
+ * path) Overpass is asked only for the other stops, and a stop with a known id becomes a `partial` card (no OSM opening
+ * hours or website yet) instead of waiting for Overpass, which measured 27 s or 502 on the public instance. With
+ * `tags: "all"` (background) Overpass is asked for every stop; if it fails, known-id stops still get partial cards.
  */
 export const STOP_INFO_BUDGET_MS = 4000;
 const MIN_LEFT_MS = 500;
@@ -32,6 +39,7 @@ const DEFAULT_TIMEOUT_MS = 3000;
 const DAY = 86400;
 
 export type StopPoint = { key: string; cat?: string };
+export type BatchOptions = { qids?: ReadonlyMap<string, string>; tags?: "unknown" | "all" };
 export type BatchResult = { entries: StopInfo[]; unfinished: string[]; calls: number; storedAt: string };
 
 const hash = (parts: readonly string[]) => createHash("sha256").update([...parts].sort().join("|")).digest("hex").slice(0, 32);
@@ -107,6 +115,7 @@ export async function fetchStopInfoBatch(
   locale: StopInfoLocale,
   ctx: CacheCtx,
   clock: Clock = { deadline: Date.now() + STOP_INFO_BUDGET_MS, now: Date.now },
+  opts: BatchOptions = {},
 ): Promise<BatchResult> {
   const unfinished = new Set<string>();
   const dates: string[] = [];
@@ -121,26 +130,46 @@ export async function fetchStopInfoBatch(
   const eligible = points.map((p) => ({ ...p, ref: osmRefOf(p.key) })).filter((p): p is StopPoint & { ref: OsmRef } => p.ref !== null);
   if (eligible.length === 0) return { entries: [], unfinished: [], calls: 0, storedAt: new Date(clock.now()).toISOString() };
 
-  // 1. OSM tags of all stops in one Overpass query.
-  const refs = eligible.map((p) => p.ref);
-  const tagsRes = await call(clock, ctx, {
-    provider: "overpass",
-    endpoint: "stop_osm_tags",
-    key: cacheKey("osm-tags", 1, { ids: hash(refs.map(osmRefKey)) }),
-    ttl: 30 * DAY,
-    schema: TagsPayload,
-    fetch: async () => {
-      const r = await runQuery(osmTagsQuery(refs), { deadline: clock.deadline });
-      const data: Record<string, Record<string, string>> = {};
-      for (const e of r.elements) {
-        const kept = Object.fromEntries(Object.entries(e.tags).filter(([k]) => KEPT_TAGS.includes(k)));
-        data[osmRefKey({ type: e.type, id: e.id })] = kept;
-      }
-      return { data, status: r.status, latencyMs: r.latencyMs };
-    },
-  });
-  if (!note(tagsRes)) return { entries: [], unfinished: eligible.map((p) => p.key), calls, storedAt: new Date(clock.now()).toISOString() };
-  const osm = new Map<string, OsmFacts>(eligible.map((p) => [p.key, osmFacts(tagsRes.data[osmRefKey(p.ref)] ?? {})]));
+  // 1. OSM tags in one Overpass query: for every stop ("all", background) or only for stops without a known Wikidata
+  // id ("unknown", request path). A failed query never blocks the stops whose id is known.
+  const known = opts.qids ?? new Map<string, string>();
+  const asked = opts.tags === "all" ? eligible : eligible.filter((p) => !known.has(p.key));
+  let tags: Record<string, Record<string, string>> | null = null;
+  if (asked.length) {
+    const refs = asked.map((p) => p.ref);
+    const tagsRes = await call(clock, ctx, {
+      provider: "overpass",
+      endpoint: "stop_osm_tags",
+      key: cacheKey("osm-tags", 1, { ids: hash(refs.map(osmRefKey)) }),
+      ttl: 30 * DAY,
+      schema: TagsPayload,
+      fetch: async () => {
+        const r = await runQuery(osmTagsQuery(refs), { deadline: clock.deadline });
+        const data: Record<string, Record<string, string>> = {};
+        for (const e of r.elements) {
+          const kept = Object.fromEntries(Object.entries(e.tags).filter(([k]) => KEPT_TAGS.includes(k)));
+          data[osmRefKey({ type: e.type, id: e.id })] = kept;
+        }
+        return { data, status: r.status, latencyMs: r.latencyMs };
+      },
+    });
+    if (note(tagsRes)) tags = tagsRes.data;
+  }
+  const askedKeys = new Set(asked.map((p) => p.key));
+  const osm = new Map<string, OsmFacts>();
+  const partial = new Set<string>();
+  for (const p of eligible) {
+    if (tags && askedKeys.has(p.key)) {
+      const facts = osmFacts(tags[osmRefKey(p.ref)] ?? {});
+      // OSM has no wikidata tag but the landmark set knows the id (same element): keep the known id.
+      osm.set(p.key, facts.qid || !known.has(p.key) ? facts : { ...facts, qid: known.get(p.key)! });
+    } else if (known.has(p.key)) {
+      osm.set(p.key, { qid: known.get(p.key)!, wikipedia: null, website: null, openingHours: null });
+      partial.add(p.key);
+    } else unfinished.add(p.key); // no tags and no known id: nothing to go on yet
+  }
+  const usable = eligible.filter((p) => osm.has(p.key));
+  if (usable.length === 0) return { entries: [], unfinished: [...unfinished], calls, storedAt: new Date(clock.now()).toISOString() };
 
   // 2. Wikidata entities, chunked.
   const qids = [...new Set([...osm.values()].map((f) => f.qid).filter((q): q is string => !!q))];
@@ -195,7 +224,7 @@ export async function fetchStopInfoBatch(
       if (hit && !extracts.has(k)) extracts.set(k, { lang, part: hit });
     }
   };
-  const keys = eligible.map((p) => p.key);
+  const keys = usable.map((p) => p.key);
   await extractPass(locale, keys);
   if (locale !== "en") await extractPass("en", keys.filter((k) => !extracts.has(k) && !failedExtracts.has(k)));
 
@@ -245,7 +274,7 @@ export async function fetchStopInfoBatch(
   const storedAt = new Date(clock.now()).toISOString();
   const checkedAt = dates.length ? [...dates].sort()[0] : storedAt;
   const entries: StopInfo[] = [];
-  for (const p of eligible) {
+  for (const p of usable) {
     const f = osm.get(p.key)!;
     const e = f.qid ? entities.get(f.qid) ?? null : null;
     const needsFailedLabel = !!e && [...e.architects, ...(e.heritage ? [e.heritage] : [])].some((q) => failedLabels.has(q));
@@ -253,8 +282,7 @@ export async function fetchStopInfoBatch(
       unfinished.add(p.key);
       continue;
     }
-    entries.push(
-      buildStopInfo({
+    const card = buildStopInfo({
         key: p.key,
         cat: p.cat,
         locale,
@@ -266,8 +294,8 @@ export async function fetchStopInfoBatch(
         extract: extracts.get(p.key) ?? null,
         thumb: e?.image ? thumbs.get(e.image) : undefined,
         labels,
-      }),
-    );
+      });
+    entries.push(partial.has(p.key) ? { ...card, partial: true } : card);
   }
   return { entries, unfinished: [...unfinished], calls, storedAt };
 }

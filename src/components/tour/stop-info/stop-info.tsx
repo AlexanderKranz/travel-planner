@@ -258,7 +258,9 @@ export function StopInfoToggle({
         ) : info?.status === "ok" ? (
           <StopCard info={info} stop={stop} tourId={tourId} view={view!} />
         ) : !info && view?.pending.includes(stop.key) ? (
-          <p className="text-sm">{view.limited ? t("limited") : t("notYet")}</p>
+          <p className="text-sm" role="status">
+            {view.loading ? t("loadingBackground") : view.limited ? t("limited") : t("notYet")}
+          </p>
         ) : (
           <p className={`text-sm ${mutedCls}`}>{t("none")}</p>
         )}
