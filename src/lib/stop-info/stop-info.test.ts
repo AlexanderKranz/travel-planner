@@ -76,6 +76,10 @@ describe("card (spec 3, 4, 12)", () => {
     expect(stopImage("Dom.svg", thumb({ mime: "image/svg+xml" }))).toBeNull();
     expect(stopImage("Dom.jpg", thumb({ thumbUrl: "https://evil.example/x.jpg" }))).toBeNull();
     expect(stopImage("Wappen Passau.jpg", thumb())).toBeNull();
+    // Commons answers on thumb.wikimedia.org with tracking parameters (2026-11-15): stored as the plain upload URL.
+    const live = "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/ab/Dom.jpg/330px-Dom.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo";
+    expect(stopImage("Dom.jpg", thumb({ thumbUrl: live }))?.url).toBe("https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Dom.jpg/330px-Dom.jpg");
+    expect(stopImage("Dom.jpg", thumb({ thumbUrl: "https://thumb.wikimedia.org/other/x.jpg" }))).toBeNull();
   });
 
   it("builds an ok card with text, facts and picture; OSM website before Wikidata", () => {
