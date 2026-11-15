@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { StopInfoView } from "@/lib/domain/stop-info";
 import { getSharedTourStopInfo, getTourStopInfo } from "@/lib/server/stop-info/actions";
-import type { SpeechPart } from "@/lib/stop-info/speak";
+import { hasVoice, type SpeechPart } from "@/lib/stop-info/speak";
 
 /**
  * Stop info state of a page (docs/specs/city-tour-stop-info.md sections 5 and 6): where the info comes from (a signed-in
@@ -72,7 +72,7 @@ function useSpeech(): Speech {
     };
   }, []);
 
-  const voiceFor = useCallback((lang: string) => voices.some((v) => v === lang || v.startsWith(`${lang}-`)), [voices]);
+  const voiceFor = useCallback((lang: string) => hasVoice(voices, lang), [voices]);
 
   const speak = useCallback((id: string, tourId: string, parts: SpeechPart[], onDone?: () => void) => {
     const synth = window.speechSynthesis;
