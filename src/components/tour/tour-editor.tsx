@@ -112,6 +112,8 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
   const [error, setError] = useState<ActionError | null>(null);
   const [unreachable, setUnreachable] = useState<string[]>([]);
   const [unknown, setUnknown] = useState<string[]>([]);
+  // Only stops still in the tour count: a removed flagged stop must not keep the list open.
+  const flaggedPlace = form.places.some((p) => unreachable.includes(p.key) || unknown.includes(p.key));
   const [problem, setProblem] = useState<FormProblem | null>(null);
   const [sheet, setSheet] = useState<SheetState | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -312,8 +314,12 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
             )}
             {form.places.length > 0 && (
               <details
-                open={placesOpen || unreachable.length > 0 || unknown.length > 0}
-                onToggle={(e) => setPlacesOpen(e.currentTarget.open)}
+                open={placesOpen || flaggedPlace}
+                onToggle={(e) => {
+                  // A flagged stop (unreachable or unknown) keeps the list open, so it cannot be hidden.
+                  if (!e.currentTarget.open && flaggedPlace) e.currentTarget.open = true;
+                  setPlacesOpen(e.currentTarget.open);
+                }}
                 className="rounded-lg border border-line"
                 data-testid="tour-places-toggle"
               >
