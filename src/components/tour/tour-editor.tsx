@@ -99,6 +99,8 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
   const [updatedAt, setUpdatedAt] = useState<string | null>(tour?.updatedAt ?? null);
   // A stored result whose points are no longer all in the input (saved, not recomputed) is withheld.
   const [result, setResult] = useState<TourResult | null>(tour?.result && resultFitsInput(tour.input, tour.result) ? tour.result : null);
+  // Stop cards fold away once the tour has a result (they take a lot of room); open before the first computation.
+  const [placesOpen, setPlacesOpen] = useState(result === null);
   // The input the shown result belongs to (names and coordinates of its keys).
   const [resultInput, setResultInput] = useState(tour?.input ?? null);
   const [serverOutdated, setServerOutdated] = useState(tour?.outdated ?? true);
@@ -207,6 +209,7 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
       return;
     }
     setResult(c.data.result);
+    setPlacesOpen(false);
     setResultInput(current.input);
     setServerOutdated(false);
     setUpdatedAt(c.data.updatedAt);
@@ -307,14 +310,28 @@ export function TourEditor({ tour, view, prefill, mapStyleUrl, trips }: Props) {
                 onPick={(s) => addPlace(suggestionToPoint(s))}
               />
             )}
-            <PlaceList
-              places={form.places}
-              dwellDefaultMin={form.dwellDefaultMin}
-              unreachable={unreachable}
-              unknown={unknown}
-              onChange={(places) => edit({ ...form, places })}
-              hasStartTime={!!form.startTime}
-            />
+            {form.places.length > 0 && (
+              <details
+                open={placesOpen || unreachable.length > 0 || unknown.length > 0}
+                onToggle={(e) => setPlacesOpen(e.currentTarget.open)}
+                className="rounded-lg border border-line"
+                data-testid="tour-places-toggle"
+              >
+                <summary className="flex min-h-11 cursor-pointer items-center px-3 font-medium">
+                  {t("placesToggle", { count: form.places.length })}
+                </summary>
+                <div className="p-2 pt-0">
+                  <PlaceList
+                    places={form.places}
+                    dwellDefaultMin={form.dwellDefaultMin}
+                    unreachable={unreachable}
+                    unknown={unknown}
+                    onChange={(places) => edit({ ...form, places })}
+                    hasStartTime={!!form.startTime}
+                  />
+                </div>
+              </details>
+            )}
             {(problem === "places" || form.places.length < 2) && (
               <p className={`text-sm ${problem === "places" ? "text-danger" : mutedCls}`} role={problem === "places" ? "alert" : undefined}>
                 {t("placesMin")}

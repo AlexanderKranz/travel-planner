@@ -61,3 +61,17 @@ export function stopSpeech(p: {
   for (const f of p.facts) parts.push({ text: f, lang: p.introLang });
   return parts;
 }
+
+/**
+ * Whether the device can speak `lang`. Browsers report voice languages as "de-DE" or "de_DE" (Android); an empty list
+ * means "not known yet" (Chrome loads voices late, some browsers never list them), and then the text is read anyway
+ * with the browser's default voice. Only a known list without the language skips the text.
+ */
+export function hasVoice(voiceLangs: readonly string[], lang: string): boolean {
+  if (voiceLangs.length === 0) return true;
+  const want = lang.toLowerCase().replace("_", "-");
+  return voiceLangs.some((v) => {
+    const l = v.toLowerCase().replace("_", "-");
+    return l === want || l.startsWith(`${want}-`);
+  });
+}
