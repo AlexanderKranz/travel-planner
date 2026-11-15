@@ -34,7 +34,7 @@ vi.mock("@/lib/integrations/wikimedia-stops", async (orig) => ({
   fetchCommonsThumbs: h.thumbs,
 }));
 
-import { fetchStopInfoBatch, osmTagsQuery } from "./fetch";
+import { OVERPASS_REQUEST_CAP_MS, fetchStopInfoBatch, osmTagsQuery } from "./fetch";
 
 const ctx = { userId: "u1" };
 const ok = <T,>(data: T) => ({ ...data, status: 200, latencyMs: 5 });
@@ -154,6 +154,20 @@ describe("fetchStopInfoBatch", () => {
       expect(bg.entries.map((e) => [e.key, e.partial])).toEqual([["osm:w1", true]]);
       expect(bg.unfinished).toEqual(["osm:n2"]);
     });
+
+    it("request path: Overpass failing slowly at its deadline leaves time for the known stop's partial card", async () => {
+      let overpassDeadline = 0;
+      h.runQuery.mockImplementation(async (_q: string, o: { deadline: number }) => {
+        overpassDeadline = o.deadline;
+        await new Promise((r) => setTimeout(r, Math.max(0, o.deadline - Date.now())));
+        throw Object.assign(new Error("timeout"), { name: "TimeoutError" });
+      });
+      const started = Date.now();
+      const r = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx, undefined, { qids, tags: "unknown" });
+      expect(overpassDeadline - started).toBeLessThanOrEqual(OVERPASS_REQUEST_CAP_MS + 50); // capped, not the full 4 s
+      expect(r.entries.map((e) => [e.key, e.partial])).toEqual([["osm:w1", true]]);
+      expect(r.unfinished).toEqual(["osm:n2"]);
+    }, 10_000);
 
     it("background mode asks Overpass for every stop: full cards with OSM facts, not partial", async () => {
       const r = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx, undefined, { qids, tags: "all" });
