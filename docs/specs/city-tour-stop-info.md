@@ -181,7 +181,8 @@ answers, then the card (or "Für diesen Ort gibt es keine Infos"):
 - Long texts are split into sentence chunks (Chrome cuts long utterances; iOS needs the first `speak` inside the tap).
 - Parts are spoken one at a time, each from the previous one's `end` (`playParts`, `src/lib/stop-info/queue.ts`):
   queuing them all right after `cancel()` let desktop engines drop the first ones, so only the fact lines were heard.
-  `cancel()` runs only when something plays; an `interrupted`/`canceled` error moves on to the next part, any other
+  `cancel()` runs only when something plays, and then the new read-out starts 150 ms later (engines finish a
+  cancel asynchronously); an `interrupted`/`canceled` error moves on to the next part, any other
   error ends the read-out.
 - Accessibility: buttons at least 44 × 44 px with text labels (`aria-pressed` for play/pause), an `aria-live="polite"`
   status "Liest: {name}" (not repeating the text), keyboard operable, no autoplay. Reading stops when the page is

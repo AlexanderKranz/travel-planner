@@ -18,6 +18,12 @@ export type QueueSynth<U extends QueueUtterance> = {
   speak: (u: U) => void;
 };
 
+/**
+ * Pause after cancelling a playing read-out before the next one starts: engines finish a cancel asynchronously and can
+ * swallow an utterance spoken right after it. iOS stays activated, since something was already playing.
+ */
+export const AFTER_CANCEL_MS = 150;
+
 /** Errors that only mean "this utterance was cut off" (by a cancel or another utterance): go on with the next part. */
 const SKIPPABLE = new Set(["interrupted", "canceled"]);
 
@@ -31,10 +37,13 @@ export function playParts<U extends QueueUtterance>(p: {
   onUtterance?: (u: U) => void;
   done: () => void;
   failed: () => void;
+  /** Runs a callback later (`setTimeout` in the app, synchronous in tests). */
+  later?: (fn: () => void, ms: number) => void;
 }): void {
   const { synth, parts } = p;
   // Cancel only when something plays; a cancel on an idle engine can still swallow the next speak.
-  if (synth.speaking || synth.pending) synth.cancel();
+  const busy = synth.speaking || synth.pending;
+  if (busy) synth.cancel();
   const at = (i: number) => {
     if (!p.current()) return;
     if (i >= parts.length) return p.done();
@@ -47,7 +56,8 @@ export function playParts<U extends QueueUtterance>(p: {
     };
     u.onend = next;
     u.onerror = (e: { error?: string }) => {
-      if (!p.current()) return;
+      // An error after `end` (or a second error) belongs to a part that is already done.
+      if (moved || !p.current()) return;
       if (e.error && SKIPPABLE.has(e.error)) return next();
       moved = true;
       p.failed();
@@ -55,5 +65,6 @@ export function playParts<U extends QueueUtterance>(p: {
     p.onUtterance?.(u);
     synth.speak(u);
   };
-  at(0);
+  if (busy) (p.later ?? ((fn, ms) => void setTimeout(fn, ms)))(() => at(0), AFTER_CANCEL_MS);
+  else at(0);
 }

@@ -75,6 +75,7 @@ function useSpeech(): Speech {
   useEffect(() => {
     const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
     if (!synth) return;
+    const runs = run; // the run counter (not a DOM node): its latest value is what the cleanup must bump
     // No audio from a background tab.
     const hidden = () => {
       if (document.visibilityState === "hidden") {
@@ -86,6 +87,8 @@ function useSpeech(): Speech {
     document.addEventListener("visibilitychange", hidden);
     return () => {
       document.removeEventListener("visibilitychange", hidden);
+      // End the run first: the cancel's "canceled" error would otherwise move on to the next part.
+      runs.current++;
       synth.cancel();
     };
   }, []);
