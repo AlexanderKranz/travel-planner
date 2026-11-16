@@ -12,6 +12,12 @@ select is((select command from cron.job where jobname = 'purge-logs'), 'select p
 select is((select count(*)::int from public.app_events where event = 'logs.purged' and created_at = now()), 0,
   'no purge event of this transaction yet');
 
+-- Start from no expired rows, so the exact counts below only see this test's rows (rolled back at the end).
+delete from public.api_cache where expires_at < now() - interval '180 days';
+delete from public.api_calls where created_at < now() - interval '90 days';
+delete from public.app_events where created_at < now() - interval '6 months' and event <> 'settings.changed';
+delete from public.ai_usage where created_at < now() - interval '13 months';
+
 -- api_cache: only rows whose expiry is more than 180 days past go
 insert into public.api_cache (provider, cache_key, payload, expires_at) values
   ('retention_test', 'old', '{}', now() - interval '181 days'),
@@ -34,7 +40,6 @@ insert into public.ai_usage (task, model, status, error_code, created_at) values
   ('purpose_tags', 'retention-test', 'ok', 'old', now() - interval '13 months' - interval '1 day'),
   ('purpose_tags', 'retention-test', 'ok', 'recent', now() - interval '13 months' + interval '1 day');
 
--- Other old rows (from seeds) would change the counts: only this test's rows exist past the limits.
 select is(private.purge_logs(), '{"apiCache": 1, "apiCalls": 1, "appEvents": 1, "aiUsage": 1}'::jsonb,
   'one old row of each log is purged');
 select results_eq(
@@ -74,7 +79,13 @@ select ok(not has_function_privilege('authenticated', 'public.admin_db_stats()',
 select ok(not has_function_privilege('anon', 'public.admin_db_stats()', 'execute'), 'anon cannot read the database size');
 select ok(has_function_privilege('service_role', 'public.admin_db_stats()', 'execute'), 'service_role reads the database size');
 select ok((public.admin_db_stats()->>'totalBytes')::bigint > 0, 'the total size is positive');
-select is(jsonb_array_length(public.admin_db_stats()->'tables'), 5, 'the five largest tables are listed');
+select results_eq(
+  $$select t->>'name' from jsonb_array_elements(public.admin_db_stats()->'tables') with ordinality as x(t, i) order by i$$,
+  $$select c.relname::text from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind in ('r', 'p')
+    order by pg_catalog.pg_total_relation_size(c.oid) desc, c.relname limit 5$$,
+  'the five largest public tables are listed, largest first'
+);
 select ok((select bool_and(t ? 'name' and t ? 'bytes' and (t->>'bytes')::bigint >= 0)
   from jsonb_array_elements(public.admin_db_stats()->'tables') t), 'each table has a name and a size');
 
