@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { StopInfoView } from "@/lib/domain/stop-info";
 import { getSharedTourStopInfo, getTourStopInfo } from "@/lib/server/stop-info/actions";
-import { isIOS, requestPlaybackAudio } from "@/lib/stop-info/device";
+import { isIOS, requestPlaybackAudio, silentWavDataUrl } from "@/lib/stop-info/device";
 import { playParts } from "@/lib/stop-info/queue";
 import { hasVoice, type SpeechPart } from "@/lib/stop-info/speak";
 
@@ -71,11 +71,19 @@ function useSpeech(): Speech {
   const run = useRef(0);
   /** The utterance playing now: a live reference, or Chrome may collect it and never send its `end`. */
   const utterance = useRef<SpeechSynthesisUtterance | null>(null);
+  /** iOS: silent audio looping while reading (media playback may lift the silent switch's mute on Web Speech). */
+  const silence = useRef<HTMLAudioElement | null>(null);
+
+  // The silent loop runs only while something is read.
+  useEffect(() => {
+    if (!reading) silence.current?.pause();
+  }, [reading]);
 
   useEffect(() => {
     const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
     if (!synth) return;
     const runs = run; // the run counter (not a DOM node): its latest value is what the cleanup must bump
+    const silences = silence; // read at cleanup time: the element is created on the first read-out
     // No audio from a background tab.
     const hidden = () => {
       if (document.visibilityState === "hidden") {
@@ -90,6 +98,7 @@ function useSpeech(): Speech {
       // End the run first: the cancel's "canceled" error would otherwise move on to the next part.
       runs.current++;
       synth.cancel();
+      silences.current?.pause();
     };
   }, []);
 
@@ -101,7 +110,19 @@ function useSpeech(): Speech {
     const my = ++run.current;
     // iOS mutes Web Speech on the silent switch; media playback may not be (Audio Session API, Safari 17+).
     requestPlaybackAudio(navigator as Parameters<typeof requestPlaybackAudio>[0]);
-    if (isIOS(navigator) && !silentHintDismissed()) setSilentHint(true);
+    if (isIOS(navigator)) {
+      // Started inside the tap (iOS allows media playback only from a gesture); a failure leaves the hint as fallback.
+      try {
+        if (!silence.current) {
+          // A data URL, not a Blob URL: nothing to revoke when the page unmounts.
+          silence.current = Object.assign(new Audio(silentWavDataUrl()), { loop: true });
+        }
+        void silence.current.play().catch(() => {});
+      } catch {
+        // No audio element: the hint below still tells the viewer about the switch.
+      }
+      if (!silentHintDismissed()) setSilentHint(true);
+    }
     setReading({ id, tourId, paused: false });
     // One part at a time; the first is spoken here, inside the tap (iOS needs that).
     playParts({

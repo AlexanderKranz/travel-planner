@@ -178,6 +178,10 @@ answers, then the card (or "Für diesen Ort gibt es keine Infos"):
   English voice (`lang = "en"`); without an English voice that text is skipped in the read-out and the card says so.
   "Without a voice" means the browser lists its voices and none fits; an empty list (voices not loaded yet, or a
   browser that never lists them) counts as unknown, and the text is read with the default voice (`hasVoice`, #240).
+  A text in the reader's language (the language the name is spoken in, the viewer's UI locale) is always read,
+  whatever the list says: the device speaks the name in that language anyway,
+  and browsers do not list every voice they use (Safari on macOS spoke the German name but listed no German voice,
+  so the text was skipped and only the fact lines were heard).
 - Long texts are split into sentence chunks (Chrome cuts long utterances; iOS needs the first `speak` inside the tap).
 - Parts are spoken one at a time, each from the previous one's `end` (`playParts`, `src/lib/stop-info/queue.ts`):
   queuing them all right after `cancel()` let desktop engines drop the first ones, so only the fact lines were heard.
@@ -233,7 +237,7 @@ readOut.{play, pause, resume, next, stop, tour, reading, unsupported, voiceNote}
 ## 10. Risks
 
 - Wikipedia intros are written for reading, not listening; some start with pronunciation hints or long lists. The
-  clip keeps whole sentences; parentheses with pronunciation (IPA) are removed before speaking only.
+  clip keeps whole sentences; parentheses and square brackets with pronunciation (IPA) are removed before speaking only.
 - Voices differ by device (good on iOS/macOS, plain on some Android); German voices may be missing on some
   desktops (then the unsupported line shows).
 - A wrong `wikidata` tag in OSM gives a wrong card. The card names its source; nothing is invented.
@@ -285,7 +289,10 @@ readOut.{play, pause, resume, next, stop, tour, reading, unsupported, voiceNote}
   not, the first tap loads it and the button changes to "Jetzt vorlesen", which speaks on the next tap.
 - **iOS silent switch.** iOS mutes Web Speech while the ring/silent switch is on silent; a page cannot detect the
   switch. Each read-out start asks for media playback (`navigator.audioSession.type = "playback"`, Audio Session API,
-  Safari 17+; ignored elsewhere), which may lift the mute. On iOS (iPadOS counts: "MacIntel" with touch points) the
+  Safari 17+; ignored elsewhere); on the iPhone that alone did not lift the mute. On iOS, the tap also starts a short
+  silent WAV looping in an audio element (built in code, `silentWav()`, as a `data:` URL so nothing needs revoking), paused when the read-out ends, stops or
+  the page unmounts: media playback is known to bypass the switch for web audio and may do so for Web Speech. If
+  it does not, the hint stays the answer. On iOS (iPadOS counts: "MacIntel" with touch points) the
   reading card also shows "Kein Ton auf dem iPhone? Schalte den Stummschalter aus." with "Verstanden", which hides it
   for good (browser storage; it returns if storage is blocked). Android is not affected: Chrome speaks on the media
   volume. Helpers: `src/lib/stop-info/device.ts`.

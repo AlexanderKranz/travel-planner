@@ -6,6 +6,10 @@ describe("read-out text (spec 6)", () => {
     expect(speakable("Der Stephansdom (Domkirche St. Stephan (Wien)) ist eine Kirche.")).toBe("Der Stephansdom ist eine Kirche.");
   });
 
+  it("drops IPA in square brackets", () => {
+    expect(speakable("Der Hyde Park [ˌhaɪdˈpɑːk] ist eine öffentliche Grünanlage.")).toBe("Der Hyde Park ist eine öffentliche Grünanlage.");
+  });
+
   it("splits into sentence chunks of at most ~220 characters", () => {
     const text = Array.from({ length: 12 }, (_, i) => `Das ist der Satz Nummer ${i} über einen Ort.`).join(" ");
     const c = chunks(text);
@@ -23,6 +27,14 @@ describe("read-out text (spec 6)", () => {
       { text: "Erbaut 1147", lang: "de" },
     ]);
     expect(stopSpeech({ ...base, textVoice: false })).toEqual([{ text: "1. Dom.", lang: "de" }, { text: "Erbaut 1147", lang: "de" }]);
+  });
+
+  it("reads a text in the intro's language even when no voice for it is listed (Safari on macOS)", () => {
+    const parts = stopSpeech({ intro: "1. Hyde Park.", introLang: "de", text: "Der Hyde Park ist ein Park.", textLang: "de-DE", facts: [], textVoice: false });
+    expect(parts).toEqual([
+      { text: "1. Hyde Park.", lang: "de" },
+      { text: "Der Hyde Park ist ein Park.", lang: "de-DE" },
+    ]);
   });
 });
 
