@@ -1,18 +1,18 @@
 /**
  * Spoken text of a stop card (docs/specs/city-tour-stop-info.md section 6). Pure: the UI passes translated sentences.
- * Parentheses (pronunciation, IPA, dates in brackets) are dropped before speaking only; long text is split into
+ * Parentheses and square brackets (pronunciation, IPA, dates) are dropped before speaking only; long text is split into
  * sentence chunks because some engines cut long utterances.
  */
 export type SpeechPart = { text: string; lang: string };
 
 const MAX_CHUNK = 220;
 
-/** Text without parenthesised asides, whitespace collapsed. */
+/** Text without asides in parentheses or square brackets (German Wikipedia writes IPA as "[ˌhaɪdˈpɑːk]"), whitespace collapsed. */
 export function speakable(text: string): string {
   let s = text;
   for (let prev = ""; prev !== s; ) {
     prev = s;
-    s = s.replace(/\s*\([^()]*\)/g, "");
+    s = s.replace(/\s*\([^()]*\)/g, "").replace(/\s*\[[^[\]]*\]/g, "");
   }
   return s.replace(/\s+/g, " ").trim();
 }
@@ -53,13 +53,21 @@ export function stopSpeech(p: {
   text?: string;
   textLang?: string;
   facts: string[];
-  /** False when no voice exists for the text's language: the text is skipped. */
+  /** False when no voice is listed for the text's language: a text in another language than the intro is skipped. */
   textVoice: boolean;
 }): SpeechPart[] {
   const parts: SpeechPart[] = [{ text: p.intro, lang: p.introLang }];
-  if (p.text && p.textLang && p.textVoice) for (const c of chunks(p.text)) parts.push({ text: c, lang: p.textLang });
+  // A text in the intro's language is always read: the intro is spoken in it anyway, and browsers do not list every
+  // voice they use (Safari on macOS speaks German with a voice missing from getVoices()).
+  const read = p.textVoice || (!!p.textLang && baseLang(p.textLang) === baseLang(p.introLang));
+  if (p.text && p.textLang && read) for (const c of chunks(p.text)) parts.push({ text: c, lang: p.textLang });
   for (const f of p.facts) parts.push({ text: f, lang: p.introLang });
   return parts;
+}
+
+/** "de-DE", "de_DE", "DE" → "de". */
+function baseLang(lang: string): string {
+  return lang.toLowerCase().split(/[-_]/)[0];
 }
 
 /**
