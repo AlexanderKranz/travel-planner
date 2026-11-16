@@ -3,6 +3,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { StopInfoView } from "@/lib/domain/stop-info";
 import { getSharedTourStopInfo, getTourStopInfo } from "@/lib/server/stop-info/actions";
+import { isIOS, requestPlaybackAudio } from "@/lib/stop-info/device";
+import { playParts } from "@/lib/stop-info/queue";
 import { hasVoice, type SpeechPart } from "@/lib/stop-info/speak";
 
 /**
@@ -30,6 +32,9 @@ export type Speech = {
   pause: () => void;
   resume: () => void;
   stop: () => void;
+  /** iOS only: "no sound? turn off the silent switch" line while reading, until the viewer dismisses it. */
+  silentHint: boolean;
+  dismissSilentHint: () => void;
 };
 
 const StopInfoCtx = createContext<Ctx | null>(null);
@@ -47,16 +52,30 @@ const voicesSnapshot = () =>
     : "";
 const noSubscribe = () => () => {};
 
+/** Per-viewer convenience (browser storage): the silent-switch hint was dismissed. */
+const SILENT_HINT_KEY = "readOut.silentHintDismissed";
+function silentHintDismissed(): boolean {
+  try {
+    return window.localStorage.getItem(SILENT_HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 function useSpeech(): Speech {
   const supported = useSyncExternalStore(noSubscribe, () => typeof window !== "undefined" && "speechSynthesis" in window, () => false);
   const voiceList = useSyncExternalStore(voicesSubscribe, voicesSnapshot, () => "");
   const voices = useMemo(() => (voiceList ? voiceList.split("|") : []), [voiceList]);
   const [reading, setReading] = useState<Reading>(null);
+  const [silentHint, setSilentHint] = useState(false);
   const run = useRef(0);
+  /** The utterance playing now: a live reference, or Chrome may collect it and never send its `end`. */
+  const utterance = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
     const synth = typeof window !== "undefined" ? window.speechSynthesis : undefined;
     if (!synth) return;
+    const runs = run; // the run counter (not a DOM node): its latest value is what the cleanup must bump
     // No audio from a background tab.
     const hidden = () => {
       if (document.visibilityState === "hidden") {
@@ -68,6 +87,8 @@ function useSpeech(): Speech {
     document.addEventListener("visibilitychange", hidden);
     return () => {
       document.removeEventListener("visibilitychange", hidden);
+      // End the run first: the cancel's "canceled" error would otherwise move on to the next part.
+      runs.current++;
       synth.cancel();
     };
   }, []);
@@ -78,26 +99,32 @@ function useSpeech(): Speech {
     const synth = window.speechSynthesis;
     if (!synth || parts.length === 0) return;
     const my = ++run.current;
-    synth.cancel();
+    // iOS mutes Web Speech on the silent switch; media playback may not be (Audio Session API, Safari 17+).
+    requestPlaybackAudio(navigator as Parameters<typeof requestPlaybackAudio>[0]);
+    if (isIOS(navigator) && !silentHintDismissed()) setSilentHint(true);
     setReading({ id, tourId, paused: false });
-    // All utterances are queued inside the tap (iOS needs the first speak there).
-    parts.forEach((p, i) => {
-      const u = new SpeechSynthesisUtterance(p.text);
-      u.lang = p.lang;
-      if (i === parts.length - 1) {
-        u.onend = () => {
-          if (run.current !== my) return;
-          setReading(null);
-          onDone?.();
-        };
-      }
-      u.onerror = () => {
-        if (run.current !== my) return;
+    // One part at a time; the first is spoken here, inside the tap (iOS needs that).
+    playParts({
+      synth,
+      parts,
+      make: (p) => {
+        const u = new SpeechSynthesisUtterance(p.text);
+        u.lang = p.lang;
+        return u;
+      },
+      current: () => run.current === my,
+      onUtterance: (u) => {
+        utterance.current = u;
+      },
+      done: () => {
+        setReading(null);
+        onDone?.();
+      },
+      failed: () => {
         run.current++;
         synth.cancel();
         setReading(null);
-      };
-      synth.speak(u);
+      },
     });
   }, []);
 
@@ -115,7 +142,19 @@ function useSpeech(): Speech {
     setReading(null);
   }, []);
 
-  return { supported, voiceFor, reading, speak, pause, resume, stop };
+  const dismissSilentHint = useCallback(() => {
+    setSilentHint(false);
+    try {
+      window.localStorage.setItem(SILENT_HINT_KEY, "1");
+    } catch {
+      // Storage blocked: the hint comes back on the next read-out.
+    }
+  }, []);
+
+  return useMemo(
+    () => ({ supported, voiceFor, reading, speak, pause, resume, stop, silentHint, dismissSilentHint }),
+    [supported, voiceFor, reading, speak, pause, resume, stop, silentHint, dismissSilentHint],
+  );
 }
 
 const POLL_MS = 15_000;

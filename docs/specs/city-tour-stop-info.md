@@ -179,6 +179,11 @@ answers, then the card (or "Für diesen Ort gibt es keine Infos"):
   "Without a voice" means the browser lists its voices and none fits; an empty list (voices not loaded yet, or a
   browser that never lists them) counts as unknown, and the text is read with the default voice (`hasVoice`, #240).
 - Long texts are split into sentence chunks (Chrome cuts long utterances; iOS needs the first `speak` inside the tap).
+- Parts are spoken one at a time, each from the previous one's `end` (`playParts`, `src/lib/stop-info/queue.ts`):
+  queuing them all right after `cancel()` let desktop engines drop the first ones, so only the fact lines were heard.
+  `cancel()` runs only when something plays, and then the new read-out starts 150 ms later (engines finish a
+  cancel asynchronously); an `interrupted`/`canceled` error moves on to the next part, any other
+  error ends the read-out.
 - Accessibility: buttons at least 44 × 44 px with text labels (`aria-pressed` for play/pause), an `aria-live="polite"`
   status "Liest: {name}" (not repeating the text), keyboard operable, no autoplay. Reading stops when the page is
   hidden (`visibilitychange`) to avoid audio from a background tab.
@@ -278,6 +283,12 @@ readOut.{play, pause, resume, next, stop, tour, reading, unsupported, voiceNote}
 - **iOS speech activation.** The first `speechSynthesis.speak()` must run inside the tap. Per-stop play exists only
   inside a loaded card, so it speaks in the tap. "Tour vorlesen" is enabled only once the batch is loaded; when it is
   not, the first tap loads it and the button changes to "Jetzt vorlesen", which speaks on the next tap.
+- **iOS silent switch.** iOS mutes Web Speech while the ring/silent switch is on silent; a page cannot detect the
+  switch. Each read-out start asks for media playback (`navigator.audioSession.type = "playback"`, Audio Session API,
+  Safari 17+; ignored elsewhere), which may lift the mute. On iOS (iPadOS counts: "MacIntel" with touch points) the
+  reading card also shows "Kein Ton auf dem iPhone? Schalte den Stummschalter aus." with "Verstanden", which hides it
+  for good (browser storage; it returns if storage is blocked). Android is not affected: Chrome speaks on the media
+  volume. Helpers: `src/lib/stop-info/device.ts`.
 - **Voices load late.** The read-out controls listen to `speechSynthesis.onvoiceschanged` and re-check the voices
   for the text's language; the "nicht unterstützt" line disappears when a matching voice arrives.
 - **Stop limit.** All bounds use `MAX_TOUR_POINTS`; capacity numbers in this spec assume the 27 points of #221.
