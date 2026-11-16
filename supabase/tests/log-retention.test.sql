@@ -81,9 +81,13 @@ select ok(has_function_privilege('service_role', 'public.admin_db_stats()', 'exe
 select ok((public.admin_db_stats()->>'totalBytes')::bigint > 0, 'the total size is positive');
 select results_eq(
   $$select t->>'name' from jsonb_array_elements(public.admin_db_stats()->'tables') with ordinality as x(t, i) order by i$$,
-  $$select c.relname::text from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
-    where n.nspname = 'public' and c.relkind in ('r', 'p')
-    order by pg_catalog.pg_total_relation_size(c.oid) desc, c.relname limit 5$$,
+  -- relname is of type name (collation "C"); the jsonb text has the default collation, so state it to compare.
+  $$select x.name collate "default" from (
+      select c.relname::text as name, pg_catalog.pg_total_relation_size(c.oid) as bytes
+      from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid = c.relnamespace
+      where n.nspname = 'public' and c.relkind in ('r', 'p')
+      order by bytes desc, name limit 5) x
+    order by x.bytes desc, x.name$$,
   'the five largest public tables are listed, largest first'
 );
 select ok((select bool_and(t ? 'name' and t ? 'bytes' and (t->>'bytes')::bigint >= 0)
