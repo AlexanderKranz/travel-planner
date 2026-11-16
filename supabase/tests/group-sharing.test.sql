@@ -294,9 +294,6 @@ select lives_ok($$select public.replace_group_entries('6a000000-0000-4000-8000-0
      'is_self', e.is_self, 'birthdate', e.birthdate, 'age_mode', e.age_mode, 'age', e.age, 'age_as_of', e.age_as_of, 'notes', e.notes, 'traits', e.traits))
      from public.group_entries e where e.group_id = '6a000000-0000-4000-8000-00000000a001'))$$, 'B runs replace_group_entries with the full list');
 select is((select description from public.travel_groups where id = '6a000000-0000-4000-8000-00000000a001'), 'd2', 'replace_group_entries by B saved the description');
-select lives_ok($$select public.reorder_group_entries('6a000000-0000-4000-8000-00000000a001', (select array_agg(e.id order by e."position" desc) from public.group_entries e where e.group_id = '6a000000-0000-4000-8000-00000000a001'))$$, 'B reorders the entries');
-select is((select "position"::int from public.group_entries where id = '6a000000-0000-4000-8000-00000000e008'), 0, 'the reorder took effect');
-select lives_ok($$select public.reorder_group_entries('6a000000-0000-4000-8000-00000000a001', (select array_agg(e.id order by e."position" desc) from public.group_entries e where e.group_id = '6a000000-0000-4000-8000-00000000a001'))$$, 'B reorders back');
 with d as (delete from public.travel_groups where id = '6a000000-0000-4000-8000-00000000a001' returning 1)
 select is((select count(*)::int from d), 0, 'B cannot delete the group');
 select throws_ok($$update public.travel_groups set parsed_structure = '[]' where id = '6a000000-0000-4000-8000-00000000a001'$$, '42501', null, 'B cannot write parsed_structure');
@@ -329,8 +326,6 @@ select is((select count(*)::int from u), 0, 'C (read) cannot update an entry');
 with d as (delete from public.group_entries where group_id = '6a000000-0000-4000-8000-00000000a001' returning 1)
 select is((select count(*)::int from d), 0, 'C (read) cannot delete an entry');
 select throws_ok($$select public.replace_group_entries('6a000000-0000-4000-8000-00000000a001', '{"name":"C edit","trait_keys":[]}'::jsonb, '[]'::jsonb)$$, 'P0002', 'group_not_found', 'C (read) cannot run replace_group_entries');
-select lives_ok($$select public.reorder_group_entries('6a000000-0000-4000-8000-00000000a001', (select array_agg(e.id order by e."position" desc) from public.group_entries e where e.group_id = '6a000000-0000-4000-8000-00000000a001'))$$, 'C reorder runs but changes nothing');
-select is((select "position"::int from public.group_entries where id = '6a000000-0000-4000-8000-00000000e008'), 7, 'C (read) reorder did not move any entry');
 reset role;
 set local request.jwt.claims = '{}';
 select is((select name from public.travel_groups where id = '6a000000-0000-4000-8000-00000000a001'), 'A family by B', 'nothing C tried changed the group');

@@ -2,7 +2,7 @@ import { getTranslations } from "next-intl/server";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { PdfButton } from "@/components/pdf/pdf-button";
 import { cardCls, mutedCls } from "@/components/ui/styles";
-import { MAX_LINKS_PER_TRIP } from "@/lib/domain/share";
+import { activeLinks, MAX_LINKS_PER_TRIP } from "@/lib/domain/share";
 import { listShareLinks } from "@/lib/server/shares";
 import { PeopleBox } from "@/components/sharing/people-box";
 import { ShareCreate } from "./share-create";
@@ -47,9 +47,8 @@ export async function SharePanel({
     );
   }
   const res = await listShareLinks(tripId);
-  const now = Date.now();
   const links = res.ok ? res.data : [];
-  const active = links.filter((l) => !l.expiresAt || new Date(l.expiresAt).getTime() > now).length;
+  const { now, active } = activeLinks(links);
   const reason = isDemo ? t("demoDisabled") : !hasPlan ? t("noPlan") : active >= MAX_LINKS_PER_TRIP ? t("limit") : null;
   return (
     <section aria-labelledby="share-title" className={`${cardCls} flex min-w-0 flex-col gap-4`}>

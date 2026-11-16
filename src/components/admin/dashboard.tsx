@@ -27,8 +27,9 @@ export async function AdminDashboard({
   const when = (iso: string) => f.dateTime(new Date(iso), { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Berlin" });
   const day = (iso: string) => f.dateTime(new Date(`${iso}T12:00:00Z`), { day: "2-digit", month: "2-digit", timeZone: "UTC" });
   const levelText = (m: Meter) => t(`level.${m.level}`);
+  const mb = (bytes: number) => f.number(bytes / (1024 * 1024), { style: "unit", unit: "megabyte", maximumFractionDigits: 1 });
 
-  const { users, usage, ai, providers, adb, ors, geoapify, overpass, events, shares, tours } = data;
+  const { users, usage, ai, providers, adb, ors, geoapify, overpass, events, shares, tours, db } = data;
 
   return (
     <div className="flex flex-col gap-4">
@@ -51,6 +52,30 @@ export async function AdminDashboard({
           )}
           <Stat label={t("health.commit")} value={health.commit} />
         </Stats>
+        {db && (
+          <div className="flex flex-col gap-2">
+            <Bar
+              label={t("health.dbSize")}
+              valueText={t("ofCap", { used: mb(db.size.used), cap: mb(db.size.cap) })}
+              widthPct={db.size.pct}
+              level={db.size.level}
+              aria={t("health.dbSize")}
+            />
+            <p className="flex flex-wrap gap-x-2 text-xs">
+              <span className={mutedCls}>{t("health.dbSizeHint")}</span>
+              <LevelText level={db.size.level} text={levelText(db.size)} />
+            </p>
+            <h3 className={labelCls}>{t("health.dbTables")}</h3>
+            <ul className="flex flex-col gap-1 text-sm">
+              {db.tables.map((x) => (
+                <li key={x.name} className="flex flex-wrap justify-between gap-x-3">
+                  <span className="break-all">{x.name}</span>
+                  <span className="tabular-nums text-muted">{mb(x.bytes)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <h3 className={labelCls}>{t("health.keys")}</h3>
         <ul className="flex flex-wrap gap-2">
           {(Object.keys(health.keys) as (keyof Health["keys"])[]).map((k) => (

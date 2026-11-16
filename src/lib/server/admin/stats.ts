@@ -8,7 +8,7 @@ import { createSupabaseAdminClient } from "../supabase/admin";
 import { readBudgetConfig } from "./config";
 import { requireAdmin } from "./gate";
 import { adminPeriods } from "./periods";
-import { ApiStatsRaw, AiStatsRaw, RecentEventsRaw, ShareStatsRaw, UsageStatsRaw, UserStatsRaw } from "./schema";
+import { ApiStatsRaw, AiStatsRaw, DbStatsRaw, RecentEventsRaw, ShareStatsRaw, UsageStatsRaw, UserStatsRaw } from "./schema";
 import { shapeDashboard } from "./shape";
 import { getTourStats } from "./tour-stats";
 import { getEffectiveEnv } from "../settings";
@@ -43,7 +43,7 @@ export async function getAdminDashboard(now: Date = new Date()) {
   const p = adminPeriods(now);
   const day = p.dayStart.toISOString();
   const month = p.monthStart.toISOString();
-  const [users, usage, ai, api, events, shares, orsUsage, tours] = await Promise.all([
+  const [users, usage, ai, api, events, shares, orsUsage, tours, db] = await Promise.all([
     rpc("admin_user_stats", { p_now: now.toISOString(), p_month_start: month }, UserStatsRaw),
     rpc("admin_usage_stats", { p_month_start: month, p_days: 14 }, UsageStatsRaw),
     rpc("admin_ai_stats", { p_day_start: day, p_month_start: month }, AiStatsRaw),
@@ -55,8 +55,10 @@ export async function getAdminDashboard(now: Date = new Date()) {
     orsUsage24h(now).catch(() => undefined),
     // City tours created and computed in the last 7 days (two event counts); a failure only hides the row.
     getTourStats(now).catch(() => undefined),
+    // Database size against the plan limit; a failure only hides the bar.
+    rpc("admin_db_stats", {}, DbStatsRaw).catch(() => undefined),
   ]);
-  return shapeDashboard({ users, usage, ai, api, events, shares, orsUsage, tours }, readBudgetConfig(await getEffectiveEnv()));
+  return shapeDashboard({ users, usage, ai, api, events, shares, orsUsage, tours, db }, readBudgetConfig(await getEffectiveEnv()));
 }
 
 /** DB reachability, feature switches, key presence and the last cron run (timestamp only). Admin only. */

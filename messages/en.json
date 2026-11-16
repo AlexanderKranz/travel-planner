@@ -1472,6 +1472,9 @@
       "placeRetries": "Place retries",
       "placeRetriesValue": "{queued} / {done} / {gaveUp}",
       "placeRetriesHint": "Queued / done / gave up (done and gave up: last 24 h). A search is retried for 30 minutes at most.",
+      "dbSize": "Database size",
+      "dbSizeHint": "Supabase Free allows 500 MB. A nightly job deletes old logs (cache 180 days past expiry, API calls 90 days, events 6 months, AI usage 13 months).",
+      "dbTables": "Largest tables",
       "lastCron": "Last budget check",
       "never": "Never run",
       "keyNames": {

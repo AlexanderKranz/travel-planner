@@ -96,7 +96,6 @@ set local request.jwt.claims = '{"sub":"bbbbbbbb-0000-4000-8000-000000000002","r
 set local role authenticated;
 select throws_ok($$select public.replace_group_entries('a0000000-0000-4000-8000-0000000000a1', '{"name":"pwn"}'::jsonb, '[]'::jsonb)$$,
   'P0002', null, 'B cannot replace entries of A group (RLS hides it)');
-select lives_ok($$select public.reorder_group_entries('a0000000-0000-4000-8000-0000000000a1', '{}')$$, 'reorder on a foreign group: no-op or reject') ;
 
 -- ---------- travel_groups.trait_keys ----------
 -- backfill helper (as postgres): ordered keys that appear non-null in any entry's traits

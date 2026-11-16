@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BudgetConfig } from "./config";
-import { cacheHitShare, meter, microToUsd, ratePct, shapeDashboard } from "./shape";
+import { cacheHitShare, DB_SIZE_LIMIT_BYTES, meter, microToUsd, ratePct, shapeDashboard } from "./shape";
 
 const cfg: BudgetConfig = { aiDailyCapMicroUsd: 5_000_000, aiMonthlyAlertMicroUsd: 10_000_000, adbDailyUnits: 40, adbMinRemaining: 40, orsMatrixCap: 400, orsDirectionsCap: 1000, geoapifyDailyCap: 400, errors24hThreshold: 20 };
 
@@ -84,6 +84,13 @@ describe("shapeDashboard", () => {
     const o = shapeDashboard({ ...raw, orsUsage: { matrix: 4, directions: 900 } }, cfg).ors;
     expect(o?.matrix).toMatchObject({ used: 4, cap: 400, level: "ok" });
     expect(o?.directions).toMatchObject({ used: 900, cap: 1000, level: "warn" });
+  });
+  it("shows the database size against the 500 MB limit, or nothing when the read failed", () => {
+    const mb = 1024 * 1024;
+    const db = shapeDashboard({ ...raw, db: { totalBytes: 420 * mb, tables: [{ name: "api_cache", bytes: 300 * mb }] } }, cfg).db;
+    expect(db?.size).toEqual({ used: 420 * mb, cap: DB_SIZE_LIMIT_BYTES, pct: 84, level: "warn" });
+    expect(db?.tables).toEqual([{ name: "api_cache", bytes: 300 * mb }]);
+    expect(d.db).toBeNull();
   });
   it("carries no user identifiers", () => {
     expect(JSON.stringify(d)).not.toMatch(/user_id|userId|email/i);

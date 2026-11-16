@@ -2,16 +2,10 @@ import { getTranslations } from "next-intl/server";
 import { PeopleBox } from "@/components/sharing/people-box";
 import { ErrorBanner } from "@/components/ui/error-banner";
 import { cardCls, mutedCls } from "@/components/ui/styles";
-import { MAX_LINKS_PER_TRIP, type ShareLink } from "@/lib/domain/share";
+import { activeLinks, MAX_LINKS_PER_TRIP } from "@/lib/domain/share";
 import { listTourShareLinks } from "@/lib/server/shares";
 import { ShareCreate } from "./share-create";
 import { ShareLinkRow } from "./share-link-row";
-
-/** Request time and the number of links that have not expired yet (kept out of the component body). */
-function activeLinks(links: ShareLink[]): { now: number; active: number } {
-  const now = Date.now();
-  return { now, active: links.filter((l) => !l.expiresAt || new Date(l.expiresAt).getTime() > now).length };
-}
 
 /**
  * Owner block of a standalone city tour (city-tour 9.3): people with access (read / write) and public read-only links.

@@ -1,6 +1,6 @@
 import type { z } from "zod";
 import type { BudgetConfig } from "./config";
-import type { ApiStatsRaw, AiStatsRaw, RecentEventsRaw, ShareStatsRaw, UsageStatsRaw, UserStatsRaw } from "./schema";
+import type { ApiStatsRaw, AiStatsRaw, DbStatsRaw, RecentEventsRaw, ShareStatsRaw, UsageStatsRaw, UserStatsRaw } from "./schema";
 
 export type Level = "ok" | "warn" | "over";
 
@@ -38,7 +38,12 @@ type Raw = {
   orsUsage?: { matrix: number; directions: number };
   /** City tours created and computed in the last 7 days (tour-stats.ts); absent when the count failed. */
   tours?: { created7: number; computed7: number };
+  /** Database size (admin_db_stats); absent when the read failed. */
+  db?: z.infer<typeof DbStatsRaw>;
 };
+
+/** Database size limit of the Supabase Free plan (500 MB). */
+export const DB_SIZE_LIMIT_BYTES = 500 * 1024 * 1024;
 
 const AI_TASKS = ["purpose_tags", "group_parse", "destination_ideas", "itinerary_extract", "plan_generate", "plan_patch"] as const;
 
@@ -95,6 +100,7 @@ export function shapeDashboard(raw: Raw, cfg: BudgetConfig) {
     events: raw.events,
     shares: raw.shares ?? null,
     tours: raw.tours ?? null,
+    db: raw.db ? { size: meter(raw.db.totalBytes, DB_SIZE_LIMIT_BYTES), tables: raw.db.tables } : null,
   };
 }
 export type Dashboard = ReturnType<typeof shapeDashboard>;
