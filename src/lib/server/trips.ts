@@ -11,8 +11,7 @@ import {
   type TripInputParsed,
   type TripSummary,
 } from "@/lib/domain/trip";
-import { canEdit } from "@/lib/domain/sharing";
-import { parseStoredStops, sameStops, stopsOutsideTrip, TripStops, type TripStopsInput } from "@/lib/domain/trip-stops";
+import { parseStoredStops, stopsOutsideTrip } from "@/lib/domain/trip-stops";
 import { isKnownIata } from "@/lib/integrations/airports";
 import { getPlaceById } from "@/lib/integrations/open-meteo-geocoding";
 import { logEvent } from "./events";
@@ -235,50 +234,6 @@ export async function updateTrip(id: string, input: TripInput, expectedUpdatedAt
   const trip = await withGroupParse(session, rowToTrip(data, session.userId));
   await logEvent({ event: "trip.updated", userId: session.userId, props: eventProps(trip) });
   if (factsInputsChanged(before, write)) await scheduleTripWarm(session, trip, locale);
-  return { ok: true, data: trip };
-}
-
-/**
- * Saves the confirmed stops of a trip (itinerary-upload [D4]) without touching anything else. Needs write access
- * (`canEdit`): owner or write grantee; the `trips` write policy enforces it again. `[]` clears the stops.
- * `expectedUpdatedAt` as in `updateTrip` (`conflict` when the trip changed meanwhile). Stops outside the trip are
- * refused (`invalid`, path `stops`). Changed stops schedule the warm-up like any facts input.
- */
-export async function setTripStops(id: string, stops: TripStopsInput, expectedUpdatedAt?: string): Promise<ActionResult<Trip>> {
-  const session = await getUserSession();
-  if (!session) return fail("unauthenticated");
-  if (!Id.safeParse(id).success) return fail("invalid");
-  const parsed = TripStops.safeParse(stops);
-  if (!parsed.success) return fail("invalid", zodIssues(parsed.error));
-  if (!externalWriteAllowed(session.userId)) return fail("rate_limited");
-
-  const { data: before, error: readError } = await session.supabase
-    .from("trips")
-    .select(TRIP_COLUMNS_WITH_SHARES)
-    .eq("id", id)
-    .maybeSingle<TripRow>();
-  if (readError) return fail("failed");
-  if (!before) return fail("not_found");
-  if (!canEdit(tripAccess(before, session.userId))) return fail("forbidden");
-  if (expectedUpdatedAt !== undefined && before.updated_at !== expectedUpdatedAt) return fail("conflict");
-  if (stopsOutsideTrip(parsed.data, before.length_days).length > 0) {
-    return fail("invalid", [{ path: "stops", message: "A stop lies after the last day of the trip" }]);
-  }
-
-  const changed = !sameStops(parseStoredStops(before.stops), parsed.data);
-  let query = session.supabase
-    .from("trips")
-    .update({ stops: parsed.data.length > 0 ? parsed.data : null })
-    .eq("id", id);
-  if (expectedUpdatedAt !== undefined) query = query.eq("updated_at", expectedUpdatedAt);
-  const { data, error } = await query.select(TRIP_COLUMNS_WITH_SHARES).maybeSingle<TripRow>();
-  if (error) return fail(error.code === INSUFFICIENT_PRIVILEGE ? "forbidden" : "failed");
-  if (!data) return fail(expectedUpdatedAt !== undefined ? "conflict" : "not_found");
-
-  const trip = rowToTrip(data, session.userId);
-  // Counts only, never place names (events carry no content).
-  await logEvent({ event: "trip.stops_saved", userId: session.userId, props: { tripId: id, stops: parsed.data.length } });
-  if (changed) await scheduleTripWarm(session, trip, await profileLocale(session));
   return { ok: true, data: trip };
 }
 

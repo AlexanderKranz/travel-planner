@@ -114,10 +114,6 @@ export const typesInGroup = (group: ActivityGroup): ActivityType[] =>
 export const radiusForGroup = (group: ActivityGroup, types: readonly ActivityType[] = typesInGroup(group)): number =>
   Math.min(MAX_RADIUS_KM, Math.max(...types.map((t) => ACTIVITY_SOURCES[t].defaultRadiusKm)));
 
-/** A group's types all have a Geoapify mapping, so one Geoapify lookup would cover the whole union. */
-export const groupHasGeoapify = (group: ActivityGroup): boolean =>
-  typesInGroup(group).every((t) => ACTIVITY_SOURCES[t].geoapify !== undefined);
-
 /**
  * Types of a group split by source: those with a Geoapify category (fast, ~1 s per request) and those without
  * (Overpass only). Without a Geoapify key everything goes to Overpass.

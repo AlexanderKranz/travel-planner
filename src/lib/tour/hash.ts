@@ -39,17 +39,3 @@ export function tourInputHash(i: TourInput): string {
     }),
   );
 }
-
-type KeyedPoint = Pick<TourPoint, "key" | "lat" | "lon">;
-/** `[key, lat, lon]` (5 dp) as JSON: unambiguous whatever characters the key holds. */
-const keyAt = (p: KeyedPoint) => JSON.stringify([p.key, p.lat.toFixed(5), p.lon.toFixed(5)]);
-
-/** Matrix cache `h`: sha256 of the sorted points (key, lat, lon at 5 dp); the same point set in any order hits. */
-export function pointSetHash(points: readonly KeyedPoint[]): string {
-  return sha256(`[${points.map(keyAt).sort().join(",")}]`);
-}
-
-/** Directions cache `h`: sha256 of the ordered points (key, lat, lon at 5 dp). */
-export function pointSeqHash(points: readonly KeyedPoint[]): string {
-  return sha256(`[${points.map(keyAt).join(",")}]`);
-}

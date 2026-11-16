@@ -76,16 +76,6 @@ export function windowKind(from?: string, to?: string): WindowKind {
   return null;
 }
 
-/** Earliest sunrise and latest dusk of the listed days ("HH:MM" compares lexically). */
-export function daylightRange(
-  days: { sunrise: string | null; dusk: string | null }[],
-): { sunrise: string; dusk: string } | null {
-  const rises = days.map((d) => d.sunrise).filter((x): x is string => !!x);
-  const dusks = days.map((d) => d.dusk).filter((x): x is string => !!x);
-  if (rises.length === 0 || dusks.length === 0) return null;
-  return { sunrise: rises.reduce((a, b) => (a < b ? a : b)), dusk: dusks.reduce((a, b) => (a > b ? a : b)) };
-}
-
 export type FeedbackSummary =
   | { type: "chips"; chips: PlanChip[]; days: number[]; text?: string }
   | { type: "swap_days"; a: number; b: number }

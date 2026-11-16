@@ -566,7 +566,6 @@
       "temperature": "Temperature",
       "hoursPerDay": "{h} h/day",
       "daylightOn": "Daylight around {date}",
-      "sunriseSunset": "Sunrise–sunset",
       "missing": "Not available:"
     },
     "unavailable": {
@@ -590,7 +589,6 @@
       "wetDays": "Rainy days",
       "sun": "Sunshine per day",
       "selected": "travel month",
-      "captionSelected": "Climate in the travel months",
       "captionAll": "Climate by month",
       "showAll": "Show all 12 months"
     },
@@ -916,7 +914,6 @@
       "title": "Still to clarify",
       "markDone": "Mark “{text}” as done",
       "markOpen": "Reopen “{text}”",
-      "saveError": "Could not save",
       "doneLabel": "done",
       "add": "Add",
       "addLabel": "New entry",
@@ -1149,7 +1146,6 @@
     "less": "Less",
     "opensExternal": "opens in a new tab",
     "noDayOption": "No day",
-    "itemsLabel": "Cost items",
     "flightDir": {
       "out": "Outbound",
       "back": "Return"
@@ -1201,7 +1197,6 @@
     "withItems": "with bookings",
     "withoutItems": "without bookings",
     "links": "Active links",
-    "noLinks": "No links yet.",
     "demoDisabled": "The demo account cannot create links.",
     "noPlan": "Create a travel plan first.",
     "limit": "You have reached the maximum number of links (10). Revoke one.",
@@ -2031,7 +2026,6 @@
     "groupBlock": {
       "title": "Travel group",
       "self": "{name} (trip owner)",
-      "ageYears": "{age} years",
       "people": "{count} people",
       "groupOwner": "{name} (group owner)",
       "born": "born {date}",
@@ -2094,10 +2088,8 @@
     "readOnly": "View only: this tour belongs to a trip that was shared with you.",
     "city": "City (optional)",
     "cityHint": "The city is the centre of the place search and the suggestions. Without a city, the first place is the centre.",
-    "citySearch": "Search for a city",
     "cityPlaceholder": "e.g. Vienna",
     "cityChange": "Change city",
-    "cityRemove": "Remove city",
     "places": "Places",
     "placesSearch": "Search for a place",
     "placesPlaceholder": "e.g. cathedral, museum, market",
@@ -2244,7 +2236,6 @@
       "optimize": "Use the best order: approx. {duration}"
     },
     "approx": "Approximate values come from the distance matrix without the route option. The exact time comes with the next computation.",
-    "openingHoursOsm": "{hours} (according to OpenStreetMap, checked on {date})",
     "map": "Map",
     "mapUnavailable": "Map not available",
     "mapLoading": "Loading map …",
@@ -2266,7 +2257,6 @@
     "noDay": "No day",
     "linkSave": "Save",
     "linkSaved": "Saved.",
-    "linkNeedsSave": "Save the tour first.",
     "dayBlock": "City tour{time, select, none {} other { · {time}}} · {count, plural, one {# place} other {# places}}{km, select, none {} other { · {km} km {mode, select, foot {on foot} wheelchair {by wheelchair} cycling {by bike} ebike {by e-bike} other {by car}}}}",
     "dayBlockNoTime": "Set a start time so the plan keeps this time free.",
     "openTour": "Open tour",

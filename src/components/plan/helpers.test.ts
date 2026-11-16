@@ -3,7 +3,6 @@ import {
   asPlanError,
   budgetExhausted,
   budgetPercent,
-  daylightRange,
   highlightedDays,
   formatElapsed,
   progressStage,
@@ -62,16 +61,6 @@ describe("plan helpers", () => {
     expect(windowKind("07:00")).toBe("from");
     expect(windowKind(undefined, "12:00")).toBe("to");
     expect(windowKind()).toBeNull();
-  });
-  it("finds the daylight range", () => {
-    expect(
-      daylightRange([
-        { sunrise: "07:45", dusk: "16:10" },
-        { sunrise: "07:40", dusk: null },
-        { sunrise: null, dusk: "16:30" },
-      ]),
-    ).toEqual({ sunrise: "07:40", dusk: "16:30" });
-    expect(daylightRange([{ sunrise: null, dusk: null }])).toBeNull();
   });
   it("summarizes feedback of patches and edits", () => {
     expect(summarizeFeedback({ feedback: null })).toEqual({ type: "none" });

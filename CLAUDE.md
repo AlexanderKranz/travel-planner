@@ -9,7 +9,7 @@ Full plan: `docs/architecture.md`. Hosting walkthrough: `docs/hosting-setup.md`.
 - Supabase: Postgres, Auth, Row-Level Security. Migrations in `supabase/migrations/`
 - `next-intl` for i18n, locales in `src/i18n/routing.ts`, strings in `messages/<locale>.json`
 - Zod for validating all external data (APIs, LLM output, forms)
-- Vitest for unit tests (`*.test.ts` next to the code), Playwright for E2E (later)
+- Vitest for unit tests (`*.test.ts` next to the code), Playwright for E2E (`e2e/`, runs in CI)
 - Hosting: Vercel (region `fra1`) + Supabase (Frankfurt)
 
 ## Commands

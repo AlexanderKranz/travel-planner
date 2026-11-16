@@ -12,7 +12,6 @@ import {
   formatKm,
   formFromInput,
   formProblem,
-  formReady,
   isTaken,
   resultFitsInput,
   isOutdated,
@@ -147,12 +146,6 @@ describe("outdated detection", () => {
 });
 
 describe("form helpers", () => {
-  it("needs 2 places and a complete end", () => {
-    expect(formReady(form({ places: [fp(STEPHANSDOM)] }))).toBe(false);
-    expect(formReady(form())).toBe(true);
-    expect(formReady(form({ endKind: "other" }))).toBe(false);
-  });
-
   it("names what blocks the form", () => {
     expect(formProblem(form({ places: [fp(STEPHANSDOM)] }))).toBe("places");
     expect(formProblem(form({ endKind: "other" }))).toBe("end");
