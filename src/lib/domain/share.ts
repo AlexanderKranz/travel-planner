@@ -8,6 +8,14 @@ import type { TourBlock } from "@/lib/plan/tour-blocks";
 export const SHARE_EXPIRY_DAYS = [7, 30, 90] as const;
 export const MAX_LINKS_PER_TRIP = 10;
 
+/**
+ * The time the share panels render with, and how many links are still active then (no expiry = never expires;
+ * counted against MAX_LINKS_PER_TRIP). Server components call it once per render; rows get `now` for "expired".
+ */
+export function activeLinks(links: readonly { expiresAt: string | null }[], now: number = Date.now()): { now: number; active: number } {
+  return { now, active: links.filter((l) => !l.expiresAt || new Date(l.expiresAt).getTime() > now).length };
+}
+
 export const ShareLinkInput = z.object({
   label: z.string().trim().max(60).nullable(),
   expiresInDays: z.union([z.literal(7), z.literal(30), z.literal(90)]).nullable(),

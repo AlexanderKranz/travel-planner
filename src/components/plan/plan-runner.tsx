@@ -49,7 +49,9 @@ export function PlanRunner({
   const [elapsed, setElapsed] = useState(0);
   const [asking, setAsking] = useState(false);
   const [refreshing, startRefresh] = useTransition();
-  const startedAt = useRef(Date.now());
+  // Mount time, read once (lazy initializer): a watching runner measures its timeout from here.
+  const [mountedAt] = useState(Date.now);
+  const startedAt = useRef(mountedAt);
   /** Latest version number when this run started (or when the first poll saw the lock); null = unknown, no alarm. */
   const baseline = useRef<number | null>(null);
   const url = `/api/trips/${encodeURIComponent(tripId)}/plan`;

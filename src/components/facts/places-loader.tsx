@@ -10,7 +10,8 @@ import { FactUnavailable } from "./fact-unavailable";
 import { PlacesList } from "./places-list";
 import { SourceNote } from "./source-note";
 
-type State = { kind: "loading" } | { kind: "done"; fact: Fact<PlacesFacts> } | { kind: "error" };
+/** `continuing`: a silent follow-up request for the missing interests was started (decided in the effect, not in render). */
+type State = { kind: "loading" } | { kind: "done"; fact: Fact<PlacesFacts>; continuing: boolean } | { kind: "error" };
 
 /** Silent follow-up requests while the server could not finish all interests within one request. */
 const MAX_AUTO_FOLLOWUPS = 3;
@@ -39,9 +40,10 @@ export function PlacesLoader({ tripId, locale }: { tripId: string; locale: strin
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const fact = (await res.json()) as Fact<PlacesFacts>;
         if (ctrl.signal.aborted) return;
-        setState({ kind: "done", fact });
         // Show what we have, then continue silently for interests that did not fit into this request.
-        if (pending(fact) > 0 && followups.current < MAX_AUTO_FOLLOWUPS) {
+        const continuing = pending(fact) > 0 && followups.current < MAX_AUTO_FOLLOWUPS;
+        setState({ kind: "done", fact, continuing });
+        if (continuing) {
           followups.current += 1;
           setAttempt((n) => n + 1);
         }
@@ -71,7 +73,7 @@ export function PlacesLoader({ tripId, locale }: { tripId: string; locale: strin
   const fact: Fact<PlacesFacts> =
     state.kind === "error" ? { status: "unavailable", reason: "provider_error", source: "osm" } : state.fact;
   const stillMissing = pending(fact) > 0;
-  const autoContinuing = stillMissing && followups.current < MAX_AUTO_FOLLOWUPS;
+  const autoContinuing = state.kind === "done" && state.continuing;
 
   if (fact.status !== "ok") {
     return (

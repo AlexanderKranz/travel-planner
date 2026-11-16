@@ -89,8 +89,9 @@ The plan view, share page and PDF are rendered from this structure. The visual s
   - `app_events` (errors and key events: signup, plan generated, share opened, PDF exported)
 - **Retention (pg_cron, nightly after the backup):** `private.purge_expired_trips()` at 02:30 UTC (trips and standalone
   city tours 18 months after their last date, destination searches after 90 days, itinerary extracts after 30 days);
-  `private.purge_logs()` at 02:45 UTC (`api_cache` rows 180 days past expiry, `api_calls` after 90 days). `app_events`
-  and `ai_usage` have no retention yet.
+  `private.purge_logs()` at 02:45 UTC (`api_cache` rows 180 days past expiry, `api_calls` after 90 days, `app_events` after 6 months except the
+  `settings.changed` audit trail, `ai_usage` after 13 months for a year-over-year cost comparison). The admin page shows
+  the database size against the 500 MB Free limit and the five largest tables (`admin_db_stats()`).
 - **Roles:** `profiles.role` = `user | admin`. Admin routes check the role on the server, and RLS adds admin-only policies for the aggregate views.
 - **PDF:** `@react-pdf/renderer` in a server route, built from the same JSON.
 - **Region:** EU (Supabase Frankfurt, Vercel `fra1`) for GDPR and low latency.

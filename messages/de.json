@@ -1472,6 +1472,9 @@
       "placeRetries": "Orts-Wiederholungen",
       "placeRetriesValue": "{queued} / {done} / {gaveUp}",
       "placeRetriesHint": "Offen / erledigt / aufgegeben (erledigt und aufgegeben: letzte 24 Std.). Eine Suche wird höchstens 30 Minuten wiederholt.",
+      "dbSize": "Datenbankgröße",
+      "dbSizeHint": "Supabase Free erlaubt 500 MB. Alte Logs löscht ein nächtlicher Job (Cache 180 Tage nach Ablauf, API-Aufrufe 90 Tage, Ereignisse außer Einstellungsänderungen 6 Monate, KI-Nutzung 13 Monate).",
+      "dbTables": "Größte Tabellen",
       "lastCron": "Letzte Budgetprüfung",
       "never": "Noch nie gelaufen",
       "keyNames": {

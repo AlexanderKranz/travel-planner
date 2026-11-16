@@ -42,3 +42,9 @@ export const ShareStatsRaw = z.object({
 export const RecentEventsRaw = z.array(z.object({
   at: z.string(), level: z.enum(["warn", "error"]), event: z.string(), route: z.string().nullable(), code: z.string().nullable(),
 }));
+
+/** Shape of public.admin_db_stats (migration 20261123120048): total bytes and the five largest tables, no content. */
+export const DbStatsRaw = z.object({
+  totalBytes: n,
+  tables: z.array(z.object({ name: z.string(), bytes: n })),
+});
