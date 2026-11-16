@@ -180,6 +180,14 @@ function StopCard({
               {t("readOut.play")}
             </button>
           )}
+          {reading && speech.silentHint && (
+            <span className={`flex flex-wrap items-center gap-2 text-xs ${mutedCls}`} role="note">
+              {t("readOut.silentSwitch")}
+              <button type="button" className={`${linkCls} min-h-11`} onClick={speech.dismissSilentHint}>
+                {t("readOut.silentSwitchDismiss")}
+              </button>
+            </span>
+          )}
           {fallback && !speech.voiceFor("en") && (
             <span className={`text-xs ${mutedCls}`}>
               {t("readOut.noVoiceEn")}

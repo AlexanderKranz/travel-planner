@@ -2417,7 +2417,9 @@
         "unsupported": "Vorlesen wird von diesem Browser nicht unterstützt.",
         "noVoiceEn": "Für den englischen Text gibt es auf diesem Gerät keine Stimme; er wird nicht vorgelesen.",
         "voiceNote": "Die Stimme kommt von deinem Gerät.",
-        "intro": "{n}. {name}."
+        "intro": "{n}. {name}.",
+        "silentSwitch": "Kein Ton auf dem iPhone? Schalte den Stummschalter aus.",
+        "silentSwitchDismiss": "Verstanden"
       }
     },
     "sharing": {
