@@ -8,6 +8,9 @@ select * from no_plan();
 select ok(not has_function_privilege('authenticated', 'private.purge_logs()', 'execute'), 'authenticated cannot run the log purge');
 select ok(not has_function_privilege('anon', 'private.purge_logs()', 'execute'), 'anon cannot run the log purge');
 select is((select schedule from cron.job where jobname = 'purge-logs'), '45 2 * * *', 'the log purge runs nightly');
+select is((select command from cron.job where jobname = 'purge-logs'), 'select private.purge_logs()', 'the nightly job calls the log purge');
+select is((select count(*)::int from public.app_events where event = 'logs.purged' and created_at = now()), 0,
+  'no purge event of this transaction yet');
 
 -- api_cache: only rows whose expiry is more than 180 days past go
 insert into public.api_cache (provider, cache_key, payload, expires_at) values
@@ -31,10 +34,16 @@ select results_eq(
   $$values ('recent')$$,
   'calls within 90 days are kept'
 );
-select is((select props from public.app_events where event = 'logs.purged' order by created_at desc limit 1),
-  '{"apiCache": 1, "apiCalls": 1}'::jsonb, 'the purge is logged with counts');
+-- now() is the transaction start, so created_at = now() picks only events written in this test.
+select results_eq(
+  $$select props from public.app_events where event = 'logs.purged' and created_at = now()$$,
+  $$values ('{"apiCache": 1, "apiCalls": 1}'::jsonb)$$,
+  'this purge is logged once, with its counts'
+);
 
 select is(private.purge_logs(), '{"apiCache": 0, "apiCalls": 0}'::jsonb, 'a second run purges nothing');
+select is((select count(*)::int from public.app_events where event = 'logs.purged' and created_at = now()), 1,
+  'a run that purges nothing logs no event');
 
 select * from finish();
 rollback;
