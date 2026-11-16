@@ -3,7 +3,6 @@ import {
   ACTIVITY_SOURCES,
   ACTIVITY_TYPES,
   expandWish,
-  groupHasGeoapify,
   groupsForWishes,
   placeGroup,
   radiusForGroup,
@@ -80,11 +79,9 @@ describe("activity catalogue", () => {
     expect(placeGroup("cinema", { indoor: "no" })).toBe("indoor");
     expect(placeGroup("bar", { indoor: "yes" })).toBe("going_out");
   });
-  it("group radius is the largest type radius; Geoapify only where every type is mapped", () => {
+  it("group radius is the largest type radius", () => {
     expect(radiusForGroup("outdoor")).toBe(25);
     expect(radiusForGroup("going_out")).toBe(3);
-    expect(groupHasGeoapify("going_out")).toBe(true);
-    expect(groupHasGeoapify("indoor")).toBe(false); // karaoke has no category
   });
 });
 

@@ -33,13 +33,6 @@ export function checkFile(file: { type: string; size: number }): FileCheck {
   return { ok: true, kind };
 }
 
-/** Text layer heuristic: average non-space characters per page. */
-export function hasTextLayer(pageTexts: readonly string[]): boolean {
-  if (pageTexts.length === 0) return false;
-  const chars = pageTexts.reduce((n, t) => n + t.replace(/\s/g, "").length, 0);
-  return chars / pageTexts.length >= TEXT_LAYER_MIN_CHARS;
-}
-
 /** Pages (1-based) whose text layer is too thin to read: scanned or image-only. */
 export function textlessPages(pageTexts: readonly string[]): number[] {
   const out: number[] = [];

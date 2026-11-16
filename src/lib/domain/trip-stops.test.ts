@@ -7,7 +7,6 @@ import {
   sameStops,
   sortStops,
   stopDate,
-  stopsByDay,
   stopsOutsideTrip,
   tripStops,
   TripStop,
@@ -100,12 +99,6 @@ describe("trip length helpers", () => {
     expect(stopsOutsideTrip(schedule, 3).map((s) => s.day)).toEqual([4]);
     expect(fitStopsToTrip(schedule, 3)).toHaveLength(4);
     expect(stopsOutsideTrip(schedule, 5)).toEqual([]);
-  });
-
-  it("groups by day", () => {
-    const byDay = stopsByDay(schedule);
-    expect([...byDay.keys()]).toEqual([1, 2, 3, 4]);
-    expect(byDay.get(3)).toHaveLength(2);
   });
 });
 

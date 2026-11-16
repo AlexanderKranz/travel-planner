@@ -9,7 +9,7 @@ vi.mock("@/lib/itinerary/parse", () => ({
 }));
 vi.mock("@/lib/itinerary/prefilter", () => ({ prefilterItinerary: (t: string) => t }));
 
-import { checkFile, errorKey, extractFromSource, fitSize, hasTextLayer, MAX_FILE_BYTES, planPdfRead, textlessPages } from "./itinerary-read";
+import { checkFile, errorKey, extractFromSource, fitSize, MAX_FILE_BYTES, planPdfRead, textlessPages } from "./itinerary-read";
 
 const ctx = { startDate: null, lengthDays: 5 };
 const stop: ExtractedStop = { stop: { day: 1, place: "Wien" }, flags: ["from_image"] };
@@ -23,12 +23,7 @@ describe("checkFile", () => {
   });
 });
 
-describe("hasTextLayer and fitSize", () => {
-  it("needs 40 non-space characters per page on average", () => {
-    expect(hasTextLayer(["a ".repeat(60), "b".repeat(30)])).toBe(true);
-    expect(hasTextLayer(["short", "x"])).toBe(false);
-    expect(hasTextLayer([])).toBe(false);
-  });
+describe("fitSize", () => {
   it("scales the long edge to 1568 and never enlarges", () => {
     expect(fitSize(3136, 1568)).toEqual({ width: 1568, height: 784 });
     expect(fitSize(800, 600)).toEqual({ width: 800, height: 600 });

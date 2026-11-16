@@ -162,11 +162,6 @@ function placeLines(place: string, src: SourceIndex): SourceLine[] {
   return src.lines.filter((l) => l.folded.includes(` ${f} `) || words.every((w) => l.words.has(w)));
 }
 
-/** The place occurs within one line of the source. */
-export function placeInSource(place: string, src: SourceIndex): boolean {
-  return placeLines(place, src).length > 0;
-}
-
 /**
  * A model date (`YYYY-MM-DD` or `--MM-DD`) checked against the dates of the stop's lines: null when no line has that
  * month and day (or only with another year); `--MM-DD` when the source has no year for it (the year is then guessed

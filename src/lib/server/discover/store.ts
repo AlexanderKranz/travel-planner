@@ -143,18 +143,6 @@ export async function getSearchByHash(sb: SupabaseClient, hash: string): Promise
   return data ? rowToSearch(data) : null;
 }
 
-/** Newest first, for the list of earlier searches. */
-export async function listSearches(sb: SupabaseClient): Promise<StoredSearch[]> {
-  const { data, error } = await sb
-    .from("destination_searches")
-    .select(SEARCH_COLUMNS)
-    .order("updated_at", { ascending: false })
-    .limit(SEARCHES_KEPT_PER_USER)
-    .returns<SearchRow[]>();
-  if (error) throw new Error("search read failed");
-  return data.map(rowToSearch);
-}
-
 // ---------- one-off purpose (spec section 13) ----------
 
 /** Tags stored on a search row or purpose with the hash they were made for. */

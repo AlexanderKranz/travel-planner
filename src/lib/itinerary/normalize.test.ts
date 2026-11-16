@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { mapStops } from "./map";
-import { normalizeExtract, placeInSource, indexSource, StoredRawStops, type WireItinerary } from "./normalize";
+import { normalizeExtract, indexSource, StoredRawStops, type WireItinerary } from "./normalize";
 
 type W = WireItinerary["stops"][number];
 const w = (x: Partial<W>): W => ({ date: null, day: null, place: null, cc: null, arr: null, dep: null, sea: false, note: null, ...x });
@@ -113,19 +113,8 @@ describe("normalizeExtract (image path)", () => {
   });
 });
 
-describe("placeInSource", () => {
-  const src = indexSource("Mo 21.12. DÜRNSTEIN (Wachau) 07:00\nWien (Österreich) 14:00");
-  it("matches folded phrases and word sets, not other places", () => {
-    expect(placeInSource("Dürnstein", src)).toBe(true);
-    expect(placeInSource("Wien, Österreich", src)).toBe(true);
-    expect(placeInSource("Dürnst", src)).toBe(false);
-    expect(placeInSource("Paris", src)).toBe(false);
-  });
-
+describe("normalizeExtract: places in the source", () => {
   it("needs the place within one source line, not words from different rows", () => {
-    const rows = indexSource("Sa 19.12. New Orleans an 08:00\nSo 20.12. York ab 18:00");
-    expect(placeInSource("New York", rows)).toBe(false);
-    expect(placeInSource("New Orleans", rows)).toBe(true);
     const got = normalizeExtract({ stops: [w({ date: "--12-19", place: "New York", arr: "08:00" })] }, "Sa 19.12. New Orleans an 08:00\nSo 20.12. York ab 18:00");
     expect(got).toEqual({ stops: [], drops: { notInSource: 1, noPlace: 0, invalid: 0 } });
   });

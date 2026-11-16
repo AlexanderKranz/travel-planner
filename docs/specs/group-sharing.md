@@ -333,7 +333,7 @@ No secret key: the functions take `auth.uid()` and check everything themselves. 
 | `groups.ts` `updateGroup` | `access === "read"` → `forbidden`. Non-owner pre-checks (clear error before the RPC; the trigger enforces anyway): the `is_self` entry is kept with the same id and `isSelf`, no new `isSelf`, entries linked to someone else are kept and stay eligible → else `forbidden`. New argument `expectedUpdatedAt` → `p_expected_updated_at`; 40001 → `conflict`; 42501 → `forbidden` |
 | `groups.ts` `loadGroupParsed` | `ensureGroupParse(session, { table: "travel_groups", id, ownerId: group.ownerId }, …)`: the parse is stored on the owner's row; the AI call stays charged to the actor (Alex) |
 | `groups.ts` `deleteGroup` | unchanged (RLS owner only; a grantee gets `not_found`) |
-| `groups.ts` `reorderGroupEntries` | `access === "read"` → `forbidden`; otherwise unchanged (update policy) |
+| `groups.ts` `reorderGroupEntries` | `access === "read"` → `forbidden`; otherwise unchanged (update policy). Removed 2026-11-16: no UI used it; the `reorder_group_entries` RPC remains |
 | `group-mapping.ts` | `GroupEntryRow.linked_user_id`; `rowToEntry` maps it; `entryToRow` never writes it |
 | `trips.ts` | 23503 comment: group not usable; trip form options add usable shared groups |
 | `sharing.ts` `getTripOwnerContext` | returns `ownerBirthdate` (decision A) instead of `ownerAge`; same RLS-first rule. When the trip's group belongs to someone else, also the group owner's name and birthdate (`loadGroupOwnerBirthdate`, only with an `is_self` entry) |

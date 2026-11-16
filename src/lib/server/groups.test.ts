@@ -53,7 +53,7 @@ vi.mock("./events", () => ({ logEvent: h.events }));
 vi.mock("./group-text", () => ({ ensureGroupParse: h.parse }));
 vi.mock("./owner-context", () => ({ loadGroupOwnerBirthdate: h.ownerCtx }));
 
-import { getGroup, listGroups, reorderGroupEntries, updateGroup } from "./groups";
+import { getGroup, listGroups, updateGroup } from "./groups";
 
 const groupRow = (over: Record<string, unknown> = {}) => ({
   id: GROUP, owner_id: OWNER, name: "Friends", notes: null, description: null, parsed_structure: null, parsed_hash: null,
@@ -259,26 +259,6 @@ describe("getGroup: access, usable, owner and links per viewer", () => {
     expect(await getGroup("x")).toEqual({ ok: false, error: "invalid" });
     h.results["travel_groups"] = { data: null };
     expect(await getGroup(GROUP)).toEqual({ ok: false, error: "not_found" });
-  });
-});
-
-describe("reorderGroupEntries", () => {
-  const ids = [E_PLAIN, E_SELF, E_LINKED_OTHER, E_LINKED_ME];
-
-  it("a read grantee gets forbidden, no rpc", async () => {
-    asGrantee("read");
-    expect(await reorderGroupEntries(GROUP, ids)).toEqual({ ok: false, error: "forbidden" });
-    expect(h.rpc).not.toHaveBeenCalled();
-  });
-
-  it("a write grantee and the owner reorder; an invisible group is not_found; wrong ids are invalid", async () => {
-    asGrantee("write");
-    expect(await reorderGroupEntries(GROUP, ids)).toEqual({ ok: true });
-    asOwner();
-    expect(await reorderGroupEntries(GROUP, ids)).toEqual({ ok: true });
-    expect(await reorderGroupEntries(GROUP, [E_SELF])).toMatchObject({ ok: false, error: "invalid" });
-    h.results["travel_groups"] = { data: null };
-    expect(await reorderGroupEntries(GROUP, ids)).toEqual({ ok: false, error: "not_found" });
   });
 });
 

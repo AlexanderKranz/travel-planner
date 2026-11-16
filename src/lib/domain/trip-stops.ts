@@ -77,13 +77,6 @@ export function fitStopsToTrip<T extends Pick<TripStop, "day">>(stops: readonly 
   return stops.filter((s) => s.day <= lengthDays);
 }
 
-/** Stops grouped by trip day (rows keep their order). */
-export function stopsByDay<T extends Pick<TripStop, "day">>(stops: readonly T[]): Map<number, T[]> {
-  const byDay = new Map<number, T[]>();
-  for (const s of stops) byDay.set(s.day, [...(byDay.get(s.day) ?? []), s]);
-  return byDay;
-}
-
 /** Value equality of two stop lists (order matters; both are kept sorted). */
 export function sameStops(a: readonly TripStop[] | null | undefined, b: readonly TripStop[] | null | undefined): boolean {
   return JSON.stringify(a ?? []) === JSON.stringify(b ?? []);

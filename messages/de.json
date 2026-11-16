@@ -566,7 +566,6 @@
       "temperature": "Temperatur",
       "hoursPerDay": "{h} Std./Tag",
       "daylightOn": "Tageslicht um den {date}",
-      "sunriseSunset": "Sonnenauf-/untergang",
       "missing": "Nicht verfügbar:"
     },
     "unavailable": {
@@ -590,7 +589,6 @@
       "wetDays": "Regentage",
       "sun": "Sonne pro Tag",
       "selected": "Reisemonat",
-      "captionSelected": "Klima in den Reisemonaten",
       "captionAll": "Klima nach Monat",
       "showAll": "Alle 12 Monate anzeigen"
     },
@@ -916,7 +914,6 @@
       "title": "Noch zu klären",
       "markDone": "„{text}“ als erledigt markieren",
       "markOpen": "„{text}“ wieder öffnen",
-      "saveError": "Speichern fehlgeschlagen",
       "doneLabel": "erledigt",
       "add": "Hinzufügen",
       "addLabel": "Neuer Eintrag",
@@ -1149,7 +1146,6 @@
     "less": "Weniger",
     "opensExternal": "öffnet in neuem Tab",
     "noDayOption": "Kein Tag",
-    "itemsLabel": "Kostenpunkte",
     "flightDir": {
       "out": "Hinflug",
       "back": "Rückflug"
@@ -1201,7 +1197,6 @@
     "withItems": "mit Buchungen",
     "withoutItems": "ohne Buchungen",
     "links": "Aktive Links",
-    "noLinks": "Noch keine Links.",
     "demoDisabled": "Im Demo-Konto lassen sich keine Links erstellen.",
     "noPlan": "Erstelle zuerst einen Reiseplan.",
     "limit": "Du hast die maximale Zahl an Links (10). Widerrufe einen.",
@@ -2031,7 +2026,6 @@
     "groupBlock": {
       "title": "Reisegruppe",
       "self": "{name} (Besitzer der Reise)",
-      "ageYears": "{age} Jahre",
       "people": "{count} Personen",
       "groupOwner": "{name} (Besitzer der Gruppe)",
       "born": "geb. {date}",
@@ -2094,10 +2088,8 @@
     "readOnly": "Nur ansehen: Diese Tour gehört zu einer Reise, die mit dir geteilt wurde.",
     "city": "Stadt (optional)",
     "cityHint": "Die Stadt ist der Mittelpunkt der Ortssuche und der Vorschläge. Ohne Stadt ist der erste Ort der Mittelpunkt.",
-    "citySearch": "Stadt suchen",
     "cityPlaceholder": "z. B. Wien",
     "cityChange": "Stadt ändern",
-    "cityRemove": "Stadt entfernen",
     "places": "Orte",
     "placesSearch": "Ort suchen",
     "placesPlaceholder": "z. B. Dom, Museum, Markt",
@@ -2244,7 +2236,6 @@
       "optimize": "Beste Reihenfolge nutzen: ca. {duration}"
     },
     "approx": "ca.-Werte stammen aus der Entfernungsmatrix ohne Routenoption. Die genaue Zeit kommt beim Neuberechnen.",
-    "openingHoursOsm": "{hours} (laut OpenStreetMap, geprüft am {date})",
     "map": "Karte",
     "mapUnavailable": "Karte nicht verfügbar",
     "mapLoading": "Karte wird geladen …",
@@ -2266,7 +2257,6 @@
     "noDay": "Ohne Tag",
     "linkSave": "Speichern",
     "linkSaved": "Gespeichert.",
-    "linkNeedsSave": "Speichere die Tour zuerst.",
     "dayBlock": "Stadttour{time, select, none {} other { · {time}}} · {count, plural, one {# Ort} other {# Orte}}{km, select, none {} other { · {km} km {mode, select, foot {zu Fuß} wheelchair {im Rollstuhl} cycling {mit dem Fahrrad} ebike {mit dem E-Bike} other {mit dem Auto}}}}",
     "dayBlockNoTime": "Startzeit setzen, damit der Plan diese Zeit freihält.",
     "openTour": "Tour öffnen",

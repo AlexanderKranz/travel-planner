@@ -74,7 +74,7 @@ The plan view, share page and PDF are rendered from this structure. The visual s
 
 ## Architecture
 - **Auth:** Supabase Auth (magic link + Google), invite-only or allowlisted at first.
-- **Isolation:** every user-owned resource table has `owner_id`, and RLS enforces `owner_id = auth.uid()`; the share tables `trip_shares` and `purpose_shares` use owner-or-grantee policies. Exception: a trip or purpose the owner shared with a named user is also visible to that user (read-only or read/write) through `private.*` helper functions; grants are written only by `public.share_resource` (service role, `docs/specs/sharing.md`, ADR 0010). Public share pages are rendered server-side by an unguessable token, read-only, and always show the latest version. Links can be revoked.
+- **Isolation:** every user-owned resource table has `owner_id`, and RLS enforces `owner_id = auth.uid()`; the share tables `trip_shares`, `purpose_shares`, `group_shares` and `tour_shares` use owner-or-grantee policies. Exception: a trip, purpose, travel group or city tour the owner shared with a named user is also visible to that user (read-only or read/write) through `private.*` helper functions; grants are written only by `public.share_resource` (service role, `docs/specs/sharing.md`, ADR 0010). Public share pages are rendered server-side by an unguessable token, read-only, and always show the latest version. Links can be revoked.
 - **Tables:**
   - `profiles` (language, home airports)
   - `travel_groups`, `group_entries` (composition and/or named member)
@@ -87,6 +87,10 @@ The plan view, share page and PDF are rendered from this structure. The visual s
   - `ai_usage` (user, model, input/output tokens, estimated cost, purpose: generate / patch / parse)
   - `api_calls` (provider, cache hit/miss, status, latency): feeds monitoring and quota tracking
   - `app_events` (errors and key events: signup, plan generated, share opened, PDF exported)
+- **Retention (pg_cron, nightly after the backup):** `private.purge_expired_trips()` at 02:30 UTC (trips and standalone
+  city tours 18 months after their last date, destination searches after 90 days, itinerary extracts after 30 days);
+  `private.purge_logs()` at 02:45 UTC (`api_cache` rows 180 days past expiry, `api_calls` after 90 days). `app_events`
+  and `ai_usage` have no retention yet.
 - **Roles:** `profiles.role` = `user | admin`. Admin routes check the role on the server, and RLS adds admin-only policies for the aggregate views.
 - **PDF:** `@react-pdf/renderer` in a server route, built from the same JSON.
 - **Region:** EU (Supabase Frankfurt, Vercel `fra1`) for GDPR and low latency.

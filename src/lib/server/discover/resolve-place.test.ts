@@ -4,7 +4,6 @@ vi.mock("server-only", () => ({}));
 vi.mock("../api-cache", () => ({ cacheKey: () => "k", cached: vi.fn() }));
 
 import type { GeoPlace } from "@/lib/domain/geo";
-import { pickNamedPlace } from "@/lib/discover/names";
 import { resolvePlaceName, type GeocodeDeps } from "./resolve-place";
 
 const p = (geoId: number, name: string, cc: string, featureCode = "PPL", population = 100): GeoPlace => ({
@@ -61,8 +60,6 @@ describe("resolvePlaceName (port-places [P1])", () => {
   });
 
   it("the any-country pass takes populated places only, exact names only", async () => {
-    expect(pickNamedPlace([p(1, "Melk", "AT", "ADM2")], "Melk")).toBeNull();
-    expect(pickNamedPlace([p(1, "Melk an der Donau", "AT", "PPL")], "Melk")).toBeNull();
     expect((await resolvePlaceName("Melk", "AT", "de", "u", deps({ en: [p(1, "Melk", "AT", "ADM2")] }))).status).toBe("not_found");
   });
 

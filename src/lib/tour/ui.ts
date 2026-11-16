@@ -218,8 +218,6 @@ export function formProblem(f: TourForm): FormProblem | null {
   return null;
 }
 
-export const formReady = (f: TourForm): boolean => formProblem(f) === null;
-
 /** Moves item `i` one step up (-1) or down (+1); unchanged at the edges. */
 export function moveItem<T>(list: readonly T[], i: number, dir: -1 | 1): T[] {
   const j = i + dir;
