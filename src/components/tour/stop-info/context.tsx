@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { StopInfoView } from "@/lib/domain/stop-info";
 import { getSharedTourStopInfo, getTourStopInfo } from "@/lib/server/stop-info/actions";
-import { isIOS, requestPlaybackAudio, silentWav } from "@/lib/stop-info/device";
+import { isIOS, requestPlaybackAudio, silentWavDataUrl } from "@/lib/stop-info/device";
 import { playParts } from "@/lib/stop-info/queue";
 import { hasVoice, type SpeechPart } from "@/lib/stop-info/speak";
 
@@ -114,8 +114,8 @@ function useSpeech(): Speech {
       // Started inside the tap (iOS allows media playback only from a gesture); a failure leaves the hint as fallback.
       try {
         if (!silence.current) {
-          const url = URL.createObjectURL(new Blob([silentWav()], { type: "audio/wav" }));
-          silence.current = Object.assign(new Audio(url), { loop: true });
+          // A data URL, not a Blob URL: nothing to revoke when the page unmounts.
+          silence.current = Object.assign(new Audio(silentWavDataUrl()), { loop: true });
         }
         void silence.current.play().catch(() => {});
       } catch {

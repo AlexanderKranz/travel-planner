@@ -53,3 +53,8 @@ export function silentWav(samples = 800): Uint8Array<ArrayBuffer> {
   out.fill(128, 44);
   return out;
 }
+
+/** `silentWav()` as a `data:` URL (about 1 KB). */
+export function silentWavDataUrl(): string {
+  return `data:audio/wav;base64,${btoa(String.fromCharCode(...silentWav()))}`;
+}

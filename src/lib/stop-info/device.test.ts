@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isIOS, requestPlaybackAudio, silentWav } from "./device";
+import { isIOS, requestPlaybackAudio, silentWav, silentWavDataUrl } from "./device";
 
 describe("isIOS", () => {
   it("detects iPhone and iPad user agents", () => {
@@ -51,5 +51,14 @@ describe("silentWav", () => {
     expect(view.getUint32(24, true)).toBe(8000);
     expect(view.getUint32(40, true)).toBe(10);
     expect([...wav.slice(44)].every((b) => b === 128)).toBe(true);
+  });
+});
+
+describe("silentWavDataUrl", () => {
+  it("encodes the silent WAV as a data URL", () => {
+    const url = silentWavDataUrl();
+    expect(url.startsWith("data:audio/wav;base64,")).toBe(true);
+    const bytes = Uint8Array.from(atob(url.split(",")[1]), (c) => c.charCodeAt(0));
+    expect(bytes).toEqual(silentWav());
   });
 });
