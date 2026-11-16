@@ -2417,7 +2417,9 @@
         "unsupported": "Reading aloud is not supported by this browser.",
         "noVoiceEn": "This device has no voice for the English text; it is not read aloud.",
         "voiceNote": "The voice comes from your device.",
-        "intro": "{n}. {name}."
+        "intro": "{n}. {name}.",
+        "silentSwitch": "No sound on your iPhone? Turn off the silent switch.",
+        "silentSwitchDismiss": "Got it"
       }
     },
     "sharing": {
