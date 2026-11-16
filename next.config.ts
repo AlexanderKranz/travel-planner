@@ -60,4 +60,13 @@ export default withSentryConfig(withNextIntl(nextConfig), {
     disable: !hasAuthToken,
     deleteSourcemapsAfterUpload: true,
   },
+  // Drop code the app never runs from the browser bundle: tracing is off (tracesSampleRate 0), Replay is not used
+  // (privacy), and debug logging is off in production.
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+    excludeTracing: true,
+    excludeReplayIframe: true,
+    excludeReplayShadowDom: true,
+    excludeReplayWorker: true,
+  },
 });
