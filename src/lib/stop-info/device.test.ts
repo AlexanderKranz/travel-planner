@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isIOS, requestPlaybackAudio } from "./device";
+import { isIOS, requestPlaybackAudio, silentWav, silentWavDataUrl } from "./device";
 
 describe("isIOS", () => {
   it("detects iPhone and iPad user agents", () => {
@@ -36,5 +36,29 @@ describe("requestPlaybackAudio", () => {
       },
     };
     expect(requestPlaybackAudio(throwing)).toBe(false);
+  });
+});
+
+describe("silentWav", () => {
+  it("is a valid PCM WAV header followed by silence", () => {
+    const wav = silentWav(10);
+    const text = (from: number, to: number) => String.fromCharCode(...wav.slice(from, to));
+    const view = new DataView(wav.buffer);
+    expect(wav.length).toBe(54);
+    expect([text(0, 4), text(8, 12), text(12, 16), text(36, 40)]).toEqual(["RIFF", "WAVE", "fmt ", "data"]);
+    expect(view.getUint32(4, true)).toBe(46);
+    expect(view.getUint16(20, true)).toBe(1);
+    expect(view.getUint32(24, true)).toBe(8000);
+    expect(view.getUint32(40, true)).toBe(10);
+    expect([...wav.slice(44)].every((b) => b === 128)).toBe(true);
+  });
+});
+
+describe("silentWavDataUrl", () => {
+  it("encodes the silent WAV as a data URL", () => {
+    const url = silentWavDataUrl();
+    expect(url.startsWith("data:audio/wav;base64,")).toBe(true);
+    const bytes = Uint8Array.from(atob(url.split(",")[1]), (c) => c.charCodeAt(0));
+    expect(bytes).toEqual(silentWav());
   });
 });
