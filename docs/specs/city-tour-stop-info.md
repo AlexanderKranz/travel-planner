@@ -128,7 +128,9 @@ statement, so a key added back later is fetched again.
   tour, trip and share pages). Only stops that are missing, stale or `partial` are fetched, so a recompute with the
   same stops costs no calls. *Reason:* the first version fetched only on the first expand with a 4 s budget and started
   with one Overpass query; the public Overpass instance answered a 3-element query in 27 s or with HTTP 502 (measured
-  2026-11-15), so no stop ever got a card and nothing was cached.
+  2026-11-15), so no stop ever got a card and nothing was cached. Each Overpass instance gets at most 25 s of that
+  budget (2026-11-18): the primary once hung for the full 100 s client timeout, so no mirror was asked and the whole run
+  ended without a card.
 - **Landmark fast path.** The Wikidata id of a stop is taken from the city's cached landmark set (`readLandmarks`,
   `osmType`/`osmId` → `wikidata`, 0 calls) where it is there; such stops go straight to Wikidata, Wikipedia and Commons,
   which answer well within a second. Overpass is then needed only for stops without a known id and for the OSM tags

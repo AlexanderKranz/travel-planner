@@ -34,7 +34,7 @@ vi.mock("@/lib/integrations/wikimedia-stops", async (orig) => ({
   fetchCommonsThumbs: h.thumbs,
 }));
 
-import { OVERPASS_REQUEST_CAP_MS, fetchStopInfoBatch, osmTagsQuery } from "./fetch";
+import { OVERPASS_ATTEMPT_MS, OVERPASS_REQUEST_CAP_MS, fetchStopInfoBatch, osmTagsQuery } from "./fetch";
 
 const ctx = { userId: "u1" };
 const ok = <T,>(data: T) => ({ ...data, status: 200, latencyMs: 5 });
@@ -172,6 +172,8 @@ describe("fetchStopInfoBatch", () => {
     it("background mode asks Overpass for every stop: full cards with OSM facts, not partial", async () => {
       const r = await fetchStopInfoBatch([{ key: "osm:w1" }, { key: "osm:n2" }], "en", ctx, undefined, { qids, tags: "all" });
       expect(h.runQuery.mock.calls[0][0]).toBe(osmTagsQuery([{ type: "way", id: 1 }, { type: "node", id: 2 }]));
+      // Each Overpass instance is capped, so a hanging primary leaves the mirrors their turn (3 x 25 s < 110 s).
+      expect(h.runQuery.mock.calls[0][1]).toMatchObject({ attemptTimeoutMs: OVERPASS_ATTEMPT_MS });
       const w1 = r.entries.find((e) => e.key === "osm:w1")!;
       expect(w1.partial).toBeUndefined();
       expect(w1.facts).toMatchObject({ website: "https://dom.example/", websiteFrom: "osm" });
