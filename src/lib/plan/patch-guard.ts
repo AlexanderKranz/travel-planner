@@ -71,9 +71,13 @@ export function lostActs(base: PlanDay, next: PlanDay, verified: ReadonlySet<str
 }
 
 // Free text that clearly asks to remove most of a day (de + en). Kept narrow: "streichen" alone is not enough,
-// Alex's live case used it for alternatives.
-const EMPTY_DAY_RE =
-  /\b(alles|alle aktivit\w*|komplett|ganze[nr]? tag|tag frei|freie[nr]? tag|ruhetag|leer(en)?|nichts|nur noch|neu (gestalten|planen)|everything|all activities|whole day|entire day|day off|free day|rest day|empty|clear (the )?day|nothing|only keep|start over|from scratch)\b/i;
+// Alex's live case used it for alternatives. "alle" counts only with a word for the whole programme ("alle
+// Programmpunkte", "alle Stationen"), not with a kind of place ("alle Museen" may be a part of the day).
+const ALL_OF_DAY = String.raw`alle (aktivit\w*|programm\w*|punkte|termine|stationen|stopps?|orte|sehensw\S*)|all (activities|items|stops|sights|plans?|programs?|programmes?)`;
+const EMPTY_DAY_RE = new RegExp(
+  String.raw`\b(alles|${ALL_OF_DAY}|komplett|ganze[nr]? tag|tag frei|freie[nr]? tag|ruhetag|leer(en)?|nichts|nur noch|neu (gestalten|planen)|everything|whole day|entire day|day off|free day|rest day|empty|clear (the )?day|nothing|only keep|start over|from scratch)\b`,
+  "i",
+);
 const NOTE_RE = /\b(tipp?s?|hinweis\w*|notiz\w*|note|hint|warn\w*|risiko|risk)\b/i;
 
 /** Does the feedback allow day `n` to shrink: chip "redo_day" for that day, or text asking to clear most of it. */
