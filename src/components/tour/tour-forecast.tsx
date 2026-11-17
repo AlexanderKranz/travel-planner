@@ -23,9 +23,12 @@ export function TourForecastLine({ tourId, date }: { tourId: string; date: strin
   useEffect(() => {
     if (!wanted) return;
     let live = true;
-    void getTourForecast(tourId, date).then((r) => {
-      if (live) setAnswer({ key: `${tourId}|${date}`, f: r });
-    });
+    // A failed call (network, expired session) shows no forecast, like an empty answer.
+    void getTourForecast(tourId, date)
+      .catch(() => null)
+      .then((r) => {
+        if (live) setAnswer({ key: `${tourId}|${date}`, f: r });
+      });
     return () => {
       live = false;
     };
