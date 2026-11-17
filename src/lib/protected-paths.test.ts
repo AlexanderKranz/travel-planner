@@ -18,10 +18,12 @@ describe("protectedAreaLocale", () => {
 
 describe("isServerActionRequest", () => {
   it("detects the Next-Action header in any case", () => {
-    expect(isServerActionRequest(new Headers({ "Next-Action": "abc" }))).toBe(true);
-    expect(isServerActionRequest(new Headers({ "next-action": "abc" }))).toBe(true);
+    expect(isServerActionRequest("POST", new Headers({ "Next-Action": "abc" }))).toBe(true);
+    expect(isServerActionRequest("POST", new Headers({ "next-action": "abc" }))).toBe(true);
   });
   it("leaves page requests alone", () => {
-    expect(isServerActionRequest(new Headers({ accept: "text/html" }))).toBe(false);
+    expect(isServerActionRequest("POST", new Headers({ accept: "text/html" }))).toBe(false);
+    // The header alone does not skip the login redirect: a page request stays a page request.
+    expect(isServerActionRequest("GET", new Headers({ "Next-Action": "abc" }))).toBe(false);
   });
 });

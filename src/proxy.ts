@@ -16,7 +16,7 @@ export async function proxy(request: NextRequest) {
   // 3. Signed-out users may not enter protected areas. Server action calls pass: a redirect answers them with the login
   //    page's HTML, which the client rejects; the action checks the session itself and returns its own error.
   const locale = protectedAreaLocale(request.nextUrl.pathname);
-  if (locale && !userId && !isServerActionRequest(request.headers)) {
+  if (locale && !userId && !isServerActionRequest(request.method, request.headers)) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = `/${locale}/login`;
     loginUrl.search = "";
