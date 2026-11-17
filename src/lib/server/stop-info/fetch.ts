@@ -40,9 +40,10 @@ const MIN_LEFT_MS = 500;
 /**
  * Per Overpass instance for the by-id tags query (tiny, `[timeout:10]`): a hanging primary (overpass-api.de took the
  * whole 100 s client timeout when measured) must not use up the background budget before the mirrors are asked.
- * Three attempts (75 s) leave the Wikidata and Wikipedia steps time within BACKGROUND_BUDGET_MS (110 s).
+ * 30 s still takes the slowest measured answer (27 s, 2026-11-15); three attempts (90 s) leave the Wikidata and
+ * Wikipedia steps time within BACKGROUND_BUDGET_MS (110 s).
  */
-export const OVERPASS_ATTEMPT_MS = 25_000;
+export const OVERPASS_ATTEMPT_MS = 30_000;
 const DEFAULT_TIMEOUT_MS = 3000;
 const DAY = 86400;
 
