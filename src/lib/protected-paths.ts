@@ -17,3 +17,12 @@ function decodeSegment(segment: string): string {
     return segment;
   }
 }
+
+/**
+ * A server action call from the client (POST with the `Next-Action` header; a GET with the header is a page request). It is not redirected to the login page:
+ * the client cannot read an HTML answer ("An unexpected response was received from the server") and the action checks
+ * the session itself (RLS applies as well), so a signed-out caller gets the action's own error result.
+ */
+export function isServerActionRequest(method: string, headers: Headers): boolean {
+  return method === "POST" && headers.has("next-action");
+}
