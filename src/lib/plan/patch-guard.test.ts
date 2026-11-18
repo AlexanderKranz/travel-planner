@@ -37,6 +37,16 @@ describe("allowsShrink / allowsNoteDrop", () => {
     expect(allowsShrink(fb({ text: "Tag 1 bitte komplett frei, wir ruhen uns aus" }), 1)).toBe(true);
     expect(allowsShrink(fb({ text: "make day 2 a free day" }), 2)).toBe(true);
     expect(allowsShrink(fb({ text: ALEX }), 1)).toBe(false);
+    // Live case 2026-11-18: the city tour replaces the day, one restaurant at its end stays.
+    expect(
+      allowsShrink(fb({ text: "ich mache die Stadttour. entferne alle Programmpunkte. da die tour im distillery district endet, suche ein restaurant dort" }), 1),
+    ).toBe(true);
+    expect(allowsShrink(fb({ text: "Bitte alle Stationen an Tag 2 raus" }), 2)).toBe(true);
+    expect(allowsShrink(fb({ text: "remove all stops, just dinner" }), 1)).toBe(true);
+    expect(allowsShrink(fb({ text: "alle Museen streichen" }), 1)).toBe(false);
+    // Picked days scope the text as well: "alle Programmpunkte" for day 2 does not let day 1 shrink.
+    expect(allowsShrink(fb({ text: "alle Programmpunkte raus", days: [2] }), 1)).toBe(false);
+    expect(allowsShrink(fb({ text: "alle Programmpunkte raus", days: [2] }), 2)).toBe(true);
     expect(allowsShrink(fb({ chips: ["more_rest"] }), 1)).toBe(false);
   });
   it("note/warn may go when the text mentions them", () => {

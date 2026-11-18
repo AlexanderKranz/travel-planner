@@ -44,9 +44,9 @@ were in the index), the fixed-item overlap guard (no fixed items; it never remov
 - **[D2] The model output is never trusted to be complete.** Code guards stay even with the prompt fix.
 - **[D3] Shrink guard** (`src/lib/plan/patch-guard.ts`, run in `iteratePlan` after `applyPatch`). A patched day that
   lost more than half of its activities, or all of them, is replaced by the base day unless the feedback has
-  "redo_day" for that day or text clearly asking to clear it ("komplett", "freier Tag", "nur noch", "everything",
-  "day off", …; "streichen" alone does not count). Dropped activities can count as replaced, not lost
-  (`lostActs`, issue #158: "golf on every day" puts a 09:00–13:30 round in place of the beach morning). Only an added
+  "redo_day" for that day or text clearly asking to clear it ("komplett", "freier Tag", "nur noch", "alle
+  Programmpunkte", "everything", "day off", …; "streichen" alone or "alle" with a kind of place does not count; with
+  days picked, the text counts only for those days). Dropped activities can count as replaced, not lost (`lostActs`, issue #158: "golf on every day" puts a 09:00–13:30 round in place of the beach morning). Only an added
   activity of kind see/do/sport/shop (never food, free, rest or travel) with a `ref` to a verified place of the input
   index and an at–until window of at most 6 h can replace, and at most 3 base activities each (in time order). A
   dropped activity is covered when it starts at or after the window start and before `until` (exclusive) and ends (its
