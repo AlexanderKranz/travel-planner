@@ -83,7 +83,8 @@ const NOTE_RE = /\b(tipp?s?|hinweis\w*|notiz\w*|note|hint|warn\w*|risiko|risk)\b
 /** Does the feedback allow day `n` to shrink: chip "redo_day" for that day, or text asking to clear most of it. */
 export function allowsShrink(feedback: PlanFeedback, n: number): boolean {
   const scoped = feedback.days.length === 0 || feedback.days.includes(n);
-  if (feedback.chips.includes("redo_day") && scoped) return true;
+  if (!scoped) return false; // days were picked and this is not one of them: the text speaks about those
+  if (feedback.chips.includes("redo_day")) return true;
   return !!feedback.text && EMPTY_DAY_RE.test(feedback.text);
 }
 
