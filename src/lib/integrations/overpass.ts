@@ -108,18 +108,19 @@ export function overpassUrls(env: Record<string, string | undefined> = process.e
 
 /**
  * One query, primary instance first (`OVERPASS_URL` overrides it), then each mirror once on any failure
- * (timeout, 429, 5xx, runtime-error remark). Sequential, never parallel. `deadline` (epoch ms) caps the total time.
+ * (timeout, 429, 5xx, runtime-error remark). Sequential, never parallel. `deadline` (epoch ms) caps the total time;
+ * `attemptTimeoutMs` caps each instance, so a hanging primary leaves the mirrors their turn within the deadline.
  */
 export async function runQuery(
   query: string,
-  opts: { deadline?: number } = {},
+  opts: { deadline?: number; attemptTimeoutMs?: number } = {},
 ): Promise<{ elements: RawOsmElement[]; status: number; latencyMs: number; mirror: string }> {
   const urls = overpassUrls();
   let lastError: unknown;
   for (const [i, url] of urls.entries()) {
     const remaining = opts.deadline === undefined ? Infinity : opts.deadline - Date.now();
     if (i > 0 && remaining < MIN_ATTEMPT_MS) break;
-    const timeoutMs = Math.max(1_000, Math.min(OVERPASS_CLIENT_TIMEOUT_MS, remaining));
+    const timeoutMs = Math.max(1_000, Math.min(opts.attemptTimeoutMs ?? OVERPASS_CLIENT_TIMEOUT_MS, OVERPASS_CLIENT_TIMEOUT_MS, remaining));
     try {
       const r = await postForm(url, { data: query }, { timeoutMs });
       return { elements: parseElements(r.body), status: r.status, latencyMs: r.latencyMs, mirror: mirrorLabel(url) };

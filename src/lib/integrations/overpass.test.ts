@@ -82,6 +82,26 @@ describe("runQuery with mirror fallback", () => {
   });
 });
 
+describe("runQuery with a per-attempt cap", () => {
+  beforeEach(() => {
+    h.postForm.mockReset();
+    vi.stubEnv("OVERPASS_URL", ""); // the default primary, also when the shell sets an override
+  });
+  afterEach(() => vi.unstubAllEnvs());
+  it("leaves the mirrors their turn when the primary hangs", async () => {
+    h.postForm.mockRejectedValueOnce(new Error("timeout")).mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce(ok(1));
+    const r = await runQuery("q", { deadline: Date.now() + 110_000, attemptTimeoutMs: 30_000 });
+    expect(r.elements).toHaveLength(1);
+    expect(h.postForm.mock.calls.map((c) => c[0])).toEqual([DEFAULT_OVERPASS_URL, FALLBACK_OVERPASS_URL, SECOND_FALLBACK_OVERPASS_URL]);
+    expect(h.postForm.mock.calls.every((c) => c[2].timeoutMs === 30_000)).toBe(true);
+  });
+  it("still respects a shorter deadline", async () => {
+    h.postForm.mockResolvedValueOnce(ok());
+    await runQuery("q", { deadline: Date.now() + 4_000, attemptTimeoutMs: 30_000 });
+    expect(h.postForm.mock.calls[0][2].timeoutMs).toBeLessThanOrEqual(4_000);
+  });
+});
+
 describe("mirrorLabel", () => {
   it("logs the host name only", async () => {
     const { mirrorLabel } = await import("./overpass");

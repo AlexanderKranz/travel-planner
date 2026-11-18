@@ -37,6 +37,13 @@ export const STOP_INFO_BUDGET_MS = 4000;
 /** Request path with known-id stops: Overpass gets at most this, so their Wikidata/Wikipedia lookups keep their time. */
 export const OVERPASS_REQUEST_CAP_MS = 1500;
 const MIN_LEFT_MS = 500;
+/**
+ * Per Overpass instance for the by-id tags query (tiny, `[timeout:10]`): a hanging primary (overpass-api.de took the
+ * whole 100 s client timeout when measured) must not use up the background budget before the mirrors are asked.
+ * 30 s still takes the slowest measured answer (27 s, 2026-11-15); three attempts (90 s) leave the Wikidata and
+ * Wikipedia steps time within BACKGROUND_BUDGET_MS (110 s).
+ */
+export const OVERPASS_ATTEMPT_MS = 30_000;
 const DEFAULT_TIMEOUT_MS = 3000;
 const DAY = 86400;
 
@@ -148,7 +155,7 @@ export async function fetchStopInfoBatch(
       fetch: async () => {
         const capped = opts.tags !== "all" && eligible.some((p) => known.has(p.key));
         const deadline = capped ? Math.min(clock.deadline, clock.now() + OVERPASS_REQUEST_CAP_MS) : clock.deadline;
-        const r = await runQuery(osmTagsQuery(refs), { deadline });
+        const r = await runQuery(osmTagsQuery(refs), { deadline, attemptTimeoutMs: OVERPASS_ATTEMPT_MS });
         const data: Record<string, Record<string, string>> = {};
         for (const e of r.elements) {
           const kept = Object.fromEntries(Object.entries(e.tags).filter(([k]) => KEPT_TAGS.includes(k)));
